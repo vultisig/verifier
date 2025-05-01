@@ -24,9 +24,6 @@ import (
 	"github.com/vultisig/verifier/internal/tasks"
 	"github.com/vultisig/verifier/internal/types"
 	vv "github.com/vultisig/verifier/internal/vultisig_validator"
-	"github.com/vultisig/verifier/plugin"
-	"github.com/vultisig/verifier/plugin/dca"
-	"github.com/vultisig/verifier/plugin/payroll"
 
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/go-playground/validator/v10"
@@ -51,7 +48,6 @@ type Server struct {
 	policyService service.Policy
 	authService   *service.AuthService
 	syncer        syncer.PolicySyncer
-	plugin        plugin.Plugin
 	logger        *logrus.Logger
 	pluginConfigs map[string]map[string]interface{}
 	vaultFilePath string
@@ -78,38 +74,9 @@ func NewServer(
 ) *Server {
 	logger.Infof("Server mode: %s, plugin type: %s", mode, pluginType)
 
-	var plugin plugin.Plugin
 	var schedulerService *scheduler.SchedulerService
 	var syncerService syncer.PolicySyncer
 	var err error
-	if mode == "plugin" {
-		switch pluginType {
-		case "payroll":
-			plugin, err = payroll.NewPayrollPlugin(db, logrus.WithField("service", "plugin").Logger, pluginConfigs["payroll"])
-			if err != nil {
-				logger.Fatal("failed to initialize payroll plugin", err)
-			}
-		case "dca":
-			plugin, err = dca.NewDCAPlugin(db, logger, pluginConfigs["dca"])
-			if err != nil {
-				logger.Fatal("fail to initialize DCA plugin: ", err)
-			}
-		default:
-			logger.Fatalf("Invalid plugin type: %s", pluginType)
-		}
-		schedulerService = scheduler.NewSchedulerService(
-			db,
-			logger.WithField("service", "scheduler").Logger,
-			client,
-			redisOpts,
-		)
-		schedulerService.Start()
-		logger.Info("Scheduler service started")
-
-		logger.Info("Creating Syncer")
-
-		syncerService = syncer.NewPolicySyncer(logger.WithField("service", "syncer").Logger, cfg.Server.Host, cfg.Server.Port)
-	}
 
 	policyService, err := service.NewPolicyService(db, syncerService, schedulerService, logger.WithField("service", "policy").Logger)
 	if err != nil {
@@ -127,7 +94,6 @@ func NewServer(
 		sdClient:      sdClient,
 		blockStorage:  blockStorage,
 		mode:          mode,
-		plugin:        plugin,
 		db:            db,
 		scheduler:     schedulerService,
 		logger:        logger,
@@ -144,7 +110,7 @@ func (s *Server) StartServer() error {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit("2M")) // set maximum allowed size for a request body to 2M
-	e.Use(s.statsdMiddleware)
+	// e.Use(s.statsdMiddleware)
 	e.Use(middleware.CORS())
 	limiterStore := middleware.NewRateLimiterMemoryStoreWithConfig(
 		middleware.RateLimiterMemoryStoreConfig{Rate: 5, Burst: 30, ExpiresIn: 5 * time.Minute},
@@ -155,7 +121,6 @@ func (s *Server) StartServer() error {
 
 	e.GET("/ping", s.Ping)
 	e.GET("/getDerivedPublicKey", s.GetDerivedPublicKey)
-	e.POST("/signFromPlugin", s.SignPluginMessages)
 
 	// Auth token
 	e.POST("/auth", s.Auth)
@@ -164,60 +129,34 @@ func (s *Server) StartServer() error {
 	grp := e.Group("/vault")
 	grp.POST("/create", s.CreateVault)
 	grp.POST("/reshare", s.ReshareVault)
-	grp.POST("/migrate", s.MigrateVault)
 	// grp.POST("/upload", s.UploadVault)
 	// grp.GET("/download/:publicKeyECDSA", s.DownloadVault)
 	grp.GET("/get/:publicKeyECDSA", s.GetVault)     // Get Vault Data
 	grp.GET("/exist/:publicKeyECDSA", s.ExistVault) // Check if Vault exists
 	//	grp.DELETE("/delete/:publicKeyECDSA", s.DeleteVault) // Delete Vault Data
-	grp.POST("/sign", s.SignMessages)       // Sign messages
-	grp.POST("/resend", s.ResendVaultEmail) // request server to send vault share , code through email again
+	grp.POST("/sign", s.SignMessages) // Sign messages
 	grp.GET("/verify/:publicKeyECDSA/:code", s.VerifyCode)
 	grp.GET("/sign/response/:taskId", s.GetKeysignResult) // Get keysign result
 
-	pluginGroup := e.Group("/plugin")
-
-	// Only enable plugin signing routes if the server is running in plugin mode
-	if s.mode == "plugin" {
-		configGroup := pluginGroup.Group("/configure")
-
-		configGroup.Use(middleware.StaticWithConfig(middleware.StaticConfig{
-			Root:       "frontend",
-			Index:      "index.html",
-			Browse:     false,
-			HTML5:      true,
-			Filesystem: http.FS(s.plugin.FrontendSchema()),
-		}))
-	}
-
-	// policy mode is always available since it is used by both verifier server and plugin server
-	pluginGroup.POST("/policy", s.CreatePluginPolicy)
-	pluginGroup.PUT("/policy", s.UpdatePluginPolicyById)
-	pluginGroup.GET("/policy", s.GetAllPluginPolicies, s.AuthMiddleware)
-	pluginGroup.GET("/policy/history/:policyId", s.GetPluginPolicyTransactionHistory, s.AuthMiddleware)
-	pluginGroup.GET("/policy/schema", s.GetPolicySchema)
-	pluginGroup.GET("/policy/:policyId", s.GetPluginPolicyById, s.AuthMiddleware)
-	pluginGroup.DELETE("/policy/:policyId", s.DeletePluginPolicyById)
-
-	if s.mode == "verifier" {
-		e.POST("/login", s.UserLogin)
-		e.GET("/users/me", s.GetLoggedUser, s.userAuthMiddleware)
-
-		pluginsGroup := e.Group("/plugins")
-		pluginsGroup.GET("", s.GetPlugins)
-		pluginsGroup.GET("/:pluginId", s.GetPlugin)
-		pluginsGroup.POST("", s.CreatePlugin, s.userAuthMiddleware)
-		pluginsGroup.PATCH("/:pluginId", s.UpdatePlugin, s.userAuthMiddleware)
-		pluginsGroup.DELETE("/:pluginId", s.DeletePlugin, s.userAuthMiddleware)
-
-		pricingsGroup := e.Group("/pricings")
-		pricingsGroup.GET("/:pricingId", s.GetPricing)
-		pricingsGroup.POST("", s.CreatePricing, s.userAuthMiddleware)
-		pricingsGroup.DELETE("/:pricingId", s.DeletePricing, s.userAuthMiddleware)
-	}
+	// if s.mode == "verifier" {
+	// 	e.POST("/login", s.UserLogin)
+	// 	e.GET("/users/me", s.GetLoggedUser, s.userAuthMiddleware)
+	//
+	// 	pluginsGroup := e.Group("/plugins")
+	// 	pluginsGroup.GET("", s.GetPlugins)
+	// 	pluginsGroup.GET("/:pluginId", s.GetPlugin)
+	// 	pluginsGroup.POST("", s.CreatePlugin, s.userAuthMiddleware)
+	// 	pluginsGroup.PATCH("/:pluginId", s.UpdatePlugin, s.userAuthMiddleware)
+	// 	pluginsGroup.DELETE("/:pluginId", s.DeletePlugin, s.userAuthMiddleware)
+	//
+	// 	pricingsGroup := e.Group("/pricings")
+	// 	pricingsGroup.GET("/:pricingId", s.GetPricing)
+	// 	pricingsGroup.POST("", s.CreatePricing, s.userAuthMiddleware)
+	// 	pricingsGroup.DELETE("/:pricingId", s.DeletePricing, s.userAuthMiddleware)
+	// }
 
 	syncGroup := e.Group("/sync")
-	syncGroup.Use(s.AuthMiddleware)
+	// syncGroup.Use(s.AuthMiddleware)
 	syncGroup.POST("/transaction", s.CreateTransaction)
 	syncGroup.PUT("/transaction", s.UpdateTransaction)
 
@@ -325,38 +264,6 @@ func (s *Server) ReshareVault(c echo.Context) error {
 		typeName = tasks.TypeReshareDKLS
 	}
 	_, err = s.client.Enqueue(asynq.NewTask(typeName, buf),
-		asynq.MaxRetry(-1),
-		asynq.Timeout(7*time.Minute),
-		asynq.Retention(10*time.Minute),
-		asynq.Queue(tasks.QUEUE_NAME))
-	if err != nil {
-		return fmt.Errorf("fail to enqueue task, err: %w", err)
-	}
-	return c.NoContent(http.StatusOK)
-}
-
-// MigrateVault is a handler to migrate a vault from GG20 to DKLS
-func (s *Server) MigrateVault(c echo.Context) error {
-	var req types.MigrationRequest
-	if err := c.Bind(&req); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
-	}
-	if err := req.IsValid(); err != nil {
-		return fmt.Errorf("invalid request, err: %w", err)
-	}
-	buf, err := json.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("fail to marshal to json, err: %w", err)
-	}
-	result, err := s.redis.Get(c.Request().Context(), req.SessionID)
-	if err == nil && result != "" {
-		return c.NoContent(http.StatusOK)
-	}
-
-	if err := s.redis.Set(c.Request().Context(), req.SessionID, req.SessionID, 5*time.Minute); err != nil {
-		s.logger.Errorf("fail to set session, err: %v", err)
-	}
-	_, err = s.client.Enqueue(asynq.NewTask(tasks.TypeMigrate, buf),
 		asynq.MaxRetry(-1),
 		asynq.Timeout(7*time.Minute),
 		asynq.Retention(10*time.Minute),
@@ -611,75 +518,6 @@ func (s *Server) ExistVault(c echo.Context) error {
 		return c.NoContent(http.StatusBadRequest)
 	}
 	return c.NoContent(http.StatusOK)
-}
-
-// ResendVaultEmail is a handler to request server to send vault share , code through email again
-func (s *Server) ResendVaultEmail(c echo.Context) error {
-	var req types.VaultResendRequest
-	if err := c.Bind(&req); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
-	}
-	publicKeyECDSA := req.PublicKeyECDSA
-	if publicKeyECDSA == "" {
-		s.logger.Errorln("public key is required")
-		return c.NoContent(http.StatusBadRequest)
-	}
-	if !s.isValidHash(publicKeyECDSA) {
-		return c.NoContent(http.StatusBadRequest)
-	}
-	key := fmt.Sprintf("resend_%s", publicKeyECDSA)
-	result, err := s.redis.Get(c.Request().Context(), key)
-	if err == nil && result != "" {
-		return c.NoContent(http.StatusTooManyRequests)
-	}
-	// user will allow to request once per minute
-	if err := s.redis.Set(c.Request().Context(), key, key, 3*time.Minute); err != nil {
-		s.logger.Errorf("fail to set , err: %v", err)
-	}
-	if err := s.sdClient.Count("vault.resend", 1, nil, 1); err != nil {
-		s.logger.Errorf("fail to count metric, err: %v", err)
-	}
-	if req.Password == "" {
-		s.logger.Errorln("password is required")
-		return c.NoContent(http.StatusBadRequest)
-	}
-
-	filePathName := common.GetVaultBackupFilename(publicKeyECDSA)
-	content, err := s.blockStorage.GetFile(filePathName)
-	if err != nil {
-		s.logger.Errorf("fail to read file in ResendVaultEmail, err: %v", err)
-		return c.NoContent(http.StatusBadRequest)
-	}
-
-	vault, err := common.DecryptVaultFromBackup(req.Password, content)
-	if err != nil {
-		s.logger.Errorf("fail to decrypt vault from the backup, err: %v", err)
-		return c.NoContent(http.StatusBadRequest)
-	}
-
-	code, err := s.createVerificationCode(c.Request().Context(), publicKeyECDSA)
-	if err != nil {
-		return fmt.Errorf("failed to create verification code: %w", err)
-	}
-	emailRequest := types.EmailRequest{
-		Email:       req.Email,
-		FileName:    common.GetVaultName(vault),
-		FileContent: string(content),
-		VaultName:   vault.Name,
-		Code:        code,
-	}
-	buf, err := json.Marshal(emailRequest)
-	if err != nil {
-		return fmt.Errorf("json.Marshal failed: %w", err)
-	}
-	taskInfo, err := s.client.Enqueue(asynq.NewTask(tasks.TypeEmailVaultBackup, buf),
-		asynq.Retention(10*time.Minute),
-		asynq.Queue(tasks.EMAIL_QUEUE_NAME))
-	if err != nil {
-		s.logger.Errorf("fail to enqueue email task: %v", err)
-	}
-	s.logger.Info("Email task enqueued: ", taskInfo.ID)
-	return nil
 }
 
 func (s *Server) createVerificationCode(ctx context.Context, publicKeyECDSA string) (string, error) {

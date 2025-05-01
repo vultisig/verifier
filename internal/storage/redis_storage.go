@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-
-	"github.com/vultisig/vultiserver-plugin/config"
 	"github.com/vultisig/vultiserver/contexthelper"
+
+	"github.com/vultisig/verifier/config"
 )
 
 type RedisStorage struct {

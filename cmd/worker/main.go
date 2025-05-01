@@ -66,13 +66,13 @@ func main() {
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(tasks.TypeKeyGeneration, workerService.HandleKeyGeneration)
 	mux.HandleFunc(tasks.TypeKeySign, workerService.HandleKeySign)
-	mux.HandleFunc(tasks.TypeEmailVaultBackup, workerService.HandleEmailVaultBackup)
+	// mux.HandleFunc(tasks.TypeEmailVaultBackup, workerService.HandleEmailVaultBackup)
 	mux.HandleFunc(tasks.TypeReshare, workerService.HandleReshare)
 	mux.HandleFunc(tasks.TypePluginTransaction, workerService.HandlePluginTransaction)
-	mux.HandleFunc(tasks.TypeKeyGenerationDKLS, workerService.HandleKeyGenerationDKLS)
-	mux.HandleFunc(tasks.TypeKeySignDKLS, workerService.HandleKeySignDKLS)
+	// mux.HandleFunc(tasks.TypeKeyGenerationDKLS, workerService.HandleKeyGenerationDKLS)
+	// mux.HandleFunc(tasks.TypeKeySignDKLS, workerService.HandleKeySignDKLS)
 	mux.HandleFunc(tasks.TypeReshareDKLS, workerService.HandleReshareDKLS)
-	mux.HandleFunc(tasks.TypeMigrate, workerService.HandleMigrateDKLS)
+	// mux.HandleFunc(tasks.TypeMigrate, workerService.HandleMigrateDKLS)
 	if err := srv.Run(mux); err != nil {
 		panic(fmt.Errorf("could not run server: %w", err))
 	}

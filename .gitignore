@@ -25,3 +25,6 @@ go.work.sum
 .env
 
 ./IMPLEMENTATION_PLAN.md
+.idea
+cmd/verifier
+cmd/worker

@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+
 	"github.com/vultisig/verifier/internal/scheduler"
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/syncer"

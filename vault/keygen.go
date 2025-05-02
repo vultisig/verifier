@@ -34,13 +34,14 @@ type DKLSTssService struct {
 }
 
 func NewDKLSTssService(cfg Config,
-	localStateAccessor *relay.LocalStateAccessorImp) (*DKLSTssService, error) {
+	localStateAccessor *relay.LocalStateAccessorImp, storage Storage) (*DKLSTssService, error) {
 	return &DKLSTssService{
 		cfg:                cfg,
 		logger:             logrus.WithField("service", "dkls").Logger,
 		isKeygenFinished:   &atomic.Bool{},
 		isKeysignFinished:  &atomic.Bool{},
 		localStateAccessor: localStateAccessor,
+		storage:            storage,
 	}, nil
 }
 
@@ -172,7 +173,7 @@ func (s *DKLSTssService) SaveVaultToStorage(vault *vaultType.Vault,
 	}
 
 	base64VaultContent := base64.StdEncoding.EncodeToString(vaultBackupData)
-
+	return s.storage.SaveVault(filePathName, []byte(base64VaultContent))
 	/*
 		if err := s.blockStorage.UploadFileWithRetry([]byte(base64VaultContent), filePathName, 5); err != nil {
 			if err := os.WriteFile(s.cfg.Server.VaultsFilePath+"/"+filePathName, []byte(base64VaultContent), 0644); err != nil {
@@ -201,7 +202,6 @@ func (s *DKLSTssService) SaveVaultToStorage(vault *vaultType.Vault,
 		s.logger.Info("Email task enqueued: ", taskInfo.ID)
 
 	*/
-	return nil
 }
 
 func (t *DKLSTssService) keygenWithRetry(sessionID string,

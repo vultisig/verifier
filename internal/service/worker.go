@@ -18,6 +18,7 @@ import (
 	"github.com/vultisig/verifier/internal/syncer"
 	"github.com/vultisig/verifier/internal/tasks"
 	"github.com/vultisig/verifier/internal/types"
+	types2 "github.com/vultisig/verifier/types"
 
 	// "github.com/vultisig/verifier/plugin"
 	// "github.com/vultisig/verifier/plugin/dca"
@@ -491,7 +492,7 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 	return nil
 }
 
-func (s *WorkerService) initiateTxSignWithVerifier(ctx context.Context, signRequest types.PluginKeysignRequest, metadata map[string]interface{}, newTx types.TransactionHistory, jwtToken string) error {
+func (s *WorkerService) initiateTxSignWithVerifier(ctx context.Context, signRequest types2.PluginKeysignRequest, metadata map[string]interface{}, newTx types.TransactionHistory, jwtToken string) error {
 	signBytes, err := json.Marshal(signRequest)
 	if err != nil {
 		s.logger.Errorf("Failed to marshal sign request: %v", err)

@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/config"
-	"github.com/vultisig/verifier/internal/common"
 	"github.com/vultisig/verifier/internal/scheduler"
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/sigutil"
@@ -24,6 +24,7 @@ import (
 	"github.com/vultisig/verifier/internal/tasks"
 	"github.com/vultisig/verifier/internal/types"
 	vv "github.com/vultisig/verifier/internal/vultisig_validator"
+	types2 "github.com/vultisig/verifier/types"
 
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/go-playground/validator/v10"
@@ -196,7 +197,7 @@ func (s *Server) GetDerivedPublicKey(c echo.Context) error {
 }
 
 func (s *Server) CreateVault(c echo.Context) error {
-	var req types.VaultCreateRequest
+	var req types2.VaultCreateRequest
 	if err := c.Bind(&req); err != nil {
 		return fmt.Errorf("fail to parse request, err: %w", err)
 	}
@@ -220,7 +221,7 @@ func (s *Server) CreateVault(c echo.Context) error {
 		s.logger.Errorf("fail to set session, err: %v", err)
 	}
 	var typeName = ""
-	if req.LibType == types.GG20 {
+	if req.LibType == types2.GG20 {
 		typeName = tasks.TypeKeyGeneration
 	} else {
 		typeName = tasks.TypeKeyGenerationDKLS
@@ -238,7 +239,7 @@ func (s *Server) CreateVault(c echo.Context) error {
 
 // ReshareVault is a handler to reshare a vault
 func (s *Server) ReshareVault(c echo.Context) error {
-	var req types.ReshareRequest
+	var req types2.ReshareRequest
 	if err := c.Bind(&req); err != nil {
 		return fmt.Errorf("fail to parse request, err: %w", err)
 	}
@@ -258,7 +259,7 @@ func (s *Server) ReshareVault(c echo.Context) error {
 		s.logger.Errorf("fail to set session, err: %v", err)
 	}
 	var typeName = ""
-	if req.LibType == types.GG20 {
+	if req.LibType == types2.GG20 {
 		typeName = tasks.TypeReshare
 	} else {
 		typeName = tasks.TypeReshareDKLS
@@ -372,7 +373,7 @@ func (s *Server) GetVault(c echo.Context) error {
 		return fmt.Errorf("fail to decrypt vault from the backup, err: %w", err)
 	}
 
-	return c.JSON(http.StatusOK, types.VaultGetResponse{
+	return c.JSON(http.StatusOK, types2.VaultGetResponse{
 		Name:           vault.Name,
 		PublicKeyEcdsa: vault.PublicKeyEcdsa,
 		PublicKeyEddsa: vault.PublicKeyEddsa,
@@ -421,7 +422,7 @@ func (s *Server) DeleteVault(c echo.Context) error {
 func (s *Server) SignMessages(c echo.Context) error {
 	s.logger.Debug("VERIFIER SERVER: SIGN MESSAGES")
 
-	var req types.KeysignRequest
+	var req types2.KeysignRequest
 	if err := c.Bind(&req); err != nil {
 		return fmt.Errorf("fail to parse request, err: %w", err)
 	}

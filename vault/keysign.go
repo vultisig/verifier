@@ -16,6 +16,7 @@ import (
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/sirupsen/logrus"
+	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
 	"github.com/vultisig/mobile-tss-lib/tss"
 	"github.com/vultisig/vultiserver/relay"
 
@@ -24,13 +25,29 @@ import (
 	"github.com/vultisig/verifier/types"
 )
 
+func (t *DKLSTssService) GetExistingVault(vaultFileName, password string) (*vaultType.Vault, error) {
+	if vaultFileName == "" {
+		return nil, fmt.Errorf("vault file name is empty")
+	}
+	content, err := t.storage.GetVault(vaultFileName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get vault file: %w", err)
+	}
+	vault, err := vcommon.DecryptVaultFromBackup(password, content)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt vault: %w", err)
+	}
+	return vault, nil
+}
+
 func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[string]tss.KeysignResponse, error) {
 	result := map[string]tss.KeysignResponse{}
-	keyFolder := t.cfg.Server.VaultsFilePath
-	localStateAccessor, err := relay.NewLocalStateAccessorImp(keyFolder, req.PublicKey, req.VaultPassword, t.blockStorage)
+	vaultFileName := req.PublicKey + ".bak"
+	vault, err := t.GetExistingVault(vaultFileName, req.VaultPassword)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create localStateAccessor: %w", err)
+		return nil, fmt.Errorf("failed to get vault: %w", err)
 	}
+	localStateAccessor := NewLocalStateAccessorImp(vault)
 	t.localStateAccessor = localStateAccessor
 	localPartyID := localStateAccessor.Vault.LocalPartyId
 	relayClient := relay.NewRelayClient(t.cfg.Relay.Server)

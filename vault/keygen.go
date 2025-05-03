@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
 	keygen "github.com/vultisig/commondata/go/vultisig/keygen/v1"
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
@@ -27,21 +29,24 @@ type DKLSTssService struct {
 	cfg                Config
 	messenger          *relay.MessengerImp
 	logger             *logrus.Logger
-	localStateAccessor *relay.LocalStateAccessorImp
+	localStateAccessor *LocalStateAccessorImp
 	isKeygenFinished   *atomic.Bool
 	isKeysignFinished  *atomic.Bool
 	storage            Storage
+	queueClient        *asynq.Client
 }
 
 func NewDKLSTssService(cfg Config,
-	localStateAccessor *relay.LocalStateAccessorImp, storage Storage) (*DKLSTssService, error) {
+	storage Storage,
+	queueClient *asynq.Client) (*DKLSTssService, error) {
 	return &DKLSTssService{
 		cfg:                cfg,
 		logger:             logrus.WithField("service", "dkls").Logger,
 		isKeygenFinished:   &atomic.Bool{},
 		isKeysignFinished:  &atomic.Bool{},
-		localStateAccessor: localStateAccessor,
 		storage:            storage,
+		localStateAccessor: NewLocalStateAccessorImp(nil),
+		queueClient:        queueClient,
 	}, nil
 }
 
@@ -107,7 +112,7 @@ func (t *DKLSTssService) BackupVault(req types.VaultCreateRequest,
 	partiesJoined []string,
 	ecdsaPubkey, eddsaPubkey string,
 	hexChainCode string,
-	localStateAccessor *relay.LocalStateAccessorImp) error {
+	localStateAccessor *LocalStateAccessorImp) error {
 	ecdsaKeyShare, err := localStateAccessor.GetLocalState(ecdsaPubkey)
 	if err != nil {
 		return fmt.Errorf("failed to get local sate: %w", err)
@@ -173,15 +178,8 @@ func (s *DKLSTssService) SaveVaultToStorage(vault *vaultType.Vault,
 	}
 
 	base64VaultContent := base64.StdEncoding.EncodeToString(vaultBackupData)
-	return s.storage.SaveVault(filePathName, []byte(base64VaultContent))
-	/*
-		if err := s.blockStorage.UploadFileWithRetry([]byte(base64VaultContent), filePathName, 5); err != nil {
-			if err := os.WriteFile(s.cfg.Server.VaultsFilePath+"/"+filePathName, []byte(base64VaultContent), 0644); err != nil {
-				s.logger.Errorf("fail to write file: %s", err)
-			}
-			return fmt.Errorf("fail to write file, err: %w", err)
-		}
 
+	if s.cfg.QueueEmailTask {
 		emailRequest := types.EmailRequest{
 			Email:       email,
 			FileName:    common.GetVaultName(vault),
@@ -193,15 +191,15 @@ func (s *DKLSTssService) SaveVaultToStorage(vault *vaultType.Vault,
 			return fmt.Errorf("json.Marshal failed: %w", err)
 		}
 
-		taskInfo, err := s.queueClient.Enqueue(asynq.NewTask(tasks.TypeEmailVaultBackup, buf),
+		taskInfo, err := s.queueClient.Enqueue(asynq.NewTask(EmailVaultBackupTypeName, buf),
 			asynq.Retention(10*time.Minute),
-			asynq.Queue(tasks.EMAIL_QUEUE_NAME))
+			asynq.Queue(EmailQueueName))
 		if err != nil {
 			s.logger.Errorf("fail to enqueue email task: %v", err)
 		}
 		s.logger.Info("Email task enqueued: ", taskInfo.ID)
-
-	*/
+	}
+	return s.storage.SaveVault(filePathName, []byte(base64VaultContent))
 }
 
 func (t *DKLSTssService) keygenWithRetry(sessionID string,

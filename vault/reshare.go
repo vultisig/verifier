@@ -74,10 +74,7 @@ func (t *DKLSTssService) ProcessReshare(vault *vaultType.Vault,
 			"error":       err,
 		}).Error("Failed to check completed parties")
 	}
-	if t.backup == nil {
-		t.logger.Infof("Backup is disabled")
-		return nil
-	}
+
 	ecdsaKeyShare, err := t.localStateAccessor.GetLocalCacheState(ecdsaPubkey)
 	if err != nil {
 		return fmt.Errorf("failed to get local sate: %w", err)
@@ -113,7 +110,7 @@ func (t *DKLSTssService) ProcessReshare(vault *vaultType.Vault,
 		LibType:       keygenType.LibType_LIB_TYPE_DKLS,
 		ResharePrefix: "",
 	}
-	return t.backup.SaveVaultAndScheduleEmail(newVault, encryptionPassword, email)
+	return t.SaveVaultToStorage(newVault, encryptionPassword, email)
 }
 func (t *DKLSTssService) reshareWithRetry(vault *vaultType.Vault,
 	sessionID string,

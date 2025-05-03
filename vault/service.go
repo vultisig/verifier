@@ -10,12 +10,16 @@ import (
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
+	keygenType "github.com/vultisig/commondata/go/vultisig/keygen/v1"
+	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
+	"github.com/vultisig/vultiserver/common"
 	"github.com/vultisig/vultiserver/contexthelper"
-	"github.com/vultisig/vultiserver/relay"
 
-	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/types"
 )
+
+const EmailVaultBackupTypeName = "key:email"
+const EmailQueueName = "vault:email_queue"
 
 // KeyGenerationTaskResult is a struct that represents the result of a key generation task
 type KeyGenerationTaskResult struct {
@@ -29,43 +33,26 @@ type KeyGenerationTaskResult struct {
 // - Keysign -- sign a message
 type ManagementService struct {
 	cfg          Config
-	verifierPort int64
-	redis        *storage.RedisStorage
 	logger       *logrus.Logger
 	queueClient  *asynq.Client
 	sdClient     *statsd.Client
-	blockStorage *storage.BlockStorage
-	inspector    *asynq.Inspector
 	plugin       plugin.Plugin
-	db           storage.DatabaseStorage
+	vaultStorage Storage
 }
 
 // NewManagementService creates a new instance of the ManagementService
 func NewManagementService(cfg Config,
-	verifierPort int64,
 	queueClient *asynq.Client,
 	sdClient *statsd.Client,
-	blockStorage *storage.BlockStorage, inspector *asynq.Inspector) (*ManagementService, error) {
-	logger := logrus.WithField("service", "worker").Logger
-
-	// redis, err := storage.NewRedisStorage(cfg)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("storage.NewRedisStorage failed: %w", err)
-	// }
-	//
-	// db, err := postgres.NewPostgresBackend(false, cfg.Server.Database.DSN)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("fail to connect to database: %w", err)
-	// }
+	storage Storage) (*ManagementService, error) {
+	logger := logrus.WithField("service", "vault-management").Logger
 
 	return &ManagementService{
 		cfg:          cfg,
-		blockStorage: blockStorage,
 		queueClient:  queueClient,
 		sdClient:     sdClient,
-		inspector:    inspector,
 		logger:       logger,
-		verifierPort: verifierPort,
+		vaultStorage: storage,
 	}, nil
 }
 
@@ -103,15 +90,12 @@ func (s *ManagementService) HandleKeyGenerationDKLS(ctx context.Context, t *asyn
 	if err := req.IsValid(); err != nil {
 		return fmt.Errorf("invalid vault create request: %s: %w", err, asynq.SkipRetry)
 	}
-	localStateAccessor, err := relay.NewLocalStateAccessorImp(s.cfg.Server.VaultsFilePath, "", "", s.blockStorage)
-	if err != nil {
-		return fmt.Errorf("relay.NewLocalStateAccessorImp failed: %s: %w", err, asynq.SkipRetry)
-	}
-	dklsService, err := NewDKLSTssService(s.cfg, s.blockStorage, localStateAccessor, s)
+
+	dklsService, err := NewDKLSTssService(s.cfg, s.vaultStorage, s.queueClient)
 	if err != nil {
 		return fmt.Errorf("NewDKLSTssService failed: %s: %w", err, asynq.SkipRetry)
 	}
-	keyECDSA, keyEDDSA, err := dklsService.ProceeDKLSKeygen(req)
+	keyECDSA, keyEDDSA, err := dklsService.ProcessDKLSKeygen(req)
 	if err != nil {
 		_ = s.sdClient.Count("worker.vault.create.dkls.error", 1, nil, 1)
 		s.logger.Errorf("keygen.JoinKeyGeneration failed: %v", err)
@@ -137,6 +121,117 @@ func (s *ManagementService) HandleKeyGenerationDKLS(ctx context.Context, t *asyn
 	if _, err := t.ResultWriter().Write(resultBytes); err != nil {
 		s.logger.Errorf("t.ResultWriter.Write failed: %v", err)
 		return fmt.Errorf("t.ResultWriter.Write failed: %v: %w", err, asynq.SkipRetry)
+	}
+
+	return nil
+}
+
+func (s *ManagementService) HandleKeySignDKLS(ctx context.Context, t *asynq.Task) error {
+	if err := contexthelper.CheckCancellation(ctx); err != nil {
+		return err
+	}
+	var p types.KeysignRequest
+	if err := json.Unmarshal(t.Payload(), &p); err != nil {
+		s.logger.Errorf("json.Unmarshal failed: %v", err)
+		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
+	}
+	defer s.measureTime("worker.vault.sign.latency", time.Now(), []string{})
+	s.incCounter("worker.vault.sign", []string{})
+	s.logger.WithFields(logrus.Fields{
+		"PublicKey":  p.PublicKey,
+		"session":    p.SessionID,
+		"Messages":   p.Messages,
+		"DerivePath": p.DerivePath,
+		"IsECDSA":    p.IsECDSA,
+	}).Info("joining keysign")
+
+	dklsService, err := NewDKLSTssService(s.cfg, s.vaultStorage, s.queueClient)
+	if err != nil {
+		return fmt.Errorf("NewDKLSTssService failed: %s: %w", err, asynq.SkipRetry)
+	}
+
+	signatures, err := dklsService.ProcessDKLSKeysign(p)
+	if err != nil {
+		s.logger.Errorf("join keysign failed: %v", err)
+		return fmt.Errorf("join keysign failed: %v: %w", err, asynq.SkipRetry)
+	}
+
+	s.logger.WithFields(logrus.Fields{
+		"Signatures": signatures,
+	}).Info("localPartyID sign completed")
+
+	resultBytes, err := json.Marshal(signatures)
+	if err != nil {
+		s.logger.Errorf("json.Marshal failed: %v", err)
+		return fmt.Errorf("json.Marshal failed: %v: %w", err, asynq.SkipRetry)
+	}
+
+	if _, err := t.ResultWriter().Write(resultBytes); err != nil {
+		s.logger.Errorf("t.ResultWriter.Write failed: %v", err)
+		return fmt.Errorf("t.ResultWriter.Write failed: %v: %w", err, asynq.SkipRetry)
+	}
+
+	return nil
+}
+
+func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task) error {
+	if err := contexthelper.CheckCancellation(ctx); err != nil {
+		return err
+	}
+	var req types.ReshareRequest
+	if err := json.Unmarshal(t.Payload(), &req); err != nil {
+		s.logger.Errorf("json.Unmarshal failed: %v", err)
+		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
+	}
+	if req.LibType != types.DKLS {
+		return fmt.Errorf("invalid lib type: %d: %w", req.LibType, asynq.SkipRetry)
+	}
+
+	defer s.measureTime("worker.vault.reshare.latency", time.Now(), []string{})
+	s.incCounter("worker.vault.reshare.dkls", []string{})
+	s.logger.WithFields(logrus.Fields{
+		"name":           req.Name,
+		"session":        req.SessionID,
+		"local_party_id": req.LocalPartyId,
+		"email":          req.Email,
+	}).Info("reshare request")
+	if err := req.IsValid(); err != nil {
+		return fmt.Errorf("invalid reshare request: %s: %w", err, asynq.SkipRetry)
+	}
+
+	var vault *vaultType.Vault
+	// trying to get existing vault
+	vaultFileName := req.PublicKey + ".bak"
+	vaultContent, err := s.vaultStorage.GetVault(vaultFileName)
+	if err != nil || vaultContent == nil {
+		vault = &vaultType.Vault{
+			Name:           req.Name,
+			PublicKeyEcdsa: "",
+			PublicKeyEddsa: "",
+			HexChainCode:   req.HexChainCode,
+			LocalPartyId:   req.LocalPartyId,
+			Signers:        req.OldParties,
+			ResharePrefix:  req.OldResharePrefix,
+			LibType:        keygenType.LibType_LIB_TYPE_DKLS,
+		}
+	} else {
+		// decrypt the vault
+		vault, err = common.DecryptVaultFromBackup(req.EncryptionPassword, vaultContent)
+		if err != nil {
+			s.logger.Errorf("fail to decrypt vault from the backup, err: %v", err)
+			return fmt.Errorf("fail to decrypt vault from the backup, err: %v: %w", err, asynq.SkipRetry)
+		}
+	}
+
+	service, err := NewDKLSTssService(s.cfg, s.vaultStorage, s.queueClient)
+	if err != nil {
+		s.logger.Errorf("NewDKLSTssService failed: %v", err)
+		return fmt.Errorf("NewDKLSTssService failed: %v: %w", err, asynq.SkipRetry)
+	}
+
+	if err := service.ProcessReshare(vault, req.SessionID, req.HexEncryptionKey, req.EncryptionPassword, req.Email); err != nil {
+		s.logger.Errorf("reshare failed: %v", err)
+		return fmt.Errorf("reshare failed: %v: %w", err, asynq.SkipRetry)
 	}
 
 	return nil

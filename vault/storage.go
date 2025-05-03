@@ -18,6 +18,7 @@ import (
 type Storage interface {
 	GetVault(fileName string) ([]byte, error)
 	SaveVault(fileName string, content []byte) error
+	Exist(fileName string) (bool, error)
 }
 
 type BlockStorageConfig struct {
@@ -60,6 +61,9 @@ func (bs *BlockStorageImp) GetVault(fileName string) ([]byte, error) {
 
 func (bs *BlockStorageImp) SaveVault(file string, content []byte) error {
 	return bs.UploadFileWithRetry(content, file, 3)
+}
+func (bs *BlockStorageImp) Exist(fileName string) (bool, error) {
+	return bs.FileExist(fileName)
 }
 func (bs *BlockStorageImp) FileExist(fileName string) (bool, error) {
 	_, err := bs.s3Client.HeadObject(&s3.HeadObjectInput{
@@ -155,6 +159,16 @@ func (lvs *LocalVaultStorage) GetVault(fileName string) ([]byte, error) {
 		return nil, fmt.Errorf("os.ReadFile failed: %s: %w", err, os.ErrPermission)
 	}
 	return content, nil
+}
+func (lvs *LocalVaultStorage) Exist(fileName string) (bool, error) {
+	filePathName := filepath.Join(lvs.cfg.VaultFilePath, fileName)
+	if _, err := os.Stat(filePathName); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("os.Stat failed: %s: %w", err, os.ErrPermission)
+	}
+	return true, nil
 }
 func (lvs *LocalVaultStorage) SaveVault(file string, content []byte) error {
 	filePathName := filepath.Join(lvs.cfg.VaultFilePath, file)

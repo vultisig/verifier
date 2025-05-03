@@ -77,14 +77,14 @@ func (t *DKLSTssService) ProcessReshare(vault *vaultType.Vault,
 
 	ecdsaKeyShare, err := t.localStateAccessor.GetLocalCacheState(ecdsaPubkey)
 	if err != nil {
-		return fmt.Errorf("failed to get local sate: %w", err)
+		return fmt.Errorf("failed to get local state: %w", err)
 	}
 	if ecdsaKeyShare == "" {
 		return fmt.Errorf("failed to get ecdsa keyshare")
 	}
 	eddsaKeyShare, err := t.localStateAccessor.GetLocalCacheState(eddsaPubkey)
 	if err != nil {
-		return fmt.Errorf("failed to get local sate: %w", err)
+		return fmt.Errorf("failed to get local state: %w", err)
 	}
 	if eddsaKeyShare == "" {
 		return fmt.Errorf("failed to get eddsa keyshare")

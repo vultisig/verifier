@@ -29,7 +29,7 @@ type MPCKeysignWrapper interface {
 	SignSessionFree(session Handle) error
 }
 type MPCQcWrapper interface {
-	QcSetupMsgNew(keyshareHandle Handle, threshod int, ids []string, oldParties []int, newParties []int) ([]byte, error)
+	QcSetupMsgNew(keyshareHandle Handle, threshold int, ids []string, oldParties []int, newParties []int) ([]byte, error)
 	QcSessionFromSetup(setupMsg []byte, id string, keyshareHandle Handle) (Handle, error)
 	QcSessionOutputMessage(session Handle) ([]byte, error)
 	QcSessionMessageReceiver(session Handle, message []byte, index int) (string, error)

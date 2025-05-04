@@ -6,15 +6,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/config"
-	"github.com/vultisig/verifier/internal/common"
 	"github.com/vultisig/verifier/internal/scheduler"
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/sigutil"
@@ -24,6 +23,8 @@ import (
 	"github.com/vultisig/verifier/internal/tasks"
 	"github.com/vultisig/verifier/internal/types"
 	vv "github.com/vultisig/verifier/internal/vultisig_validator"
+	types2 "github.com/vultisig/verifier/types"
+	"github.com/vultisig/verifier/vault"
 
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/go-playground/validator/v10"
@@ -37,10 +38,10 @@ import (
 )
 
 type Server struct {
-	cfg           *config.Config
+	cfg           config.VerifierConfig
 	db            storage.DatabaseStorage
 	redis         *storage.RedisStorage
-	blockStorage  *storage.BlockStorage
+	vaultStorage  vault.Storage
 	client        *asynq.Client
 	inspector     *asynq.Inspector
 	sdClient      *statsd.Client
@@ -49,38 +50,26 @@ type Server struct {
 	authService   *service.AuthService
 	syncer        syncer.PolicySyncer
 	logger        *logrus.Logger
-	pluginConfigs map[string]map[string]interface{}
-	vaultFilePath string
-	mode          string
 }
 
 // NewServer returns a new server.
 func NewServer(
-	cfg *config.Config,
+	cfg config.VerifierConfig,
 	db *postgres.PostgresBackend,
 	redis *storage.RedisStorage,
-	blockStorage *storage.BlockStorage,
-	redisOpts asynq.RedisClientOpt,
+	vaultStorage vault.Storage,
 	client *asynq.Client,
 	inspector *asynq.Inspector,
 	sdClient *statsd.Client,
-	vaultFilePath string,
-	mode string,
 	jwtSecret string,
-	pluginType string,
-	rpcURL string,
-	pluginConfigs map[string]map[string]interface{},
-	logger *logrus.Logger,
 ) *Server {
-	logger.Infof("Server mode: %s, plugin type: %s", mode, pluginType)
 
 	var schedulerService *scheduler.SchedulerService
 	var syncerService syncer.PolicySyncer
 	var err error
-
-	policyService, err := service.NewPolicyService(db, syncerService, schedulerService, logger.WithField("service", "policy").Logger)
+	policyService, err := service.NewPolicyService(db, syncerService, schedulerService, logrus.WithField("service", "policy").Logger)
 	if err != nil {
-		logger.Fatalf("Failed to initialize policy service: %v", err)
+		logrus.Fatalf("Failed to initialize policy service: %v", err)
 	}
 
 	authService := service.NewAuthService(jwtSecret)
@@ -90,17 +79,14 @@ func NewServer(
 		redis:         redis,
 		client:        client,
 		inspector:     inspector,
-		vaultFilePath: vaultFilePath,
 		sdClient:      sdClient,
-		blockStorage:  blockStorage,
-		mode:          mode,
+		vaultStorage:  vaultStorage,
 		db:            db,
 		scheduler:     schedulerService,
-		logger:        logger,
+		logger:        logrus.WithField("service", "verifier-server").Logger,
 		syncer:        syncerService,
 		policyService: policyService,
 		authService:   authService,
-		pluginConfigs: pluginConfigs,
 	}
 }
 
@@ -129,13 +115,10 @@ func (s *Server) StartServer() error {
 	grp := e.Group("/vault")
 	grp.POST("/create", s.CreateVault)
 	grp.POST("/reshare", s.ReshareVault)
-	// grp.POST("/upload", s.UploadVault)
-	// grp.GET("/download/:publicKeyECDSA", s.DownloadVault)
 	grp.GET("/get/:publicKeyECDSA", s.GetVault)     // Get Vault Data
 	grp.GET("/exist/:publicKeyECDSA", s.ExistVault) // Check if Vault exists
-	//	grp.DELETE("/delete/:publicKeyECDSA", s.DeleteVault) // Delete Vault Data
-	grp.POST("/sign", s.SignMessages) // Sign messages
-	grp.GET("/verify/:publicKeyECDSA/:code", s.VerifyCode)
+
+	grp.POST("/sign", s.SignMessages)                     // Sign messages
 	grp.GET("/sign/response/:taskId", s.GetKeysignResult) // Get keysign result
 
 	// if s.mode == "verifier" {
@@ -164,7 +147,7 @@ func (s *Server) StartServer() error {
 }
 
 func (s *Server) Ping(c echo.Context) error {
-	return c.String(http.StatusOK, "Vultiserver is running")
+	return c.String(http.StatusOK, "Verifier server is running")
 }
 
 // GetDerivedPublicKey is a handler to get the derived public key
@@ -196,7 +179,7 @@ func (s *Server) GetDerivedPublicKey(c echo.Context) error {
 }
 
 func (s *Server) CreateVault(c echo.Context) error {
-	var req types.VaultCreateRequest
+	var req types2.VaultCreateRequest
 	if err := c.Bind(&req); err != nil {
 		return fmt.Errorf("fail to parse request, err: %w", err)
 	}
@@ -220,7 +203,7 @@ func (s *Server) CreateVault(c echo.Context) error {
 		s.logger.Errorf("fail to set session, err: %v", err)
 	}
 	var typeName = ""
-	if req.LibType == types.GG20 {
+	if req.LibType == types2.GG20 {
 		typeName = tasks.TypeKeyGeneration
 	} else {
 		typeName = tasks.TypeKeyGenerationDKLS
@@ -238,7 +221,7 @@ func (s *Server) CreateVault(c echo.Context) error {
 
 // ReshareVault is a handler to reshare a vault
 func (s *Server) ReshareVault(c echo.Context) error {
-	var req types.ReshareRequest
+	var req types2.ReshareRequest
 	if err := c.Bind(&req); err != nil {
 		return fmt.Errorf("fail to parse request, err: %w", err)
 	}
@@ -258,7 +241,7 @@ func (s *Server) ReshareVault(c echo.Context) error {
 		s.logger.Errorf("fail to set session, err: %v", err)
 	}
 	var typeName = ""
-	if req.LibType == types.GG20 {
+	if req.LibType == types2.GG20 {
 		typeName = tasks.TypeReshare
 	} else {
 		typeName = tasks.TypeReshareDKLS
@@ -272,62 +255,6 @@ func (s *Server) ReshareVault(c echo.Context) error {
 		return fmt.Errorf("fail to enqueue task, err: %w", err)
 	}
 	return c.NoContent(http.StatusOK)
-}
-
-// UploadVault is a handler that receives a vault file from integration.
-func (s *Server) UploadVault(c echo.Context) error {
-	bodyReader := http.MaxBytesReader(c.Response(), c.Request().Body, 2<<20) // 2M
-	content, err := io.ReadAll(bodyReader)
-	if err != nil {
-		return fmt.Errorf("fail to read body, err: %w", err)
-	}
-
-	passwd, err := s.extractXPassword(c)
-	if err != nil {
-		return fmt.Errorf("fail to extract password, err: %w", err)
-	}
-
-	vault, err := common.DecryptVaultFromBackup(passwd, content)
-	if err != nil {
-		return fmt.Errorf("fail to decrypt vault from the backup, err: %w", err)
-	}
-
-	filePathName := common.GetVaultBackupFilename(vault.PublicKeyEcdsa)
-	if err := s.blockStorage.UploadFile(content, filePathName); err != nil {
-		return fmt.Errorf("fail to upload file, err: %w", err)
-	}
-
-	return c.NoContent(http.StatusOK)
-}
-
-func (s *Server) DownloadVault(c echo.Context) error {
-	publicKeyECDSA := c.Param("publicKeyECDSA")
-	if publicKeyECDSA == "" {
-		return fmt.Errorf("public key is required")
-	}
-	if !s.isValidHash(publicKeyECDSA) {
-		return c.NoContent(http.StatusBadRequest)
-	}
-
-	passwd, err := s.extractXPassword(c)
-	if err != nil {
-		return fmt.Errorf("fail to extract password, err: %w", err)
-	}
-
-	filePathName := common.GetVaultBackupFilename(publicKeyECDSA)
-	content, err := s.blockStorage.GetFile(filePathName)
-	if err != nil {
-		wrappedErr := fmt.Errorf("fail to read file in DownloadVault, err: %w", err)
-		s.logger.Error(wrappedErr)
-		return wrappedErr
-	}
-
-	_, err = common.DecryptVaultFromBackup(passwd, content)
-	if err != nil {
-		return fmt.Errorf("fail to decrypt vault from the backup, err: %w", err)
-	}
-	return c.Blob(http.StatusOK, "application/octet-stream", content)
-
 }
 
 func (s *Server) extractXPassword(c echo.Context) (string, error) {
@@ -360,68 +287,32 @@ func (s *Server) GetVault(c echo.Context) error {
 	}
 
 	filePathName := common.GetVaultBackupFilename(publicKeyECDSA)
-	content, err := s.blockStorage.GetFile(filePathName)
+	content, err := s.vaultStorage.GetVault(filePathName)
 	if err != nil {
 		wrappedErr := fmt.Errorf("fail to read file in GetVault, err: %w", err)
 		s.logger.Error(wrappedErr)
 		return wrappedErr
 	}
 
-	vault, err := common.DecryptVaultFromBackup(passwd, content)
+	v, err := common.DecryptVaultFromBackup(passwd, content)
 	if err != nil {
 		return fmt.Errorf("fail to decrypt vault from the backup, err: %w", err)
 	}
 
-	return c.JSON(http.StatusOK, types.VaultGetResponse{
-		Name:           vault.Name,
-		PublicKeyEcdsa: vault.PublicKeyEcdsa,
-		PublicKeyEddsa: vault.PublicKeyEddsa,
-		HexChainCode:   vault.HexChainCode,
-		LocalPartyId:   vault.LocalPartyId,
+	return c.JSON(http.StatusOK, types2.VaultGetResponse{
+		Name:           v.Name,
+		PublicKeyEcdsa: v.PublicKeyEcdsa,
+		PublicKeyEddsa: v.PublicKeyEddsa,
+		HexChainCode:   v.HexChainCode,
+		LocalPartyId:   v.LocalPartyId,
 	})
-}
-
-func (s *Server) DeleteVault(c echo.Context) error {
-	publicKeyECDSA := c.Param("publicKeyECDSA")
-	if publicKeyECDSA == "" {
-		return fmt.Errorf("public key is required")
-	}
-	if !s.isValidHash(publicKeyECDSA) {
-		return c.NoContent(http.StatusBadRequest)
-	}
-
-	passwd, err := s.extractXPassword(c)
-	if err != nil {
-		return fmt.Errorf("fail to extract password, err: %w", err)
-	}
-
-	filePathName := common.GetVaultBackupFilename(publicKeyECDSA)
-	content, err := s.blockStorage.GetFile(filePathName)
-	if err != nil {
-		wrappedErr := fmt.Errorf("fail to read file in DeleteVault, err: %w", err)
-		s.logger.Error(wrappedErr)
-		return wrappedErr
-	}
-
-	vault, err := common.DecryptVaultFromBackup(passwd, content)
-	if err != nil {
-		return fmt.Errorf("fail to decrypt vault from the backup, err: %w", err)
-	}
-	s.logger.Infof("removing vault file %s per request", vault.PublicKeyEcdsa)
-
-	err = s.blockStorage.DeleteFile(filePathName)
-	if err != nil {
-		return fmt.Errorf("fail to remove file, err: %w", err)
-	}
-
-	return c.NoContent(http.StatusOK)
 }
 
 // SignMessages is a handler to process Keysing request
 func (s *Server) SignMessages(c echo.Context) error {
 	s.logger.Debug("VERIFIER SERVER: SIGN MESSAGES")
 
-	var req types.KeysignRequest
+	var req types2.KeysignRequest
 	if err := c.Bind(&req); err != nil {
 		return fmt.Errorf("fail to parse request, err: %w", err)
 	}
@@ -441,7 +332,7 @@ func (s *Server) SignMessages(c echo.Context) error {
 	}
 
 	filePathName := common.GetVaultBackupFilename(req.PublicKey)
-	content, err := s.blockStorage.GetFile(filePathName)
+	content, err := s.vaultStorage.GetVault(filePathName)
 	if err != nil {
 		wrappedErr := fmt.Errorf("fail to read file in SignMessages, err: %w", err)
 		s.logger.Infof("fail to read file in SignMessages, err: %v", err)
@@ -449,7 +340,7 @@ func (s *Server) SignMessages(c echo.Context) error {
 		return wrappedErr
 	}
 
-	vault, err := common.DecryptVaultFromBackup(req.VaultPassword, content)
+	v, err := common.DecryptVaultFromBackup(req.VaultPassword, content)
 	if err != nil {
 		return fmt.Errorf("fail to decrypt vault from the backup, err: %w", err)
 	}
@@ -458,7 +349,7 @@ func (s *Server) SignMessages(c echo.Context) error {
 		return fmt.Errorf("fail to marshal to json, err: %w", err)
 	}
 	var typeName = ""
-	if vault.LibType == keygen.LibType_LIB_TYPE_GG20 {
+	if v.LibType == keygen.LibType_LIB_TYPE_GG20 {
 		typeName = tasks.TypeKeySign
 	} else {
 		typeName = tasks.TypeKeySignDKLS
@@ -513,7 +404,7 @@ func (s *Server) ExistVault(c echo.Context) error {
 	}
 
 	filePathName := common.GetVaultBackupFilename(publicKeyECDSA)
-	exist, err := s.blockStorage.FileExist(filePathName)
+	exist, err := s.vaultStorage.Exist(filePathName)
 	if err != nil || !exist {
 		return c.NoContent(http.StatusBadRequest)
 	}
@@ -530,40 +421,6 @@ func (s *Server) createVerificationCode(ctx context.Context, publicKeyECDSA stri
 		return "", fmt.Errorf("failed to set cache: %w", err)
 	}
 	return verificationCode, nil
-}
-
-// VerifyCode is a handler to verify the code
-func (s *Server) VerifyCode(c echo.Context) error {
-	publicKeyECDSA := c.Param("publicKeyECDSA")
-	if publicKeyECDSA == "" {
-		return fmt.Errorf("public key is required")
-	}
-	if !s.isValidHash(publicKeyECDSA) {
-		return c.NoContent(http.StatusBadRequest)
-	}
-	code := c.Param("code")
-	if code == "" {
-		s.logger.Errorln("code is required")
-		return c.NoContent(http.StatusBadRequest)
-	}
-	if err := s.sdClient.Count("vault.verify", 1, nil, 1); err != nil {
-		s.logger.Errorf("fail to count metric, err: %v", err)
-	}
-	key := fmt.Sprintf("verification_code_%s", publicKeyECDSA)
-	result, err := s.redis.Get(c.Request().Context(), key)
-	if err != nil {
-		s.logger.Errorf("fail to get code, err: %v", err)
-		return c.NoContent(http.StatusBadRequest)
-	}
-	if result != code {
-		return c.NoContent(http.StatusBadRequest)
-	}
-	// set the code to be expired in 5 minutes
-	if err := s.redis.Expire(c.Request().Context(), key, time.Minute*5); err != nil {
-		s.logger.Errorf("fail to expire code, err: %v", err)
-	}
-
-	return c.NoContent(http.StatusOK)
 }
 
 // TODO: Make those handlers require jwt auth

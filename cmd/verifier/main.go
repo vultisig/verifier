@@ -11,10 +11,11 @@ import (
 	"github.com/vultisig/verifier/internal/api"
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/storage/postgres"
+	"github.com/vultisig/verifier/vault"
 )
 
 func main() {
-	cfg, err := config.GetConfigure()
+	cfg, err := config.ReadVerifierConfig()
 	if err != nil {
 		panic(err)
 	}
@@ -26,7 +27,7 @@ func main() {
 		panic(err)
 	}
 
-	redisStorage, err := storage.NewRedisStorage(*cfg)
+	redisStorage, err := storage.NewRedisStorage(cfg.Redis)
 	if err != nil {
 		panic(err)
 	}
@@ -46,11 +47,8 @@ func main() {
 	}()
 
 	inspector := asynq.NewInspector(redisOptions)
-	if cfg.Server.VaultsFilePath == "" {
-		panic("vaults file path is empty")
 
-	}
-	blockStorage, err := storage.NewBlockStorage(*cfg)
+	vaultStorage, err := vault.NewBlockStorageImp(cfg.BlockStorageConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -61,21 +59,14 @@ func main() {
 	}
 
 	server := api.NewServer(
-		cfg,
+		*cfg,
 		db,
 		redisStorage,
-		blockStorage,
-		redisOptions,
+		vaultStorage,
 		client,
 		inspector,
 		sdClient,
-		cfg.Server.VaultsFilePath,
-		cfg.Server.Mode,
 		cfg.Server.JWTSecret,
-		cfg.Server.Plugin.Type,
-		cfg.Server.Plugin.Eth.Rpc,
-		cfg.Plugin.PluginConfigs,
-		logger,
 	)
 	if err := server.StartServer(); err != nil {
 		panic(err)

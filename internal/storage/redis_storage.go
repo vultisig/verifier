@@ -11,16 +11,16 @@ import (
 )
 
 type RedisStorage struct {
-	cfg    config.Config
+	cfg    config.RedisConfig
 	client *redis.Client
 }
 
-func NewRedisStorage(cfg config.Config) (*RedisStorage, error) {
+func NewRedisStorage(cfg config.RedisConfig) (*RedisStorage, error) {
 	client := redis.NewClient(&redis.Options{
-		Addr:     cfg.Redis.Host + ":" + cfg.Redis.Port,
-		Username: cfg.Redis.User,
-		Password: cfg.Redis.Password,
-		DB:       cfg.Redis.DB,
+		Addr:     cfg.Host + ":" + cfg.Port,
+		Username: cfg.User,
+		Password: cfg.Password,
+		DB:       cfg.DB,
 	})
 	status := client.Ping(context.Background())
 	if status.Err() != nil {

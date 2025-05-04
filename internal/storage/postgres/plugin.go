@@ -9,7 +9,8 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/vultisig/verifier/internal/common"
+
+	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/internal/types"
 )
 

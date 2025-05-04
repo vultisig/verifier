@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/vultisig/verifier/internal/types"
+
+	itypes "github.com/vultisig/verifier/internal/types"
+	types "github.com/vultisig/verifier/types"
 )
 
 const (
@@ -33,7 +35,7 @@ type PolicySyncer interface {
 	CreatePolicySync(policy types.PluginPolicy) error
 	UpdatePolicySync(policy types.PluginPolicy) error
 	DeletePolicySync(policyID, signature string) error
-	SyncTransaction(action Action, jwtToken string, tx types.TransactionHistory) error
+	SyncTransaction(action Action, jwtToken string, tx itypes.TransactionHistory) error
 }
 
 type Syncer struct {
@@ -196,7 +198,7 @@ func (s *Syncer) DeletePolicySync(policyID, signature string) error {
 	})
 }
 
-func (s *Syncer) SyncTransaction(action Action, jwtToken string, tx types.TransactionHistory) error {
+func (s *Syncer) SyncTransaction(action Action, jwtToken string, tx itypes.TransactionHistory) error {
 	s.logger.WithFields(logrus.Fields{
 		"tx_id":   tx.ID,
 		"tx_hash": tx.TxHash,

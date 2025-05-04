@@ -14,7 +14,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/tasks"
-	"github.com/vultisig/verifier/internal/types"
+	itypes "github.com/vultisig/verifier/internal/types"
+	types "github.com/vultisig/verifier/types"
 )
 
 const (
@@ -126,7 +127,7 @@ func (s *SchedulerService) checkAndEnqueueTasks() error {
 			continue
 		}
 
-		if time.Now().UTC().Before(nextTime) || triggerStatus == types.StatusTimeTriggerRunning {
+		if time.Now().UTC().Before(nextTime) || triggerStatus == itypes.StatusTimeTriggerRunning {
 			s.logger.WithFields(logrus.Fields{
 				"policy_id": trigger.PolicyID,
 				"next_time": nextTime,
@@ -135,7 +136,7 @@ func (s *SchedulerService) checkAndEnqueueTasks() error {
 			continue
 		}
 
-		if err := s.db.UpdateTriggerStatus(ctx, trigger.PolicyID, types.StatusTimeTriggerRunning); err != nil {
+		if err := s.db.UpdateTriggerStatus(ctx, trigger.PolicyID, itypes.StatusTimeTriggerRunning); err != nil {
 			s.logger.Errorf("Failed to update trigger status: %v", err)
 			continue
 		}
@@ -180,7 +181,7 @@ func (s *SchedulerService) CreateTimeTrigger(ctx context.Context, policy types.P
 	return s.db.CreateTimeTriggerTx(ctx, dbTx, *trigger)
 }
 
-func (s *SchedulerService) GetTriggerFromPolicy(policy types.PluginPolicy) (*types.TimeTrigger, error) {
+func (s *SchedulerService) GetTriggerFromPolicy(policy types.PluginPolicy) (*itypes.TimeTrigger, error) {
 	var policySchedule struct {
 		Schedule struct {
 			Frequency string     `json:"frequency"`
@@ -200,14 +201,14 @@ func (s *SchedulerService) GetTriggerFromPolicy(policy types.PluginPolicy) (*typ
 	}
 
 	cronExpr := frequencyToCron(policySchedule.Schedule.Frequency, policySchedule.Schedule.StartTime, interval)
-	trigger := types.TimeTrigger{
+	trigger := itypes.TimeTrigger{
 		PolicyID:       policy.ID,
 		CronExpression: cronExpr,
 		StartTime:      time.Now().UTC(),
 		EndTime:        policySchedule.Schedule.EndTime,
 		Frequency:      policySchedule.Schedule.Frequency,
 		Interval:       interval,
-		Status:         types.StatusTimeTriggerPending,
+		Status:         itypes.StatusTimeTriggerPending,
 	}
 
 	return &trigger, nil

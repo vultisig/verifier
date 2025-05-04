@@ -1,20 +1,16 @@
 package api
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/config"
-	"github.com/vultisig/verifier/internal/scheduler"
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/sigutil"
 	"github.com/vultisig/verifier/internal/storage"
@@ -45,7 +41,6 @@ type Server struct {
 	client        *asynq.Client
 	inspector     *asynq.Inspector
 	sdClient      *statsd.Client
-	scheduler     *scheduler.SchedulerService
 	policyService service.Policy
 	authService   *service.AuthService
 	syncer        syncer.PolicySyncer
@@ -64,10 +59,9 @@ func NewServer(
 	jwtSecret string,
 ) *Server {
 
-	var schedulerService *scheduler.SchedulerService
 	var syncerService syncer.PolicySyncer
 	var err error
-	policyService, err := service.NewPolicyService(db, syncerService, schedulerService, logrus.WithField("service", "policy").Logger)
+	policyService, err := service.NewPolicyService(db, syncerService, logrus.WithField("service", "policy").Logger)
 	if err != nil {
 		logrus.Fatalf("Failed to initialize policy service: %v", err)
 	}
@@ -82,7 +76,6 @@ func NewServer(
 		sdClient:      sdClient,
 		vaultStorage:  vaultStorage,
 		db:            db,
-		scheduler:     schedulerService,
 		logger:        logrus.WithField("service", "verifier-server").Logger,
 		syncer:        syncerService,
 		policyService: policyService,
@@ -409,18 +402,6 @@ func (s *Server) ExistVault(c echo.Context) error {
 		return c.NoContent(http.StatusBadRequest)
 	}
 	return c.NoContent(http.StatusOK)
-}
-
-func (s *Server) createVerificationCode(ctx context.Context, publicKeyECDSA string) (string, error) {
-	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
-	code := rnd.Intn(9000) + 1000
-	verificationCode := strconv.Itoa(code)
-	key := fmt.Sprintf("verification_code_%s", publicKeyECDSA)
-	// verification code will be valid for 1 hour
-	if err := s.redis.Set(context.Background(), key, verificationCode, time.Hour); err != nil {
-		return "", fmt.Errorf("failed to set cache: %w", err)
-	}
-	return verificationCode, nil
 }
 
 // TODO: Make those handlers require jwt auth

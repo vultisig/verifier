@@ -23,8 +23,11 @@ go.work.sum
 
 # env file
 .env
+.envrc
 
 ./IMPLEMENTATION_PLAN.md
 .idea
 cmd/verifier
 cmd/worker
+
+.devenv/

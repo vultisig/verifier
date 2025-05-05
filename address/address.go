@@ -8,42 +8,61 @@ import (
 	"github.com/vultisig/verifier/common"
 )
 
-// GetAddress returns the address for the given public key and chain.
-func GetAddress(rootHexPublicKey string, rootChainCode string, chain common.Chain) (string, error) {
-	hexPublicKey, err := tss.GetDerivedPubKey(rootHexPublicKey, rootChainCode, chain.GetDerivePath(), chain.IsEdDSA())
-	if err != nil {
-		return "", fmt.Errorf("failed to derive public key: %w", err)
+// GetAddress returns the address, public key, isEdDSA, and error for the given public key and chain.
+func GetAddress(rootHexPublicKey string, rootChainCode string, chain common.Chain) (address string, publicKey string, isEdDSA bool, err error) {
+	if !chain.IsEdDSA() {
+		publicKey, err = tss.GetDerivedPubKey(rootHexPublicKey, rootChainCode, chain.GetDerivePath(), chain.IsEdDSA())
+		if err != nil {
+			return "", "", false, fmt.Errorf("failed to derive public key: %w", err)
+		}
+	} else {
+		publicKey = rootHexPublicKey
 	}
+
 	switch chain {
 	case common.Bitcoin:
-		return GetBitcoinAddress(hexPublicKey)
+		address, err = GetBitcoinAddress(publicKey)
+		return address, publicKey, chain.IsEdDSA(), err
 	case common.BitcoinCash:
-		return GetBitcoinCashAddress(hexPublicKey)
+		address, err = GetBitcoinCashAddress(publicKey)
+		return address, publicKey, chain.IsEdDSA(), err
 	case common.Litecoin:
-		return GetLitecoinAddress(hexPublicKey)
+		address, err = GetLitecoinAddress(publicKey)
+		return address, publicKey, chain.IsEdDSA(), err
 	case common.GaiaChain:
-		return GetBech32Address(hexPublicKey, `cosmos`)
+		address, err = GetBech32Address(publicKey, `cosmos`)
+		return address, publicKey, chain.IsEdDSA(), err
 	case common.THORChain:
-		return GetBech32Address(hexPublicKey, `thor`)
+		address, err = GetBech32Address(publicKey, `thor`)
+		return address, publicKey, chain.IsEdDSA(), err
 	case common.MayaChain:
-		return GetBech32Address(hexPublicKey, `maya`)
+		address, err = GetBech32Address(publicKey, `maya`)
+		return address, publicKey, chain.IsEdDSA(), err
 	case common.Kujira:
-		return GetBech32Address(hexPublicKey, `kujira`)
+		address, err = GetBech32Address(publicKey, `kujira`)
+		return address, publicKey, chain.IsEdDSA(), err
 	case common.Dydx:
-		return GetBech32Address(hexPublicKey, `dydx`)
+		address, err = GetBech32Address(publicKey, `dydx`)
+		return address, publicKey, chain.IsEdDSA(), err
 	case common.TerraClassic, common.Terra:
-		return GetBech32Address(hexPublicKey, `terra`)
+		address, err = GetBech32Address(publicKey, `terra`)
+		return address, publicKey, chain.IsEdDSA(), err
 	case common.Osmosis:
-		return GetBech32Address(hexPublicKey, `osmosis`)
+		address, err = GetBech32Address(publicKey, `osmosis`)
+		return address, publicKey, chain.IsEdDSA(), err
 	case common.Noble:
-		return GetBech32Address(hexPublicKey, `noble`)
+		address, err = GetBech32Address(publicKey, `noble`)
+		return address, publicKey, chain.IsEdDSA(), err
 	case common.Arbitrum, common.Base, common.BscChain, common.Ethereum, common.Polygon, common.Blast, common.Avalanche, common.Optimism, common.CronosChain, common.Zksync:
-		return GetEVMAddress(hexPublicKey)
+		address, err = GetEVMAddress(publicKey)
+		return address, publicKey, chain.IsEdDSA(), err
 	case common.Sui:
-		return GetSuiAddress(hexPublicKey)
+		address, err = GetSuiAddress(publicKey)
+		return address, publicKey, chain.IsEdDSA(), err
 	case common.Solana:
-		return GetSolAddress(hexPublicKey)
+		address, err = GetSolAddress(publicKey)
+		return address, publicKey, chain.IsEdDSA(), err
 	default:
-		return "", fmt.Errorf("unsupported chain: %s", chain)
+		return "", "", false, fmt.Errorf("unsupported chain: %s", chain)
 	}
 }

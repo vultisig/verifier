@@ -10,5 +10,5 @@ func GetDotAddress(hexPublicKey string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("invalid derived EdDSA public key: %w", err)
 	}
-	return SS58Encode(pubKeyBytes, 0), nil
+	return SS58Encode(pubKeyBytes, 0)
 }

@@ -14,7 +14,7 @@ func GetEVMAddress(hexPublicKey string) (string, error) {
 	}
 	pubKey, err := crypto.DecompressPubkey(pubKeyBytes)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to decompress public key: %w", err)
 	}
 	return crypto.PubkeyToAddress(*pubKey).Hex(), nil
 }

@@ -10,6 +10,10 @@ import (
 
 // GetAddress returns the address, public key, isEdDSA, and error for the given public key and chain.
 func GetAddress(rootHexPublicKey string, rootChainCode string, chain common.Chain) (address string, publicKey string, isEdDSA bool, err error) {
+	if len(rootHexPublicKey) != 66 && len(rootHexPublicKey) != 64 {
+		return "", "", false, fmt.Errorf("invalid public key: %s", rootHexPublicKey)
+	}
+
 	if !chain.IsEdDSA() {
 		publicKey, err = tss.GetDerivedPubKey(rootHexPublicKey, rootChainCode, chain.GetDerivePath(), chain.IsEdDSA())
 		if err != nil {

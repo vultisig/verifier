@@ -1,6 +1,7 @@
 package address
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,7 +11,7 @@ import (
 )
 
 func TestGetAddress(t *testing.T) {
-	tests := []struct {
+	successTests := []struct {
 		name     string
 		chain    common.Chain
 		want     string
@@ -39,7 +40,24 @@ func TestGetAddress(t *testing.T) {
 			isEdDSA:  true,
 		},
 	}
-	for _, tt := range tests {
+
+	failureTests := []struct {
+		name     string
+		chain    common.Chain
+		wantErr  error
+		inputKey string
+		isEdDSA  bool
+	}{
+		{
+			name:     "Invalid root hex public key",
+			chain:    common.Sui,
+			wantErr:  fmt.Errorf("invalid public key: "),
+			inputKey: "",
+			isEdDSA:  false,
+		},
+	}
+
+	for _, tt := range successTests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, gotPublicKey, gotIsEdDSA, err := GetAddress(tt.inputKey, testHexChainCode, tt.chain)
 			if err != nil {
@@ -55,8 +73,22 @@ func TestGetAddress(t *testing.T) {
 					t.FailNow()
 				}
 				assert.Equal(t, expectedPublicKey, gotPublicKey)
+			} else {
+				assert.Equal(t, tt.inputKey, gotPublicKey)
 			}
+
 			assert.Equal(t, tt.isEdDSA, gotIsEdDSA)
+		})
+	}
+
+	for _, tt := range failureTests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, _, err := GetAddress(tt.inputKey, testHexChainCode, tt.chain)
+			if err == nil {
+				t.Errorf("expected error: %v", tt.wantErr)
+				t.FailNow()
+			}
+			assert.Equal(t, tt.wantErr, err)
 		})
 	}
 }

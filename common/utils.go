@@ -24,20 +24,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// TODO: remove once the plugin installation is implemented (resharding)
 const (
-	PluginPartyID   = "Rado’s MacBook Pro-FD0"
-	VerifierPartyID = "Server-58253"
-)
-
-const (
-	vaultBackupSuffix = ".bak.vult"
-)
-
-var (
-	DerivePathMap = map[string]string{
-		"1": "m/44'/60'/0'/0/0", // ethereum
-	}
+	vaultBackupSuffix = ".vult"
 )
 
 func CompressData(data []byte) ([]byte, error) {

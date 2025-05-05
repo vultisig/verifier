@@ -34,7 +34,7 @@ func TestGetXRPAddress(t *testing.T) {
 				t.FailNow()
 			}
 			t.Logf("Got: %s", got)
-			assert.Equal(t, got, tt.want)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

@@ -36,5 +36,4 @@ func TestGetBitcoinAddress(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
-	}
 }

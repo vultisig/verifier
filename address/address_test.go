@@ -32,7 +32,7 @@ func TestGetAddress(t *testing.T) {
 				t.Error(err)
 				t.FailNow()
 			}
-			assert.Equal(t, got, tt.want)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

@@ -6,7 +6,7 @@ import (
 
 	"github.com/vultisig/verifier/internal/service"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -69,8 +69,8 @@ func TestValidateToken(t *testing.T) {
 			setupToken: func() string {
 				// Create a token that's already expired
 				claims := &service.Claims{
-					StandardClaims: jwt.StandardClaims{
-						ExpiresAt: time.Now().Add(-1 * time.Hour).Unix(),
+					RegisteredClaims: jwt.RegisteredClaims{
+						ExpiresAt: jwt.NewNumericDate(time.Now().Add(-1 * time.Hour)),
 					},
 				}
 				token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -84,8 +84,8 @@ func TestValidateToken(t *testing.T) {
 			name: "Invalid signing method",
 			setupToken: func() string {
 				claims := &service.Claims{
-					StandardClaims: jwt.StandardClaims{
-						ExpiresAt: time.Now().Add(24 * time.Hour).Unix(),
+					RegisteredClaims: jwt.RegisteredClaims{
+						ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 					},
 				}
 				token := jwt.NewWithClaims(jwt.SigningMethodNone, claims)
@@ -128,7 +128,7 @@ func TestValidateToken(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, claims)
-				assert.True(t, claims.ExpiresAt > time.Now().Unix())
+				assert.True(t, claims.ExpiresAt.After(time.Now()))
 			}
 		})
 	}
@@ -156,8 +156,8 @@ func TestRefreshToken(t *testing.T) {
 			name: "Expired token refresh",
 			setupToken: func() string {
 				claims := &service.Claims{
-					StandardClaims: jwt.StandardClaims{
-						ExpiresAt: time.Now().Add(-1 * time.Hour).Unix(),
+					RegisteredClaims: jwt.RegisteredClaims{
+						ExpiresAt: jwt.NewNumericDate(time.Now().Add(-1 * time.Hour)),
 					},
 				}
 				token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

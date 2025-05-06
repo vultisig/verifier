@@ -14,16 +14,19 @@ func TestGenerateToken(t *testing.T) {
 	testCases := []struct {
 		name        string
 		secret      string
+		publicKey   string
 		shouldError bool
 	}{
 		{
 			name:        "Valid secret",
 			secret:      "secret-key-for-testing",
+			publicKey:   "0x1234567890abcdef",
 			shouldError: false,
 		},
 		{
 			name:        "Empty secret",
 			secret:      "",
+			publicKey:   "0x1234567890abcdef",
 			shouldError: false,
 		},
 	}
@@ -31,7 +34,7 @@ func TestGenerateToken(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			authService := service.NewAuthService(tc.secret)
-			token, err := authService.GenerateToken()
+			token, err := authService.GenerateToken(tc.publicKey)
 
 			if tc.shouldError {
 				assert.Error(t, err)
@@ -47,6 +50,7 @@ func TestGenerateToken(t *testing.T) {
 func TestValidateToken(t *testing.T) {
 	secret := "test-secret-key"
 	wrongSecret := "wrong-secret-key"
+	testPublicKey := "0x1234567890abcdef"
 
 	testCases := []struct {
 		name        string
@@ -58,7 +62,7 @@ func TestValidateToken(t *testing.T) {
 			name: "Valid token",
 			setupToken: func() string {
 				auth := service.NewAuthService(secret)
-				token, _ := auth.GenerateToken()
+				token, _ := auth.GenerateToken(testPublicKey)
 				return token
 			},
 			secret:      secret,
@@ -99,7 +103,7 @@ func TestValidateToken(t *testing.T) {
 			name: "Wrong secret",
 			setupToken: func() string {
 				auth := service.NewAuthService(secret)
-				token, _ := auth.GenerateToken()
+				token, _ := auth.GenerateToken(testPublicKey)
 				return token
 			},
 			secret:      wrongSecret,
@@ -136,6 +140,7 @@ func TestValidateToken(t *testing.T) {
 
 func TestRefreshToken(t *testing.T) {
 	secret := "refresh-test-secret"
+	testPublicKey := "0x1234567890abcdef"
 
 	testCases := []struct {
 		name        string
@@ -146,7 +151,7 @@ func TestRefreshToken(t *testing.T) {
 			name: "Valid token refresh",
 			setupToken: func() string {
 				auth := service.NewAuthService(secret)
-				token, _ := auth.GenerateToken()
+				token, _ := auth.GenerateToken(testPublicKey)
 				time.Sleep(1 * time.Second)
 				return token
 			},

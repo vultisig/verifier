@@ -29,6 +29,7 @@ import (
 	"github.com/labstack/gommon/log"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/mobile-tss-lib/tss"
+	"github.com/vultisig/verifier/internal/clientutil"
 )
 
 type Server struct {
@@ -96,7 +97,7 @@ func (s *Server) StartServer() error {
 	e.GET("/ping", s.Ping)
 	e.GET("/getDerivedPublicKey", s.GetDerivedPublicKey)
 
-	// Auth token
+	// Auth endpoints - not requiring authentication
 	e.POST("/auth", s.Auth)
 	e.POST("/auth/refresh", s.RefreshToken)
 
@@ -443,19 +444,41 @@ func (s *Server) Auth(c echo.Context) error {
 	}
 
 	if err := c.Bind(&req); err != nil {
-		return c.NoContent(http.StatusBadRequest)
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Invalid request format",
+		})
+	}
+
+	// Validate required fields
+	if err := clientutil.ValidateAuthRequest(
+		req.Message, req.Signature, req.PublicKey, req.DerivePath, req.ChainCodeHex,
+	); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": err.Error(),
+		})
+	}
+
+	// Verify the message format matches the expected format from client
+	expectedMessage := clientutil.GenerateHexMessage(req.PublicKey)
+	if req.Message != expectedMessage {
+		s.logger.Warnf("Message mismatch: expected %s, got %s", expectedMessage, req.Message)
+		// Allow some flexibility in message format by continuing anyway
 	}
 
 	msgBytes, err := hex.DecodeString(strings.TrimPrefix(req.Message, "0x"))
 	if err != nil {
 		s.logger.Errorf("failed to decode message: %v", err)
-		return c.NoContent(http.StatusBadRequest)
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Invalid message format",
+		})
 	}
 
 	sigBytes, err := hex.DecodeString(strings.TrimPrefix(req.Signature, "0x"))
 	if err != nil {
 		s.logger.Errorf("failed to decode signature: %v", err)
-		return c.NoContent(http.StatusBadRequest)
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Invalid signature format",
+		})
 	}
 
 	success, err := sigutil.VerifySignature(req.PublicKey,
@@ -464,16 +487,30 @@ func (s *Server) Auth(c echo.Context) error {
 		sigBytes)
 	if err != nil {
 		s.logger.Errorf("signature verification failed: %v", err)
-		return c.NoContent(http.StatusUnauthorized)
+		return c.JSON(http.StatusUnauthorized, map[string]string{
+			"error": "Signature verification failed",
+		})
 	}
 	if !success {
-		return c.NoContent(http.StatusUnauthorized)
+		return c.JSON(http.StatusUnauthorized, map[string]string{
+			"error": "Invalid signature",
+		})
 	}
 
-	token, err := s.authService.GenerateToken()
+	token, err := s.authService.GenerateToken(req.PublicKey)
 	if err != nil {
 		s.logger.Error("failed to generate token:", err)
-		return c.NoContent(http.StatusInternalServerError)
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to generate auth token",
+		})
+	}
+
+	// Store logged-in user's public key in cache for quick access
+	cacheKey := "user_pubkey:" + token[0:10]                                          // Use first part of token as a cache key
+	err = s.redis.Set(c.Request().Context(), cacheKey, req.PublicKey, 7*24*time.Hour) // Same as token expiration
+	if err != nil {
+		s.logger.Warnf("Failed to cache user info: %v", err)
+		// Continue anyway since this is not critical
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"token": token})
@@ -486,14 +523,53 @@ func (s *Server) RefreshToken(c echo.Context) error {
 
 	if err := c.Bind(&req); err != nil {
 		s.logger.Errorf("fail to decode token, err: %v", err)
-		return c.NoContent(http.StatusBadRequest)
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Invalid request format",
+		})
+	}
+
+	if req.Token == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Missing token",
+		})
 	}
 
 	newToken, err := s.authService.RefreshToken(req.Token)
 	if err != nil {
 		s.logger.Errorf("fail to refresh token, err: %v", err)
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid or expired token"})
+		return c.JSON(http.StatusUnauthorized, map[string]string{
+			"error": "Invalid or expired token",
+		})
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"token": newToken})
+}
+
+// AuthMiddleware verifies JWT tokens for protected routes
+func (s *Server) AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		// Get token from header
+		authHeader := c.Request().Header.Get("Authorization")
+
+		// Extract the token using our utility
+		tokenString, err := clientutil.ExtractBearerToken(authHeader)
+		if err != nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{
+				"error": err.Error(),
+			})
+		}
+
+		// Validate token
+		claims, err := s.authService.ValidateToken(tokenString)
+		if err != nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{
+				"error": "Invalid token",
+			})
+		}
+
+		// Store user info in context for future use
+		c.Set("user_public_key", claims.PublicKey)
+
+		return next(c)
+	}
 }

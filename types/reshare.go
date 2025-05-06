@@ -52,5 +52,8 @@ func (req *ReshareRequest) IsValid() error {
 	if len(req.OldParties) == 0 {
 		return fmt.Errorf("old_parties is required")
 	}
+	if req.LibType == GG20 {
+		return fmt.Errorf("plugin does not support GG20 reshare")
+	}
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/vultisig/mobile-tss-lib/tss"
+
 	"github.com/vultisig/verifier/types"
 )
 

@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	itypes "github.com/vultisig/verifier/internal/types"
-	types "github.com/vultisig/verifier/types"
+	"github.com/vultisig/verifier/types"
 )
 
 type DatabaseStorage interface {
@@ -26,15 +26,6 @@ type DatabaseStorage interface {
 	FindPricingById(ctx context.Context, id string) (*itypes.Pricing, error)
 	CreatePricing(ctx context.Context, pricingDto itypes.PricingCreateDto) (*itypes.Pricing, error)
 	DeletePricingById(ctx context.Context, id string) error
-
-	CreateTimeTriggerTx(ctx context.Context, dbTx pgx.Tx, trigger itypes.TimeTrigger) error
-	GetPendingTimeTriggers(ctx context.Context) ([]itypes.TimeTrigger, error)
-	UpdateTimeTriggerLastExecution(ctx context.Context, policyID string) error
-	UpdateTimeTriggerTx(ctx context.Context, policyID string, trigger itypes.TimeTrigger, dbTx pgx.Tx) error
-
-	DeleteTimeTrigger(ctx context.Context, policyID string) error
-	UpdateTriggerStatus(ctx context.Context, policyID string, status itypes.TimeTriggerStatus) error
-	GetTriggerStatus(ctx context.Context, policyID string) (itypes.TimeTriggerStatus, error)
 
 	CountTransactions(ctx context.Context, policyID uuid.UUID, status itypes.TransactionStatus, txType string) (int64, error)
 	CreateTransactionHistoryTx(ctx context.Context, dbTx pgx.Tx, tx itypes.TransactionHistory) (uuid.UUID, error)

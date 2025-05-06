@@ -475,7 +475,11 @@ func (s *Server) Auth(c echo.Context) error {
 		return c.NoContent(http.StatusBadRequest)
 	}
 
-	success, err := sigutil.VerifySignature(req.PublicKey, req.ChainCodeHex, req.DerivePath, msgBytes, sigBytes)
+	success, err := sigutil.VerifySignature(req.PublicKey,
+		req.ChainCodeHex,
+		req.DerivePath,
+		msgBytes,
+		sigBytes)
 	if err != nil {
 		s.logger.Errorf("signature verification failed: %v", err)
 		return c.NoContent(http.StatusUnauthorized)

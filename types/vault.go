@@ -61,6 +61,9 @@ func (req *VaultCreateRequest) IsValid() error {
 	if req.Email == "" {
 		return fmt.Errorf("email is required")
 	}
+	if req.LibType == GG20 {
+		return fmt.Errorf("plugindoes not support GG20 vault creation")
+	}
 	return nil
 }
 

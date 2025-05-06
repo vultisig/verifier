@@ -29,7 +29,6 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
 	"github.com/sirupsen/logrus"
-	keygen "github.com/vultisig/commondata/go/vultisig/keygen/v1"
 	"github.com/vultisig/mobile-tss-lib/tss"
 )
 
@@ -195,13 +194,7 @@ func (s *Server) CreateVault(c echo.Context) error {
 	if err := s.redis.Set(c.Request().Context(), req.SessionID, req.SessionID, 5*time.Minute); err != nil {
 		s.logger.Errorf("fail to set session, err: %v", err)
 	}
-	var typeName = ""
-	if req.LibType == types2.GG20 {
-		typeName = tasks.TypeKeyGeneration
-	} else {
-		typeName = tasks.TypeKeyGenerationDKLS
-	}
-	_, err = s.client.Enqueue(asynq.NewTask(typeName, buf),
+	_, err = s.client.Enqueue(asynq.NewTask(tasks.TypeKeyGenerationDKLS, buf),
 		asynq.MaxRetry(-1),
 		asynq.Timeout(7*time.Minute),
 		asynq.Retention(10*time.Minute),
@@ -233,13 +226,8 @@ func (s *Server) ReshareVault(c echo.Context) error {
 	if err := s.redis.Set(c.Request().Context(), req.SessionID, req.SessionID, 5*time.Minute); err != nil {
 		s.logger.Errorf("fail to set session, err: %v", err)
 	}
-	var typeName = ""
-	if req.LibType == types2.GG20 {
-		typeName = tasks.TypeReshare
-	} else {
-		typeName = tasks.TypeReshareDKLS
-	}
-	_, err = s.client.Enqueue(asynq.NewTask(typeName, buf),
+
+	_, err = s.client.Enqueue(asynq.NewTask(tasks.TypeReshareDKLS, buf),
 		asynq.MaxRetry(-1),
 		asynq.Timeout(7*time.Minute),
 		asynq.Retention(10*time.Minute),
@@ -332,8 +320,7 @@ func (s *Server) SignMessages(c echo.Context) error {
 		s.logger.Error(wrappedErr)
 		return wrappedErr
 	}
-
-	v, err := common.DecryptVaultFromBackup(req.VaultPassword, content)
+	_, err = common.DecryptVaultFromBackup(req.VaultPassword, content)
 	if err != nil {
 		return fmt.Errorf("fail to decrypt vault from the backup, err: %w", err)
 	}
@@ -341,14 +328,9 @@ func (s *Server) SignMessages(c echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("fail to marshal to json, err: %w", err)
 	}
-	var typeName = ""
-	if v.LibType == keygen.LibType_LIB_TYPE_GG20 {
-		typeName = tasks.TypeKeySign
-	} else {
-		typeName = tasks.TypeKeySignDKLS
-	}
+
 	ti, err := s.client.EnqueueContext(c.Request().Context(),
-		asynq.NewTask(typeName, buf),
+		asynq.NewTask(tasks.TypeKeySignDKLS, buf),
 		asynq.MaxRetry(-1),
 		asynq.Timeout(2*time.Minute),
 		asynq.Retention(5*time.Minute),

@@ -4,11 +4,11 @@ import (
 	"errors"
 	"time"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type Claims struct {
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 const (
@@ -28,10 +28,11 @@ func NewAuthService(secret string) *AuthService {
 
 // GenerateToken creates a new JWT token
 func (a *AuthService) GenerateToken() (string, error) {
-	expirationTime := time.Now().Add(expireDuration).Unix()
+	expirationTime := time.Now().Add(expireDuration)
 	claims := &Claims{
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: expirationTime,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

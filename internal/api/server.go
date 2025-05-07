@@ -113,6 +113,14 @@ func (s *Server) StartServer() error {
 	grp.POST("/sign", s.SignMessages)                     // Sign messages
 	grp.GET("/sign/response/:taskId", s.GetKeysignResult) // Get keysign result
 
+	pluginGroup := e.Group("/plugin", s.userAuthMiddleware)
+	pluginGroup.POST("/policy", s.CreatePluginPolicy)
+	pluginGroup.PUT("/policy", s.UpdatePluginPolicyById)
+	pluginGroup.GET("/policy", s.GetAllPluginPolicies)
+	pluginGroup.GET("/policy/schema", s.GetPolicySchema)
+	pluginGroup.GET("/policy/:policyId", s.GetPluginPolicyById)
+	pluginGroup.DELETE("/policy/:policyId", s.DeletePluginPolicyById)
+
 	// if s.mode == "verifier" {
 	// 	e.POST("/login", s.UserLogin)
 	// 	e.GET("/users/me", s.GetLoggedUser, s.userAuthMiddleware)
@@ -123,15 +131,13 @@ func (s *Server) StartServer() error {
 	// 	pluginsGroup.POST("", s.CreatePlugin, s.userAuthMiddleware)
 	// 	pluginsGroup.PATCH("/:pluginId", s.UpdatePlugin, s.userAuthMiddleware)
 	// 	pluginsGroup.DELETE("/:pluginId", s.DeletePlugin, s.userAuthMiddleware)
-	//
-	// 	pricingsGroup := e.Group("/pricings")
-	// 	pricingsGroup.GET("/:pricingId", s.GetPricing)
-	// 	pricingsGroup.POST("", s.CreatePricing, s.userAuthMiddleware)
-	// 	pricingsGroup.DELETE("/:pricingId", s.DeletePricing, s.userAuthMiddleware)
 	// }
 
-	syncGroup := e.Group("/sync")
-	// syncGroup.Use(s.AuthMiddleware)
+	pricingsGroup := e.Group("/pricing")
+	pricingsGroup.GET("/:pricingId", s.GetPricing)
+	pricingsGroup.POST("", s.CreatePricing, s.userAuthMiddleware)
+	pricingsGroup.DELETE("/:pricingId", s.DeletePricing, s.userAuthMiddleware)
+	syncGroup := e.Group("/sync", s.userAuthMiddleware)
 	syncGroup.POST("/transaction", s.CreateTransaction)
 	syncGroup.PUT("/transaction", s.UpdateTransaction)
 

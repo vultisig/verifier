@@ -11,7 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	itypes "github.com/vultisig/verifier/internal/types"
-	types "github.com/vultisig/verifier/types"
+	"github.com/vultisig/verifier/types"
 )
 
 const (
@@ -22,6 +22,7 @@ const (
 	// Retry configuration
 	maxRetries     = 3
 	initialBackoff = 100 * time.Millisecond
+	QUEUE_NAME     = "policy-syncer"
 )
 
 type Action int
@@ -44,13 +45,12 @@ type Syncer struct {
 	serverAddr string
 }
 
-func NewPolicySyncer(logger *logrus.Logger, serverHost string, serverPort int64) PolicySyncer {
+func NewPolicySyncer() PolicySyncer {
 	return &Syncer{
-		logger: logger,
+		logger: logrus.WithField("component", "policy-syncer").Logger,
 		client: &http.Client{
 			Timeout: defaultTimeout,
 		},
-		serverAddr: fmt.Sprintf("http://%s:%d", serverHost, serverPort),
 	}
 }
 
@@ -95,7 +95,11 @@ func (s *Syncer) CreatePolicySync(policy types.PluginPolicy) error {
 		return nil
 	})
 }
-
+func (s *Syncer) closer(c io.Closer) {
+	if err := c.Close(); err != nil {
+		s.logger.Errorf("failed to close io.Closer: %w", err)
+	}
+}
 func (s *Syncer) UpdatePolicySync(policy types.PluginPolicy) error {
 	s.logger.WithFields(logrus.Fields{
 		"policy_id":   policy.ID,

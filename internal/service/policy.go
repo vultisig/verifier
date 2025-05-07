@@ -15,13 +15,15 @@ import (
 )
 
 type Policy interface {
-	CreatePolicyWithSync(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
-	UpdatePolicyWithSync(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
-	DeletePolicyWithSync(ctx context.Context, policyID, signature string) error
+	CreatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
+	UpdatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
+	DeletePolicy(ctx context.Context, policyID, signature string) error
 	GetPluginPolicies(ctx context.Context, pluginType, publicKey string) ([]types.PluginPolicy, error)
 	GetPluginPolicy(ctx context.Context, policyID string) (types.PluginPolicy, error)
 	GetPluginPolicyTransactionHistory(ctx context.Context, policyID string) ([]itypes.TransactionHistory, error)
 }
+
+var _ Policy = (*PolicyService)(nil)
 
 type PolicyService struct {
 	db     storage.DatabaseStorage
@@ -29,7 +31,9 @@ type PolicyService struct {
 	logger *logrus.Logger
 }
 
-func NewPolicyService(db storage.DatabaseStorage, syncer syncer.PolicySyncer, logger *logrus.Logger) (*PolicyService, error) {
+func NewPolicyService(db storage.DatabaseStorage,
+	syncer syncer.PolicySyncer,
+	logger *logrus.Logger) (*PolicyService, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database storage cannot be nil")
 	}
@@ -40,7 +44,7 @@ func NewPolicyService(db storage.DatabaseStorage, syncer syncer.PolicySyncer, lo
 	}, nil
 }
 
-func (s *PolicyService) CreatePolicyWithSync(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error) {
+func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error) {
 	// Start transaction
 	tx, err := s.db.Pool().Begin(ctx)
 	if err != nil {
@@ -69,7 +73,7 @@ func (s *PolicyService) CreatePolicyWithSync(ctx context.Context, policy types.P
 	return newPolicy, nil
 }
 
-func (s *PolicyService) UpdatePolicyWithSync(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error) {
+func (s *PolicyService) UpdatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error) {
 	// start transaction
 	tx, err := s.db.Pool().Begin(ctx)
 	if err != nil {
@@ -100,8 +104,7 @@ func (s *PolicyService) handleRollback(tx pgx.Tx, ctx context.Context) {
 		s.logger.WithError(err).Error("failed to rollback transaction")
 	}
 }
-func (s *PolicyService) DeletePolicyWithSync(ctx context.Context, policyID, signature string) error {
-
+func (s *PolicyService) DeletePolicy(ctx context.Context, policyID, signature string) error {
 	tx, err := s.db.Pool().Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)

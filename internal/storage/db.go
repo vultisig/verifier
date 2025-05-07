@@ -36,9 +36,9 @@ type DatabaseStorage interface {
 	GetTransactionByHash(ctx context.Context, txHash string) (*itypes.TransactionHistory, error)
 
 	FindPlugins(ctx context.Context, take int, skip int, sort string) (itypes.PlugisDto, error)
-	FindPluginById(ctx context.Context, id string) (*itypes.Plugin, error)
+	FindPluginById(ctx context.Context, id uuid.UUID) (*itypes.Plugin, error)
 	CreatePlugin(ctx context.Context, pluginDto itypes.PluginCreateDto) (*itypes.Plugin, error)
-	UpdatePlugin(ctx context.Context, id string, updates itypes.PluginUpdateDto) (*itypes.Plugin, error)
+	UpdatePlugin(ctx context.Context, id uuid.UUID, updates itypes.PluginUpdateDto) (*itypes.Plugin, error)
 	DeletePluginById(ctx context.Context, id uuid.UUID) error
 
 	AddPluginPolicySync(ctx context.Context, dbTx pgx.Tx, policy itypes.PluginPolicySync) error

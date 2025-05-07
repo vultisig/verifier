@@ -12,23 +12,13 @@ import (
 func (s *Server) GetPricing(c echo.Context) error {
 	pricingID := c.Param("pricingId")
 	if pricingID == "" {
-		err := fmt.Errorf("pricing id is required")
-		message := echo.Map{
-			"message": "failed to get pricing",
-			"error":   err.Error(),
-		}
-		s.logger.Error(err)
-
-		return c.JSON(http.StatusBadRequest, message)
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid pricing id"))
 	}
 
 	pricing, err := s.db.FindPricingById(c.Request().Context(), pricingID)
 	if err != nil {
-		message := echo.Map{
-			"message": "failed to get pricing",
-		}
-		s.logger.Error(err)
-		return c.JSON(http.StatusInternalServerError, message)
+		s.logger.Errorf("error finding pricing %s: %v", pricingID, err)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get pricing"))
 	}
 
 	return c.JSON(http.StatusOK, pricing)
@@ -41,18 +31,14 @@ func (s *Server) CreatePricing(c echo.Context) error {
 	}
 
 	if err := c.Validate(&pricing); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"message": err.Error(),
-		})
+		s.logger.Errorf("failed to validate pricing: %v", err)
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid pricing data"))
 	}
 
 	created, err := s.db.CreatePricing(c.Request().Context(), pricing)
 	if err != nil {
-		message := echo.Map{
-			"message": "failed to create pricing",
-		}
-		s.logger.Error(err)
-		return c.JSON(http.StatusInternalServerError, message)
+		s.logger.Errorf("failed to create pricing: %v", err)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to create pricing"))
 	}
 
 	return c.JSON(http.StatusOK, created)
@@ -61,21 +47,13 @@ func (s *Server) CreatePricing(c echo.Context) error {
 func (s *Server) DeletePricing(c echo.Context) error {
 	pricingID := c.Param("pricingId")
 	if pricingID == "" {
-		message := echo.Map{
-			"message": "failed to delete pricing",
-			"error":   "pricing id is required",
-		}
-		return c.JSON(http.StatusBadRequest, message)
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid pricing id"))
 	}
 
 	err := s.db.DeletePricingById(c.Request().Context(), pricingID)
 	if err != nil {
-		message := echo.Map{
-			"message": "failed to delete pricing",
-			"error":   err.Error(),
-		}
-		s.logger.Error(err)
-		return c.JSON(http.StatusInternalServerError, message)
+		s.logger.Errorf("error deleting pricing %s: %s", pricingID, err)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to delete pricing"))
 	}
 
 	return c.NoContent(http.StatusNoContent)

@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/types"
 )
 
-func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id string) (types.PluginPolicy, error) {
+func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (types.PluginPolicy, error) {
 	if p.pool == nil {
 		return types.PluginPolicy{}, fmt.Errorf("database pool is nil")
 	}
@@ -185,7 +187,7 @@ func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 	return &updatedPolicy, nil
 }
 
-func (p *PostgresBackend) DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id string) error {
+func (p *PostgresBackend) DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id uuid.UUID) error {
 	_, err := dbTx.Exec(ctx, `
 	DELETE FROM transaction_history
 	WHERE policy_id = $1
@@ -208,5 +210,80 @@ func (p *PostgresBackend) DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		return fmt.Errorf("failed to delete policy: %w", err)
 	}
 
+	return nil
+}
+
+func (p *PostgresBackend) AddPluginPolicySync(ctx context.Context, dbTx pgx.Tx, policy itypes.PluginPolicySync) error {
+	qry := `INSERT INTO plugin_policy_sync (id,policy_id,sync_type, status, reason) values ($1, $2, $3, $4,$5)`
+	_, err := dbTx.Exec(ctx, qry,
+		policy.ID,
+		policy.PolicyID,
+		policy.SyncType,
+		policy.Status,
+		policy.FailReason)
+	if err != nil {
+		return fmt.Errorf("failed to insert plugin policy sync: %w", err)
+	}
+	return nil
+}
+
+func (p *PostgresBackend) GetPluginPolicySync(ctx context.Context, id uuid.UUID) (*itypes.PluginPolicySync, error) {
+	qry := `SELECT id, policy_id, sync_type,status, reason FROM plugin_policy_sync WHERE id = $1`
+	var policy itypes.PluginPolicySync
+	err := p.pool.QueryRow(ctx, qry, id).Scan(
+		&policy.ID,
+		&policy.PolicyID,
+		&policy.SyncType,
+		&policy.Status,
+		&policy.FailReason)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get plugin policy sync: %w", err)
+	}
+	return &policy, nil
+}
+
+func (p *PostgresBackend) DeletePluginPolicySync(ctx context.Context, id uuid.UUID) error {
+	qry := `DELETE FROM plugin_policy_sync WHERE id = $1`
+	_, err := p.pool.Exec(ctx, qry, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete plugin policy sync: %w", err)
+	}
+	return nil
+}
+
+func (p *PostgresBackend) GetUnFinishedPluginPolicySyncs(ctx context.Context) ([]itypes.PluginPolicySync, error) {
+	qry := `SELECT id, policy_id,sync_type, status, reason FROM plugin_policy_sync WHERE status != $1`
+	rows, err := p.pool.Query(ctx, qry, itypes.Synced)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get unfinished plugin policy syncs: %w", err)
+	}
+	defer rows.Close()
+
+	var policies []itypes.PluginPolicySync
+	for rows.Next() {
+		var policy itypes.PluginPolicySync
+		err := rows.Scan(
+			&policy.ID,
+			&policy.PolicyID,
+			&policy.SyncType,
+			&policy.Status,
+			&policy.FailReason)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan plugin policy sync: %w", err)
+		}
+		policies = append(policies, policy)
+	}
+	return policies, nil
+}
+
+func (p *PostgresBackend) UpdatePluginPolicySync(ctx context.Context, dbTx pgx.Tx, policy itypes.PluginPolicySync) error {
+	qry := `UPDATE plugin_policy_sync SET status = $1, reason = $2 WHERE id = $3`
+	_, err := dbTx.Exec(ctx, qry,
+		policy.Status,
+		policy.FailReason,
+		policy.ID)
+	if err != nil {
+		return fmt.Errorf("failed to update plugin policy sync: %w", err)
+	}
 	return nil
 }

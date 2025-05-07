@@ -1,9 +1,13 @@
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/google/uuid"
+)
 
 type PluginPolicy struct {
-	ID            string          `json:"id" validate:"required"`
+	ID            uuid.UUID       `json:"id" validate:"required"`
 	PublicKey     string          `json:"public_key" validate:"required"`
 	IsEcdsa       bool            `json:"is_ecdsa" validate:"required"`
 	ChainCodeHex  string          `json:"chain_code_hex" validate:"required"`

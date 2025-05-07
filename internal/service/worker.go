@@ -130,10 +130,6 @@ func (s *WorkerService) upsertAndSyncTransaction(ctx context.Context, action syn
 		}
 	}
 
-	if err = s.syncer.SyncTransaction(action, jwtToken, *tx); err != nil {
-		return fmt.Errorf("failed to sync transaction: %w", err)
-	}
-
 	if err = dbTx.Commit(ctx); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}

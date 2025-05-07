@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/vultisig/verifier/common"
@@ -174,7 +175,7 @@ func (p *PostgresBackend) UpdatePlugin(ctx context.Context, id string, updates t
 	return p.FindPluginById(ctx, id)
 }
 
-func (p *PostgresBackend) DeletePluginById(ctx context.Context, id string) error {
+func (p *PostgresBackend) DeletePluginById(ctx context.Context, id uuid.UUID) error {
 	query := fmt.Sprintf(`DELETE FROM %s WHERE id = $1;`, PLUGINS_TABLE)
 
 	_, err := p.pool.Exec(ctx, query, id)

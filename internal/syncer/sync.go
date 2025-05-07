@@ -97,7 +97,7 @@ func (s *Syncer) CreatePolicySync(policy types.PluginPolicy) error {
 }
 func (s *Syncer) closer(c io.Closer) {
 	if err := c.Close(); err != nil {
-		s.logger.Errorf("failed to close io.Closer: %w", err)
+		s.logger.Errorf("failed to close io.Closer: %s", err)
 	}
 }
 func (s *Syncer) UpdatePolicySync(policy types.PluginPolicy) error {

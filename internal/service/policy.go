@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -131,7 +132,7 @@ func (s *PolicyService) UpdatePolicy(ctx context.Context, policy types.PluginPol
 }
 
 func (s *PolicyService) handleRollback(tx pgx.Tx, ctx context.Context) {
-	if err := tx.Rollback(ctx); err != nil {
+	if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 		s.logger.WithError(err).Error("failed to rollback transaction")
 	}
 }

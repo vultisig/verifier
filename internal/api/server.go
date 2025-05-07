@@ -60,7 +60,7 @@ func NewServer(
 
 	var syncerService syncer.PolicySyncer
 	var err error
-	policyService, err := service.NewPolicyService(db, syncerService, logrus.WithField("service", "policy").Logger)
+	policyService, err := service.NewPolicyService(db, client)
 	if err != nil {
 		logrus.Fatalf("Failed to initialize policy service: %v", err)
 	}
@@ -117,7 +117,6 @@ func (s *Server) StartServer() error {
 	pluginGroup.POST("/policy", s.CreatePluginPolicy)
 	pluginGroup.PUT("/policy", s.UpdatePluginPolicyById)
 	pluginGroup.GET("/policy", s.GetAllPluginPolicies)
-	pluginGroup.GET("/policy/schema", s.GetPolicySchema)
 	pluginGroup.GET("/policy/:policyId", s.GetPluginPolicyById)
 	pluginGroup.DELETE("/policy/:policyId", s.DeletePluginPolicyById)
 

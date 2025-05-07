@@ -3,10 +3,12 @@ package types
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type Plugin struct {
-	ID             string          `json:"id" validate:"required"`
+	ID             uuid.UUID       `json:"id" validate:"required"`
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
 	Type           string          `json:"type" validate:"required"`

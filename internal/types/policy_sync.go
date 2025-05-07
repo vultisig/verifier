@@ -1,6 +1,9 @@
 package types
 
+import "github.com/google/uuid"
+
 type PolicySyncStatus int
+type PolicySyncType int
 
 const (
 	NotSynced PolicySyncStatus = iota
@@ -8,8 +11,16 @@ const (
 	Failed    PolicySyncStatus = iota + 2
 )
 
+const (
+	AddPolicy PolicySyncType = iota
+	UpdatePolicy
+	RemovePolicy
+)
+
 type PluginPolicySync struct {
-	PolicyID   string           `json:"policy_id" validate:"required"`
+	ID         uuid.UUID        `json:"id" validate:"required"`
+	PolicyID   uuid.UUID        `json:"policy_id" validate:"required"`
+	SyncType   PolicySyncType   `json:"sync_type" validate:"required"`
 	Status     PolicySyncStatus `json:"status" validate:"required"`
 	FailReason string           `json:"fail_reason"` // when synced is false, this field contains the reason for the failure
 }

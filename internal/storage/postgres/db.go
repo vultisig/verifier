@@ -6,24 +6,27 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
-
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"github.com/sirupsen/logrus"
+
+	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/types"
 )
 
 //go:embed migrations/*
 var embeddedMigrations embed.FS
 
+var _ storage.DatabaseStorage = (*PostgresBackend)(nil)
+
 type PostgresBackend struct {
 	pool *pgxpool.Pool
 }
 
-func NewPostgresBackend(readonly bool, dsn string) (*PostgresBackend, error) {
+func NewPostgresBackend(dsn string) (*PostgresBackend, error) {
 	logrus.Info("Connecting to database with DSN: ", dsn)
 	pool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {

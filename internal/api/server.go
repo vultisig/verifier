@@ -464,7 +464,6 @@ func (s *Server) Auth(c echo.Context) error {
 
 	success, err := sigutil.VerifySignature(req.PublicKey,
 		req.ChainCodeHex,
-		req.DerivePath,
 		msgBytes,
 		sigBytes)
 	if err != nil {

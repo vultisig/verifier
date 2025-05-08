@@ -15,7 +15,6 @@ import (
 	"github.com/vultisig/verifier/internal/sigutil"
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/storage/postgres"
-	"github.com/vultisig/verifier/internal/syncer"
 	"github.com/vultisig/verifier/internal/tasks"
 	"github.com/vultisig/verifier/internal/types"
 	vv "github.com/vultisig/verifier/internal/vultisig_validator"
@@ -42,7 +41,6 @@ type Server struct {
 	sdClient      *statsd.Client
 	policyService service.Policy
 	authService   *service.AuthService
-	syncer        syncer.PolicySyncer
 	logger        *logrus.Logger
 }
 
@@ -58,7 +56,6 @@ func NewServer(
 	jwtSecret string,
 ) *Server {
 
-	var syncerService syncer.PolicySyncer
 	var err error
 	policyService, err := service.NewPolicyService(db, client)
 	if err != nil {
@@ -76,7 +73,6 @@ func NewServer(
 		vaultStorage:  vaultStorage,
 		db:            db,
 		logger:        logrus.WithField("service", "verifier-server").Logger,
-		syncer:        syncerService,
 		policyService: policyService,
 		authService:   authService,
 	}
@@ -88,7 +84,7 @@ func (s *Server) StartServer() error {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit("2M")) // set maximum allowed size for a request body to 2M
-	// e.Use(s.statsdMiddleware)
+	e.Use(s.statsdMiddleware)
 	e.Use(middleware.CORS())
 	limiterStore := middleware.NewRateLimiterMemoryStoreWithConfig(
 		middleware.RateLimiterMemoryStoreConfig{Rate: 5, Burst: 30, ExpiresIn: 5 * time.Minute},

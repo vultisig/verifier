@@ -8,6 +8,8 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/vultisig/verifier/config"
+	"github.com/vultisig/verifier/internal/storage/postgres"
+	"github.com/vultisig/verifier/internal/syncer"
 	"github.com/vultisig/verifier/internal/tasks"
 	"github.com/vultisig/verifier/vault"
 )
@@ -39,6 +41,11 @@ func main() {
 		client,
 		sdClient, vaultStorage)
 
+	backendDB, err := postgres.NewPostgresBackend(cfg.Database.DSN)
+	if err != nil {
+		panic(fmt.Sprintf("failed to initialize database: %v", err))
+	}
+	syncService := syncer.NewPolicySyncer(backendDB, client)
 	srv := asynq.NewServer(
 		redisOptions,
 		asynq.Config{
@@ -47,18 +54,26 @@ func main() {
 			Queues: map[string]int{
 				tasks.QUEUE_NAME:         10,
 				vault.EmailQueueName:     100,
+				syncer.QUEUE_NAME:        100,
 				"scheduled_plugin_queue": 10, // new queue
 			},
 		},
 	)
 
 	mux := asynq.NewServeMux()
-	// mux.HandleFunc(tasks.TypeEmailVaultBackup, workerService.HandleEmailVaultBackup)
-
 	// mux.HandleFunc(tasks.TypePluginTransaction, workerService.HandlePluginTransaction)
 	mux.HandleFunc(tasks.TypeKeyGenerationDKLS, vaultMgmService.HandleKeyGenerationDKLS)
 	mux.HandleFunc(tasks.TypeKeySignDKLS, vaultMgmService.HandleKeySignDKLS)
 	mux.HandleFunc(tasks.TypeReshareDKLS, vaultMgmService.HandleReshareDKLS)
+	mux.HandleFunc(syncer.TaskKeySyncPolicy, syncService.ProcessSyncTask)
+	if err := syncService.Start(); err != nil {
+		panic(fmt.Sprintf("failed to start sync service: %v", err))
+	}
+	defer func() {
+		if err := syncService.Stop(); err != nil {
+			logger.Errorf("failed to stop sync service: %v", err)
+		}
+	}()
 	if err := srv.Run(mux); err != nil {
 		panic(fmt.Errorf("could not run server: %w", err))
 	}

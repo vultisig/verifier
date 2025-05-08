@@ -69,8 +69,8 @@ func NewPolicySyncer(storage storage.DatabaseStorage, client *asynq.Client) *Syn
 }
 
 func (s *Syncer) Start() error {
-	go s.processFailedTasks()
 	s.wg.Add(1)
+	go s.processFailedTasks()
 	return nil
 }
 
@@ -81,11 +81,11 @@ func (s *Syncer) processFailedTasks() {
 		select {
 		case <-s.stopCh:
 			return
-		case <-time.After(1 * time.Minute):
+		case <-time.After(30 * time.Minute):
 			syncTasks, err := s.storage.GetUnFinishedPluginPolicySyncs(context.Background())
 			if err != nil {
 				s.logger.Errorf("failed to get unfinished plugin policy syncs: %v", err)
-				return
+				continue
 			}
 			for _, syncTask := range syncTasks {
 				payload, err := json.Marshal(syncTask)
@@ -181,7 +181,7 @@ func (s *Syncer) createPolicySync(ctx context.Context, policySyncEntity itypes.P
 	if err != nil {
 		return fmt.Errorf("fail to marshal policy: %w", err)
 	}
-	serverEndpoint, err := s.getServerAddr(ctx, policy.PluginID)
+	serverEndpoint, err := s.getServerAddr(ctx, policySyncEntity.PluginID)
 	if err != nil {
 		return fmt.Errorf("failed to get server address: %w", err)
 	}
@@ -264,7 +264,7 @@ func (s *Syncer) DeletePolicySync(ctx context.Context, syncEntity itypes.PluginP
 	if err != nil {
 		return fmt.Errorf("fail to marshal request body: %w", err)
 	}
-	serverEndpoint, err := s.getServerAddr(ctx, syncEntity.PolicyID)
+	serverEndpoint, err := s.getServerAddr(ctx, syncEntity.PluginID)
 	if err != nil {
 		return fmt.Errorf("failed to get server address: %w", err)
 	}

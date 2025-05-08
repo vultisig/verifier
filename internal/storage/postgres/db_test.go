@@ -21,6 +21,7 @@ func TestAddPluginPolicySync(t *testing.T) {
 	err = db.AddPluginPolicySync(ctx, tx, itypes.PluginPolicySync{
 		ID:         syncID,
 		PolicyID:   uuid.New(),
+		PluginID:   uuid.New(),
 		SyncType:   itypes.AddPolicy,
 		Signature:  "signature",
 		Status:     itypes.NotSynced,

@@ -139,7 +139,7 @@ func (s *Server) DeletePluginPolicyById(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid policy"))
 	}
 
-	if err := s.policyService.DeletePolicy(c.Request().Context(), policyUUID, reqBody.Signature); err != nil {
+	if err := s.policyService.DeletePolicy(c.Request().Context(), policyUUID, policy.PluginID, reqBody.Signature); err != nil {
 		s.logger.Errorf("failed to delete plugin policy: %s", err)
 
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to delete policy"))

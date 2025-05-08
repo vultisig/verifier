@@ -20,7 +20,7 @@ import (
 type Policy interface {
 	CreatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
 	UpdatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
-	DeletePolicy(ctx context.Context, policyID uuid.UUID, signature string) error
+	DeletePolicy(ctx context.Context, policyID, pluginID uuid.UUID, signature string) error
 	GetPluginPolicies(ctx context.Context, pluginType, publicKey string) ([]types.PluginPolicy, error)
 	GetPluginPolicy(ctx context.Context, policyID uuid.UUID) (types.PluginPolicy, error)
 	GetPluginPolicyTransactionHistory(ctx context.Context, policyID uuid.UUID) ([]itypes.TransactionHistory, error)
@@ -79,6 +79,8 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 	policySync := itypes.PluginPolicySync{
 		ID:         uuid.New(),
 		PolicyID:   newPolicy.ID,
+		PluginID:   newPolicy.PluginID,
+		Signature:  newPolicy.Signature,
 		SyncType:   itypes.AddPolicy,
 		Status:     itypes.NotSynced,
 		FailReason: "",
@@ -114,6 +116,8 @@ func (s *PolicyService) UpdatePolicy(ctx context.Context, policy types.PluginPol
 	syncPolicyEntity := itypes.PluginPolicySync{
 		ID:         uuid.New(),
 		PolicyID:   updatedPolicy.ID,
+		PluginID:   updatedPolicy.PluginID,
+		Signature:  updatedPolicy.Signature,
 		SyncType:   itypes.UpdatePolicy,
 		Status:     itypes.NotSynced,
 		FailReason: "",
@@ -137,7 +141,7 @@ func (s *PolicyService) handleRollback(tx pgx.Tx, ctx context.Context) {
 	}
 }
 
-func (s *PolicyService) DeletePolicy(ctx context.Context, policyID uuid.UUID, signature string) error {
+func (s *PolicyService) DeletePolicy(ctx context.Context, policyID uuid.UUID, pluginID uuid.UUID, signature string) error {
 	tx, err := s.db.Pool().Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -151,6 +155,8 @@ func (s *PolicyService) DeletePolicy(ctx context.Context, policyID uuid.UUID, si
 	syncPolicyEntity := itypes.PluginPolicySync{
 		ID:         uuid.New(),
 		PolicyID:   policyID,
+		PluginID:   pluginID,
+		Signature:  signature,
 		SyncType:   itypes.RemovePolicy,
 		Status:     itypes.NotSynced,
 		FailReason: "",

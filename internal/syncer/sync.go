@@ -179,17 +179,19 @@ func (s *Syncer) createPolicySync(ctx context.Context, policySyncEntity itypes.P
 
 	policyBytes, err := json.Marshal(policy)
 	if err != nil {
-		return fmt.Errorf("fail to marshal policy: %w", err)
-	}
-	serverEndpoint, err := s.getServerAddr(ctx, policySyncEntity.PluginID)
-	if err != nil {
-		return fmt.Errorf("failed to get server address: %w", err)
+		return fmt.Errorf("fail to marshal policy: %v,err: %w", err, asynq.SkipRetry)
 	}
 	defer func() {
 		if err := s.updatePolicySyncStatus(ctx, policySyncEntity); err != nil {
 			s.logger.Errorf("failed to update policy sync status: %v", err)
 		}
 	}()
+	serverEndpoint, err := s.getServerAddr(ctx, policySyncEntity.PluginID)
+	if err != nil {
+		policySyncEntity.Status = itypes.Failed
+		policySyncEntity.FailReason = fmt.Sprintf("failed to get server address: %w", err)
+		return fmt.Errorf("failed to get server address: %w", err)
+	}
 
 	url := serverEndpoint + policyEndpoint
 	resp, err := s.client.Post(url, "application/json", bytes.NewBuffer(policyBytes))
@@ -264,34 +266,42 @@ func (s *Syncer) DeletePolicySync(ctx context.Context, syncEntity itypes.PluginP
 	}
 	reqBodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
-		return fmt.Errorf("fail to marshal request body: %w", err)
-	}
-	serverEndpoint, err := s.getServerAddr(ctx, syncEntity.PluginID)
-	if err != nil {
-		return fmt.Errorf("failed to get server address: %w", err)
-	}
-	url := serverEndpoint + policyEndpoint + "/" + syncEntity.PolicyID.String()
-	req, err := retryablehttp.NewRequest(http.MethodDelete, url, bytes.NewBuffer(reqBodyBytes))
-	if err != nil {
-		return fmt.Errorf("fail to create request, err: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("fail to delete policy on verifier server, err: %w", err)
-	}
-	defer s.closer(resp.Body)
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response body: %w", err)
+		return fmt.Errorf("fail to marshal request body: %v,err: %w", err, asynq.SkipRetry)
 	}
 	defer func() {
 		if err := s.updatePolicySyncStatus(ctx, syncEntity); err != nil {
 			s.logger.Errorf("failed to update policy sync status: %v", err)
 		}
 	}()
+	serverEndpoint, err := s.getServerAddr(ctx, syncEntity.PluginID)
+	if err != nil {
+		syncEntity.Status = itypes.Failed
+		syncEntity.FailReason = fmt.Sprintf("failed to get server address: %w", err)
+		return fmt.Errorf("failed to get server address: %w", err)
+	}
+
+	url := serverEndpoint + policyEndpoint + "/" + syncEntity.PolicyID.String()
+	req, err := retryablehttp.NewRequest(http.MethodDelete, url, bytes.NewBuffer(reqBodyBytes))
+	if err != nil {
+		syncEntity.Status = itypes.Failed
+		syncEntity.FailReason = fmt.Sprintf("failed to create request: %w", err)
+		return fmt.Errorf("fail to create request, err: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		syncEntity.Status = itypes.Failed
+		syncEntity.FailReason = fmt.Sprintf("failed to delete policy with plugin server(%s): %s", url, err.Error())
+		return fmt.Errorf("fail to delete policy on verifier server, err: %w", err)
+	}
+	defer s.closer(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		syncEntity.Status = itypes.Failed
+		syncEntity.FailReason = fmt.Sprintf("failed to read response body: %w", err)
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		s.logger.WithFields(logrus.Fields{
@@ -304,6 +314,7 @@ func (s *Syncer) DeletePolicySync(ctx context.Context, syncEntity itypes.PluginP
 		return fmt.Errorf("fail to delete policy on verifier server, status: %d", resp.StatusCode)
 	}
 	syncEntity.Status = itypes.Synced
+	syncEntity.FailReason = ""
 
 	s.logger.WithFields(logrus.Fields{
 		"policy_id": syncEntity.PolicyID,

@@ -233,7 +233,9 @@ func (s *Syncer) updatePolicySyncStatus(ctx context.Context, policySyncEntity it
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer func() {
-		returnErr = tx.Commit(ctx)
+		if err := tx.Commit(ctx); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("failed to commit transaction: %w", err)
+		}
 	}()
 	if err := s.storage.UpdatePluginPolicySync(ctx, tx, policySyncEntity); err != nil {
 		return fmt.Errorf("failed to update policy sync status: %w", err)

@@ -32,10 +32,10 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 		policy.ID = uuid.New()
 	}
 	// TODO: validate if the policy is correct
-	// if !s.verifyPolicySignature(policy, false) {
-	// 	s.logger.Error("invalid policy signature")
-	// 	return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid policy signature"))
-	// }
+	if !s.verifyPolicySignature(policy, false) {
+		s.logger.Error("invalid policy signature")
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid policy signature"))
+	}
 
 	newPolicy, err := s.policyService.CreatePolicy(c.Request().Context(), policy)
 	if err != nil {

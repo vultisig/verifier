@@ -13,13 +13,12 @@ type Config struct {
 	VaultServiceConfig vault.Config             `mapstructure:"vault_service_config" json:"vault_service_config,omitempty"`
 	Redis              RedisConfig              `mapstructure:"redis" json:"redis,omitempty"`
 	BlockStorageConfig vault.BlockStorageConfig `mapstructure:"block_storage_config" json:"block_storage_config,omitempty"`
-	Plugin             struct {
+	Database           struct {
+		DSN string `mapstructure:"dsn" json:"dsn,omitempty"`
+	} `mapstructure:"database" json:"database,omitempty"`
+	Plugin struct {
 		PluginConfigs map[string]map[string]interface{} `mapstructure:"plugin_configs" json:"plugin_configs,omitempty"`
 	} `mapstructure:"plugin" json:"plugin,omitempty"`
-
-	EmailServer struct {
-		ApiKey string `mapstructure:"api_key" json:"api_key"`
-	} `mapstructure:"email_server" json:"email_server"`
 
 	Datadog struct {
 		Host string `mapstructure:"host" json:"host,omitempty"`

@@ -210,11 +210,12 @@ func (p *PostgresBackend) DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 }
 
 func (p *PostgresBackend) AddPluginPolicySync(ctx context.Context, dbTx pgx.Tx, policy itypes.PluginPolicySync) error {
-	qry := `INSERT INTO plugin_policy_sync (id,policy_id,sync_type, status, reason) values ($1, $2, $3, $4,$5)`
+	qry := `INSERT INTO plugin_policy_sync (id,policy_id,sync_type,signature, status, reason) values ($1, $2, $3, $4,$5,$6)`
 	_, err := dbTx.Exec(ctx, qry,
 		policy.ID,
 		policy.PolicyID,
 		policy.SyncType,
+		policy.Signature,
 		policy.Status,
 		policy.FailReason)
 	if err != nil {
@@ -224,12 +225,13 @@ func (p *PostgresBackend) AddPluginPolicySync(ctx context.Context, dbTx pgx.Tx, 
 }
 
 func (p *PostgresBackend) GetPluginPolicySync(ctx context.Context, id uuid.UUID) (*itypes.PluginPolicySync, error) {
-	qry := `SELECT id, policy_id, sync_type,status, reason FROM plugin_policy_sync WHERE id = $1`
+	qry := `SELECT id, policy_id, sync_type,signature,status, reason FROM plugin_policy_sync WHERE id = $1`
 	var policy itypes.PluginPolicySync
 	err := p.pool.QueryRow(ctx, qry, id).Scan(
 		&policy.ID,
 		&policy.PolicyID,
 		&policy.SyncType,
+		&policy.Signature,
 		&policy.Status,
 		&policy.FailReason)
 	if err != nil {
@@ -248,7 +250,7 @@ func (p *PostgresBackend) DeletePluginPolicySync(ctx context.Context, id uuid.UU
 }
 
 func (p *PostgresBackend) GetUnFinishedPluginPolicySyncs(ctx context.Context) ([]itypes.PluginPolicySync, error) {
-	qry := `SELECT id, policy_id,sync_type, status, reason FROM plugin_policy_sync WHERE status != $1`
+	qry := `SELECT id, policy_id,sync_type,signature, status, reason FROM plugin_policy_sync WHERE status != $1`
 	rows, err := p.pool.Query(ctx, qry, itypes.Synced)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get unfinished plugin policy syncs: %w", err)
@@ -262,6 +264,7 @@ func (p *PostgresBackend) GetUnFinishedPluginPolicySyncs(ctx context.Context) ([
 			&policy.ID,
 			&policy.PolicyID,
 			&policy.SyncType,
+			&policy.Signature,
 			&policy.Status,
 			&policy.FailReason)
 		if err != nil {

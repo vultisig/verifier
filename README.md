@@ -28,7 +28,7 @@ docker-compose up -d
 
 # Manual setup
 go mod tidy
-cp config.yaml.example config.yaml  # Edit as needed
+cp config.example.json config.json  # Edit as needed
 make migrate
 make build
 ./bin/verifier

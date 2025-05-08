@@ -33,7 +33,6 @@ type WorkerService struct {
 	inspector   *asynq.Inspector
 	plugin      plugin.Plugin
 	db          storage.DatabaseStorage
-	syncer      syncer.PolicySyncer
 	authService *AuthService
 }
 
@@ -41,7 +40,7 @@ type WorkerService struct {
 func NewWorker(cfg config.Config,
 	verifierPort int64,
 	queueClient *asynq.Client,
-	sdClient *statsd.Client, syncer syncer.PolicySyncer, authService *AuthService,
+	sdClient *statsd.Client, authService *AuthService,
 	inspector *asynq.Inspector) (*WorkerService, error) {
 	logger := logrus.WithField("service", "worker").Logger
 
@@ -57,7 +56,6 @@ func NewWorker(cfg config.Config,
 		sdClient:     sdClient,
 		inspector:    inspector,
 		logger:       logger,
-		syncer:       syncer,
 		authService:  authService,
 		verifierPort: verifierPort,
 	}, nil

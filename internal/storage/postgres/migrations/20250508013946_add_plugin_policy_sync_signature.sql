@@ -3,7 +3,7 @@
 ALTER TABLE plugin_policy_sync
     ADD COLUMN signature TEXT;
 ALTER TABLE plugin_policy_sync
-    ADD COLUMN  plugin_id uuid;
+    ADD COLUMN  plugin_id uuid NOT NULL;
 -- +goose StatementEnd
 
 -- +goose Down

@@ -9,7 +9,7 @@ import (
 
 // VerifySignature verifies a signature against a message using a derived public key
 // This is a placeholder that would be implemented with actual TSS library integration
-func VerifySignature(vaultPublicKey string, chainCodeHex string, derivePath string, messageHex []byte, signature []byte) (bool, error) {
+func VerifySignature(vaultPublicKey string, chainCodeHex string, messageHex []byte, signature []byte) (bool, error) {
 	// In a real implementation, this would:
 	// 1. Derive the public key using TSS library's GetDerivedPubKey function
 	// 2. Parse the public key

@@ -189,7 +189,7 @@ func (s *Syncer) createPolicySync(ctx context.Context, policySyncEntity itypes.P
 	serverEndpoint, err := s.getServerAddr(ctx, policySyncEntity.PluginID)
 	if err != nil {
 		policySyncEntity.Status = itypes.Failed
-		policySyncEntity.FailReason = fmt.Sprintf("failed to get server address: %w", err)
+		policySyncEntity.FailReason = fmt.Sprintf("failed to get server address: %s", err)
 		return fmt.Errorf("failed to get server address: %w", err)
 	}
 
@@ -276,7 +276,7 @@ func (s *Syncer) DeletePolicySync(ctx context.Context, syncEntity itypes.PluginP
 	serverEndpoint, err := s.getServerAddr(ctx, syncEntity.PluginID)
 	if err != nil {
 		syncEntity.Status = itypes.Failed
-		syncEntity.FailReason = fmt.Sprintf("failed to get server address: %w", err)
+		syncEntity.FailReason = fmt.Sprintf("failed to get server address: %s", err)
 		return fmt.Errorf("failed to get server address: %w", err)
 	}
 
@@ -284,7 +284,7 @@ func (s *Syncer) DeletePolicySync(ctx context.Context, syncEntity itypes.PluginP
 	req, err := retryablehttp.NewRequest(http.MethodDelete, url, bytes.NewBuffer(reqBodyBytes))
 	if err != nil {
 		syncEntity.Status = itypes.Failed
-		syncEntity.FailReason = fmt.Sprintf("failed to create request: %w", err)
+		syncEntity.FailReason = fmt.Sprintf("failed to create request: %s", err)
 		return fmt.Errorf("fail to create request, err: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -299,7 +299,7 @@ func (s *Syncer) DeletePolicySync(ctx context.Context, syncEntity itypes.PluginP
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		syncEntity.Status = itypes.Failed
-		syncEntity.FailReason = fmt.Sprintf("failed to read response body: %w", err)
+		syncEntity.FailReason = fmt.Sprintf("failed to read response body: %s", err)
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
 

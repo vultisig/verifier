@@ -465,7 +465,9 @@ func (s *Server) Auth(c echo.Context) error {
 		// Allow some flexibility in message format by continuing anyway
 	}
 
-	msgBytes, err := hex.DecodeString(strings.TrimPrefix(req.Message, "0x"))
+	// Decode message from hex (remove 0x prefix first)
+	msgWithoutPrefix := strings.TrimPrefix(req.Message, "0x")
+	msgBytes, err := hex.DecodeString(msgWithoutPrefix)
 	if err != nil {
 		s.logger.Errorf("failed to decode message: %v", err)
 		return c.JSON(http.StatusBadRequest, map[string]string{
@@ -473,7 +475,9 @@ func (s *Server) Auth(c echo.Context) error {
 		})
 	}
 
-	sigBytes, err := hex.DecodeString(strings.TrimPrefix(req.Signature, "0x"))
+	// Decode signature from hex (remove 0x prefix first)
+	sigWithoutPrefix := strings.TrimPrefix(req.Signature, "0x")
+	sigBytes, err := hex.DecodeString(sigWithoutPrefix)
 	if err != nil {
 		s.logger.Errorf("failed to decode signature: %v", err)
 		return c.JSON(http.StatusBadRequest, map[string]string{
@@ -481,14 +485,12 @@ func (s *Server) Auth(c echo.Context) error {
 		})
 	}
 
-	success, err := sigutil.VerifySignature(req.PublicKey,
-		req.ChainCodeHex,
-		msgBytes,
-		sigBytes)
+	// Verify the signature using our utility
+	success, err := sigutil.VerifySignature(req.PublicKey, req.ChainCodeHex, req.DerivePath, msgBytes, sigBytes)
 	if err != nil {
 		s.logger.Errorf("signature verification failed: %v", err)
 		return c.JSON(http.StatusUnauthorized, map[string]string{
-			"error": "Signature verification failed",
+			"error": "Signature verification failed: " + err.Error(),
 		})
 	}
 	if !success {
@@ -497,6 +499,7 @@ func (s *Server) Auth(c echo.Context) error {
 		})
 	}
 
+	// Generate JWT token with the public key
 	token, err := s.authService.GenerateToken(req.PublicKey)
 	if err != nil {
 		s.logger.Error("failed to generate token:", err)
@@ -563,12 +566,19 @@ func (s *Server) AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		claims, err := s.authService.ValidateToken(tokenString)
 		if err != nil {
 			return c.JSON(http.StatusUnauthorized, map[string]string{
-				"error": "Invalid token",
+				"error": "Invalid or expired token: " + err.Error(),
 			})
 		}
 
 		// Store user info in context for future use
 		c.Set("user_public_key", claims.PublicKey)
+
+		// Log authenticated access with shortened public key for privacy
+		publicKeyShort := clientutil.StripHexPrefix(claims.PublicKey)
+		if len(publicKeyShort) > 10 {
+			publicKeyShort = publicKeyShort[:10] + "..."
+		}
+		s.logger.Infof("Authenticated access: %s to %s", publicKeyShort, c.Request().URL.Path)
 
 		return next(c)
 	}

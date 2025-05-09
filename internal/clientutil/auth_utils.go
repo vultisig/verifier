@@ -4,6 +4,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // GenerateHexMessage creates the same message format that the client uses
@@ -45,6 +48,18 @@ func ValidateAuthRequest(message, signature, publicKey, derivePath, chainCodeHex
 	if chainCodeHex == "" {
 		return fmt.Errorf("chain code hex is required")
 	}
+
+	// Validate hex formats
+	if !strings.HasPrefix(message, "0x") {
+		return fmt.Errorf("message must be a hex string with 0x prefix")
+	}
+	if !strings.HasPrefix(signature, "0x") {
+		return fmt.Errorf("signature must be a hex string with 0x prefix")
+	}
+	if !strings.HasPrefix(publicKey, "0x") {
+		return fmt.Errorf("public key must be a hex string with 0x prefix")
+	}
+
 	return nil
 }
 
@@ -72,4 +87,33 @@ func ExtractBearerToken(authHeader string) (string, error) {
 	}
 
 	return parts[1], nil
+}
+
+// StripHexPrefix removes the 0x prefix from a hex string if present
+func StripHexPrefix(hex string) string {
+	if strings.HasPrefix(hex, "0x") {
+		return hex[2:]
+	}
+	return hex
+}
+
+// AddHexPrefix adds the 0x prefix to a hex string if not present
+func AddHexPrefix(hex string) string {
+	if !strings.HasPrefix(hex, "0x") {
+		return "0x" + hex
+	}
+	return hex
+}
+
+// GetTimestamp returns the current Unix timestamp in seconds
+func GetTimestamp() int64 {
+	return time.Now().Unix()
+}
+
+// IsValidEthAddress checks if a string is a valid Ethereum address
+func IsValidEthAddress(address string) bool {
+	if !strings.HasPrefix(address, "0x") {
+		return false
+	}
+	return common.IsHexAddress(address)
 }

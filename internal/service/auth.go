@@ -39,7 +39,7 @@ func (a *AuthService) GenerateToken() (string, error) {
 	return token.SignedString(a.JWTSecret)
 }
 
-// ValidateToken validates a JWT token
+// ValidateToken validates a JWT token and returns the claims
 func (a *AuthService) ValidateToken(tokenStr string) (*Claims, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
@@ -49,9 +49,18 @@ func (a *AuthService) ValidateToken(tokenStr string) (*Claims, error) {
 		}
 		return a.JWTSecret, nil
 	})
-	if err != nil || !token.Valid {
+	if err != nil {
+		return nil, errors.New("invalid token: " + err.Error())
+	}
+	if !token.Valid {
 		return nil, errors.New("invalid or expired token")
 	}
+
+	// Validate key fields
+	if claims.PublicKey == "" {
+		return nil, errors.New("token missing public key")
+	}
+
 	return claims, nil
 }
 
@@ -62,4 +71,22 @@ func (a *AuthService) RefreshToken(oldToken string) (string, error) {
 		return "", err
 	}
 	return a.GenerateToken(claims.PublicKey)
+}
+
+// GetTokenPublicKey extracts the public key from a token without validating
+// This is useful for debugging or when validation isn't needed
+func (a *AuthService) GetTokenPublicKey(tokenStr string) (string, error) {
+	token, _ := jwt.ParseWithClaims(tokenStr, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		return nil, nil // We don't validate the token here
+	})
+
+	if token == nil {
+		return "", errors.New("cannot parse token")
+	}
+
+	if claims, ok := token.Claims.(*Claims); ok {
+		return claims.PublicKey, nil
+	}
+
+	return "", errors.New("cannot extract public key from token")
 }

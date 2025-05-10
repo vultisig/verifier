@@ -58,74 +58,74 @@ func (t *noopTx) SendBatch(_ context.Context, _ *pgx.Batch) pgx.BatchResults {
 }
 
 // mockPool is a lightweight pool stub that satisfies pgxpool.Pool interface
-type mockPool struct{}
+type mockPool struct {
+	pgxpool.Pool
+}
 
-func (p *mockPool) Begin(ctx context.Context) (pgx.Tx, error) {
+func (m *mockPool) Begin(ctx context.Context) (pgx.Tx, error) {
 	return &noopTx{}, nil
 }
 
-func (p *mockPool) BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error) {
+func (m *mockPool) BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error) {
 	return &noopTx{}, nil
 }
 
-func (p *mockPool) Acquire(ctx context.Context) (*pgxpool.Conn, error) {
+func (m *mockPool) Acquire(ctx context.Context) (*pgxpool.Conn, error) {
 	return nil, nil
 }
 
-func (p *mockPool) AcquireAllIdle(ctx context.Context) []*pgxpool.Conn {
+func (m *mockPool) AcquireAllIdle(ctx context.Context) []*pgxpool.Conn {
 	return nil
 }
 
-func (p *mockPool) AcquireFunc(ctx context.Context, f func(*pgxpool.Conn) error) error {
+func (m *mockPool) AcquireFunc(ctx context.Context, f func(*pgxpool.Conn) error) error {
 	return nil
 }
 
-func (p *mockPool) BeginFunc(ctx context.Context, f func(pgx.Tx) error) error {
+func (m *mockPool) BeginFunc(ctx context.Context, f func(pgx.Tx) error) error {
 	return nil
 }
 
-func (p *mockPool) BeginTxFunc(ctx context.Context, txOptions pgx.TxOptions, f func(pgx.Tx) error) error {
+func (m *mockPool) BeginTxFunc(ctx context.Context, txOptions pgx.TxOptions, f func(pgx.Tx) error) error {
 	return nil
 }
 
-func (p *mockPool) Close() {}
+func (m *mockPool) Close() {}
 
-func (p *mockPool) Config() *pgxpool.Config {
+func (m *mockPool) Config() *pgxpool.Config {
 	return nil
 }
 
-func (p *mockPool) Exec(ctx context.Context, sql string, arguments ...interface{}) (pgconn.CommandTag, error) {
+func (m *mockPool) Exec(ctx context.Context, sql string, arguments ...interface{}) (pgconn.CommandTag, error) {
 	return pgconn.CommandTag{}, nil
 }
 
-func (p *mockPool) Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error) {
+func (m *mockPool) Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error) {
 	return nil, nil
 }
 
-func (p *mockPool) QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row {
+func (m *mockPool) QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row {
 	return nil
 }
 
-func (p *mockPool) SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults {
+func (m *mockPool) SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults {
 	return nil
 }
 
-func (p *mockPool) CopyFrom(ctx context.Context, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error) {
+func (m *mockPool) CopyFrom(ctx context.Context, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error) {
 	return 0, nil
 }
 
-func (p *mockPool) Ping(ctx context.Context) error {
+func (m *mockPool) Ping(ctx context.Context) error {
 	return nil
 }
 
-func (p *mockPool) Stat() *pgxpool.Stat {
+func (m *mockPool) Stat() *pgxpool.Stat {
 	return nil
 }
 
 func (m *MockDatabaseStorage) Pool() *pgxpool.Pool {
-	config, _ := pgxpool.ParseConfig("mock://")
-	pool, _ := pgxpool.NewWithConfig(context.Background(), config)
-	return pool
+	return &pgxpool.Pool{}
 }
 
 func (m *MockDatabaseStorage) FindUserById(ctx context.Context, userId string) (*itypes.User, error) {

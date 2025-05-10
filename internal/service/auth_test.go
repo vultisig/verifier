@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/types"
 
@@ -16,6 +15,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -122,10 +122,8 @@ func (p *mockPool) Stat() *pgxpool.Stat {
 }
 
 func (m *MockDatabaseStorage) Pool() *pgxpool.Pool {
-	pool, err := pgxpool.New(context.Background(), "postgres://mock")
-	if err != nil {
-		return nil
-	}
+	config, _ := pgxpool.ParseConfig("mock://")
+	pool, _ := pgxpool.NewWithConfig(context.Background(), config)
 	return pool
 }
 
@@ -363,7 +361,6 @@ func TestGenerateToken(t *testing.T) {
 			authService := service.NewAuthService(tt.secret, mockDB)
 
 			// Setup mock expectations
-			mockDB.On("Pool").Return(&mockPool{})
 			mockDB.On("CreateVaultToken", mock.Anything, mock.Anything).Return(&itypes.VaultToken{
 				ID:        uuid.New().String(),
 				PublicKey: "test-public-key",
@@ -397,7 +394,10 @@ func TestValidateToken(t *testing.T) {
 			name: "Valid token",
 			setupToken: func() string {
 				mockDB := new(MockDatabaseStorage)
-				mockDB.On("CreateVaultToken", mock.Anything, mock.Anything).Return(nil, nil)
+				mockDB.On("CreateVaultToken", mock.Anything, mock.Anything).Return(&itypes.VaultToken{
+					TokenID:   "valid-token",
+					IsRevoked: false,
+				}, nil)
 				mockDB.On("GetVaultToken", mock.Anything, mock.Anything).Return(&itypes.VaultToken{
 					TokenID:   "valid-token",
 					IsRevoked: false,
@@ -471,7 +471,10 @@ func TestValidateToken(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tokenString := tc.setupToken()
 			mockDB := new(MockDatabaseStorage)
-			mockDB.On("GetVaultToken", mock.Anything, mock.Anything).Return(nil, nil)
+			mockDB.On("GetVaultToken", mock.Anything, mock.Anything).Return(&itypes.VaultToken{
+				TokenID:   "valid-token",
+				IsRevoked: false,
+			}, nil)
 			mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
 
 			authService := service.NewAuthService(tc.secret, mockDB)

@@ -63,7 +63,7 @@ func NewServer(
 		logrus.Fatalf("Failed to initialize policy service: %v", err)
 	}
 
-	authService := service.NewAuthService(jwtSecret)
+	authService := service.NewAuthService(jwtSecret, db)
 
 	return &Server{
 		cfg:           cfg,
@@ -101,14 +101,22 @@ func (s *Server) StartServer() error {
 	e.POST("/auth", s.Auth)
 	e.POST("/auth/refresh", s.RefreshToken)
 
-	grp := e.Group("/vault")
-	grp.POST("/create", s.CreateVault)
-	grp.POST("/reshare", s.ReshareVault)
-	grp.GET("/get/:publicKeyECDSA", s.GetVault)     // Get Vault Data
-	grp.GET("/exist/:publicKeyECDSA", s.ExistVault) // Check if Vault exists
+	// Token management endpoints
+	tokenGroup := e.Group("/auth/tokens")
+	tokenGroup.Use(s.VaultAuthMiddleware)
+	tokenGroup.DELETE("/:tokenId", s.RevokeToken)
+	tokenGroup.DELETE("/all", s.RevokeAllTokens)
+	tokenGroup.GET("", s.GetActiveTokens)
 
-	grp.POST("/sign", s.SignMessages)                     // Sign messages
-	grp.GET("/sign/response/:taskId", s.GetKeysignResult) // Get keysign result
+	// Protected vault endpoints
+	vaultGroup := e.Group("/vault")
+	vaultGroup.Use(s.VaultAuthMiddleware) // Apply vault auth middleware to all vault endpoints
+	vaultGroup.POST("/create", s.CreateVault)
+	vaultGroup.POST("/reshare", s.ReshareVault)
+	vaultGroup.GET("/get/:publicKeyECDSA", s.GetVault)           // Get Vault Data
+	vaultGroup.GET("/exist/:publicKeyECDSA", s.ExistVault)       // Check if Vault exists
+	vaultGroup.POST("/sign", s.SignMessages)                     // Sign messages
+	vaultGroup.GET("/sign/response/:taskId", s.GetKeysignResult) // Get keysign result
 
 	pluginGroup := e.Group("/plugin", s.userAuthMiddleware)
 	pluginGroup.POST("/policy", s.CreatePluginPolicy)
@@ -500,7 +508,7 @@ func (s *Server) Auth(c echo.Context) error {
 	}
 
 	// Generate JWT token with the public key
-	token, err := s.authService.GenerateToken()
+	token, err := s.authService.GenerateToken(req.PublicKey)
 	if err != nil {
 		s.logger.Error("failed to generate token:", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{
@@ -546,4 +554,66 @@ func (s *Server) RefreshToken(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"token": newToken})
+}
+
+// RevokeToken revokes a specific token
+func (s *Server) RevokeToken(c echo.Context) error {
+	tokenID := c.Param("tokenId")
+	if tokenID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Missing token ID",
+		})
+	}
+
+	err := s.authService.RevokeToken(tokenID)
+	if err != nil {
+		s.logger.Errorf("Failed to revoke token: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to revoke token",
+		})
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
+// RevokeAllTokens revokes all tokens for the authenticated vault
+func (s *Server) RevokeAllTokens(c echo.Context) error {
+	// Get public key from context (set by VaultAuthMiddleware)
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to get vault public key",
+		})
+	}
+
+	err := s.authService.RevokeAllTokens(publicKey)
+	if err != nil {
+		s.logger.Errorf("Failed to revoke all tokens: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to revoke all tokens",
+		})
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
+// GetActiveTokens returns all active tokens for the authenticated vault
+func (s *Server) GetActiveTokens(c echo.Context) error {
+	// Get public key from context (set by VaultAuthMiddleware)
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to get vault public key",
+		})
+	}
+
+	tokens, err := s.authService.GetActiveTokens(publicKey)
+	if err != nil {
+		s.logger.Errorf("Failed to get active tokens: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to get active tokens",
+		})
+	}
+
+	return c.JSON(http.StatusOK, tokens)
 }

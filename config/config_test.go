@@ -9,7 +9,7 @@ import (
 )
 
 func TestConfig(t *testing.T) {
-	t.SkipNow()
+	t.Skip("Skipping config test")
 	cfg := Config{}
 	cfg.VaultServiceConfig.Relay.Server = "http://localhost:8080"
 	cfg.VaultServiceConfig.QueueEmailTask = false

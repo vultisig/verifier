@@ -7,29 +7,76 @@ import (
 	"github.com/vultisig/verifier/internal/service"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
+
+// MockDatabaseStorage is a mock implementation of storage.DatabaseStorage
+type MockDatabaseStorage struct {
+	mock.Mock
+}
+
+func (m *MockDatabaseStorage) Pool() *pgxpool.Pool {
+	return nil
+}
+
+func (m *MockDatabaseStorage) CreateVaultToken(ctx interface{}, token interface{}) (interface{}, error) {
+	args := m.Called(ctx, token)
+	return args.Get(0), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) GetVaultToken(ctx interface{}, tokenID string) (interface{}, error) {
+	args := m.Called(ctx, tokenID)
+	return args.Get(0), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) RevokeVaultToken(ctx interface{}, tokenID string) error {
+	args := m.Called(ctx, tokenID)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) RevokeAllVaultTokens(ctx interface{}, publicKey string) error {
+	args := m.Called(ctx, publicKey)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) UpdateVaultTokenLastUsed(ctx interface{}, tokenID string) error {
+	args := m.Called(ctx, tokenID)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) GetActiveVaultTokens(ctx interface{}, publicKey string) ([]interface{}, error) {
+	args := m.Called(ctx, publicKey)
+	return args.Get(0).([]interface{}), args.Error(1)
+}
 
 func TestGenerateToken(t *testing.T) {
 	testCases := []struct {
 		name        string
 		secret      string
+		publicKey   string
 		shouldError bool
 	}{
 		{
 			name:        "Valid secret",
 			secret:      "secret-key-for-testing",
+			publicKey:   "0x1234567890abcdef",
 			shouldError: false,
 		},
 		{
 			name:        "Empty secret",
 			secret:      "",
+			publicKey:   "0x1234567890abcdef",
 			shouldError: false,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			mockDB := new(MockDatabaseStorage)
+			mockDB.On("CreateVaultToken", mock.Anything, mock.Anything).Return(nil, nil)
+
 			authService := service.NewAuthService(tc.secret)
 			token, err := authService.GenerateToken()
 
@@ -57,6 +104,11 @@ func TestValidateToken(t *testing.T) {
 		{
 			name: "Valid token",
 			setupToken: func() string {
+				mockDB := new(MockDatabaseStorage)
+				mockDB.On("CreateVaultToken", mock.Anything, mock.Anything).Return(nil, nil)
+				mockDB.On("GetVaultToken", mock.Anything, mock.Anything).Return(nil, nil)
+				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
+
 				auth := service.NewAuthService(secret)
 				token, _ := auth.GenerateToken()
 				return token
@@ -98,6 +150,11 @@ func TestValidateToken(t *testing.T) {
 		{
 			name: "Wrong secret",
 			setupToken: func() string {
+				mockDB := new(MockDatabaseStorage)
+				mockDB.On("CreateVaultToken", mock.Anything, mock.Anything).Return(nil, nil)
+				mockDB.On("GetVaultToken", mock.Anything, mock.Anything).Return(nil, nil)
+				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
+
 				auth := service.NewAuthService(secret)
 				token, _ := auth.GenerateToken()
 				return token
@@ -118,6 +175,10 @@ func TestValidateToken(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			tokenString := tc.setupToken()
+			mockDB := new(MockDatabaseStorage)
+			mockDB.On("GetVaultToken", mock.Anything, mock.Anything).Return(nil, nil)
+			mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
+
 			authService := service.NewAuthService(tc.secret)
 
 			claims, err := authService.ValidateToken(tokenString)
@@ -145,6 +206,12 @@ func TestRefreshToken(t *testing.T) {
 		{
 			name: "Valid token refresh",
 			setupToken: func() string {
+				mockDB := new(MockDatabaseStorage)
+				mockDB.On("CreateVaultToken", mock.Anything, mock.Anything).Return(nil, nil)
+				mockDB.On("GetVaultToken", mock.Anything, mock.Anything).Return(nil, nil)
+				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
+				mockDB.On("RevokeVaultToken", mock.Anything, mock.Anything).Return(nil)
+
 				auth := service.NewAuthService(secret)
 				token, _ := auth.GenerateToken()
 				time.Sleep(1 * time.Second)
@@ -178,6 +245,12 @@ func TestRefreshToken(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			tokenString := tc.setupToken()
+			mockDB := new(MockDatabaseStorage)
+			mockDB.On("CreateVaultToken", mock.Anything, mock.Anything).Return(nil, nil)
+			mockDB.On("GetVaultToken", mock.Anything, mock.Anything).Return(nil, nil)
+			mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
+			mockDB.On("RevokeVaultToken", mock.Anything, mock.Anything).Return(nil)
+
 			authService := service.NewAuthService(secret)
 
 			// For valid tokens, we need to guarantee a different ExpiresAt

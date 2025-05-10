@@ -11,7 +11,7 @@ import (
 )
 
 func TestAddPluginPolicySync(t *testing.T) {
-	t.SkipNow()
+	t.Skip("Skipping postgres test")
 	db, err := NewPostgresBackend("user=myuser password=mypassword dbname=vultisig-verifier host=localhost port=5432 sslmode=disable")
 	assert.NoError(t, err)
 	ctx := context.Background()

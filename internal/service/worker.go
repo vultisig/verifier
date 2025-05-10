@@ -23,7 +23,7 @@ import (
 )
 
 type WorkerService struct {
-	cfg          config.Config
+	cfg          config.VerifierConfig
 	verifierPort int64
 	redis        *storage.RedisStorage
 	logger       *logrus.Logger
@@ -37,7 +37,7 @@ type WorkerService struct {
 }
 
 // NewWorker creates a new worker service
-func NewWorker(cfg config.Config,
+func NewWorker(cfg config.VerifierConfig,
 	verifierPort int64,
 	queueClient *asynq.Client,
 	sdClient *statsd.Client, authService *AuthService,
@@ -73,8 +73,13 @@ func (s *WorkerService) initiateTxSignWithVerifier(ctx context.Context, signRequ
 		return err
 	}
 
+	verifierHost := s.cfg.Server.VerifierHost
+	if verifierHost == "" {
+		verifierHost = "localhost"
+	}
+
 	signResp, err := http.Post(
-		fmt.Sprintf("http://localhost:%d/signFromPlugin", s.verifierPort),
+		fmt.Sprintf("http://%s:%d/signFromPlugin", verifierHost, s.verifierPort),
 		"application/json",
 		bytes.NewBuffer(signBytes),
 	)

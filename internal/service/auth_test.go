@@ -4,6 +4,14 @@ import (
 	"testing"
 	"time"
 
+	"context"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	itypes "github.com/vultisig/verifier/internal/types"
+	"github.com/vultisig/verifier/types"
+
 	"github.com/vultisig/verifier/internal/service"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -21,34 +29,219 @@ func (m *MockDatabaseStorage) Pool() *pgxpool.Pool {
 	return nil
 }
 
-func (m *MockDatabaseStorage) CreateVaultToken(ctx interface{}, token interface{}) (interface{}, error) {
+func (m *MockDatabaseStorage) FindUserById(ctx context.Context, userId string) (*itypes.User, error) {
+	args := m.Called(ctx, userId)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.User), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) FindUserByName(ctx context.Context, username string) (*itypes.UserWithPassword, error) {
+	args := m.Called(ctx, username)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.UserWithPassword), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) CreateVaultToken(ctx context.Context, token itypes.VaultTokenCreate) (*itypes.VaultToken, error) {
 	args := m.Called(ctx, token)
-	return args.Get(0), args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.VaultToken), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetVaultToken(ctx interface{}, tokenID string) (interface{}, error) {
+func (m *MockDatabaseStorage) GetVaultToken(ctx context.Context, tokenID string) (*itypes.VaultToken, error) {
 	args := m.Called(ctx, tokenID)
-	return args.Get(0), args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.VaultToken), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) RevokeVaultToken(ctx interface{}, tokenID string) error {
+func (m *MockDatabaseStorage) RevokeVaultToken(ctx context.Context, tokenID string) error {
 	args := m.Called(ctx, tokenID)
 	return args.Error(0)
 }
 
-func (m *MockDatabaseStorage) RevokeAllVaultTokens(ctx interface{}, publicKey string) error {
+func (m *MockDatabaseStorage) RevokeAllVaultTokens(ctx context.Context, publicKey string) error {
 	args := m.Called(ctx, publicKey)
 	return args.Error(0)
 }
 
-func (m *MockDatabaseStorage) UpdateVaultTokenLastUsed(ctx interface{}, tokenID string) error {
+func (m *MockDatabaseStorage) UpdateVaultTokenLastUsed(ctx context.Context, tokenID string) error {
 	args := m.Called(ctx, tokenID)
 	return args.Error(0)
 }
 
-func (m *MockDatabaseStorage) GetActiveVaultTokens(ctx interface{}, publicKey string) ([]interface{}, error) {
+func (m *MockDatabaseStorage) GetActiveVaultTokens(ctx context.Context, publicKey string) ([]itypes.VaultToken, error) {
 	args := m.Called(ctx, publicKey)
-	return args.Get(0).([]interface{}), args.Error(1)
+	return args.Get(0).([]itypes.VaultToken), args.Error(1)
+}
+
+// AddPluginPolicySync is a stub to satisfy the DatabaseStorage interface
+func (m *MockDatabaseStorage) AddPluginPolicySync(ctx context.Context, tx pgx.Tx, policy itypes.PluginPolicySync) error {
+	args := m.Called(ctx, tx, policy)
+	return args.Error(0)
+}
+
+// Close is a stub to satisfy the DatabaseStorage interface
+func (m *MockDatabaseStorage) Close() error {
+	return nil
+}
+
+// CountTransactions is a stub to satisfy the DatabaseStorage interface
+func (m *MockDatabaseStorage) CountTransactions(ctx context.Context, policyID uuid.UUID, status itypes.TransactionStatus, txType string) (int64, error) {
+	args := m.Called(ctx, policyID, status, txType)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+// CreatePlugin is a stub to satisfy the DatabaseStorage interface
+func (m *MockDatabaseStorage) CreatePlugin(ctx context.Context, pluginDto itypes.PluginCreateDto) (*itypes.Plugin, error) {
+	args := m.Called(ctx, pluginDto)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.Plugin), args.Error(1)
+}
+
+// CreatePricing is a stub to satisfy the DatabaseStorage interface
+func (m *MockDatabaseStorage) CreatePricing(ctx context.Context, pricingDto itypes.PricingCreateDto) (*itypes.Pricing, error) {
+	args := m.Called(ctx, pricingDto)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.Pricing), args.Error(1)
+}
+
+// CreateTransactionHistory is a stub to satisfy the DatabaseStorage interface
+func (m *MockDatabaseStorage) CreateTransactionHistory(ctx context.Context, tx itypes.TransactionHistory) (uuid.UUID, error) {
+	args := m.Called(ctx, tx)
+	return args.Get(0).(uuid.UUID), args.Error(1)
+}
+
+// CreateTransactionHistoryTx is a stub to satisfy the DatabaseStorage interface
+func (m *MockDatabaseStorage) CreateTransactionHistoryTx(ctx context.Context, dbTx pgx.Tx, tx itypes.TransactionHistory) (uuid.UUID, error) {
+	args := m.Called(ctx, dbTx, tx)
+	return args.Get(0).(uuid.UUID), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) DeletePluginById(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) FindPluginById(ctx context.Context, id uuid.UUID) (*itypes.Plugin, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.Plugin), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) FindPlugins(ctx context.Context, take int, skip int, sort string) (itypes.PlugisDto, error) {
+	args := m.Called(ctx, take, skip, sort)
+	return args.Get(0).(itypes.PlugisDto), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) UpdatePlugin(ctx context.Context, id uuid.UUID, updates itypes.PluginUpdateDto) (*itypes.Plugin, error) {
+	args := m.Called(ctx, id, updates)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.Plugin), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) GetPluginPolicy(ctx context.Context, id uuid.UUID) (types.PluginPolicy, error) {
+	args := m.Called(ctx, id)
+	return args.Get(0).(types.PluginPolicy), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginType string) ([]types.PluginPolicy, error) {
+	args := m.Called(ctx, publicKey, pluginType)
+	return args.Get(0).([]types.PluginPolicy), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id uuid.UUID) error {
+	args := m.Called(ctx, dbTx, id)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {
+	args := m.Called(ctx, dbTx, policy)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*types.PluginPolicy), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {
+	args := m.Called(ctx, dbTx, policy)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*types.PluginPolicy), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) FindPricingById(ctx context.Context, id string) (*itypes.Pricing, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.Pricing), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) DeletePricingById(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) UpdateTransactionStatusTx(ctx context.Context, dbTx pgx.Tx, txID uuid.UUID, status itypes.TransactionStatus, metadata map[string]interface{}) error {
+	args := m.Called(ctx, dbTx, txID, status, metadata)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) ([]itypes.TransactionHistory, error) {
+	args := m.Called(ctx, policyID, transactionType, take, skip)
+	return args.Get(0).([]itypes.TransactionHistory), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) GetTransactionByHash(ctx context.Context, txHash string) (*itypes.TransactionHistory, error) {
+	args := m.Called(ctx, txHash)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.TransactionHistory), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) GetPluginPolicySync(ctx context.Context, id uuid.UUID) (*itypes.PluginPolicySync, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.PluginPolicySync), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) DeletePluginPolicySync(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) GetUnFinishedPluginPolicySyncs(ctx context.Context) ([]itypes.PluginPolicySync, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]itypes.PluginPolicySync), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) UpdatePluginPolicySync(ctx context.Context, dbTx pgx.Tx, policy itypes.PluginPolicySync) error {
+	args := m.Called(ctx, dbTx, policy)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) UpdateTransactionStatus(ctx context.Context, txID uuid.UUID, status itypes.TransactionStatus, metadata map[string]interface{}) error {
+	args := m.Called(ctx, txID, status, metadata)
+	return args.Error(0)
 }
 
 func TestGenerateToken(t *testing.T) {
@@ -155,8 +348,8 @@ func TestValidateToken(t *testing.T) {
 				mockDB.On("GetVaultToken", mock.Anything, mock.Anything).Return(nil, nil)
 				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
 
-				auth := service.NewAuthService(secret)
-				token, _ := auth.GenerateToken()
+				auth := service.NewAuthService(secret, mockDB)
+				token, _ := auth.GenerateToken(testPublicKey)
 				return token
 			},
 			secret:      wrongSecret,

@@ -49,8 +49,6 @@ func generateTokenID() (string, error) {
 
 // GenerateToken creates a new JWT token and stores it in the database
 func (a *AuthService) GenerateToken(publicKey string) (string, error) {
-	ctx := context.Background()
-
 	// Generate a unique token ID
 	tokenID, err := generateTokenID()
 	if err != nil {
@@ -75,13 +73,7 @@ func (a *AuthService) GenerateToken(publicKey string) (string, error) {
 	}
 
 	// Store token in database
-	tx, err := a.db.Pool().Begin(ctx)
-	if err != nil {
-		return "", err
-	}
-	defer tx.Rollback(ctx)
-
-	_, err = a.db.CreateVaultToken(ctx, types.VaultTokenCreate{
+	_, err = a.db.CreateVaultToken(context.Background(), types.VaultTokenCreate{
 		PublicKey: publicKey,
 		TokenID:   tokenID,
 		ExpiresAt: expirationTime,
@@ -90,17 +82,11 @@ func (a *AuthService) GenerateToken(publicKey string) (string, error) {
 		return "", err
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return "", err
-	}
-
 	return tokenString, nil
 }
 
 // ValidateToken validates a JWT token and checks its revocation status
 func (a *AuthService) ValidateToken(tokenStr string) (*Claims, error) {
-	ctx := context.Background()
-
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -124,13 +110,7 @@ func (a *AuthService) ValidateToken(tokenStr string) (*Claims, error) {
 	}
 
 	// Check if token is revoked
-	tx, err := a.db.Pool().Begin(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback(ctx)
-
-	dbToken, err := a.db.GetVaultToken(ctx, claims.TokenID)
+	dbToken, err := a.db.GetVaultToken(context.Background(), claims.TokenID)
 	if err != nil {
 		return nil, errors.New("token not found in database")
 	}
@@ -144,14 +124,10 @@ func (a *AuthService) ValidateToken(tokenStr string) (*Claims, error) {
 	}
 
 	// Update last used timestamp
-	err = a.db.UpdateVaultTokenLastUsed(ctx, claims.TokenID)
+	err = a.db.UpdateVaultTokenLastUsed(context.Background(), claims.TokenID)
 	if err != nil {
 		// Log error but don't fail the request
 		// TODO: Add proper logging
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, err
 	}
 
 	return claims, nil
@@ -159,26 +135,14 @@ func (a *AuthService) ValidateToken(tokenStr string) (*Claims, error) {
 
 // RefreshToken refreshes a JWT token while preserving the public key
 func (a *AuthService) RefreshToken(oldToken string) (string, error) {
-	ctx := context.Background()
-
 	claims, err := a.ValidateToken(oldToken)
 	if err != nil {
 		return "", err
 	}
 
 	// Revoke old token
-	tx, err := a.db.Pool().Begin(ctx)
+	err = a.db.RevokeVaultToken(context.Background(), claims.TokenID)
 	if err != nil {
-		return "", err
-	}
-	defer tx.Rollback(ctx)
-
-	err = a.db.RevokeVaultToken(ctx, claims.TokenID)
-	if err != nil {
-		return "", err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
 		return "", err
 	}
 
@@ -188,12 +152,6 @@ func (a *AuthService) RefreshToken(oldToken string) (string, error) {
 
 // RevokeToken revokes a specific token
 func (a *AuthService) RevokeToken(ctx context.Context, vaultKey, tokenID string) error {
-	tx, err := a.db.Pool().Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
 	tok, err := a.db.GetVaultToken(ctx, tokenID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -210,53 +168,15 @@ func (a *AuthService) RevokeToken(ctx context.Context, vaultKey, tokenID string)
 		return fmt.Errorf("unauthorized token revocation: token belongs to different vault")
 	}
 
-	if err := a.db.RevokeVaultToken(ctx, tokenID); err != nil {
-		return fmt.Errorf("failed to revoke token: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return nil
+	return a.db.RevokeVaultToken(ctx, tokenID)
 }
 
 // RevokeAllTokens revokes all tokens for a specific public key
 func (a *AuthService) RevokeAllTokens(publicKey string) error {
-	ctx := context.Background()
-
-	tx, err := a.db.Pool().Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-
-	err = a.db.RevokeAllVaultTokens(ctx, publicKey)
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit(ctx)
+	return a.db.RevokeAllVaultTokens(context.Background(), publicKey)
 }
 
 // GetActiveTokens returns all active tokens for a public key
 func (a *AuthService) GetActiveTokens(publicKey string) ([]types.VaultToken, error) {
-	ctx := context.Background()
-
-	tx, err := a.db.Pool().Begin(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback(ctx)
-
-	tokens, err := a.db.GetActiveVaultTokens(ctx, publicKey)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, err
-	}
-
-	return tokens, nil
+	return a.db.GetActiveVaultTokens(context.Background(), publicKey)
 }

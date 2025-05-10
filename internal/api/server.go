@@ -500,7 +500,7 @@ func (s *Server) Auth(c echo.Context) error {
 	}
 
 	// Generate JWT token with the public key
-	token, err := s.authService.GenerateToken(req.PublicKey)
+	token, err := s.authService.GenerateToken()
 	if err != nil {
 		s.logger.Error("failed to generate token:", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{

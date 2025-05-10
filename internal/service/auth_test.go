@@ -8,14 +8,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/types"
 
 	"github.com/vultisig/verifier/internal/service"
-	"github.com/vultisig/verifier/internal/storage"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -26,106 +25,8 @@ type MockDatabaseStorage struct {
 	mock.Mock
 }
 
-// noopTx is a lightweight transaction stub that satisfies pgx.Tx interface
-type noopTx struct{}
-
-func (t *noopTx) Begin(_ context.Context) (pgx.Tx, error) { return t, nil }
-func (t *noopTx) Commit(_ context.Context) error          { return nil }
-func (t *noopTx) Rollback(_ context.Context) error        { return nil }
-func (t *noopTx) Exec(_ context.Context, _ string, _ ...interface{}) (pgconn.CommandTag, error) {
-	return pgconn.CommandTag{}, nil
-}
-func (t *noopTx) Query(_ context.Context, _ string, _ ...interface{}) (pgx.Rows, error) {
-	return nil, nil
-}
-func (t *noopTx) QueryRow(_ context.Context, _ string, _ ...interface{}) pgx.Row {
-	return nil
-}
-func (t *noopTx) Conn() *pgx.Conn {
-	return nil
-}
-func (t *noopTx) CopyFrom(_ context.Context, _ pgx.Identifier, _ []string, _ pgx.CopyFromSource) (int64, error) {
-	return 0, nil
-}
-func (t *noopTx) LargeObjects() pgx.LargeObjects {
-	return pgx.LargeObjects{}
-}
-func (t *noopTx) Prepare(_ context.Context, _ string, _ string) (*pgconn.StatementDescription, error) {
-	return nil, nil
-}
-func (t *noopTx) SendBatch(_ context.Context, _ *pgx.Batch) pgx.BatchResults {
-	return nil
-}
-
-// mockPool is a lightweight pool stub that satisfies pgxpool.Pool interface
-type mockPool struct {
-	pgxpool.Pool
-}
-
-func (m *mockPool) Begin(ctx context.Context) (pgx.Tx, error) {
-	return &noopTx{}, nil
-}
-
-func (m *mockPool) BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error) {
-	return &noopTx{}, nil
-}
-
-func (m *mockPool) Acquire(ctx context.Context) (*pgxpool.Conn, error) {
-	return nil, nil
-}
-
-func (m *mockPool) AcquireAllIdle(ctx context.Context) []*pgxpool.Conn {
-	return nil
-}
-
-func (m *mockPool) AcquireFunc(ctx context.Context, f func(*pgxpool.Conn) error) error {
-	return nil
-}
-
-func (m *mockPool) BeginFunc(ctx context.Context, f func(pgx.Tx) error) error {
-	return nil
-}
-
-func (m *mockPool) BeginTxFunc(ctx context.Context, txOptions pgx.TxOptions, f func(pgx.Tx) error) error {
-	return nil
-}
-
-func (m *mockPool) Close() {}
-
-func (m *mockPool) Config() *pgxpool.Config {
-	return nil
-}
-
-func (m *mockPool) Exec(ctx context.Context, sql string, arguments ...interface{}) (pgconn.CommandTag, error) {
-	return pgconn.CommandTag{}, nil
-}
-
-func (m *mockPool) Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error) {
-	return nil, nil
-}
-
-func (m *mockPool) QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row {
-	return nil
-}
-
-func (m *mockPool) SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults {
-	return nil
-}
-
-func (m *mockPool) CopyFrom(ctx context.Context, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error) {
-	return 0, nil
-}
-
-func (m *mockPool) Ping(ctx context.Context) error {
-	return nil
-}
-
-func (m *mockPool) Stat() *pgxpool.Stat {
-	return nil
-}
-
 func (m *MockDatabaseStorage) Pool() *pgxpool.Pool {
-	return &pgxpool.Pool{}
+	return nil
 }
 
 func (m *MockDatabaseStorage) FindUserById(ctx context.Context, userId string) (*itypes.User, error) {
@@ -161,33 +62,16 @@ func (m *MockDatabaseStorage) GetVaultToken(ctx context.Context, tokenID string)
 }
 
 func (m *MockDatabaseStorage) RevokeVaultToken(ctx context.Context, tokenID string) error {
-func (m *MockDatabaseStorage) Pool() storage.Pool {
-	return nil
-}
-
-func (m *MockDatabaseStorage) CreateVaultToken(ctx interface{}, token interface{}) (interface{}, error) {
-	args := m.Called(ctx, token)
-	return args.Get(0), args.Error(1)
-}
-
-func (m *MockDatabaseStorage) GetVaultToken(ctx interface{}, tokenID string) (interface{}, error) {
-	args := m.Called(ctx, tokenID)
-	return args.Get(0), args.Error(1)
-}
-
-func (m *MockDatabaseStorage) RevokeVaultToken(ctx interface{}, tokenID string) error {
 	args := m.Called(ctx, tokenID)
 	return args.Error(0)
 }
 
 func (m *MockDatabaseStorage) RevokeAllVaultTokens(ctx context.Context, publicKey string) error {
-func (m *MockDatabaseStorage) RevokeAllVaultTokens(ctx interface{}, publicKey string) error {
 	args := m.Called(ctx, publicKey)
 	return args.Error(0)
 }
 
 func (m *MockDatabaseStorage) UpdateVaultTokenLastUsed(ctx context.Context, tokenID string) error {
-func (m *MockDatabaseStorage) UpdateVaultTokenLastUsed(ctx interface{}, tokenID string) error {
 	args := m.Called(ctx, tokenID)
 	return args.Error(0)
 }
@@ -257,9 +141,9 @@ func (m *MockDatabaseStorage) FindPluginById(ctx context.Context, id uuid.UUID) 
 	return args.Get(0).(*itypes.Plugin), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) FindPlugins(ctx context.Context, take int, skip int, sort string) (itypes.PlugisDto, error) {
+func (m *MockDatabaseStorage) FindPlugins(ctx context.Context, take int, skip int, sort string) (itypes.PluginsDto, error) {
 	args := m.Called(ctx, take, skip, sort)
-	return args.Get(0).(itypes.PlugisDto), args.Error(1)
+	return args.Get(0).(itypes.PluginsDto), args.Error(1)
 }
 
 func (m *MockDatabaseStorage) UpdatePlugin(ctx context.Context, id uuid.UUID, updates itypes.PluginUpdateDto) (*itypes.Plugin, error) {
@@ -301,7 +185,7 @@ func (m *MockDatabaseStorage) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx
 	return args.Get(0).(*types.PluginPolicy), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) FindPricingById(ctx context.Context, id string) (*itypes.Pricing, error) {
+func (m *MockDatabaseStorage) FindPricingById(ctx context.Context, id uuid.UUID) (*itypes.Pricing, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -309,7 +193,7 @@ func (m *MockDatabaseStorage) FindPricingById(ctx context.Context, id string) (*
 	return args.Get(0).(*itypes.Pricing), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) DeletePricingById(ctx context.Context, id string) error {
+func (m *MockDatabaseStorage) DeletePricingById(ctx context.Context, id uuid.UUID) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }
@@ -358,20 +242,19 @@ func (m *MockDatabaseStorage) UpdatePluginPolicySync(ctx context.Context, dbTx p
 func (m *MockDatabaseStorage) UpdateTransactionStatus(ctx context.Context, txID uuid.UUID, status itypes.TransactionStatus, metadata map[string]interface{}) error {
 	args := m.Called(ctx, txID, status, metadata)
 	return args.Error(0)
-func (m *MockDatabaseStorage) GetActiveVaultTokens(ctx interface{}, publicKey string) ([]interface{}, error) {
-	args := m.Called(ctx, publicKey)
-	return args.Get(0).([]interface{}), args.Error(1)
 }
 
 func TestGenerateToken(t *testing.T) {
-	tests := []struct {
+	testCases := []struct {
 		name          string
 		secret        string
+		publicKey     string
 		expectedError bool
 	}{
 		{
 			name:          "Valid secret",
 			secret:        "test-secret",
+			publicKey:     "test-public-key",
 			expectedError: false,
 		},
 	}
@@ -379,24 +262,19 @@ func TestGenerateToken(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockDB := new(MockDatabaseStorage)
-			mockDB.On("CreateVaultToken", mock.Anything, mock.Anything).Return(nil, nil)
-
-			authService := service.NewAuthService(tc.secret, mockDB)
-			token, err := authService.GenerateToken(tc.publicKey, nil)
-
-			// Setup mock expectations
 			mockDB.On("CreateVaultToken", mock.Anything, mock.Anything).Return(&itypes.VaultToken{
 				ID:        uuid.New().String(),
-				PublicKey: "test-public-key",
+				PublicKey: tc.publicKey,
 			}, nil)
 
-			token, err := authService.GenerateToken("test-public-key")
-			if tt.expectedError {
+			authService := service.NewAuthService(tc.secret, mockDB)
+			token, err := authService.GenerateToken(tc.publicKey)
+
+			if tc.expectedError {
 				assert.Error(t, err)
-				assert.Nil(t, token)
+				assert.Empty(t, token)
 			} else {
 				assert.NoError(t, err)
-				assert.NotNil(t, token)
 				assert.NotEmpty(t, token)
 			}
 		})
@@ -427,14 +305,8 @@ func TestValidateToken(t *testing.T) {
 				}, nil)
 				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
 
-				auth := service.NewAuthService(secret)
-				token, _ := auth.GenerateToken()
-				mockDB.On("CreateVaultToken", mock.Anything, mock.Anything).Return(nil, nil)
-				mockDB.On("GetVaultToken", mock.Anything, mock.Anything).Return(nil, nil)
-				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
-
 				auth := service.NewAuthService(secret, mockDB)
-				token, _ := auth.GenerateToken(testPublicKey, nil)
+				token, _ := auth.GenerateToken("test-public-key")
 				return token
 			},
 			secret:      secret,
@@ -480,8 +352,8 @@ func TestValidateToken(t *testing.T) {
 				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
 
 				auth := service.NewAuthService(secret, mockDB)
-				token, _ := auth.GenerateToken(testPublicKey)
-				token, _ := auth.GenerateToken(testPublicKey, nil)
+				var token string
+				token, _ = auth.GenerateToken("test-public-key")
 				return token
 			},
 			secret:      wrongSecret,
@@ -538,7 +410,8 @@ func TestRefreshToken(t *testing.T) {
 				mockDB.On("RevokeVaultToken", mock.Anything, mock.Anything).Return(nil)
 
 				auth := service.NewAuthService(secret, mockDB)
-				token, _ := auth.GenerateToken(testPublicKey, nil)
+				var token string
+				token, _ = auth.GenerateToken("test-public-key")
 				time.Sleep(1 * time.Second)
 				return token
 			},

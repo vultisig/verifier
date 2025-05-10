@@ -17,6 +17,14 @@ type DatabaseStorage interface {
 	FindUserById(ctx context.Context, userId string) (*itypes.User, error)
 	FindUserByName(ctx context.Context, username string) (*itypes.UserWithPassword, error)
 
+	// Vault Token methods
+	CreateVaultToken(ctx context.Context, token itypes.VaultTokenCreate) (*itypes.VaultToken, error)
+	GetVaultToken(ctx context.Context, tokenID string) (*itypes.VaultToken, error)
+	RevokeVaultToken(ctx context.Context, tokenID string) error
+	RevokeAllVaultTokens(ctx context.Context, publicKey string) error
+	UpdateVaultTokenLastUsed(ctx context.Context, tokenID string) error
+	GetActiveVaultTokens(ctx context.Context, publicKey string) ([]itypes.VaultToken, error)
+
 	GetPluginPolicy(ctx context.Context, id uuid.UUID) (types.PluginPolicy, error)
 	GetAllPluginPolicies(ctx context.Context, publicKey string, pluginType string) ([]types.PluginPolicy, error)
 	DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id uuid.UUID) error

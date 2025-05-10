@@ -3,28 +3,67 @@ package sigutil
 import (
 	"fmt"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/vultisig/mobile-tss-lib/tss"
 )
 
 // VerifySignature verifies a signature against a message using a derived public key
-// This is a placeholder that would be implemented with actual TSS library integration
-func VerifySignature(vaultPublicKey string, chainCodeHex string, messageHex []byte, signature []byte) (bool, error) {
-	// In a real implementation, this would:
-	// 1. Derive the public key using TSS library's GetDerivedPubKey function
-	// 2. Parse the public key
-	// 3. Verify the signature against the message hash
-	// 4. Return the verification result
+func VerifySignature(vaultPublicKey string, chainCodeHex string, derivePath string, messageBytes []byte, signatureBytes []byte) (bool, error) {
+	// Derive the public key
+	derivedKeyHex, err := tss.GetDerivedPubKey(vaultPublicKey, chainCodeHex, derivePath, false) // false for ECDSA
+	if err != nil {
+		return false, fmt.Errorf("failed to derive public key: %w", err)
+	}
 
-	// Placeholder implementation for verification logic
-	// This would be replaced with actual TSS integration
+	// Ensure public key has 0x prefix
+	if !strings.HasPrefix(derivedKeyHex, "0x") {
+		derivedKeyHex = "0x" + derivedKeyHex
+	}
 
-	// Hash the message with Ethereum prefix - just demonstrating the pattern
-	_ = crypto.Keccak256([]byte(fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(messageHex), messageHex)))
+	// Ensure signature is 65 bytes long (r, s, v)
+	if len(signatureBytes) != 65 {
+		return false, fmt.Errorf("invalid signature length: expected 65 bytes, got %d", len(signatureBytes))
+	}
 
-	// In the real implementation, this would derive and verify with the actual key
-	// For now, we'll return an error to indicate this needs implementation
-	return false, fmt.Errorf("not implemented: requires TSS library integration")
+	// Create the Ethereum prefixed message hash
+	// The message is already in bytes format, so we create the Ethereum personal message
+	prefixedMessage := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(messageBytes), messageBytes)
+	prefixedHash := crypto.Keccak256Hash([]byte(prefixedMessage))
+
+	// Recover public key from signature
+	pubkeyBytes, err := crypto.Ecrecover(prefixedHash.Bytes(), signatureBytes)
+	if err != nil {
+		return false, fmt.Errorf("failed to recover public key: %w", err)
+	}
+
+	// Convert recovered pubkey to address format for comparison
+	recoveredPubKey, err := crypto.UnmarshalPubkey(pubkeyBytes)
+	if err != nil {
+		return false, fmt.Errorf("failed to unmarshal recovered public key: %w", err)
+	}
+
+	// Convert derived public key from hex to bytes
+	derivedPubKeyBytes, err := hexutil.Decode(derivedKeyHex)
+	if err != nil {
+		return false, fmt.Errorf("failed to decode derived public key: %w", err)
+	}
+
+	// Unmarshal the derived public key
+	derivedPubKey, err := crypto.UnmarshalPubkey(derivedPubKeyBytes)
+	if err != nil {
+		return false, fmt.Errorf("failed to unmarshal derived public key: %w", err)
+	}
+
+	// Get Ethereum addresses from public keys
+	recoveredAddr := crypto.PubkeyToAddress(*recoveredPubKey)
+	derivedAddr := crypto.PubkeyToAddress(*derivedPubKey)
+
+	// Compare addresses
+	return recoveredAddr == derivedAddr, nil
 }
 
 // RawSignature converts r, s, v values to a raw signature byte array
@@ -41,4 +80,32 @@ func RawSignature(r *big.Int, s *big.Int, recoveryID uint8) []byte {
 	signature[64] = byte(recoveryID)
 
 	return signature[:]
+}
+
+// VerifyEthAddressSignature verifies if a message was signed by the owner of an Ethereum address
+func VerifyEthAddressSignature(address common.Address, messageBytes []byte, signatureBytes []byte) (bool, error) {
+	// Ensure signature is 65 bytes long (r, s, v)
+	if len(signatureBytes) != 65 {
+		return false, fmt.Errorf("invalid signature length: expected 65 bytes, got %d", len(signatureBytes))
+	}
+
+	// Create the Ethereum prefixed message hash
+	prefixedMessage := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(messageBytes), messageBytes)
+	prefixedHash := crypto.Keccak256Hash([]byte(prefixedMessage))
+
+	// Recover public key from signature
+	pubkeyBytes, err := crypto.Ecrecover(prefixedHash.Bytes(), signatureBytes)
+	if err != nil {
+		return false, fmt.Errorf("failed to recover public key: %w", err)
+	}
+
+	// Convert recovered pubkey to address
+	recoveredPubKey, err := crypto.UnmarshalPubkey(pubkeyBytes)
+	if err != nil {
+		return false, fmt.Errorf("failed to unmarshal recovered public key: %w", err)
+	}
+	recoveredAddr := crypto.PubkeyToAddress(*recoveredPubKey)
+
+	// Compare addresses
+	return address == recoveredAddr, nil
 }

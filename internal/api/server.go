@@ -29,6 +29,7 @@ import (
 	"github.com/labstack/gommon/log"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/mobile-tss-lib/tss"
+	"github.com/vultisig/verifier/internal/clientutil"
 )
 
 type Server struct {
@@ -62,7 +63,7 @@ func NewServer(
 		logrus.Fatalf("Failed to initialize policy service: %v", err)
 	}
 
-	authService := service.NewAuthService(jwtSecret)
+	authService := service.NewAuthService(jwtSecret, db)
 
 	return &Server{
 		cfg:           cfg,
@@ -96,18 +97,26 @@ func (s *Server) StartServer() error {
 	e.GET("/ping", s.Ping)
 	e.GET("/getDerivedPublicKey", s.GetDerivedPublicKey)
 
-	// Auth token
+	// Auth endpoints - not requiring authentication
 	e.POST("/auth", s.Auth)
 	e.POST("/auth/refresh", s.RefreshToken)
 
-	grp := e.Group("/vault")
-	grp.POST("/create", s.CreateVault)
-	grp.POST("/reshare", s.ReshareVault)
-	grp.GET("/get/:publicKeyECDSA", s.GetVault)     // Get Vault Data
-	grp.GET("/exist/:publicKeyECDSA", s.ExistVault) // Check if Vault exists
+	// Token management endpoints
+	tokenGroup := e.Group("/auth/tokens")
+	tokenGroup.Use(s.VaultAuthMiddleware)
+	tokenGroup.DELETE("/:tokenId", s.RevokeToken)
+	tokenGroup.DELETE("/all", s.RevokeAllTokens)
+	tokenGroup.GET("", s.GetActiveTokens)
 
-	grp.POST("/sign", s.SignMessages)                     // Sign messages
-	grp.GET("/sign/response/:taskId", s.GetKeysignResult) // Get keysign result
+	// Protected vault endpoints
+	vaultGroup := e.Group("/vault")
+	vaultGroup.Use(s.VaultAuthMiddleware) // Apply vault auth middleware to all vault endpoints
+	vaultGroup.POST("/create", s.CreateVault)
+	vaultGroup.POST("/reshare", s.ReshareVault)
+	vaultGroup.GET("/get/:publicKeyECDSA", s.GetVault)           // Get Vault Data
+	vaultGroup.GET("/exist/:publicKeyECDSA", s.ExistVault)       // Check if Vault exists
+	vaultGroup.POST("/sign", s.SignMessages)                     // Sign messages
+	vaultGroup.GET("/sign/response/:taskId", s.GetKeysignResult) // Get keysign result
 
 	pluginGroup := e.Group("/plugin", s.userAuthMiddleware)
 	pluginGroup.POST("/policy", s.CreatePluginPolicy)
@@ -443,37 +452,78 @@ func (s *Server) Auth(c echo.Context) error {
 	}
 
 	if err := c.Bind(&req); err != nil {
-		return c.NoContent(http.StatusBadRequest)
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Invalid request format",
+		})
 	}
 
-	msgBytes, err := hex.DecodeString(strings.TrimPrefix(req.Message, "0x"))
+	// Validate required fields
+	if err := clientutil.ValidateAuthRequest(
+		req.Message, req.Signature, req.PublicKey, req.DerivePath, req.ChainCodeHex,
+	); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": err.Error(),
+		})
+	}
+
+	// Verify the message format matches the expected format from client
+	expectedMessage := clientutil.GenerateHexMessage(req.PublicKey)
+	if req.Message != expectedMessage {
+		s.logger.Warnf("Message mismatch: expected %s, got %s", expectedMessage, req.Message)
+		return c.JSON(http.StatusUnauthorized, map[string]string{
+			"error": "Message content mismatch",
+		})
+	}
+
+	// Decode message from hex (remove 0x prefix first)
+	msgWithoutPrefix := strings.TrimPrefix(req.Message, "0x")
+	msgBytes, err := hex.DecodeString(msgWithoutPrefix)
 	if err != nil {
 		s.logger.Errorf("failed to decode message: %v", err)
-		return c.NoContent(http.StatusBadRequest)
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Invalid message format",
+		})
 	}
 
-	sigBytes, err := hex.DecodeString(strings.TrimPrefix(req.Signature, "0x"))
+	// Decode signature from hex (remove 0x prefix first)
+	sigWithoutPrefix := strings.TrimPrefix(req.Signature, "0x")
+	sigBytes, err := hex.DecodeString(sigWithoutPrefix)
 	if err != nil {
 		s.logger.Errorf("failed to decode signature: %v", err)
-		return c.NoContent(http.StatusBadRequest)
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Invalid signature format",
+		})
 	}
 
-	success, err := sigutil.VerifySignature(req.PublicKey,
-		req.ChainCodeHex,
-		msgBytes,
-		sigBytes)
+	// Verify the signature using our utility
+	success, err := sigutil.VerifySignature(req.PublicKey, req.ChainCodeHex, req.DerivePath, msgBytes, sigBytes)
 	if err != nil {
 		s.logger.Errorf("signature verification failed: %v", err)
-		return c.NoContent(http.StatusUnauthorized)
+		return c.JSON(http.StatusUnauthorized, map[string]string{
+			"error": "Signature verification failed: " + err.Error(),
+		})
 	}
 	if !success {
-		return c.NoContent(http.StatusUnauthorized)
+		return c.JSON(http.StatusUnauthorized, map[string]string{
+			"error": "Invalid signature",
+		})
 	}
 
-	token, err := s.authService.GenerateToken()
+	// Generate JWT token with the public key
+	token, err := s.authService.GenerateToken(req.PublicKey)
 	if err != nil {
 		s.logger.Error("failed to generate token:", err)
-		return c.NoContent(http.StatusInternalServerError)
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to generate auth token",
+		})
+	}
+
+	// Store logged-in user's public key in cache for quick access
+	cacheKey := "user_pubkey:" + token[0:10]                                          // Use first part of token as a cache key
+	err = s.redis.Set(c.Request().Context(), cacheKey, req.PublicKey, 7*24*time.Hour) // Same as token expiration
+	if err != nil {
+		s.logger.Warnf("Failed to cache user info: %v", err)
+		// Continue anyway since this is not critical
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"token": token})
@@ -486,14 +536,103 @@ func (s *Server) RefreshToken(c echo.Context) error {
 
 	if err := c.Bind(&req); err != nil {
 		s.logger.Errorf("fail to decode token, err: %v", err)
-		return c.NoContent(http.StatusBadRequest)
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Invalid request format",
+		})
+	}
+
+	if req.Token == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Missing token",
+		})
 	}
 
 	newToken, err := s.authService.RefreshToken(req.Token)
 	if err != nil {
 		s.logger.Errorf("fail to refresh token, err: %v", err)
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid or expired token"})
+		return c.JSON(http.StatusUnauthorized, map[string]string{
+			"error": "Invalid or expired token",
+		})
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"token": newToken})
+}
+
+// RevokeToken revokes a specific token
+func (s *Server) RevokeToken(c echo.Context) error {
+	tokenID := c.Param("tokenId")
+	if tokenID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Missing token ID",
+		})
+	}
+
+	vaultKey, ok := c.Get("vault_public_key").(string)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, map[string]string{
+			"error": "Unauthorized",
+		})
+	}
+
+	err := s.authService.RevokeToken(c.Request().Context(), vaultKey, tokenID)
+	if err != nil {
+		s.logger.Errorf("Failed to revoke token: %v", err)
+		if strings.Contains(err.Error(), "token not found") {
+			return c.JSON(http.StatusNotFound, map[string]string{
+				"error": "Token not found",
+			})
+		}
+		if strings.Contains(err.Error(), "unauthorized token revocation") {
+			return c.JSON(http.StatusForbidden, map[string]string{
+				"error": "Unauthorized token revocation",
+			})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to revoke token",
+		})
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
+// RevokeAllTokens revokes all tokens for the authenticated vault
+func (s *Server) RevokeAllTokens(c echo.Context) error {
+	// Get public key from context (set by VaultAuthMiddleware)
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to get vault public key",
+		})
+	}
+
+	err := s.authService.RevokeAllTokens(publicKey)
+	if err != nil {
+		s.logger.Errorf("Failed to revoke all tokens: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to revoke all tokens",
+		})
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
+// GetActiveTokens returns all active tokens for the authenticated vault
+func (s *Server) GetActiveTokens(c echo.Context) error {
+	// Get public key from context (set by VaultAuthMiddleware)
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to get vault public key",
+		})
+	}
+
+	tokens, err := s.authService.GetActiveTokens(publicKey)
+	if err != nil {
+		s.logger.Errorf("Failed to get active tokens: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to get active tokens",
+		})
+	}
+
+	return c.JSON(http.StatusOK, tokens)
 }

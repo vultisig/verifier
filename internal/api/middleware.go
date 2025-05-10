@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -50,6 +51,57 @@ func (s *Server) AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
 		}
 		s.logger.Info("Token validated successfully")
+		return next(c)
+	}
+}
+
+// VaultAuthMiddleware verifies JWT tokens and ensures users can only access their own vaults
+func (s *Server) VaultAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		// Get token from header
+		authHeader := c.Request().Header.Get("Authorization")
+		if authHeader == "" {
+			return c.JSON(http.StatusUnauthorized, map[string]string{
+				"error": "Missing authorization header",
+			})
+		}
+
+		// Extract token from Bearer format
+		tokenParts := strings.Split(authHeader, " ")
+		if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+			return c.JSON(http.StatusUnauthorized, map[string]string{
+				"error": "Invalid authorization header format",
+			})
+		}
+
+		// Validate token and get claims
+		claims, err := s.authService.ValidateToken(tokenParts[1])
+		if err != nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{
+				"error": "Invalid or expired token: " + err.Error(),
+			})
+		}
+
+		// Get requested vault's public key from URL parameter
+		requestedPublicKey := c.Param("publicKeyECDSA")
+		if requestedPublicKey == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "Missing vault public key",
+			})
+		}
+
+		// Verify the token's public key matches the requested vault
+		if claims.PublicKey != requestedPublicKey {
+			s.logger.Warnf("Access denied: token public key %s does not match requested vault %s",
+				claims.PublicKey, requestedPublicKey)
+			return c.JSON(http.StatusForbidden, map[string]string{
+				"error": "Access denied: token not authorized for this vault",
+			})
+		}
+
+		// Store the public key in context for later use
+		c.Set("vault_public_key", claims.PublicKey)
+
 		return next(c)
 	}
 }

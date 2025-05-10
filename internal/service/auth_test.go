@@ -64,8 +64,70 @@ func (p *mockPool) Begin(ctx context.Context) (pgx.Tx, error) {
 	return &noopTx{}, nil
 }
 
+func (p *mockPool) BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error) {
+	return &noopTx{}, nil
+}
+
+func (p *mockPool) Acquire(ctx context.Context) (*pgxpool.Conn, error) {
+	return nil, nil
+}
+
+func (p *mockPool) AcquireAllIdle(ctx context.Context) []*pgxpool.Conn {
+	return nil
+}
+
+func (p *mockPool) AcquireFunc(ctx context.Context, f func(*pgxpool.Conn) error) error {
+	return nil
+}
+
+func (p *mockPool) BeginFunc(ctx context.Context, f func(pgx.Tx) error) error {
+	return nil
+}
+
+func (p *mockPool) BeginTxFunc(ctx context.Context, txOptions pgx.TxOptions, f func(pgx.Tx) error) error {
+	return nil
+}
+
+func (p *mockPool) Close() {}
+
+func (p *mockPool) Config() *pgxpool.Config {
+	return nil
+}
+
+func (p *mockPool) Exec(ctx context.Context, sql string, arguments ...interface{}) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, nil
+}
+
+func (p *mockPool) Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error) {
+	return nil, nil
+}
+
+func (p *mockPool) QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row {
+	return nil
+}
+
+func (p *mockPool) SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults {
+	return nil
+}
+
+func (p *mockPool) CopyFrom(ctx context.Context, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error) {
+	return 0, nil
+}
+
+func (p *mockPool) Ping(ctx context.Context) error {
+	return nil
+}
+
+func (p *mockPool) Stat() *pgxpool.Stat {
+	return nil
+}
+
 func (m *MockDatabaseStorage) Pool() *pgxpool.Pool {
-	return &pgxpool.Pool{}
+	pool, err := pgxpool.New(context.Background(), "postgres://mock")
+	if err != nil {
+		return nil
+	}
+	return pool
 }
 
 func (m *MockDatabaseStorage) FindUserById(ctx context.Context, userId string) (*itypes.User, error) {
@@ -307,7 +369,7 @@ func TestGenerateToken(t *testing.T) {
 			}, nil)
 
 			// Setup mock expectations
-			mockDB.On("Pool").Return(&pgxpool.Pool{})
+			mockDB.On("Pool").Return(&mockPool{})
 			mockDB.On("CreateVaultToken", mock.Anything, mock.Anything).Return(&itypes.VaultToken{
 				ID:        uuid.New().String(),
 				PublicKey: "test-public-key",

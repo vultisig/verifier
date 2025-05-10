@@ -461,7 +461,9 @@ func (s *Server) Auth(c echo.Context) error {
 	expectedMessage := clientutil.GenerateHexMessage(req.PublicKey)
 	if req.Message != expectedMessage {
 		s.logger.Warnf("Message mismatch: expected %s, got %s", expectedMessage, req.Message)
-		// Allow some flexibility in message format by continuing anyway
+		return c.JSON(http.StatusUnauthorized, map[string]string{
+			"error": "Message content mismatch",
+		})
 	}
 
 	// Decode message from hex (remove 0x prefix first)
@@ -540,9 +542,26 @@ func (s *Server) RevokeToken(c echo.Context) error {
 		})
 	}
 
-	err := s.authService.RevokeToken(tokenID)
+	vaultKey, ok := c.Get("vault_public_key").(string)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, map[string]string{
+			"error": "Unauthorized",
+		})
+	}
+
+	err := s.authService.RevokeToken(c.Request().Context(), vaultKey, tokenID)
 	if err != nil {
 		s.logger.Errorf("Failed to revoke token: %v", err)
+		if strings.Contains(err.Error(), "token not found") {
+			return c.JSON(http.StatusNotFound, map[string]string{
+				"error": "Token not found",
+			})
+		}
+		if strings.Contains(err.Error(), "unauthorized token revocation") {
+			return c.JSON(http.StatusForbidden, map[string]string{
+				"error": "Unauthorized token revocation",
+			})
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to revoke token",
 		})

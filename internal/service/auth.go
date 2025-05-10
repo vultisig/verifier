@@ -5,9 +5,11 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/types"
 )
@@ -132,6 +134,11 @@ func (a *AuthService) ValidateToken(tokenStr string) (*Claims, error) {
 	if err != nil {
 		return nil, errors.New("token not found in database")
 	}
+
+	if dbToken == nil {
+		return nil, errors.New("token not found in database")
+	}
+
 	if dbToken.IsRevoked {
 		return nil, errors.New("token has been revoked")
 	}
@@ -180,21 +187,38 @@ func (a *AuthService) RefreshToken(oldToken string) (string, error) {
 }
 
 // RevokeToken revokes a specific token
-func (a *AuthService) RevokeToken(tokenID string) error {
-	ctx := context.Background()
-
+func (a *AuthService) RevokeToken(ctx context.Context, vaultKey, tokenID string) error {
 	tx, err := a.db.Pool().Begin(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	err = a.db.RevokeVaultToken(ctx, tokenID)
+	tok, err := a.db.GetVaultToken(ctx, tokenID)
 	if err != nil {
-		return err
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("token not found: %w", err)
+		}
+		return fmt.Errorf("failed to get token: %w", err)
 	}
 
-	return tx.Commit(ctx)
+	if tok == nil {
+		return fmt.Errorf("token not found")
+	}
+
+	if tok.PublicKey != vaultKey {
+		return fmt.Errorf("unauthorized token revocation: token belongs to different vault")
+	}
+
+	if err := a.db.RevokeVaultToken(ctx, tokenID); err != nil {
+		return fmt.Errorf("failed to revoke token: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
 }
 
 // RevokeAllTokens revokes all tokens for a specific public key

@@ -50,11 +50,11 @@ func ValidateAuthRequest(message, signature, publicKey, chainCodeHex string) err
 	if !strings.HasPrefix(message, "0x") {
 		return fmt.Errorf("message must be a hex string with 0x prefix")
 	}
-	if !strings.HasPrefix(signature, "0x") {
-		return fmt.Errorf("signature must be a hex string with 0x prefix")
+	if !isValidPrefixedHex(signature) {
+		return fmt.Errorf("signature must be a valid 0x-prefixed hex string")
 	}
-	if !strings.HasPrefix(publicKey, "0x") {
-		return fmt.Errorf("public key must be a hex string with 0x prefix")
+	if !isValidPrefixedHex(publicKey) {
+		return fmt.Errorf("public key must be a valid 0x-prefixed hex string")
 	}
 
 	return nil
@@ -113,4 +113,13 @@ func IsValidEthAddress(address string) bool {
 		return false
 	}
 	return common.IsHexAddress(address)
+}
+
+// helper
+func isValidPrefixedHex(v string) bool {
+	if !strings.HasPrefix(v, "0x") {
+		return false
+	}
+	_, err := hex.DecodeString(v[2:])
+	return err == nil
 }

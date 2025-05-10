@@ -547,39 +547,3 @@ func (s *Server) RefreshToken(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]string{"token": newToken})
 }
-
-// AuthMiddleware verifies JWT tokens for protected routes
-func (s *Server) AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		// Get token from header
-		authHeader := c.Request().Header.Get("Authorization")
-
-		// Extract the token using our utility
-		tokenString, err := clientutil.ExtractBearerToken(authHeader)
-		if err != nil {
-			return c.JSON(http.StatusUnauthorized, map[string]string{
-				"error": err.Error(),
-			})
-		}
-
-		// Validate token
-		claims, err := s.authService.ValidateToken(tokenString)
-		if err != nil {
-			return c.JSON(http.StatusUnauthorized, map[string]string{
-				"error": "Invalid or expired token: " + err.Error(),
-			})
-		}
-
-		// Store user info in context for future use
-		c.Set("user_public_key", claims.PublicKey)
-
-		// Log authenticated access with shortened public key for privacy
-		publicKeyShort := clientutil.StripHexPrefix(claims.PublicKey)
-		if len(publicKeyShort) > 10 {
-			publicKeyShort = publicKeyShort[:10] + "..."
-		}
-		s.logger.Infof("Authenticated access: %s to %s", publicKeyShort, c.Request().URL.Path)
-
-		return next(c)
-	}
-}

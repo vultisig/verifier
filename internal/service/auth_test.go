@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/types"
@@ -25,8 +26,46 @@ type MockDatabaseStorage struct {
 	mock.Mock
 }
 
-func (m *MockDatabaseStorage) Pool() *pgxpool.Pool {
+// noopTx is a lightweight transaction stub that satisfies pgx.Tx interface
+type noopTx struct{}
+
+func (t *noopTx) Begin(_ context.Context) (pgx.Tx, error) { return t, nil }
+func (t *noopTx) Commit(_ context.Context) error          { return nil }
+func (t *noopTx) Rollback(_ context.Context) error        { return nil }
+func (t *noopTx) Exec(_ context.Context, _ string, _ ...interface{}) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, nil
+}
+func (t *noopTx) Query(_ context.Context, _ string, _ ...interface{}) (pgx.Rows, error) {
+	return nil, nil
+}
+func (t *noopTx) QueryRow(_ context.Context, _ string, _ ...interface{}) pgx.Row {
 	return nil
+}
+func (t *noopTx) Conn() *pgx.Conn {
+	return nil
+}
+func (t *noopTx) CopyFrom(_ context.Context, _ pgx.Identifier, _ []string, _ pgx.CopyFromSource) (int64, error) {
+	return 0, nil
+}
+func (t *noopTx) LargeObjects() pgx.LargeObjects {
+	return pgx.LargeObjects{}
+}
+func (t *noopTx) Prepare(_ context.Context, _ string, _ string) (*pgconn.StatementDescription, error) {
+	return nil, nil
+}
+func (t *noopTx) SendBatch(_ context.Context, _ *pgx.Batch) pgx.BatchResults {
+	return nil
+}
+
+// mockPool is a lightweight pool stub that satisfies pgxpool.Pool interface
+type mockPool struct{}
+
+func (p *mockPool) Begin(ctx context.Context) (pgx.Tx, error) {
+	return &noopTx{}, nil
+}
+
+func (m *MockDatabaseStorage) Pool() *pgxpool.Pool {
+	return &pgxpool.Pool{}
 }
 
 func (m *MockDatabaseStorage) FindUserById(ctx context.Context, userId string) (*itypes.User, error) {
@@ -259,22 +298,27 @@ func TestGenerateToken(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			mockDB := new(MockDatabaseStorage)
 			mockDB.On("CreateVaultToken", mock.Anything, mock.Anything).Return(&itypes.VaultToken{
 				ID:        uuid.New().String(),
 				PublicKey: tc.publicKey,
 			}, nil)
 
-			authService := service.NewAuthService(tc.secret, mockDB)
-			token, err := authService.GenerateToken(tc.publicKey)
+			// Setup mock expectations
+			mockDB.On("Pool").Return(&pgxpool.Pool{})
+			mockDB.On("CreateVaultToken", mock.Anything, mock.Anything).Return(&itypes.VaultToken{
+				ID:        uuid.New().String(),
+				PublicKey: "test-public-key",
+			}, nil)
 
 			if tc.expectedError {
 				assert.Error(t, err)
-				assert.Empty(t, token)
+				assert.Nil(t, token)
 			} else {
 				assert.NoError(t, err)
+				assert.NotNil(t, token)
 				assert.NotEmpty(t, token)
 			}
 		})

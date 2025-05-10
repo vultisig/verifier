@@ -22,5 +22,11 @@
   "datadog": {
     "host": "localhost",
     "port": "8125"
+  },
+  "server": {
+    "host": "localhost",
+    "port": 8080,
+    "verifier_host": "localhost",
+    "jwt_secret": "your-jwt-secret"
   }
 }

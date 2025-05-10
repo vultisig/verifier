@@ -28,9 +28,10 @@ type Config struct {
 
 type VerifierConfig struct {
 	Server struct {
-		Host     string `mapstructure:"host" json:"host,omitempty"`
-		Port     int64  `mapstructure:"port" json:"port,omitempty"`
-		Database struct {
+		Host         string `mapstructure:"host" json:"host,omitempty"`
+		Port         int64  `mapstructure:"port" json:"port,omitempty"`
+		VerifierHost string `mapstructure:"verifier_host" json:"verifier_host,omitempty"`
+		Database     struct {
 			DSN string `mapstructure:"dsn" json:"dsn,omitempty"`
 		} `mapstructure:"database" json:"database,omitempty"`
 		JWTSecret string `mapstructure:"jwt_secret" json:"jwt_secret,omitempty"`

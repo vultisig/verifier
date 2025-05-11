@@ -26,7 +26,7 @@ type DatabaseStorage interface {
 	GetActiveVaultTokens(ctx context.Context, publicKey string) ([]itypes.VaultToken, error)
 
 	GetPluginPolicy(ctx context.Context, id uuid.UUID) (types.PluginPolicy, error)
-	GetAllPluginPolicies(ctx context.Context, publicKey string, pluginType string) ([]types.PluginPolicy, error)
+	GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID) ([]types.PluginPolicy, error)
 	DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id uuid.UUID) error
 	InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error)
 	UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error)
@@ -44,10 +44,10 @@ type DatabaseStorage interface {
 	GetTransactionByHash(ctx context.Context, txHash string) (*itypes.TransactionHistory, error)
 
 	FindPlugins(ctx context.Context, take int, skip int, sort string) (itypes.PluginsDto, error)
-	FindPluginById(ctx context.Context, id uuid.UUID) (*itypes.Plugin, error)
+	FindPluginById(ctx context.Context, id types.PluginID) (*itypes.Plugin, error)
 	CreatePlugin(ctx context.Context, pluginDto itypes.PluginCreateDto) (*itypes.Plugin, error)
-	UpdatePlugin(ctx context.Context, id uuid.UUID, updates itypes.PluginUpdateDto) (*itypes.Plugin, error)
-	DeletePluginById(ctx context.Context, id uuid.UUID) error
+	UpdatePlugin(ctx context.Context, id types.PluginID, updates itypes.PluginUpdateDto) (*itypes.Plugin, error)
+	DeletePluginById(ctx context.Context, id types.PluginID) error
 
 	AddPluginPolicySync(ctx context.Context, dbTx pgx.Tx, policy itypes.PluginPolicySync) error
 	GetPluginPolicySync(ctx context.Context, id uuid.UUID) (*itypes.PluginPolicySync, error)

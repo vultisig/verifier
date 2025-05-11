@@ -177,7 +177,7 @@ func (s *Server) GetAllPluginPolicies(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid plugin type"))
 	}
 
-	policies, err := s.policyService.GetPluginPolicies(c.Request().Context(), publicKey, pluginType)
+	policies, err := s.policyService.GetPluginPolicies(c.Request().Context(), types.PluginID(pluginType), publicKey)
 	if err != nil {
 		s.logger.Errorf("failed to get policies for public_key: %s,plugin_type: %s,err: %s", publicKey, pluginType, err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get policies"))

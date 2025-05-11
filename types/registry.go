@@ -1,4 +1,4 @@
-package plugin
+package types
 
 type PluginID string
 
@@ -11,3 +11,7 @@ const (
 	PluginVultisigDCA_0000     PluginID = "vultisig-dca-0000"
 	PluginVultisigPayroll_0000 PluginID = "vultisig-payroll-0000"
 )
+
+func (p PluginID) String() string {
+	return string(p)
+}

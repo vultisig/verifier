@@ -22,7 +22,7 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (ty
 	var policyJSON []byte
 
 	query := `
-        SELECT id, public_key,  plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy 
+				SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, policy 
         FROM plugin_policies 
         WHERE id = $1`
 
@@ -32,7 +32,6 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (ty
 		&policy.PluginID,
 		&policy.PluginVersion,
 		&policy.PolicyVersion,
-		&policy.PluginType,
 		&policy.Signature,
 		&policy.Active,
 		&policyJSON,
@@ -46,18 +45,22 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (ty
 	return policy, nil
 }
 
-func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginType string) ([]types.PluginPolicy, error) {
+func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID) ([]types.PluginPolicy, error) {
 	if p.pool == nil {
 		return []types.PluginPolicy{}, fmt.Errorf("database pool is nil")
 	}
 
 	query := `
+<<<<<<< HEAD
   	SELECT id, public_key,  plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy 
+=======
+  	SELECT id, public_key, is_ecdsa, chain_code_hex, plugin_id, plugin_version, policy_version, signature, active, policy 
+>>>>>>> 37d94f9 (verifier: adopt plugin ID enum/const instead of UUID)
 		FROM plugin_policies
 		WHERE public_key = $1
-		AND plugin_type = $2`
+		AND plugin_id = $2`
 
-	rows, err := p.pool.Query(ctx, query, publicKey, pluginType)
+	rows, err := p.pool.Query(ctx, query, publicKey, pluginID)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +74,6 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 			&policy.PluginID,
 			&policy.PluginVersion,
 			&policy.PolicyVersion,
-			&policy.PluginType,
 			&policy.Signature,
 			&policy.Active,
 			&policy.Policy,
@@ -93,9 +95,15 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 
 	query := `
   	INSERT INTO plugin_policies (
+<<<<<<< HEAD
       id, public_key, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     RETURNING id, public_key, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy
+=======
+      id, public_key, is_ecdsa, chain_code_hex, plugin_id, plugin_version, policy_version, signature, active, policy
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    RETURNING id, public_key, is_ecdsa, chain_code_hex, plugin_id, plugin_version, policy_version, signature, active, policy
+>>>>>>> 37d94f9 (verifier: adopt plugin ID enum/const instead of UUID)
 	`
 
 	var insertedPolicy types.PluginPolicy
@@ -105,7 +113,6 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		policy.PluginID,
 		policy.PluginVersion,
 		policy.PolicyVersion,
-		policy.PluginType,
 		policy.Signature,
 		policy.Active,
 		policyJSON,
@@ -115,7 +122,6 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		&insertedPolicy.PluginID,
 		&insertedPolicy.PluginVersion,
 		&insertedPolicy.PolicyVersion,
-		&insertedPolicy.PluginType,
 		&insertedPolicy.Signature,
 		&insertedPolicy.Active,
 		&insertedPolicy.Policy,
@@ -135,20 +141,20 @@ func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 
 	query := `
 		UPDATE plugin_policies 
-		SET plugin_version = $2,
-		    policy_version = $3,
-			signature = $4,
-			active = $5,
-			policy = $6
+		SET public_key = $2, 
+				plugin_id = $3, 
+				signature = $4,
+				active = $5,
+				policy = $6
 		WHERE id = $1
-		RETURNING id, public_key, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy
+		RETURNING id, public_key, plugin_id, plugin_version, policy_version, signature, active, policy
 	`
 
 	var updatedPolicy types.PluginPolicy
 	err = dbTx.QueryRow(ctx, query,
 		policy.ID,
-		policy.PluginVersion,
-		policy.PolicyVersion,
+		policy.PublicKey,
+		policy.PluginID,
 		policy.Signature,
 		policy.Active,
 		policyJSON).Scan(
@@ -157,7 +163,6 @@ func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		&updatedPolicy.PluginID,
 		&updatedPolicy.PluginVersion,
 		&updatedPolicy.PolicyVersion,
-		&updatedPolicy.PluginType,
 		&updatedPolicy.Signature,
 		&updatedPolicy.Active,
 		&updatedPolicy.Policy,

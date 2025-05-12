@@ -20,9 +20,8 @@ func TestVerifyEthAddressSignature(t *testing.T) {
 	// Create a test message
 	message := []byte("test message")
 
-	// Sign the message
-	prefixedMessage := []byte(fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(message), message))
-	hash := crypto.Keccak256Hash(prefixedMessage)
+	// Sign the message using the standard Ethereum personal_sign method
+	hash := crypto.Keccak256Hash([]byte(fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(message), message)))
 	signature, err := crypto.Sign(hash.Bytes(), privateKey)
 	if err != nil {
 		t.Fatalf("Failed to sign message: %v", err)

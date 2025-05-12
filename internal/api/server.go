@@ -438,24 +438,19 @@ func (s *Server) Auth(c echo.Context) error {
 	var req struct {
 		Message      string `json:"message"`
 		Signature    string `json:"signature"`
-		DerivePath   string `json:"derive_path"`
 		ChainCodeHex string `json:"chain_code_hex"`
 		PublicKey    string `json:"public_key"`
 	}
 
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid request format",
-		})
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid request format"))
 	}
 
 	// Validate required fields
 	if err := clientutil.ValidateAuthRequest(
-		req.Message, req.Signature, req.PublicKey, req.DerivePath, req.ChainCodeHex,
+		req.Message, req.Signature, req.PublicKey, req.ChainCodeHex,
 	); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": err.Error(),
-		})
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(err.Error()))
 	}
 
 	// Verify the message format matches the expected format from client
@@ -470,9 +465,7 @@ func (s *Server) Auth(c echo.Context) error {
 	msgBytes, err := hex.DecodeString(msgWithoutPrefix)
 	if err != nil {
 		s.logger.Errorf("failed to decode message: %v", err)
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid message format",
-		})
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid message format"))
 	}
 
 	// Decode signature from hex (remove 0x prefix first)
@@ -480,32 +473,24 @@ func (s *Server) Auth(c echo.Context) error {
 	sigBytes, err := hex.DecodeString(sigWithoutPrefix)
 	if err != nil {
 		s.logger.Errorf("failed to decode signature: %v", err)
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid signature format",
-		})
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid signature format"))
 	}
 
 	// Verify the signature using our utility
-	success, err := sigutil.VerifySignature(req.PublicKey, req.ChainCodeHex, req.DerivePath, msgBytes, sigBytes)
+	success, err := sigutil.VerifySignature(req.PublicKey, req.ChainCodeHex, msgBytes, sigBytes)
 	if err != nil {
 		s.logger.Errorf("signature verification failed: %v", err)
-		return c.JSON(http.StatusUnauthorized, map[string]string{
-			"error": "Signature verification failed: " + err.Error(),
-		})
+		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Signature verification failed: "+err.Error()))
 	}
 	if !success {
-		return c.JSON(http.StatusUnauthorized, map[string]string{
-			"error": "Invalid signature",
-		})
+		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Invalid signature"))
 	}
 
 	// Generate JWT token with the public key
 	token, err := s.authService.GenerateToken()
 	if err != nil {
 		s.logger.Error("failed to generate token:", err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to generate auth token",
-		})
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to generate auth token"))
 	}
 
 	// Store logged-in user's public key in cache for quick access
@@ -526,23 +511,17 @@ func (s *Server) RefreshToken(c echo.Context) error {
 
 	if err := c.Bind(&req); err != nil {
 		s.logger.Errorf("fail to decode token, err: %v", err)
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid request format",
-		})
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid request format"))
 	}
 
 	if req.Token == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Missing token",
-		})
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("Missing token"))
 	}
 
 	newToken, err := s.authService.RefreshToken(req.Token)
 	if err != nil {
 		s.logger.Errorf("fail to refresh token, err: %v", err)
-		return c.JSON(http.StatusUnauthorized, map[string]string{
-			"error": "Invalid or expired token",
-		})
+		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Invalid or expired token"))
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"token": newToken})

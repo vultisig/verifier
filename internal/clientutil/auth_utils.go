@@ -32,7 +32,7 @@ func ToHex(input string) string {
 }
 
 // ValidateAuthRequest checks if an authentication request has all required fields
-func ValidateAuthRequest(message, signature, publicKey, derivePath, chainCodeHex string) error {
+func ValidateAuthRequest(message, signature, publicKey, chainCodeHex string) error {
 	if message == "" {
 		return fmt.Errorf("message is required")
 	}
@@ -41,9 +41,6 @@ func ValidateAuthRequest(message, signature, publicKey, derivePath, chainCodeHex
 	}
 	if publicKey == "" {
 		return fmt.Errorf("public key is required")
-	}
-	if derivePath == "" {
-		return fmt.Errorf("derive path is required")
 	}
 	if chainCodeHex == "" {
 		return fmt.Errorf("chain code hex is required")

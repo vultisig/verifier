@@ -39,19 +39,27 @@ func (a *AuthService) GenerateToken() (string, error) {
 	return token.SignedString(a.JWTSecret)
 }
 
-// ValidateToken validates a JWT token
+// ValidateToken validates a JWT token and returns the claims
 func (a *AuthService) ValidateToken(tokenStr string) (*Claims, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+		// Validate signing method
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
 		return a.JWTSecret, nil
 	})
-	if err != nil || !token.Valid {
+	if err != nil {
+		return nil, errors.New("invalid token: " + err.Error())
+	}
+	if !token.Valid {
 		return nil, errors.New("invalid or expired token")
 	}
+
 	return claims, nil
 }
 
-// RefreshToken refreshes a JWT token
+// RefreshToken refreshes a JWT token while preserving the public key
 func (a *AuthService) RefreshToken(oldToken string) (string, error) {
 	_, err := a.ValidateToken(oldToken)
 	if err != nil {

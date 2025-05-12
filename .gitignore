@@ -31,5 +31,10 @@ cmd/verifier
 cmd/worker
 
 .devenv/
-.DS_Store
-config.json
+
+bin/*
+docker-compose.yaml
+scripts/setup-local.sh
+user_auth.md
+START.md
+localconfig-verifier.yaml

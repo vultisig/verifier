@@ -64,7 +64,7 @@ func NewServer(
 		logrus.Fatalf("Failed to initialize policy service: %v", err)
 	}
 
-	authService := service.NewAuthService(jwtSecret, db)
+	authService := service.NewAuthService(jwtSecret, db, logrus.WithField("service", "auth-service").Logger)
 
 	return &Server{
 		cfg:           cfg,
@@ -482,7 +482,7 @@ func (s *Server) Auth(c echo.Context) error {
 	}
 
 	// Verify the signature using our utility
-	success, err := sigutil.VerifySignature(req.PublicKey, req.ChainCodeHex, msgBytes, sigBytes)
+	success, err := sigutil.VerifySignature(req.PublicKey, msgBytes, sigBytes)
 	if err != nil {
 		s.logger.Errorf("signature verification failed: %v", err)
 		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Signature verification failed: "+err.Error()))

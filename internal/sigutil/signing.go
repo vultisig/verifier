@@ -11,7 +11,7 @@ import (
 )
 
 // VerifySignature verifies a signature against a message using a public key
-func VerifySignature(vaultPublicKey string, chainCodeHex string, messageBytes []byte, signatureBytes []byte) (bool, error) {
+func VerifySignature(vaultPublicKey string, messageBytes []byte, signatureBytes []byte) (bool, error) {
 	// Ensure public key has 0x prefix
 	if !strings.HasPrefix(vaultPublicKey, "0x") {
 		vaultPublicKey = "0x" + vaultPublicKey

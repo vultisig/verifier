@@ -23,7 +23,7 @@ import (
 )
 
 type WorkerService struct {
-	cfg          config.Config
+	cfg          config.WorkerConfig
 	verifierPort int64
 	redis        *storage.RedisStorage
 	logger       *logrus.Logger
@@ -37,7 +37,7 @@ type WorkerService struct {
 }
 
 // NewWorker creates a new worker service
-func NewWorker(cfg config.Config,
+func NewWorker(cfg config.WorkerConfig,
 	verifierPort int64,
 	queueClient *asynq.Client,
 	sdClient *statsd.Client, authService *AuthService,

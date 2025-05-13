@@ -436,24 +436,24 @@ func TestRefreshToken(t *testing.T) {
 			name: "Valid token refresh",
 			setupToken: func() string {
 				mockDB := new(MockDatabaseStorage)
+				tokenID := uuid.New().String()
 				mockDB.On("CreateVaultToken", mock.Anything, mock.Anything).
 					Return(&itypes.VaultToken{
-						TokenID:   "mock-token-id",
-						PublicKey: testPublicKey,
-					}, nil)
-				mockDB.On("GetVaultToken", mock.Anything, mock.Anything).
-					Return(&itypes.VaultToken{
-						TokenID:   "mock-token-id",
+						TokenID:   tokenID,
 						PublicKey: testPublicKey,
 						IsRevoked: false,
 					}, nil)
-				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
-				mockDB.On("RevokeVaultToken", mock.Anything, mock.Anything).Return(nil)
+				mockDB.On("GetVaultToken", mock.Anything, tokenID).
+					Return(&itypes.VaultToken{
+						TokenID:   tokenID,
+						PublicKey: testPublicKey,
+						IsRevoked: false,
+					}, nil)
+				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, tokenID).Return(nil)
+				mockDB.On("RevokeVaultToken", mock.Anything, tokenID).Return(nil)
 
 				auth := service.NewAuthService(secret, mockDB, testLogger)
-				var token string
-				token, _ = auth.GenerateToken(context.Background(), "test-public-key")
-				time.Sleep(1 * time.Second)
+				token, _ := auth.GenerateToken(context.Background(), testPublicKey)
 				return token
 			},
 			shouldError: false,
@@ -485,18 +485,27 @@ func TestRefreshToken(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tokenString := tc.setupToken()
 			mockDB := new(MockDatabaseStorage)
-			mockDB.On("CreateVaultToken", mock.Anything, mock.Anything).Return(nil, nil)
-			mockDB.On("GetVaultToken", mock.Anything, mock.Anything).Return(nil, nil)
-			mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
-			mockDB.On("RevokeVaultToken", mock.Anything, mock.Anything).Return(nil)
 
-			authService := service.NewAuthService(secret, mockDB, testLogger)
-
-			// For valid tokens, we need to guarantee a different ExpiresAt
 			if !tc.shouldError {
-				time.Sleep(1 * time.Second)
+				// For valid token case, set up mock expectations
+				tokenID := uuid.New().String()
+				mockDB.On("CreateVaultToken", mock.Anything, mock.Anything).
+					Return(&itypes.VaultToken{
+						TokenID:   tokenID,
+						PublicKey: testPublicKey,
+						IsRevoked: false,
+					}, nil)
+				mockDB.On("GetVaultToken", mock.Anything, mock.Anything).
+					Return(&itypes.VaultToken{
+						TokenID:   tokenID,
+						PublicKey: testPublicKey,
+						IsRevoked: false,
+					}, nil)
+				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
+				mockDB.On("RevokeVaultToken", mock.Anything, mock.Anything).Return(nil)
 			}
 
+			authService := service.NewAuthService(secret, mockDB, testLogger)
 			newToken, err := authService.RefreshToken(context.Background(), tokenString)
 
 			if tc.shouldError {

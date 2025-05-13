@@ -93,7 +93,6 @@ func (a *AuthService) GenerateToken(publicKey string) (string, error) {
 	_, err = a.db.CreateVaultToken(context.Background(), types.VaultTokenCreate{
 		PublicKey: publicKey,
 		TokenID:   tokenID,
-		PublicKey: publicKey,
 		ExpiresAt: expirationTime,
 	})
 	if err != nil {

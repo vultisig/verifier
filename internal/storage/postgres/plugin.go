@@ -29,9 +29,9 @@ func (p *PostgresBackend) FindPluginById(ctx context.Context, id uuid.UUID) (*ty
 	return &plugin, nil
 }
 
-func (p *PostgresBackend) FindPlugins(ctx context.Context, skip int, take int, sort string) (types.PlugisDto, error) {
+func (p *PostgresBackend) FindPlugins(ctx context.Context, take int, skip int, sort string) (types.PluginsDto, error) {
 	if p.pool == nil {
-		return types.PlugisDto{}, fmt.Errorf("database pool is nil")
+		return types.PluginsDto{}, fmt.Errorf("database pool is nil")
 	}
 
 	orderBy, orderDirection := common.GetSortingCondition(sort)
@@ -44,7 +44,7 @@ func (p *PostgresBackend) FindPlugins(ctx context.Context, skip int, take int, s
 
 	rows, err := p.pool.Query(ctx, query, take, skip)
 	if err != nil {
-		return types.PlugisDto{}, err
+		return types.PluginsDto{}, err
 	}
 
 	defer rows.Close()
@@ -68,13 +68,13 @@ func (p *PostgresBackend) FindPlugins(ctx context.Context, skip int, take int, s
 			&totalCount,
 		)
 		if err != nil {
-			return types.PlugisDto{}, err
+			return types.PluginsDto{}, err
 		}
 
 		plugins = append(plugins, plugin)
 	}
 
-	pluginsDto := types.PlugisDto{
+	pluginsDto := types.PluginsDto{
 		Plugins:    plugins,
 		TotalCount: totalCount,
 	}

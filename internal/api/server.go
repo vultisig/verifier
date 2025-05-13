@@ -117,16 +117,11 @@ func (s *Server) StartServer() error {
 	pluginGroup.GET("/policy/:policyId", s.GetPluginPolicyById)
 	pluginGroup.DELETE("/policy/:policyId", s.DeletePluginPolicyById)
 
-	// if s.mode == "verifier" {
-	// 	e.POST("/login", s.UserLogin)
-	// 	e.GET("/users/me", s.GetLoggedUser, s.userAuthMiddleware)
-	//
-	// }
 	pluginsGroup := e.Group("/plugins")
 	pluginsGroup.GET("", s.GetPlugins)
 	pluginsGroup.GET("/:pluginId", s.GetPlugin)
 	pluginsGroup.POST("", s.CreatePlugin, s.userAuthMiddleware)
-	pluginsGroup.PATCH("/:pluginId", s.UpdatePlugin, s.userAuthMiddleware)
+	pluginsGroup.POST("/:pluginId", s.UpdatePlugin, s.userAuthMiddleware)
 	pluginsGroup.DELETE("/:pluginId", s.DeletePlugin, s.userAuthMiddleware)
 
 	pricingsGroup := e.Group("/pricing")

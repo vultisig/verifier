@@ -27,7 +27,7 @@ func (s *Server) userAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		authHeader := c.Request().Header.Get("Authorization")
 		if authHeader == "" {
-			return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Missing token"})
+			return c.JSON(http.StatusUnauthorized, NewErrorResponse("Authorization header required"))
 		}
 
 		// TODO: add user authentication logic
@@ -40,14 +40,14 @@ func (s *Server) AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		authHeader := c.Request().Header.Get("Authorization")
 		if authHeader == "" {
-			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Missing Authorization header"})
+			return c.JSON(http.StatusUnauthorized, NewErrorResponse("Authorization header required"))
 		}
 
 		tokenStr := authHeader[len("Bearer "):]
 		_, err := s.authService.ValidateToken(tokenStr)
 		if err != nil {
 			s.logger.Warnf("fail to validate token, err: %v", err)
-			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
+			return c.JSON(http.StatusUnauthorized, NewErrorResponse("Unauthorized"))
 		}
 		s.logger.Info("Token validated successfully")
 		return next(c)

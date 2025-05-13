@@ -499,7 +499,7 @@ func (s *Server) Auth(c echo.Context) error {
 	}
 
 	// Store logged-in user's public key in cache for quick access
-	cacheKey := "user_pubkey:" + token[0:10]                                          // Use first part of token as a cache key
+	cacheKey := "user_pubkey:" + token
 	err = s.redis.Set(c.Request().Context(), cacheKey, req.PublicKey, 7*24*time.Hour) // Same as token expiration
 	if err != nil {
 		s.logger.Warnf("Failed to cache user info: %v", err)

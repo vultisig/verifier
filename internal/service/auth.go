@@ -127,12 +127,13 @@ func (a *AuthService) ValidateToken(tokenStr string) (*Claims, error) {
 		return nil, errors.New("token missing token ID")
 	}
 
-	// Check if token is revoked
+	if a.db == nil {
+		return nil, errors.New("database not configured")
+	}
 	dbToken, err := a.db.GetVaultToken(context.Background(), claims.TokenID)
 	if err != nil {
 		return nil, errors.New("token not found in database")
 	}
-
 	if dbToken == nil {
 		return nil, errors.New("token not found in database")
 	}

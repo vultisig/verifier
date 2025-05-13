@@ -23,9 +23,9 @@ type DatabaseStorage interface {
 	InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error)
 	UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error)
 
-	FindPricingById(ctx context.Context, id string) (*itypes.Pricing, error)
+	FindPricingById(ctx context.Context, id uuid.UUID) (*itypes.Pricing, error)
 	CreatePricing(ctx context.Context, pricingDto itypes.PricingCreateDto) (*itypes.Pricing, error)
-	DeletePricingById(ctx context.Context, id string) error
+	DeletePricingById(ctx context.Context, id uuid.UUID) error
 
 	CountTransactions(ctx context.Context, policyID uuid.UUID, status itypes.TransactionStatus, txType string) (int64, error)
 	CreateTransactionHistoryTx(ctx context.Context, dbTx pgx.Tx, tx itypes.TransactionHistory) (uuid.UUID, error)

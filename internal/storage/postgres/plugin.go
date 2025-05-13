@@ -2,11 +2,7 @@ package postgres
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"reflect"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -121,52 +117,15 @@ func (p *PostgresBackend) CreatePlugin(ctx context.Context, pluginDto types.Plug
 }
 
 func (p *PostgresBackend) UpdatePlugin(ctx context.Context, id uuid.UUID, updates types.PluginUpdateDto) (*types.Plugin, error) {
-	t := reflect.TypeOf(updates)
-	v := reflect.ValueOf(updates)
-	numFields := t.NumField()
-
-	query := fmt.Sprintf(`UPDATE %s SET `, PLUGINS_TABLE)
+	query := fmt.Sprintf(`UPDATE plugins SET title = @Title, description = @Description, metadata = @Metadata, server_endpoint = @ServerEndpoint, pricing_id = @PricingID WHERE id = @id;`)
 	args := pgx.NamedArgs{
-		"id": id,
+		"Title":          updates.Title,
+		"Description":    updates.Description,
+		"Metadata":       updates.Metadata,
+		"ServerEndpoint": updates.ServerEndpoint,
+		"PricingID":      updates.PricingID,
+		"id":             id,
 	}
-
-	// iterate over dto props and assign non-empty for update
-	var updateStatements []string
-	for i := 0; i < numFields; i++ {
-		field := t.Field(i) // field metadata
-		value := v.Field(i) // field value
-
-		// filter out json undefined values
-		if !value.IsNil() {
-			// get db field name (same as it is defined in the json input)
-			fieldName := field.Tag.Get("json")
-			if fieldName == "" {
-				// fallback to prop name
-				fieldName = field.Name
-			}
-
-			// get value from dto reference
-			var fieldValue interface{}
-			if field.Type == reflect.TypeOf((*json.RawMessage)(nil)) {
-				// keep as reference to []byte
-				fieldValue = value.Interface().(*json.RawMessage)
-			} else {
-				// dereference
-				fieldValue = value.Elem().Interface()
-			}
-
-			updateStatements = append(updateStatements, fmt.Sprintf("%s = @%s", fieldName, fieldName))
-			args[fieldName] = fieldValue
-		}
-	}
-
-	if len(updateStatements) == 0 {
-		return nil, errors.New("No updates provided")
-	}
-
-	query += strings.Join(updateStatements, ", ")
-	query += " WHERE id = @id;"
-
 	_, err := p.pool.Exec(ctx, query, args)
 	if err != nil {
 		return nil, err

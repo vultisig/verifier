@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/vultisig/verifier/internal/types"
@@ -12,7 +13,7 @@ import (
 
 const PRICINGS_TABLE = "pricings"
 
-func (p *PostgresBackend) FindPricingById(ctx context.Context, id string) (*types.Pricing, error) {
+func (p *PostgresBackend) FindPricingById(ctx context.Context, id uuid.UUID) (*types.Pricing, error) {
 	query := fmt.Sprintf(`SELECT * FROM %s WHERE id = $1 LIMIT 1;`, PRICINGS_TABLE)
 
 	rows, err := p.pool.Query(ctx, query, id)
@@ -50,7 +51,7 @@ func (p *PostgresBackend) CreatePricing(ctx context.Context, pricingDto types.Pr
 		strings.Join(argNames, ", "),
 	)
 
-	var createdId string
+	var createdId uuid.UUID
 	err := p.pool.QueryRow(ctx, query, args).Scan(&createdId)
 	if err != nil {
 		return nil, err
@@ -59,7 +60,7 @@ func (p *PostgresBackend) CreatePricing(ctx context.Context, pricingDto types.Pr
 	return p.FindPricingById(ctx, createdId)
 }
 
-func (p *PostgresBackend) DeletePricingById(ctx context.Context, id string) error {
+func (p *PostgresBackend) DeletePricingById(ctx context.Context, id uuid.UUID) error {
 	query := fmt.Sprintf(`DELETE FROM %s WHERE id = $1;`, PRICINGS_TABLE)
 
 	_, err := p.pool.Exec(ctx, query, id)

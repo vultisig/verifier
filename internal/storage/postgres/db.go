@@ -44,20 +44,20 @@ func NewPostgresBackend(dsn string) (*PostgresBackend, error) {
 	return backend, nil
 }
 
-func (d *PostgresBackend) Close() error {
-	d.pool.Close()
+func (p *PostgresBackend) Close() error {
+	p.pool.Close()
 
 	return nil
 }
 
-func (d *PostgresBackend) Migrate() error {
+func (p *PostgresBackend) Migrate() error {
 	logrus.Info("Starting database migration...")
 	goose.SetBaseFS(embeddedMigrations)
 	if err := goose.SetDialect("postgres"); err != nil {
 		return fmt.Errorf("failed to set goose dialect: %w", err)
 	}
 
-	db := stdlib.OpenDBFromPool(d.pool)
+	db := stdlib.OpenDBFromPool(p.pool)
 	if err := goose.Up(db, "migrations"); err != nil {
 		return fmt.Errorf("failed to run goose up: %w", err)
 	}

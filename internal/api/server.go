@@ -64,7 +64,7 @@ func NewServer(
 		logrus.Fatalf("Failed to initialize policy service: %v", err)
 	}
 
-	authService := service.NewAuthService(jwtSecret, db)
+	authService := service.NewAuthService(jwtSecret, db, logrus.WithField("service", "auth-service").Logger)
 
 	return &Server{
 		cfg:           cfg,

@@ -17,9 +17,14 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+const testPublicKey = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+
+var testLogger = logrus.New()
 
 // MockDatabaseStorage is a mock implementation of storage.DatabaseStorage
 type MockDatabaseStorage struct {

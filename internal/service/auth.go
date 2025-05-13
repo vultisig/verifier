@@ -60,7 +60,7 @@ func generateTokenID() (string, error) {
 	return base64.URLEncoding.EncodeToString(b), nil
 }
 
-// GenerateToken creates a new JWT token and stores it in the database
+// GenerateToken generates a new JWT token for a vault
 func (a *AuthService) GenerateToken(publicKey string) (string, error) {
 	// Generate a unique token ID
 	tokenID, err := generateTokenID()
@@ -69,6 +69,8 @@ func (a *AuthService) GenerateToken(publicKey string) (string, error) {
 	}
 
 	expirationTime := time.Now().Add(expireDuration)
+
+	// Create token claims
 	claims := &Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
@@ -80,6 +82,8 @@ func (a *AuthService) GenerateToken(publicKey string) (string, error) {
 
 	// Create JWT token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	// Sign token
 	tokenString, err := token.SignedString(a.JWTSecret)
 	if err != nil {
 		return "", err
@@ -89,6 +93,7 @@ func (a *AuthService) GenerateToken(publicKey string) (string, error) {
 	_, err = a.db.CreateVaultToken(context.Background(), types.VaultTokenCreate{
 		PublicKey: publicKey,
 		TokenID:   tokenID,
+		PublicKey: publicKey,
 		ExpiresAt: expirationTime,
 	})
 	if err != nil {
@@ -140,7 +145,7 @@ func (a *AuthService) ValidateToken(tokenStr string) (*Claims, error) {
 	err = a.db.UpdateVaultTokenLastUsed(context.Background(), claims.TokenID)
 	if err != nil {
 		// Log error but don't fail the request
-		// TODO: Add proper logging
+		a.logger.Errorf("Failed to update token last used: %v", err)
 	}
 
 	return claims, nil
@@ -182,7 +187,12 @@ func (a *AuthService) RevokeToken(ctx context.Context, vaultKey, tokenID string)
 		return ErrNotOwner
 	}
 
-	return a.db.RevokeVaultToken(ctx, tokenID)
+	if err := a.db.RevokeVaultToken(ctx, tokenID); err != nil {
+		a.logger.Errorf("Failed to revoke token: %v", err)
+		return fmt.Errorf("%w", ErrRevokeToken)
+	}
+
+	return nil
 }
 
 // RevokeAllTokens revokes all tokens for a specific public key

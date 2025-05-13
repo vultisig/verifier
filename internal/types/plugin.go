@@ -19,7 +19,7 @@ type Plugin struct {
 	PricingID      uuid.UUID       `json:"pricing_id" validate:"required"`
 }
 
-type PlugisDto struct {
+type PluginsDto struct {
 	Plugins    []Plugin `json:"plugins"`
 	TotalCount int      `json:"total_count"`
 }

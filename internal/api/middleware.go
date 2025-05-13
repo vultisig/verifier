@@ -45,7 +45,7 @@ func (s *Server) AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		tokenStr := authHeader[len("Bearer "):]
-		_, err := s.authService.ValidateToken(tokenStr)
+		_, err := s.authService.ValidateToken(c.Request().Context(), tokenStr)
 		if err != nil {
 			s.logger.Warnf("fail to validate token, err: %v", err)
 			return c.JSON(http.StatusUnauthorized, NewErrorResponse("Unauthorized"))
@@ -71,7 +71,7 @@ func (s *Server) VaultAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		// Validate token and get claims
-		claims, err := s.authService.ValidateToken(tokenParts[1])
+		claims, err := s.authService.ValidateToken(c.Request().Context(), tokenParts[1])
 		if err != nil {
 			s.logger.Errorf("Internal error: %v", err)
 			return c.JSON(http.StatusInternalServerError, NewErrorResponse("An internal error occurred"))

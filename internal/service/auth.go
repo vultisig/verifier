@@ -47,7 +47,12 @@ func NewAuthService(secret string, db storage.DatabaseStorage, logger *logrus.Lo
 	return &AuthService{
 		JWTSecret: []byte(secret),
 		db:        db,
-		logger:    logger,
+		logger: func() *logrus.Logger {
+			if logger != nil {
+				return logger
+			}
+			return logrus.New()
+		}(),
 	}
 }
 
@@ -60,8 +65,8 @@ func generateTokenID() (string, error) {
 	return base64.URLEncoding.EncodeToString(b), nil
 }
 
-// GenerateToken generates a new JWT token for a vault
-func (a *AuthService) GenerateToken(publicKey string) (string, error) {
+// GenerateToken creates a new JWT token and stores it in the database
+func (a *AuthService) GenerateToken(ctx context.Context, publicKey string) (string, error) {
 	// Generate a unique token ID
 	tokenID, err := generateTokenID()
 	if err != nil {
@@ -69,8 +74,6 @@ func (a *AuthService) GenerateToken(publicKey string) (string, error) {
 	}
 
 	expirationTime := time.Now().Add(expireDuration)
-
-	// Create token claims
 	claims := &Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
@@ -82,15 +85,13 @@ func (a *AuthService) GenerateToken(publicKey string) (string, error) {
 
 	// Create JWT token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	// Sign token
 	tokenString, err := token.SignedString(a.JWTSecret)
 	if err != nil {
 		return "", err
 	}
 
 	// Store token in database
-	_, err = a.db.CreateVaultToken(context.Background(), types.VaultTokenCreate{
+	_, err = a.db.CreateVaultToken(ctx, types.VaultTokenCreate{
 		PublicKey: publicKey,
 		TokenID:   tokenID,
 		ExpiresAt: expirationTime,
@@ -103,7 +104,7 @@ func (a *AuthService) GenerateToken(publicKey string) (string, error) {
 }
 
 // ValidateToken validates a JWT token and checks its revocation status
-func (a *AuthService) ValidateToken(tokenStr string) (*Claims, error) {
+func (a *AuthService) ValidateToken(ctx context.Context, tokenStr string) (*Claims, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -126,13 +127,12 @@ func (a *AuthService) ValidateToken(tokenStr string) (*Claims, error) {
 		return nil, errors.New("token missing token ID")
 	}
 
-	if a.db == nil {
-		return nil, errors.New("database not configured")
-	}
-	dbToken, err := a.db.GetVaultToken(context.Background(), claims.TokenID)
+	// Check if token is revoked
+	dbToken, err := a.db.GetVaultToken(ctx, claims.TokenID)
 	if err != nil {
 		return nil, errors.New("token not found in database")
 	}
+
 	if dbToken == nil {
 		return nil, errors.New("token not found in database")
 	}
@@ -142,30 +142,30 @@ func (a *AuthService) ValidateToken(tokenStr string) (*Claims, error) {
 	}
 
 	// Update last used timestamp
-	err = a.db.UpdateVaultTokenLastUsed(context.Background(), claims.TokenID)
+	err = a.db.UpdateVaultTokenLastUsed(ctx, claims.TokenID)
 	if err != nil {
 		// Log error but don't fail the request
-		a.logger.Errorf("Failed to update token last used: %v", err)
+		// TODO: Add proper logging
 	}
 
 	return claims, nil
 }
 
 // RefreshToken refreshes a JWT token while preserving the public key
-func (a *AuthService) RefreshToken(oldToken string) (string, error) {
-	claims, err := a.ValidateToken(oldToken)
+func (a *AuthService) RefreshToken(ctx context.Context, oldToken string) (string, error) {
+	claims, err := a.ValidateToken(ctx, oldToken)
 	if err != nil {
 		return "", err
 	}
 
 	// Revoke old token
-	err = a.db.RevokeVaultToken(context.Background(), claims.TokenID)
+	err = a.db.RevokeVaultToken(ctx, claims.TokenID)
 	if err != nil {
 		return "", err
 	}
 
 	// Generate new token
-	return a.GenerateToken(claims.PublicKey)
+	return a.GenerateToken(ctx, claims.PublicKey)
 }
 
 // RevokeToken revokes a specific token
@@ -196,11 +196,11 @@ func (a *AuthService) RevokeToken(ctx context.Context, vaultKey, tokenID string)
 }
 
 // RevokeAllTokens revokes all tokens for a specific public key
-func (a *AuthService) RevokeAllTokens(publicKey string) error {
-	return a.db.RevokeAllVaultTokens(context.Background(), publicKey)
+func (a *AuthService) RevokeAllTokens(ctx context.Context, publicKey string) error {
+	return a.db.RevokeAllVaultTokens(ctx, publicKey)
 }
 
 // GetActiveTokens returns all active tokens for a public key
-func (a *AuthService) GetActiveTokens(publicKey string) ([]types.VaultToken, error) {
-	return a.db.GetActiveVaultTokens(context.Background(), publicKey)
+func (a *AuthService) GetActiveTokens(ctx context.Context, publicKey string) ([]types.VaultToken, error) {
+	return a.db.GetActiveVaultTokens(ctx, publicKey)
 }

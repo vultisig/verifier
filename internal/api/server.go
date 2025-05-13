@@ -492,7 +492,7 @@ func (s *Server) Auth(c echo.Context) error {
 	}
 
 	// Generate JWT token with the public key
-	token, err := s.authService.GenerateToken(req.PublicKey)
+	token, err := s.authService.GenerateToken(c.Request().Context(), req.PublicKey)
 	if err != nil {
 		s.logger.Error("failed to generate token:", err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to generate auth token"))
@@ -523,7 +523,7 @@ func (s *Server) RefreshToken(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Missing token"))
 	}
 
-	newToken, err := s.authService.RefreshToken(req.Token)
+	newToken, err := s.authService.RefreshToken(c.Request().Context(), req.Token)
 	if err != nil {
 		s.logger.Errorf("fail to refresh token, err: %v", err)
 		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Invalid or expired token"))
@@ -576,7 +576,7 @@ func (s *Server) RevokeAllTokens(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to get vault public key"))
 	}
 
-	err := s.authService.RevokeAllTokens(publicKey)
+	err := s.authService.RevokeAllTokens(c.Request().Context(), publicKey)
 	if err != nil {
 		s.logger.Errorf("Failed to revoke all tokens: %v", err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to revoke all tokens"))
@@ -593,7 +593,7 @@ func (s *Server) GetActiveTokens(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to get vault public key"))
 	}
 
-	tokens, err := s.authService.GetActiveTokens(publicKey)
+	tokens, err := s.authService.GetActiveTokens(c.Request().Context(), publicKey)
 	if err != nil {
 		s.logger.Errorf("Failed to get active tokens: %v", err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to get active tokens"))

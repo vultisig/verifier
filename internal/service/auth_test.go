@@ -129,7 +129,7 @@ func (m *mockPool) Stat() *pgxpool.Stat {
 }
 
 func (m *MockDatabaseStorage) Pool() *pgxpool.Pool {
-	return &pgxpool.Pool{}
+	return &mockPool{}
 }
 
 func (m *MockDatabaseStorage) FindUserById(ctx context.Context, userId string) (*itypes.User, error) {

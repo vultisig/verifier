@@ -1,0 +1,23 @@
+package types
+
+import "time"
+
+// VaultToken represents a token stored in the database
+type VaultToken struct {
+	ID         string    `json:"id"`
+	PublicKey  string    `json:"public_key"`
+	TokenID    string    `json:"token_id"`
+	IssuedAt   time.Time `json:"issued_at"`
+	ExpiresAt  time.Time `json:"expires_at"`
+	IsRevoked  bool      `json:"is_revoked"`
+	LastUsedAt time.Time `json:"last_used_at"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+// VaultTokenCreate represents the data needed to create a new vault token
+type VaultTokenCreate struct {
+	PublicKey string    `json:"public_key"`
+	TokenID   string    `json:"token_id"`
+	ExpiresAt time.Time `json:"expires_at"`
+}

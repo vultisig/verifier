@@ -22,6 +22,11 @@ func VerifySignature(vaultPublicKey string, messageBytes []byte, signatureBytes 
 		return false, fmt.Errorf("invalid signature length: expected 65 bytes, got %d", len(signatureBytes))
 	}
 
+	// Ethereum’s v can be {0,1,27,28,…}. Shift to {27,28} as required by go-ethereum.
+	if signatureBytes[64] < 27 {
+		signatureBytes[64] += 27
+	}
+
 	// Create the Ethereum prefixed message hash
 	prefixedMessage := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(messageBytes), messageBytes)
 	prefixedHash := crypto.Keccak256Hash([]byte(prefixedMessage))

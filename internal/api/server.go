@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -63,7 +64,7 @@ func NewServer(
 		logrus.Fatalf("Failed to initialize policy service: %v", err)
 	}
 
-	authService := service.NewAuthService(jwtSecret)
+	authService := service.NewAuthService(jwtSecret, db, logrus.WithField("service", "auth-service").Logger)
 
 	return &Server{
 		cfg:           cfg,
@@ -101,14 +102,22 @@ func (s *Server) StartServer() error {
 	e.POST("/auth", s.Auth)
 	e.POST("/auth/refresh", s.RefreshToken)
 
-	grp := e.Group("/vault")
-	grp.POST("/create", s.CreateVault)
-	grp.POST("/reshare", s.ReshareVault)
-	grp.GET("/get/:publicKeyECDSA", s.GetVault)     // Get Vault Data
-	grp.GET("/exist/:publicKeyECDSA", s.ExistVault) // Check if Vault exists
+	// Token management endpoints
+	tokenGroup := e.Group("/auth/tokens")
+	tokenGroup.Use(s.VaultAuthMiddleware)
+	tokenGroup.DELETE("/:tokenId", s.RevokeToken)
+	tokenGroup.DELETE("/all", s.RevokeAllTokens)
+	tokenGroup.GET("", s.GetActiveTokens)
 
-	grp.POST("/sign", s.SignMessages)                     // Sign messages
-	grp.GET("/sign/response/:taskId", s.GetKeysignResult) // Get keysign result
+	// Protected vault endpoints
+	vaultGroup := e.Group("/vault")
+	vaultGroup.Use(s.VaultAuthMiddleware) // Apply vault auth middleware to all vault endpoints
+	vaultGroup.POST("/create", s.CreateVault)
+	vaultGroup.POST("/reshare", s.ReshareVault)
+	vaultGroup.GET("/get/:publicKeyECDSA", s.GetVault)           // Get Vault Data
+	vaultGroup.GET("/exist/:publicKeyECDSA", s.ExistVault)       // Check if Vault exists
+	vaultGroup.POST("/sign", s.SignMessages)                     // Sign messages
+	vaultGroup.GET("/sign/response/:taskId", s.GetKeysignResult) // Get keysign result
 
 	pluginGroup := e.Group("/plugin", s.userAuthMiddleware)
 	pluginGroup.POST("/policy", s.CreatePluginPolicy)
@@ -453,7 +462,7 @@ func (s *Server) Auth(c echo.Context) error {
 	expectedMessage := clientutil.GenerateHexMessage(req.PublicKey)
 	if req.Message != expectedMessage {
 		s.logger.Warnf("Message mismatch: expected %s, got %s", expectedMessage, req.Message)
-		// Allow some flexibility in message format by continuing anyway
+		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Message content mismatch"))
 	}
 
 	// Decode message from hex (remove 0x prefix first)
@@ -483,14 +492,14 @@ func (s *Server) Auth(c echo.Context) error {
 	}
 
 	// Generate JWT token with the public key
-	token, err := s.authService.GenerateToken()
+	token, err := s.authService.GenerateToken(c.Request().Context(), req.PublicKey)
 	if err != nil {
 		s.logger.Error("failed to generate token:", err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to generate auth token"))
 	}
 
 	// Store logged-in user's public key in cache for quick access
-	cacheKey := "user_pubkey:" + token[0:10]                                          // Use first part of token as a cache key
+	cacheKey := "user_pubkey:" + token
 	err = s.redis.Set(c.Request().Context(), cacheKey, req.PublicKey, 7*24*time.Hour) // Same as token expiration
 	if err != nil {
 		s.logger.Warnf("Failed to cache user info: %v", err)
@@ -514,11 +523,81 @@ func (s *Server) RefreshToken(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Missing token"))
 	}
 
-	newToken, err := s.authService.RefreshToken(req.Token)
+	newToken, err := s.authService.RefreshToken(c.Request().Context(), req.Token)
 	if err != nil {
 		s.logger.Errorf("fail to refresh token, err: %v", err)
 		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Invalid or expired token"))
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"token": newToken})
+}
+
+// RevokeToken revokes a specific token
+func (s *Server) RevokeToken(c echo.Context) error {
+	tokenID := c.Param("tokenId")
+	if tokenID == "" {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("Missing token ID"))
+	}
+
+	vaultKey, ok := c.Get("vault_public_key").(string)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Unauthorized"))
+	}
+
+	err := s.authService.RevokeToken(c.Request().Context(), vaultKey, tokenID)
+	if err != nil {
+		s.logger.Errorf("Failed to revoke token: %v", err)
+		switch {
+		case errors.Is(err, service.ErrTokenNotFound):
+			return c.JSON(http.StatusNotFound, NewErrorResponse("Token not found"))
+		case errors.Is(err, service.ErrNotOwner):
+			return c.JSON(http.StatusForbidden, NewErrorResponse("Unauthorized token revocation"))
+		case errors.Is(err, service.ErrBeginTx):
+			return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to begin transaction"))
+		case errors.Is(err, service.ErrGetToken):
+			return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to get token"))
+		case errors.Is(err, service.ErrRevokeToken):
+			return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to revoke token"))
+		case errors.Is(err, service.ErrCommitTx):
+			return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to commit transaction"))
+		default:
+			return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to revoke token"))
+		}
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
+// RevokeAllTokens revokes all tokens for the authenticated vault
+func (s *Server) RevokeAllTokens(c echo.Context) error {
+	// Get public key from context (set by VaultAuthMiddleware)
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to get vault public key"))
+	}
+
+	err := s.authService.RevokeAllTokens(c.Request().Context(), publicKey)
+	if err != nil {
+		s.logger.Errorf("Failed to revoke all tokens: %v", err)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to revoke all tokens"))
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
+// GetActiveTokens returns all active tokens for the authenticated vault
+func (s *Server) GetActiveTokens(c echo.Context) error {
+	// Get public key from context (set by VaultAuthMiddleware)
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to get vault public key"))
+	}
+
+	tokens, err := s.authService.GetActiveTokens(c.Request().Context(), publicKey)
+	if err != nil {
+		s.logger.Errorf("Failed to get active tokens: %v", err)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to get active tokens"))
+	}
+
+	return c.JSON(http.StatusOK, tokens)
 }

@@ -50,11 +50,11 @@ func ValidateAuthRequest(message, signature, publicKey, chainCodeHex string) err
 	if !strings.HasPrefix(message, "0x") {
 		return fmt.Errorf("message must be a hex string with 0x prefix")
 	}
-	if !strings.HasPrefix(signature, "0x") {
-		return fmt.Errorf("signature must be a hex string with 0x prefix")
+	if !isValidPrefixedHex(signature) {
+		return fmt.Errorf("signature must be a valid 0x-prefixed hex string")
 	}
-	if !strings.HasPrefix(publicKey, "0x") {
-		return fmt.Errorf("public key must be a hex string with 0x prefix")
+	if !isValidPrefixedHex(publicKey) {
+		return fmt.Errorf("public key must be a valid 0x-prefixed hex string")
 	}
 
 	return nil
@@ -70,20 +70,6 @@ func FormatAuthResponse(token string, err error) map[string]interface{} {
 	return map[string]interface{}{
 		"token": token,
 	}
-}
-
-// ExtractBearerToken extracts the token from the Authorization header
-func ExtractBearerToken(authHeader string) (string, error) {
-	if authHeader == "" {
-		return "", fmt.Errorf("missing authorization header")
-	}
-
-	parts := strings.Split(authHeader, " ")
-	if len(parts) != 2 || parts[0] != "Bearer" {
-		return "", fmt.Errorf("invalid authorization format, use: Bearer <token>")
-	}
-
-	return parts[1], nil
 }
 
 // StripHexPrefix removes the 0x prefix from a hex string if present
@@ -113,4 +99,13 @@ func IsValidEthAddress(address string) bool {
 		return false
 	}
 	return common.IsHexAddress(address)
+}
+
+// helper
+func isValidPrefixedHex(v string) bool {
+	if !strings.HasPrefix(v, "0x") {
+		return false
+	}
+	_, err := hex.DecodeString(v[2:])
+	return err == nil
 }

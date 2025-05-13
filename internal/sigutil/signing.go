@@ -8,20 +8,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/vultisig/mobile-tss-lib/tss"
 )
 
-// VerifySignature verifies a signature against a message using a derived public key
-func VerifySignature(vaultPublicKey string, chainCodeHex string, derivePath string, messageBytes []byte, signatureBytes []byte) (bool, error) {
-	// Derive the public key
-	derivedKeyHex, err := tss.GetDerivedPubKey(vaultPublicKey, chainCodeHex, derivePath, false) // false for ECDSA
-	if err != nil {
-		return false, fmt.Errorf("failed to derive public key: %w", err)
-	}
-
+// VerifySignature verifies a signature against a message using a public key
+func VerifySignature(vaultPublicKey string, chainCodeHex string, messageBytes []byte, signatureBytes []byte) (bool, error) {
 	// Ensure public key has 0x prefix
-	if !strings.HasPrefix(derivedKeyHex, "0x") {
-		derivedKeyHex = "0x" + derivedKeyHex
+	if !strings.HasPrefix(vaultPublicKey, "0x") {
+		vaultPublicKey = "0x" + vaultPublicKey
 	}
 
 	// Ensure signature is 65 bytes long (r, s, v)
@@ -30,7 +23,6 @@ func VerifySignature(vaultPublicKey string, chainCodeHex string, derivePath stri
 	}
 
 	// Create the Ethereum prefixed message hash
-	// The message is already in bytes format, so we create the Ethereum personal message
 	prefixedMessage := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(messageBytes), messageBytes)
 	prefixedHash := crypto.Keccak256Hash([]byte(prefixedMessage))
 
@@ -46,24 +38,24 @@ func VerifySignature(vaultPublicKey string, chainCodeHex string, derivePath stri
 		return false, fmt.Errorf("failed to unmarshal recovered public key: %w", err)
 	}
 
-	// Convert derived public key from hex to bytes
-	derivedPubKeyBytes, err := hexutil.Decode(derivedKeyHex)
+	// Convert public key from hex to bytes
+	pubKeyBytes, err := hexutil.Decode(vaultPublicKey)
 	if err != nil {
-		return false, fmt.Errorf("failed to decode derived public key: %w", err)
+		return false, fmt.Errorf("failed to decode public key: %w", err)
 	}
 
-	// Unmarshal the derived public key
-	derivedPubKey, err := crypto.UnmarshalPubkey(derivedPubKeyBytes)
+	// Unmarshal the public key
+	pubKey, err := crypto.UnmarshalPubkey(pubKeyBytes)
 	if err != nil {
-		return false, fmt.Errorf("failed to unmarshal derived public key: %w", err)
+		return false, fmt.Errorf("failed to unmarshal public key: %w", err)
 	}
 
 	// Get Ethereum addresses from public keys
 	recoveredAddr := crypto.PubkeyToAddress(*recoveredPubKey)
-	derivedAddr := crypto.PubkeyToAddress(*derivedPubKey)
+	pubAddr := crypto.PubkeyToAddress(*pubKey)
 
 	// Compare addresses
-	return recoveredAddr == derivedAddr, nil
+	return recoveredAddr == pubAddr, nil
 }
 
 // RawSignature converts r, s, v values to a raw signature byte array

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -80,7 +79,7 @@ func (s *Server) UpdatePlugin(c echo.Context) error {
 
 	var plugin types.PluginUpdateDto
 	if err := c.Bind(&plugin); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid request"))
 	}
 
 	if err := c.Validate(&plugin); err != nil {

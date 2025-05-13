@@ -9,8 +9,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DataDog/datadog-go/statsd"
+	"github.com/go-playground/validator/v10"
+	"github.com/hibiken/asynq"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/gommon/log"
+	"github.com/sirupsen/logrus"
+	"github.com/vultisig/mobile-tss-lib/tss"
+
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/config"
+	"github.com/vultisig/verifier/internal/clientutil"
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/sigutil"
 	"github.com/vultisig/verifier/internal/storage"
@@ -20,16 +30,6 @@ import (
 	vv "github.com/vultisig/verifier/internal/vultisig_validator"
 	types2 "github.com/vultisig/verifier/types"
 	"github.com/vultisig/verifier/vault"
-
-	"github.com/DataDog/datadog-go/statsd"
-	"github.com/go-playground/validator/v10"
-	"github.com/hibiken/asynq"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-	"github.com/labstack/gommon/log"
-	"github.com/sirupsen/logrus"
-	"github.com/vultisig/mobile-tss-lib/tss"
-	"github.com/vultisig/verifier/internal/clientutil"
 )
 
 type Server struct {
@@ -121,19 +121,20 @@ func (s *Server) StartServer() error {
 	// 	e.POST("/login", s.UserLogin)
 	// 	e.GET("/users/me", s.GetLoggedUser, s.userAuthMiddleware)
 	//
-	// 	pluginsGroup := e.Group("/plugins")
-	// 	pluginsGroup.GET("", s.GetPlugins)
-	// 	pluginsGroup.GET("/:pluginId", s.GetPlugin)
-	// 	pluginsGroup.POST("", s.CreatePlugin, s.userAuthMiddleware)
-	// 	pluginsGroup.PATCH("/:pluginId", s.UpdatePlugin, s.userAuthMiddleware)
-	// 	pluginsGroup.DELETE("/:pluginId", s.DeletePlugin, s.userAuthMiddleware)
 	// }
+	pluginsGroup := e.Group("/plugins")
+	pluginsGroup.GET("", s.GetPlugins)
+	pluginsGroup.GET("/:pluginId", s.GetPlugin)
+	pluginsGroup.POST("", s.CreatePlugin, s.userAuthMiddleware)
+	pluginsGroup.PATCH("/:pluginId", s.UpdatePlugin, s.userAuthMiddleware)
+	pluginsGroup.DELETE("/:pluginId", s.DeletePlugin, s.userAuthMiddleware)
 
 	pricingsGroup := e.Group("/pricing")
 	pricingsGroup.GET("/:pricingId", s.GetPricing)
 	pricingsGroup.POST("", s.CreatePricing, s.userAuthMiddleware)
 	pricingsGroup.DELETE("/:pricingId", s.DeletePricing, s.userAuthMiddleware)
 	syncGroup := e.Group("/sync", s.userAuthMiddleware)
+
 	syncGroup.POST("/transaction", s.CreateTransaction)
 	syncGroup.PUT("/transaction", s.UpdateTransaction)
 

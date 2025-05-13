@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
 	"github.com/vultisig/verifier/internal/types"
@@ -14,8 +15,11 @@ func (s *Server) GetPricing(c echo.Context) error {
 	if pricingID == "" {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid pricing id"))
 	}
-
-	pricing, err := s.db.FindPricingById(c.Request().Context(), pricingID)
+	uPricingID, err := uuid.Parse(pricingID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid pricing id"))
+	}
+	pricing, err := s.db.FindPricingById(c.Request().Context(), uPricingID)
 	if err != nil {
 		s.logger.Errorf("error finding pricing %s: %v", pricingID, err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get pricing"))
@@ -49,9 +53,11 @@ func (s *Server) DeletePricing(c echo.Context) error {
 	if pricingID == "" {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid pricing id"))
 	}
-
-	err := s.db.DeletePricingById(c.Request().Context(), pricingID)
+	uPricingID, err := uuid.Parse(pricingID)
 	if err != nil {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid pricing id"))
+	}
+	if err := s.db.DeletePricingById(c.Request().Context(), uPricingID); err != nil {
 		s.logger.Errorf("error deleting pricing %s: %s", pricingID, err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to delete pricing"))
 	}

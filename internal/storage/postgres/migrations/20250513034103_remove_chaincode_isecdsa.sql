@@ -9,7 +9,7 @@ ALTER TABLE plugin_policies
 -- +goose Down
 -- +goose StatementBegin
 ALTER TABLE plugin_policies
-  ADD COLUMN IF NOT EXISTS chain_code_hex TEXT;
+  ADD COLUMN IF NOT EXISTS chain_code_hex TEXT NOT NULL;
 ALTER TABLE plugin_policies
   ADD COLUMN IF NOT EXISTS is_ecdsa BOOLEAN DEFAULT TRUE;
 -- +goose StatementEnd

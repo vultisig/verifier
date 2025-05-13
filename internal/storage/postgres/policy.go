@@ -141,14 +141,14 @@ func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		return nil, fmt.Errorf("failed to marshal policy: %w", err)
 	}
 
-	// TODO: update other fields
 	query := `
 		UPDATE plugin_policies 
-		SET public_key = $2, 
-				plugin_type = $3, 
-				signature = $4,
-				active = $5,
-				policy = $6
+		SET plugin_version = $2,
+		    policy_version = $3,
+			signature = $4,
+			active = $5,
+			policy = $6,
+			is_ecdsa = $7
 		WHERE id = $1
 		RETURNING id, public_key, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy
 	`
@@ -156,12 +156,12 @@ func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 	var updatedPolicy types.PluginPolicy
 	err = dbTx.QueryRow(ctx, query,
 		policy.ID,
-		policy.PublicKey,
-		policy.PluginType,
+		policy.PluginVersion,
+		policy.PolicyVersion,
 		policy.Signature,
 		policy.Active,
 		policyJSON,
-	).Scan(
+		policy.IsEcdsa).Scan(
 		&updatedPolicy.ID,
 		&updatedPolicy.PublicKey,
 		&updatedPolicy.PluginID,

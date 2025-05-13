@@ -29,7 +29,7 @@ func (p *PostgresBackend) FindPluginById(ctx context.Context, id uuid.UUID) (*ty
 	return &plugin, nil
 }
 
-func (p *PostgresBackend) FindPlugins(ctx context.Context, skip int, take int, sort string) (types.PluginsDto, error) {
+func (p *PostgresBackend) FindPlugins(ctx context.Context, take int, skip int, sort string) (types.PluginsDto, error) {
 	if p.pool == nil {
 		return types.PluginsDto{}, fmt.Errorf("database pool is nil")
 	}

@@ -25,7 +25,7 @@ func (s *Server) GetPlugins(c echo.Context) error {
 
 	sort := c.QueryParam("sort")
 
-	plugins, err := s.db.FindPlugins(c.Request().Context(), skip, take, sort)
+	plugins, err := s.db.FindPlugins(c.Request().Context(), take, skip, sort)
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get plugins")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get plugins"))

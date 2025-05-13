@@ -72,20 +72,6 @@ func FormatAuthResponse(token string, err error) map[string]interface{} {
 	}
 }
 
-// ExtractBearerToken extracts the token from the Authorization header
-func ExtractBearerToken(authHeader string) (string, error) {
-	if authHeader == "" {
-		return "", fmt.Errorf("missing authorization header")
-	}
-
-	parts := strings.Split(authHeader, " ")
-	if len(parts) != 2 || parts[0] != "Bearer" {
-		return "", fmt.Errorf("invalid authorization format, use: Bearer <token>")
-	}
-
-	return parts[1], nil
-}
-
 // StripHexPrefix removes the 0x prefix from a hex string if present
 func StripHexPrefix(hex string) string {
 	if strings.HasPrefix(hex, "0x") {

@@ -65,7 +65,8 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) b
 		return false
 	}
 
-	isVerified, err := sigutil.VerifySignature(policy.PublicKey, policy.ChainCodeHex, msgBytes, signatureBytes)
+	// TODO: We might use ETH key to sign the policy, thus let's get the ETH public key
+	isVerified, err := sigutil.VerifySignature(policy.PublicKey, msgBytes, signatureBytes)
 	if err != nil {
 		s.logger.Errorf("failed to verify signature: %s", err)
 		return false

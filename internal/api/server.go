@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -461,9 +462,7 @@ func (s *Server) Auth(c echo.Context) error {
 	expectedMessage := clientutil.GenerateHexMessage(req.PublicKey)
 	if req.Message != expectedMessage {
 		s.logger.Warnf("Message mismatch: expected %s, got %s", expectedMessage, req.Message)
-		return c.JSON(http.StatusUnauthorized, map[string]string{
-			"error": "Message content mismatch",
-		})
+		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Message content mismatch"))
 	}
 
 	// Decode message from hex (remove 0x prefix first)
@@ -537,34 +536,33 @@ func (s *Server) RefreshToken(c echo.Context) error {
 func (s *Server) RevokeToken(c echo.Context) error {
 	tokenID := c.Param("tokenId")
 	if tokenID == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Missing token ID",
-		})
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("Missing token ID"))
 	}
 
 	vaultKey, ok := c.Get("vault_public_key").(string)
 	if !ok {
-		return c.JSON(http.StatusUnauthorized, map[string]string{
-			"error": "Unauthorized",
-		})
+		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Unauthorized"))
 	}
 
 	err := s.authService.RevokeToken(c.Request().Context(), vaultKey, tokenID)
 	if err != nil {
 		s.logger.Errorf("Failed to revoke token: %v", err)
-		if strings.Contains(err.Error(), "token not found") {
-			return c.JSON(http.StatusNotFound, map[string]string{
-				"error": "Token not found",
-			})
+		switch {
+		case errors.Is(err, service.ErrTokenNotFound):
+			return c.JSON(http.StatusNotFound, NewErrorResponse("Token not found"))
+		case errors.Is(err, service.ErrNotOwner):
+			return c.JSON(http.StatusForbidden, NewErrorResponse("Unauthorized token revocation"))
+		case errors.Is(err, service.ErrBeginTx):
+			return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to begin transaction"))
+		case errors.Is(err, service.ErrGetToken):
+			return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to get token"))
+		case errors.Is(err, service.ErrRevokeToken):
+			return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to revoke token"))
+		case errors.Is(err, service.ErrCommitTx):
+			return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to commit transaction"))
+		default:
+			return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to revoke token"))
 		}
-		if strings.Contains(err.Error(), "unauthorized token revocation") {
-			return c.JSON(http.StatusForbidden, map[string]string{
-				"error": "Unauthorized token revocation",
-			})
-		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to revoke token",
-		})
 	}
 
 	return c.NoContent(http.StatusOK)
@@ -575,17 +573,13 @@ func (s *Server) RevokeAllTokens(c echo.Context) error {
 	// Get public key from context (set by VaultAuthMiddleware)
 	publicKey, ok := c.Get("vault_public_key").(string)
 	if !ok {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to get vault public key",
-		})
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to get vault public key"))
 	}
 
 	err := s.authService.RevokeAllTokens(publicKey)
 	if err != nil {
 		s.logger.Errorf("Failed to revoke all tokens: %v", err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to revoke all tokens",
-		})
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to revoke all tokens"))
 	}
 
 	return c.NoContent(http.StatusOK)
@@ -596,17 +590,13 @@ func (s *Server) GetActiveTokens(c echo.Context) error {
 	// Get public key from context (set by VaultAuthMiddleware)
 	publicKey, ok := c.Get("vault_public_key").(string)
 	if !ok {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to get vault public key",
-		})
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to get vault public key"))
 	}
 
 	tokens, err := s.authService.GetActiveTokens(publicKey)
 	if err != nil {
 		s.logger.Errorf("Failed to get active tokens: %v", err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to get active tokens",
-		})
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to get active tokens"))
 	}
 
 	return c.JSON(http.StatusOK, tokens)

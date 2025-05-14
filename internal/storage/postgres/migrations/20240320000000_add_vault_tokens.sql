@@ -9,7 +9,7 @@ CREATE TABLE vault_tokens (
     is_revoked BOOLEAN DEFAULT FALSE,
     last_used_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP    
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,    
     CONSTRAINT unique_token_id UNIQUE (token_id)
 );
 

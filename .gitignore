@@ -33,3 +33,13 @@ cmd/worker
 .devenv/
 .DS_Store
 config.json
+
+# PLUGINS UI
+plugins-ui/node_modules/
+plugins-ui/.env
+plugins-ui/.vite
+plugins-ui/dist
+plugins-ui/coverage
+
+guide.md
+verifier.json

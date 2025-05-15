@@ -33,6 +33,8 @@ func VerifySignature(vaultPublicKey string, message string, signatureBytes []byt
 	prefixed := append([]byte(prefix), msgBytes...)
 	digest := crypto.Keccak256Hash(prefixed)
 
+	// fmt.Println("digest", digest.Hex())
+
 	// Recover public key from signature
 	pubkeyBytes, err := crypto.Ecrecover(digest.Bytes(), signatureBytes)
 	if err != nil {
@@ -49,7 +51,7 @@ func VerifySignature(vaultPublicKey string, message string, signatureBytes []byt
 	recoveredAddr := crypto.PubkeyToAddress(*recoveredPubKey)
 
 	// Compare addresses
-	return recoveredAddr.String() == vaultPublicKey, nil
+	return strings.EqualFold(recoveredAddr.Hex(), vaultPublicKey), nil
 }
 
 // RawSignature converts r, s, v values to a raw signature byte array

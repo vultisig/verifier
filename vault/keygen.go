@@ -142,25 +142,19 @@ func (t *DKLSTssService) BackupVault(req types.VaultCreateRequest,
 		},
 		LocalPartyId:  req.LocalPartyId,
 		ResharePrefix: "",
+		LibType:       keygen.LibType_LIB_TYPE_DKLS,
 	}
-	if req.LibType == types.DKLS {
-		vault.LibType = keygen.LibType_LIB_TYPE_DKLS
-	} else {
-		vault.LibType = keygen.LibType_LIB_TYPE_GG20
-	}
-	//
-	return t.SaveVaultToStorage(vault, req.EncryptionPassword, req.Email)
+
+	return t.SaveVaultToStorage(vault, req.Email)
 }
 
-func (s *DKLSTssService) SaveVaultToStorage(vault *vaultType.Vault,
-	encryptionPassword string,
-	email string) error {
+func (s *DKLSTssService) SaveVaultToStorage(vault *vaultType.Vault, email string) error {
 	vaultData, err := proto.Marshal(vault)
 	if err != nil {
 		return fmt.Errorf("failed to Marshal vault: %w", err)
 	}
 
-	vaultData, err = common.EncryptVault(encryptionPassword, vaultData)
+	vaultData, err = common.EncryptVault(s.cfg.EncryptionSecret, vaultData)
 	if err != nil {
 		return fmt.Errorf("common.EncryptVault failed: %w", err)
 	}
@@ -179,7 +173,7 @@ func (s *DKLSTssService) SaveVaultToStorage(vault *vaultType.Vault,
 
 	base64VaultContent := base64.StdEncoding.EncodeToString(vaultBackupData)
 
-	if s.cfg.QueueEmailTask {
+	if s.cfg.QueueEmailTask && len(email) != 0 {
 		emailRequest := types.EmailRequest{
 			Email:       email,
 			FileName:    common.GetVaultName(vault),

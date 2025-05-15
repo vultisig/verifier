@@ -8,17 +8,15 @@ import (
 
 // ReshareRequest is a struct that represents a request to reshare a vault
 type ReshareRequest struct {
-	Name               string   `json:"name"`                // name of the vault
-	PublicKey          string   `json:"public_key"`          // public key ecdsa
-	SessionID          string   `json:"session_id"`          // session id
-	HexEncryptionKey   string   `json:"hex_encryption_key"`  // hex encryption key
-	HexChainCode       string   `json:"hex_chain_code"`      // hex chain code
-	LocalPartyId       string   `json:"local_party_id"`      // local party id
-	OldParties         []string `json:"old_parties"`         // old parties
-	EncryptionPassword string   `json:"encryption_password"` // password used to encrypt the vault file
-	Email              string   `json:"email"`
-	OldResharePrefix   string   `json:"old_reshare_prefix"`
-	LibType            LibType  `json:"lib_type"`
+	Name             string   `json:"name"`               // name of the vault
+	PublicKey        string   `json:"public_key"`         // public key ecdsa
+	SessionID        string   `json:"session_id"`         // session id
+	HexEncryptionKey string   `json:"hex_encryption_key"` // hex encryption key
+	HexChainCode     string   `json:"hex_chain_code"`     // hex chain code
+	LocalPartyId     string   `json:"local_party_id"`     // local party id
+	OldParties       []string `json:"old_parties"`        // old parties
+	Email            string   `json:"email"`
+	OldResharePrefix string   `json:"old_reshare_prefix"`
 }
 
 func (req *ReshareRequest) IsValid() error {
@@ -43,17 +41,10 @@ func (req *ReshareRequest) IsValid() error {
 	if !isValidHexString(req.HexChainCode) {
 		return fmt.Errorf("hex_chain_code is not valid")
 	}
-	if req.EncryptionPassword == "" {
-		return fmt.Errorf("encryption_password is required")
-	}
-	if req.Email == "" {
-		return fmt.Errorf("email is required")
-	}
+
 	if len(req.OldParties) == 0 {
 		return fmt.Errorf("old_parties is required")
 	}
-	if req.LibType == GG20 {
-		return fmt.Errorf("plugin does not support GG20 reshare")
-	}
+
 	return nil
 }

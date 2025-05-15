@@ -149,6 +149,9 @@ func (t *DKLSTssService) BackupVault(req types.VaultCreateRequest,
 }
 
 func (s *DKLSTssService) SaveVaultToStorage(vault *vaultType.Vault, email string) error {
+	if len(s.cfg.EncryptionSecret) == 0 {
+		return fmt.Errorf("encryption secret is empty")
+	}
 	vaultData, err := proto.Marshal(vault)
 	if err != nil {
 		return fmt.Errorf("failed to Marshal vault: %w", err)

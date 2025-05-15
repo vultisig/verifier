@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // VerifySignature verifies a signature against a message using a public key
-func VerifySignature(vaultPublicKey string, messageBytes []byte, signatureBytes []byte) (bool, error) {
-	// Ensure public key has 0x prefix
+func VerifySignature(vaultPublicKey string, message string, signatureBytes []byte) (bool, error) {
+
+	// 1) Normalize pubkey
 	if !strings.HasPrefix(vaultPublicKey, "0x") {
 		vaultPublicKey = "0x" + vaultPublicKey
 	}
@@ -23,16 +23,18 @@ func VerifySignature(vaultPublicKey string, messageBytes []byte, signatureBytes 
 	}
 
 	// Ethereum’s v can be {0,1,27,28,…}. Shift to {27,28} as required by go-ethereum.
-	if signatureBytes[64] < 27 {
-		signatureBytes[64] += 27
+	if signatureBytes[64] >= 27 {
+		signatureBytes[64] -= 27
 	}
 
-	// Create the Ethereum prefixed message hash
-	prefixedMessage := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(messageBytes), messageBytes)
-	prefixedHash := crypto.Keccak256Hash([]byte(prefixedMessage))
+	// Reconstruct the exact prefixed message:
+	msgBytes := []byte(message) // <-- literal UTF-8 bytes of "0x8af37…01"
+	prefix := fmt.Sprintf("\x19Ethereum Signed Message:\n%d", len(msgBytes))
+	prefixed := append([]byte(prefix), msgBytes...)
+	digest := crypto.Keccak256Hash(prefixed)
 
 	// Recover public key from signature
-	pubkeyBytes, err := crypto.Ecrecover(prefixedHash.Bytes(), signatureBytes)
+	pubkeyBytes, err := crypto.Ecrecover(digest.Bytes(), signatureBytes)
 	if err != nil {
 		return false, fmt.Errorf("failed to recover public key: %w", err)
 	}
@@ -43,24 +45,11 @@ func VerifySignature(vaultPublicKey string, messageBytes []byte, signatureBytes 
 		return false, fmt.Errorf("failed to unmarshal recovered public key: %w", err)
 	}
 
-	// Convert public key from hex to bytes
-	pubKeyBytes, err := hexutil.Decode(vaultPublicKey)
-	if err != nil {
-		return false, fmt.Errorf("failed to decode public key: %w", err)
-	}
-
-	// Unmarshal the public key
-	pubKey, err := crypto.UnmarshalPubkey(pubKeyBytes)
-	if err != nil {
-		return false, fmt.Errorf("failed to unmarshal public key: %w", err)
-	}
-
 	// Get Ethereum addresses from public keys
 	recoveredAddr := crypto.PubkeyToAddress(*recoveredPubKey)
-	pubAddr := crypto.PubkeyToAddress(*pubKey)
 
 	// Compare addresses
-	return recoveredAddr == pubAddr, nil
+	return recoveredAddr.String() == vaultPublicKey, nil
 }
 
 // RawSignature converts r, s, v values to a raw signature byte array

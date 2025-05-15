@@ -79,6 +79,7 @@ func policyToMessageHex(policy types.PluginPolicy, isUpdate bool) (string, error
 	if err != nil {
 		return "", fmt.Errorf("failed to serialize policy")
 	}
+
 	return hex.EncodeToString(serializedPolicy), nil
 }
 

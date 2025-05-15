@@ -77,9 +77,7 @@ func (s *ManagementService) HandleKeyGenerationDKLS(ctx context.Context, t *asyn
 	if err := json.Unmarshal(t.Payload(), &req); err != nil {
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
 	}
-	if req.LibType != types.DKLS {
-		return fmt.Errorf("invalid lib type: %d: %w", req.LibType, asynq.SkipRetry)
-	}
+
 	s.logger.WithFields(logrus.Fields{
 		"name":           req.Name,
 		"session":        req.SessionID,
@@ -183,9 +181,6 @@ func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task
 		s.logger.Errorf("json.Unmarshal failed: %v", err)
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
 	}
-	if req.LibType != types.DKLS {
-		return fmt.Errorf("invalid lib type: %d: %w", req.LibType, asynq.SkipRetry)
-	}
 
 	defer s.measureTime("worker.vault.reshare.latency", time.Now(), []string{})
 	s.incCounter("worker.vault.reshare.dkls", []string{})
@@ -216,7 +211,7 @@ func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task
 		}
 	} else {
 		// decrypt the vault
-		vault, err = common.DecryptVaultFromBackup(req.EncryptionPassword, vaultContent)
+		vault, err = common.DecryptVaultFromBackup(s.cfg.EncryptionSecret, vaultContent)
 		if err != nil {
 			s.logger.Errorf("fail to decrypt vault from the backup, err: %v", err)
 			return fmt.Errorf("fail to decrypt vault from the backup, err: %v: %w", err, asynq.SkipRetry)
@@ -229,7 +224,7 @@ func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task
 		return fmt.Errorf("NewDKLSTssService failed: %v: %w", err, asynq.SkipRetry)
 	}
 
-	if err := service.ProcessReshare(vault, req.SessionID, req.HexEncryptionKey, req.EncryptionPassword, req.Email); err != nil {
+	if err := service.ProcessReshare(vault, req.SessionID, req.HexEncryptionKey, req.Email); err != nil {
 		s.logger.Errorf("reshare failed: %v", err)
 		return fmt.Errorf("reshare failed: %v: %w", err, asynq.SkipRetry)
 	}

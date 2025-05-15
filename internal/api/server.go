@@ -481,8 +481,15 @@ func (s *Server) Auth(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid signature format"))
 	}
 
+	// Here we assume the public key send in the request is the ECDSA Root Public Key
+	// If user directly send their ETH public key , then ChainCode is not required
+	ethPublicKey, err := tss.GetDerivedPubKey(req.PublicKey, req.ChainCodeHex, common.Ethereum.GetDerivePath(), false)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to get derived public key")
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("Failed to derive public key"))
+	}
 	// Verify the signature using our utility
-	success, err := sigutil.VerifySignature(req.PublicKey, msgBytes, sigBytes)
+	success, err := sigutil.VerifySignature(ethPublicKey, msgBytes, sigBytes)
 	if err != nil {
 		s.logger.Errorf("signature verification failed: %v", err)
 		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Signature verification failed: "+err.Error()))

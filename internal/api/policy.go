@@ -9,7 +9,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	v1 "github.com/vultisig/commondata/go/vultisig/vault/v1"
+	"github.com/vultisig/mobile-tss-lib/tss"
 
+	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/internal/sigutil"
 	"github.com/vultisig/verifier/types"
 )
@@ -45,6 +48,27 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, newPolicy)
 }
+func (s *Server) getVault(publicKeyECDSA string) (*v1.Vault, error) {
+	if len(s.cfg.EncryptionSecret) == 0 {
+		return nil, fmt.Errorf("no encryption secret")
+	}
+	fileName := common.GetVaultBackupFilename(publicKeyECDSA)
+	vaultContent, err := s.vaultStorage.GetVault(fileName)
+	if err != nil {
+		s.logger.WithError(err).Error("fail to get vault")
+		return nil, fmt.Errorf("failed to get vault")
+	}
+	if vaultContent == nil {
+		s.logger.Error("vault not found")
+		return nil, fmt.Errorf("vault not found")
+	}
+
+	v, err := common.DecryptVaultFromBackup(s.cfg.EncryptionSecret, vaultContent)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt vault,err: %w", err)
+	}
+	return v, nil
+}
 
 func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) bool {
 	msgHex, err := policyToMessageHex(policy, update)
@@ -61,12 +85,22 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) b
 
 	signatureBytes, err := hex.DecodeString(strings.TrimPrefix(policy.Signature, "0x"))
 	if err != nil {
-		s.logger.Errorf("failed to decode signature bytes: %s", err)
+		s.logger.WithError(err).Error("failed to decode signature bytes")
+		return false
+	}
+	vault, err := s.getVault(policy.PublicKey)
+	if err != nil {
+		s.logger.WithError(err).Error("fail to get vault")
 		return false
 	}
 
-	// TODO: We might use ETH key to sign the policy, thus let's get the ETH public key
-	isVerified, err := sigutil.VerifySignature(policy.PublicKey, msgBytes, signatureBytes)
+	derivedPublicKey, err := tss.GetDerivedPubKey(vault.PublicKeyEcdsa, vault.HexChainCode, common.Ethereum.GetDerivePath(), false)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to get derived public key")
+		return false
+	}
+
+	isVerified, err := sigutil.VerifySignature(derivedPublicKey, msgBytes, signatureBytes)
 	if err != nil {
 		s.logger.Errorf("failed to verify signature: %s", err)
 		return false

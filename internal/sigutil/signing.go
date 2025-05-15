@@ -11,10 +11,10 @@ import (
 )
 
 // VerifySignature verifies a signature against a message using a public key
-func VerifySignature(vaultPublicKey string, messageBytes []byte, signatureBytes []byte) (bool, error) {
+func VerifySignature(ethPublicKey string, messageBytes []byte, signatureBytes []byte) (bool, error) {
 	// Ensure public key has 0x prefix
-	if !strings.HasPrefix(vaultPublicKey, "0x") {
-		vaultPublicKey = "0x" + vaultPublicKey
+	if !strings.HasPrefix(ethPublicKey, "0x") {
+		ethPublicKey = "0x" + ethPublicKey
 	}
 
 	// Ensure signature is 65 bytes long (r, s, v)
@@ -44,7 +44,7 @@ func VerifySignature(vaultPublicKey string, messageBytes []byte, signatureBytes 
 	}
 
 	// Convert public key from hex to bytes
-	pubKeyBytes, err := hexutil.Decode(vaultPublicKey)
+	pubKeyBytes, err := hexutil.Decode(ethPublicKey)
 	if err != nil {
 		return false, fmt.Errorf("failed to decode public key: %w", err)
 	}

@@ -51,11 +51,7 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 	}
 
 	query := `
-<<<<<<< HEAD
-  	SELECT id, public_key,  plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy 
-=======
-  	SELECT id, public_key, is_ecdsa, chain_code_hex, plugin_id, plugin_version, policy_version, signature, active, policy 
->>>>>>> 37d94f9 (verifier: adopt plugin ID enum/const instead of UUID)
+  	SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, policy 
 		FROM plugin_policies
 		WHERE public_key = $1
 		AND plugin_id = $2`

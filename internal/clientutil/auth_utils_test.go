@@ -15,27 +15,27 @@ func TestGenerateHexMessage(t *testing.T) {
 		{
 			name:      "Public key with 0x prefix",
 			publicKey: "0x1234567890abcdef",
-			want:      "0x1234567890abcdef1",
+			want:      "0x1234567890abcdef01",
 		},
 		{
 			name:      "Public key without 0x prefix",
 			publicKey: "1234567890abcdef",
-			want:      "0x1234567890abcdef1",
+			want:      "0x1234567890abcdef01",
 		},
 		{
 			name:      "Empty public key",
 			publicKey: "",
-			want:      "0x1",
+			want:      "0x01",
 		},
 		{
 			name:      "Short public key",
 			publicKey: "0x123",
-			want:      "0x1231",
+			want:      "0x12301",
 		},
 		{
 			name:      "Very long public key",
 			publicKey: "0x" + "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-			want:      "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1",
+			want:      "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef01",
 		},
 	}
 

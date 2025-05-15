@@ -53,12 +53,6 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) b
 		return false
 	}
 
-	msgBytes, err := hex.DecodeString(strings.TrimPrefix(msgHex, "0x"))
-	if err != nil {
-		s.logger.Errorf("failed to decode message bytes: %s", err)
-		return false
-	}
-
 	signatureBytes, err := hex.DecodeString(strings.TrimPrefix(policy.Signature, "0x"))
 	if err != nil {
 		s.logger.Errorf("failed to decode signature bytes: %s", err)
@@ -66,7 +60,7 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) b
 	}
 
 	// TODO: We might use ETH key to sign the policy, thus let's get the ETH public key
-	isVerified, err := sigutil.VerifySignature(policy.PublicKey, msgBytes, signatureBytes)
+	isVerified, err := sigutil.VerifySignature(policy.PublicKey, msgHex, signatureBytes)
 	if err != nil {
 		s.logger.Errorf("failed to verify signature: %s", err)
 		return false

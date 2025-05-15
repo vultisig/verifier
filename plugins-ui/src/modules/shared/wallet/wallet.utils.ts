@@ -11,12 +11,21 @@ export const toHex = (str: string): string => {
   );
 };
 
-export const getHexMessage = (publicKey: string): string => {
-  const messageToSign =
-    (publicKey.startsWith("0x") ? publicKey.slice(2) : publicKey) + "1";
-
-  const hexMessage = toHex(messageToSign);
-  return hexMessage;
+/**
+ * Generates a hex message for wallet verification.
+ * Matches the server's GenerateHexMessage implementation exactly.
+ * @param {string} publicKey - The public key to include in the message.
+ * @returns {string} A hex-encoded message in format "0x{publicKey}1"
+ */
+export const generateHexMessage = (publicKey: string): string => {
+  // Remove 0x prefix if present
+  const publicKeyTrimmed = publicKey.startsWith('0x') ? publicKey.slice(2) : publicKey;
+  
+  // Append "01" to the public key, as done in the server-side implementation
+  const messageToSign = publicKeyTrimmed + "01";
+  
+  // Add 0x prefix
+  return "0x" + messageToSign;
 };
 
 export const derivePathMap = {

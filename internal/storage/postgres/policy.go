@@ -91,15 +91,9 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 
 	query := `
   	INSERT INTO plugin_policies (
-<<<<<<< HEAD
-      id, public_key, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-    RETURNING id, public_key, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy
-=======
-      id, public_key, is_ecdsa, chain_code_hex, plugin_id, plugin_version, policy_version, signature, active, policy
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-    RETURNING id, public_key, is_ecdsa, chain_code_hex, plugin_id, plugin_version, policy_version, signature, active, policy
->>>>>>> 37d94f9 (verifier: adopt plugin ID enum/const instead of UUID)
+      id, public_key, plugin_id, plugin_version, policy_version, signature, active, policy
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    RETURNING id, public_key, plugin_id, plugin_version, policy_version, signature, active, policy
 	`
 
 	var insertedPolicy types.PluginPolicy

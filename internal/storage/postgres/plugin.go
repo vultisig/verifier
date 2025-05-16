@@ -7,16 +7,16 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/internal/types"
+	ptypes "github.com/vultisig/verifier/types"
 )
 
 const PLUGINS_TABLE = "plugins"
 
-func (p *PostgresBackend) FindPluginById(ctx context.Context, id uuid.UUID) (*types.Plugin, error) {
+func (p *PostgresBackend) FindPluginById(ctx context.Context, id ptypes.PluginID) (*types.Plugin, error) {
 	query := fmt.Sprintf(`SELECT * FROM %s WHERE id = $1 LIMIT 1;`, PLUGINS_TABLE)
 
 	rows, err := p.pool.Query(ctx, query, id)
@@ -110,7 +110,7 @@ func (p *PostgresBackend) CreatePlugin(ctx context.Context, pluginDto types.Plug
 		"PricingID":      pluginDto.PricingID,
 	}
 
-	var createdId uuid.UUID
+	var createdId ptypes.PluginID
 	err := p.pool.QueryRow(ctx, query, args).Scan(&createdId)
 	if err != nil {
 		return nil, err
@@ -119,7 +119,7 @@ func (p *PostgresBackend) CreatePlugin(ctx context.Context, pluginDto types.Plug
 	return p.FindPluginById(ctx, createdId)
 }
 
-func (p *PostgresBackend) UpdatePlugin(ctx context.Context, id uuid.UUID, updates types.PluginUpdateDto) (*types.Plugin, error) {
+func (p *PostgresBackend) UpdatePlugin(ctx context.Context, id ptypes.PluginID, updates types.PluginUpdateDto) (*types.Plugin, error) {
 	t := reflect.TypeOf(updates)
 	v := reflect.ValueOf(updates)
 	numFields := t.NumField()
@@ -170,7 +170,7 @@ func (p *PostgresBackend) UpdatePlugin(ctx context.Context, id uuid.UUID, update
 	return p.FindPluginById(ctx, id)
 }
 
-func (p *PostgresBackend) DeletePluginById(ctx context.Context, id uuid.UUID) error {
+func (p *PostgresBackend) DeletePluginById(ctx context.Context, id ptypes.PluginID) error {
 	query := fmt.Sprintf(`DELETE FROM %s WHERE id = $1;`, PLUGINS_TABLE)
 
 	_, err := p.pool.Exec(ctx, query, id)

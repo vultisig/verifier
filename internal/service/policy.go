@@ -20,8 +20,8 @@ import (
 type Policy interface {
 	CreatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
 	UpdatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
-	DeletePolicy(ctx context.Context, policyID, pluginID uuid.UUID, signature string) error
-	GetPluginPolicies(ctx context.Context, pluginType, publicKey string) ([]types.PluginPolicy, error)
+	DeletePolicy(ctx context.Context, policyID uuid.UUID, pluginID types.PluginID, signature string) error
+	GetPluginPolicies(ctx context.Context, pluginID types.PluginID, publicKey string) ([]types.PluginPolicy, error)
 	GetPluginPolicy(ctx context.Context, policyID uuid.UUID) (types.PluginPolicy, error)
 	GetPluginPolicyTransactionHistory(ctx context.Context, policyID uuid.UUID) ([]itypes.TransactionHistory, error)
 }
@@ -141,7 +141,7 @@ func (s *PolicyService) handleRollback(tx pgx.Tx, ctx context.Context) {
 	}
 }
 
-func (s *PolicyService) DeletePolicy(ctx context.Context, policyID uuid.UUID, pluginID uuid.UUID, signature string) error {
+func (s *PolicyService) DeletePolicy(ctx context.Context, policyID uuid.UUID, pluginID types.PluginID, signature string) error {
 	tx, err := s.db.Pool().Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -176,8 +176,8 @@ func (s *PolicyService) DeletePolicy(ctx context.Context, policyID uuid.UUID, pl
 	return nil
 }
 
-func (s *PolicyService) GetPluginPolicies(ctx context.Context, pluginType, publicKey string) ([]types.PluginPolicy, error) {
-	policies, err := s.db.GetAllPluginPolicies(ctx, pluginType, publicKey)
+func (s *PolicyService) GetPluginPolicies(ctx context.Context, pluginID types.PluginID, publicKey string) ([]types.PluginPolicy, error) {
+	policies, err := s.db.GetAllPluginPolicies(ctx, publicKey, pluginID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get policies: %w", err)
 	}

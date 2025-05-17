@@ -12,11 +12,26 @@ import (
 )
 
 func VerifySignature(ethPublicKey string, msgHash []byte, signatureBytes []byte) (bool, error) {
+	if len(signatureBytes) != 65 {
+		return false, fmt.Errorf("invalid signature length: expected 65 bytes, got %d", len(signatureBytes))
+	}
 	publicKeyBytes, err := hex.DecodeString(ethPublicKey)
 	if err != nil {
 		return false, err
 	}
-
+	// Validate public key length - uncompressed keys are typically 65 bytes (with prefix)
+	// or 64 bytes (without prefix), compressed are 33 bytes
+	validLengths := []int{33, 64, 65}
+	validLength := false
+	for _, length := range validLengths {
+		if len(publicKeyBytes) == length {
+			validLength = true
+			break
+		}
+	}
+	if !validLength {
+		return false, fmt.Errorf("invalid public key length: %d bytes", len(publicKeyBytes))
+	}
 	pk, err := btcec.ParsePubKey(publicKeyBytes)
 	if err != nil {
 		return false, err

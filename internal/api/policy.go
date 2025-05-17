@@ -1,6 +1,7 @@
 package api
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -93,8 +94,8 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) b
 		s.logger.WithError(err).Error("failed to get derived public key")
 		return false
 	}
-
-	isVerified, err := sigutil.VerifySignature(derivedPublicKey, msgHex, signatureBytes)
+	messageHash := sha256.Sum256([]byte(msgHex))
+	isVerified, err := sigutil.VerifySignature(derivedPublicKey, messageHash[:], signatureBytes)
 	if err != nil {
 		s.logger.Errorf("failed to verify signature: %s", err)
 		return false

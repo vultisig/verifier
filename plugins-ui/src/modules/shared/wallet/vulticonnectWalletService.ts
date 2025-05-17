@@ -7,6 +7,7 @@ interface ProviderError {
 
 const VulticonnectWalletService = {
   connectToVultiConnect: async () => {
+    console.log("connectToVultiConnect");
     if (!window.vultisig?.ethereum) {
       alert(`No ethereum provider found. Please install VultiConnect.`);
       return;
@@ -16,7 +17,7 @@ const VulticonnectWalletService = {
       const accounts = await window.vultisig.ethereum.request({
         method: "eth_requestAccounts",
       });
-
+      console.log("accounts", accounts);
       return accounts;
     } catch (error) {
       const { code, message } = error as ProviderError;

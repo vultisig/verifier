@@ -77,12 +77,6 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) b
 		return false
 	}
 
-	msgBytes, err := hex.DecodeString(strings.TrimPrefix(msgHex, "0x"))
-	if err != nil {
-		s.logger.Errorf("failed to decode message bytes: %s", err)
-		return false
-	}
-
 	signatureBytes, err := hex.DecodeString(strings.TrimPrefix(policy.Signature, "0x"))
 	if err != nil {
 		s.logger.WithError(err).Error("failed to decode signature bytes")
@@ -100,7 +94,7 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) b
 		return false
 	}
 
-	isVerified, err := sigutil.VerifySignature(derivedPublicKey, msgBytes, signatureBytes)
+	isVerified, err := sigutil.VerifySignature(derivedPublicKey, msgHex, signatureBytes)
 	if err != nil {
 		s.logger.Errorf("failed to verify signature: %s", err)
 		return false
@@ -212,7 +206,7 @@ func (s *Server) GetAllPluginPolicies(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid plugin type"))
 	}
 
-	policies, err := s.policyService.GetPluginPolicies(c.Request().Context(), publicKey, pluginType)
+	policies, err := s.policyService.GetPluginPolicies(c.Request().Context(), types.PluginID(pluginType), publicKey)
 	if err != nil {
 		s.logger.Errorf("failed to get policies for public_key: %s,plugin_type: %s,err: %s", publicKey, pluginType, err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get policies"))

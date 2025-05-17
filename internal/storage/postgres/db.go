@@ -58,7 +58,7 @@ func (p *PostgresBackend) Migrate() error {
 	}
 
 	db := stdlib.OpenDBFromPool(p.pool)
-	if err := goose.Up(db, "migrations"); err != nil {
+	if err := goose.Up(db, "migrations", goose.WithAllowMissing()); err != nil {
 		return fmt.Errorf("failed to run goose up: %w", err)
 	}
 	logrus.Info("Database migration completed successfully")

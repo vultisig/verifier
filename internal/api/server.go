@@ -458,21 +458,6 @@ func (s *Server) Auth(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse(err.Error()))
 	}
 
-	// Verify the message format matches the expected format from client
-	expectedMessage := clientutil.GenerateHexMessage(req.PublicKey)
-	if req.Message != expectedMessage {
-		s.logger.Warnf("Message mismatch: expected %s, got %s", expectedMessage, req.Message)
-		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Message content mismatch"))
-	}
-
-	// Decode message from hex (remove 0x prefix first)
-	msgWithoutPrefix := strings.TrimPrefix(req.Message, "0x")
-	msgBytes, err := hex.DecodeString(msgWithoutPrefix)
-	if err != nil {
-		s.logger.Errorf("failed to decode message: %v", err)
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid message format"))
-	}
-
 	// Decode signature from hex (remove 0x prefix first)
 	sigWithoutPrefix := strings.TrimPrefix(req.Signature, "0x")
 	sigBytes, err := hex.DecodeString(sigWithoutPrefix)
@@ -489,7 +474,7 @@ func (s *Server) Auth(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Failed to derive public key"))
 	}
 	// Verify the signature using our utility
-	success, err := sigutil.VerifySignature(ethPublicKey, msgBytes, sigBytes)
+	success, err := sigutil.VerifySignature(ethPublicKey, req.Message, sigBytes)
 	if err != nil {
 		s.logger.Errorf("signature verification failed: %v", err)
 		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Signature verification failed: "+err.Error()))

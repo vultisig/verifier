@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/vultiserver/contexthelper"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/vultisig/verifier/internal/storage"
 	itypes "github.com/vultisig/verifier/internal/types"
+	ptypes "github.com/vultisig/verifier/types"
 )
 
 const (
@@ -45,7 +45,7 @@ type Syncer struct {
 	asynqClient *asynq.Client
 
 	cacheLocker              sync.Locker
-	pluginServerAddressCache map[uuid.UUID]string
+	pluginServerAddressCache map[ptypes.PluginID]string
 	wg                       *sync.WaitGroup
 	stopCh                   chan struct{}
 }
@@ -61,7 +61,7 @@ func NewPolicySyncer(storage storage.DatabaseStorage, client *asynq.Client) *Syn
 		client:                   retryClient,
 		storage:                  storage,
 		asynqClient:              client,
-		pluginServerAddressCache: make(map[uuid.UUID]string),
+		pluginServerAddressCache: make(map[ptypes.PluginID]string),
 		cacheLocker:              &sync.Mutex{},
 		wg:                       &sync.WaitGroup{},
 		stopCh:                   make(chan struct{}),
@@ -139,7 +139,7 @@ func (s *Syncer) ProcessSyncTask(ctx context.Context, task *asynq.Task) error {
 	return nil
 }
 
-func (s *Syncer) getServerAddr(ctx context.Context, pluginID uuid.UUID) (string, error) {
+func (s *Syncer) getServerAddr(ctx context.Context, pluginID ptypes.PluginID) (string, error) {
 	s.cacheLocker.Lock()
 	defer s.cacheLocker.Unlock()
 
@@ -155,7 +155,7 @@ func (s *Syncer) getServerAddr(ctx context.Context, pluginID uuid.UUID) (string,
 	return addr, nil
 }
 
-func (s *Syncer) getServerAddrFromStorage(ctx context.Context, pluginID uuid.UUID) (string, error) {
+func (s *Syncer) getServerAddrFromStorage(ctx context.Context, pluginID ptypes.PluginID) (string, error) {
 	if err := contexthelper.CheckCancellation(ctx); err != nil {
 		return "", err
 	}

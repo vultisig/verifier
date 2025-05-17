@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	itypes "github.com/vultisig/verifier/internal/types"
+	ptypes "github.com/vultisig/verifier/types"
 )
 
 func TestAddPluginPolicySync(t *testing.T) {
@@ -21,7 +22,7 @@ func TestAddPluginPolicySync(t *testing.T) {
 	err = db.AddPluginPolicySync(ctx, tx, itypes.PluginPolicySync{
 		ID:         syncID,
 		PolicyID:   uuid.New(),
-		PluginID:   uuid.New(),
+		PluginID:   ptypes.PluginVultisigDCA_0000,
 		SyncType:   itypes.AddPolicy,
 		Signature:  "signature",
 		Status:     itypes.NotSynced,

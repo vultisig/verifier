@@ -144,12 +144,12 @@ func (m *MockDatabaseStorage) CreateTransactionHistoryTx(ctx context.Context, db
 	return args.Get(0).(uuid.UUID), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) DeletePluginById(ctx context.Context, id uuid.UUID) error {
+func (m *MockDatabaseStorage) DeletePluginById(ctx context.Context, id types.PluginID) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }
 
-func (m *MockDatabaseStorage) FindPluginById(ctx context.Context, id uuid.UUID) (*itypes.Plugin, error) {
+func (m *MockDatabaseStorage) FindPluginById(ctx context.Context, id types.PluginID) (*itypes.Plugin, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -162,8 +162,8 @@ func (m *MockDatabaseStorage) FindPlugins(ctx context.Context, take int, skip in
 	return args.Get(0).(itypes.PluginsDto), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) UpdatePlugin(ctx context.Context, id uuid.UUID, updates itypes.PluginUpdateDto) (*itypes.Plugin, error) {
-	args := m.Called(ctx, id, updates)
+func (m *MockDatabaseStorage) UpdatePlugin(ctx context.Context, pluginID types.PluginID, updates itypes.PluginUpdateDto) (*itypes.Plugin, error) {
+	args := m.Called(ctx, pluginID, updates)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -178,8 +178,8 @@ func (m *MockDatabaseStorage) GetPluginPolicy(ctx context.Context, id uuid.UUID)
 	return args.Get(0).(types.PluginPolicy), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginType string) ([]types.PluginPolicy, error) {
-	args := m.Called(ctx, publicKey, pluginType)
+func (m *MockDatabaseStorage) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID) ([]types.PluginPolicy, error) {
+	args := m.Called(ctx, publicKey, pluginID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

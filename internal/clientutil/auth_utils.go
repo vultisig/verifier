@@ -18,8 +18,8 @@ func GenerateHexMessage(publicKey string) string {
 		publicKeyTrimmed = publicKeyTrimmed[2:]
 	}
 
-	// Append "1" to the public key, as done in the client-side implementation
-	messageToSign := publicKeyTrimmed + "1"
+	// Append "01" to the public key, as done in the client-side implementation
+	messageToSign := publicKeyTrimmed + "01"
 
 	// Convert to hex string with 0x prefix
 	return "0x" + messageToSign

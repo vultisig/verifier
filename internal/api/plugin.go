@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
 	"github.com/vultisig/verifier/internal/types"
+	ptypes "github.com/vultisig/verifier/types"
 )
 
 func (s *Server) GetPlugins(c echo.Context) error {
@@ -39,11 +39,8 @@ func (s *Server) GetPlugin(c echo.Context) error {
 	if pluginID == "" {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to get plugin"))
 	}
-	uPluginID, err := uuid.Parse(pluginID)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to get plugin"))
-	}
-	plugin, err := s.db.FindPluginById(c.Request().Context(), uPluginID)
+
+	plugin, err := s.db.FindPluginById(c.Request().Context(), ptypes.PluginID(pluginID))
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get plugin")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get plugin"))
@@ -85,11 +82,8 @@ func (s *Server) UpdatePlugin(c echo.Context) error {
 	if err := c.Validate(&plugin); err != nil {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse(err.Error()))
 	}
-	uPluginID, err := uuid.Parse(pluginID)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid plugin id"))
-	}
-	updated, err := s.db.UpdatePlugin(c.Request().Context(), uPluginID, plugin)
+
+	updated, err := s.db.UpdatePlugin(c.Request().Context(), ptypes.PluginID(pluginID), plugin)
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to update plugin")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to update plugin"))
@@ -103,11 +97,8 @@ func (s *Server) DeletePlugin(c echo.Context) error {
 	if pluginID == "" {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("plugin id is required"))
 	}
-	uPluginID, err := uuid.Parse(pluginID)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid plugin id"))
-	}
-	if err := s.db.DeletePluginById(c.Request().Context(), uPluginID); err != nil {
+
+	if err := s.db.DeletePluginById(c.Request().Context(), ptypes.PluginID(pluginID)); err != nil {
 		s.logger.WithError(err).Error("Failed to delete plugin")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to delete plugin"))
 	}

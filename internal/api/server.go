@@ -7,10 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-playground/validator/v10"
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
@@ -19,6 +19,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/mobile-tss-lib/tss"
 
+	ecommon "github.com/ethereum/go-ethereum/common"
+
+	"github.com/vultisig/verifier/address"
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/clientutil"
@@ -441,10 +444,10 @@ func (s *Server) UpdateTransaction(c echo.Context) error {
 
 func (s *Server) Auth(c echo.Context) error {
 	var req struct {
-		Message      string `json:"message"`
-		Signature    string `json:"signature"`
-		ChainCodeHex string `json:"chain_code_hex"`
-		PublicKey    string `json:"public_key"`
+		Message      string `json:"message"`        // hex encoded message
+		Signature    string `json:"signature"`      // hex encoded signature
+		ChainCodeHex string `json:"chain_code_hex"` // hex encoded chain code
+		PublicKey    string `json:"public_key"`     // hex encoded public key
 	}
 
 	if err := c.Bind(&req); err != nil {
@@ -459,15 +462,23 @@ func (s *Server) Auth(c echo.Context) error {
 	}
 
 	// Decode signature from hex (remove 0x prefix first)
-	sigWithoutPrefix := strings.TrimPrefix(req.Signature, "0x")
-	sigBytes, err := hex.DecodeString(sigWithoutPrefix)
+	sigBytes, err := hex.DecodeString(req.Signature)
 	if err != nil {
-		s.logger.Errorf("failed to decode signature: %v", err)
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid signature format"))
 	}
+	msgBytes, err := hex.DecodeString(req.Message)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid message format"))
 
-	// Verify the signature using our utility
-	success, err := sigutil.VerifySignature(req.PublicKey, req.Message, sigBytes)
+	}
+	ethPublicKey, err := tss.GetDerivedPubKey(req.PublicKey, req.ChainCodeHex, common.Ethereum.GetDerivePath(), false)
+	if err != nil {
+		s.logger.Errorf("failed to get derived public key: %v", err)
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid public key format"))
+	}
+	msgHashBytes := crypto.Keccak256Hash(msgBytes)
+	// Verify the signature is valid , and signed with the eth public key
+	success, err := sigutil.VerifySignature(ethPublicKey, msgHashBytes.Bytes(), sigBytes)
 	if err != nil {
 		s.logger.Errorf("signature verification failed: %v", err)
 		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Signature verification failed: "+err.Error()))
@@ -475,7 +486,21 @@ func (s *Server) Auth(c echo.Context) error {
 	if !success {
 		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Invalid signature"))
 	}
+	// extract the public key from the signature , make sure it match the eth public key
+	ethAddress, err := address.GetEVMAddress(ethPublicKey)
+	if err != nil {
+		s.logger.Errorf("failed to get EVM address: %v", err)
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid public key format"))
+	}
 
+	success, err = sigutil.VerifyEthAddressSignature(ecommon.HexToAddress(ethAddress), msgBytes, sigBytes)
+	if err != nil {
+		s.logger.Errorf("signature verification failed: %v", err)
+		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Signature verification failed: "+err.Error()))
+	}
+	if !success {
+		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Invalid signature"))
+	}
 	// Generate JWT token with the public key
 	token, err := s.authService.GenerateToken(c.Request().Context(), req.PublicKey)
 	if err != nil {

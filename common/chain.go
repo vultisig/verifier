@@ -166,15 +166,15 @@ func (c *Chain) Scan(value interface{}) error {
 	return nil
 }
 
-func (c *Chain) GetDerivePath() string {
-	if str, ok := chainDerivePath[*c]; ok {
+func (c Chain) GetDerivePath() string {
+	if str, ok := chainDerivePath[c]; ok {
 		return str
 	}
 	return ""
 }
 
-func (c *Chain) IsEdDSA() bool {
-	if *c == Solana || *c == Sui || *c == Polkadot || *c == Ton {
+func (c Chain) IsEdDSA() bool {
+	if c == Solana || c == Sui || c == Polkadot || c == Ton {
 		return true
 	}
 	return false

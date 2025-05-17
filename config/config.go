@@ -30,6 +30,7 @@ type VerifierConfig struct {
 	Redis              RedisConfig              `mapstructure:"redis" json:"redis,omitempty"`
 	BlockStorageConfig vault.BlockStorageConfig `mapstructure:"block_storage_config" json:"block_storage_config,omitempty"`
 	Datadog            DatadogConfig            `mapstructure:"datadog" json:"datadog"`
+	EncryptionSecret   string                   `mapstructure:"encryption_secret" json:"encryption_secret,omitempty"`
 }
 
 type DatadogConfig struct {

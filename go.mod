@@ -33,7 +33,7 @@ require (
 	github.com/vultisig/commondata v0.0.0-20250430024109-a2492623ef05
 	github.com/vultisig/go-wrappers v0.0.0-20250403041248-86911e8aa33f
 	github.com/vultisig/mobile-tss-lib v0.0.0-20250316003201-2e7e570a4a74
-	github.com/vultisig/vultiserver v0.0.0-20250421043311-443d711d503d
+	github.com/vultisig/vultiserver v0.0.0-20250515110921-82d56d3d9cc9
 	golang.org/x/crypto v0.36.0
 	google.golang.org/protobuf v1.36.6
 	sigs.k8s.io/yaml v1.3.0

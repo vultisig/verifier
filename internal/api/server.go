@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-playground/validator/v10"
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
@@ -475,8 +476,9 @@ func (s *Server) Auth(c echo.Context) error {
 		s.logger.Errorf("failed to get derived public key: %v", err)
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid public key format"))
 	}
+	msgHashBytes := crypto.Keccak256Hash(msgBytes)
 	// Verify the signature is valid , and signed with the eth public key
-	success, err := sigutil.VerifySignature(ethPublicKey, msgBytes, sigBytes)
+	success, err := sigutil.VerifySignature(ethPublicKey, msgHashBytes.Bytes(), sigBytes)
 	if err != nil {
 		s.logger.Errorf("signature verification failed: %v", err)
 		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Signature verification failed: "+err.Error()))

@@ -14,5 +14,6 @@ type PluginPolicy struct {
 	PolicyVersion string          `json:"policy_version" validate:"required"`
 	Signature     string          `json:"signature" validate:"required"`
 	Policy        json.RawMessage `json:"policy" validate:"required"`
+	Recipe        string          `json:"recipe" validate:"required"`
 	Active        bool            `json:"active" validate:"required"`
 }

@@ -1,57 +1,50 @@
 package sigutil
 
 import (
+	"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
 	"math/big"
-	"strings"
 
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-// VerifySignature verifies a signature against a message using a public key
-func VerifySignature(vaultPublicKey string, message string, signatureBytes []byte) (bool, error) {
-
-	// 1) Normalize pubkey
-	if !strings.HasPrefix(vaultPublicKey, "0x") {
-		vaultPublicKey = "0x" + vaultPublicKey
-	}
-
-	// Ensure signature is 65 bytes long (r, s, v)
+func VerifySignature(ethPublicKey string, msgHash []byte, signatureBytes []byte) (bool, error) {
 	if len(signatureBytes) != 65 {
 		return false, fmt.Errorf("invalid signature length: expected 65 bytes, got %d", len(signatureBytes))
 	}
-
-	// Ethereum’s v can be {0,1,27,28,…}. Shift to {27,28} as required by go-ethereum.
-	if signatureBytes[64] >= 27 {
-		signatureBytes[64] -= 27
-	}
-
-	// Reconstruct the exact prefixed message:
-	msgBytes := []byte(message) // <-- literal UTF-8 bytes of "0x8af37…01"
-	prefix := fmt.Sprintf("\x19Ethereum Signed Message:\n%d", len(msgBytes))
-	prefixed := append([]byte(prefix), msgBytes...)
-	digest := crypto.Keccak256Hash(prefixed)
-
-	// fmt.Println("digest", digest.Hex())
-
-	// Recover public key from signature
-	pubkeyBytes, err := crypto.Ecrecover(digest.Bytes(), signatureBytes)
+	publicKeyBytes, err := hex.DecodeString(ethPublicKey)
 	if err != nil {
-		return false, fmt.Errorf("failed to recover public key: %w", err)
+		return false, err
 	}
-
-	// Convert recovered pubkey to address format for comparison
-	recoveredPubKey, err := crypto.UnmarshalPubkey(pubkeyBytes)
+	// Validate public key length - uncompressed keys are typically 65 bytes (with prefix)
+	// or 64 bytes (without prefix), compressed are 33 bytes
+	validLengths := []int{33, 64, 65}
+	validLength := false
+	for _, length := range validLengths {
+		if len(publicKeyBytes) == length {
+			validLength = true
+			break
+		}
+	}
+	if !validLength {
+		return false, fmt.Errorf("invalid public key length: %d bytes", len(publicKeyBytes))
+	}
+	pk, err := btcec.ParsePubKey(publicKeyBytes)
 	if err != nil {
-		return false, fmt.Errorf("failed to unmarshal recovered public key: %w", err)
+		return false, err
 	}
 
-	// Get Ethereum addresses from public keys
-	recoveredAddr := crypto.PubkeyToAddress(*recoveredPubKey)
-
-	// Compare addresses
-	return strings.EqualFold(recoveredAddr.Hex(), vaultPublicKey), nil
+	ecdsaPubKey := ecdsa.PublicKey{
+		Curve: btcec.S256(),
+		X:     pk.X(),
+		Y:     pk.Y(),
+	}
+	R := new(big.Int).SetBytes(signatureBytes[:32])
+	S := new(big.Int).SetBytes(signatureBytes[32:64])
+	return ecdsa.Verify(&ecdsaPubKey, msgHash, R, S), nil
 }
 
 // RawSignature converts r, s, v values to a raw signature byte array

@@ -11,6 +11,12 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+func VerifyPolicySignature(ethPublicKey string, messageBytes []byte, signatureBytes []byte) (bool, error) {
+	// Create the Ethereum prefixed message hash
+	prefixedMessage := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(messageBytes), messageBytes)
+	prefixedHash := crypto.Keccak256Hash([]byte(prefixedMessage))
+	return VerifySignature(ethPublicKey, prefixedHash[:], signatureBytes)
+}
 func VerifySignature(ethPublicKey string, msgHash []byte, signatureBytes []byte) (bool, error) {
 	if len(signatureBytes) != 65 {
 		return false, fmt.Errorf("invalid signature length: expected 65 bytes, got %d", len(signatureBytes))

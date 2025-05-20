@@ -1,7 +1,6 @@
 package api
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -77,7 +76,11 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) b
 		s.logger.Errorf("failed to convert policy to message hex: %s", err)
 		return false
 	}
-
+	messageBytes, err := hex.DecodeString(msgHex)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to decode message bytes")
+		return false
+	}
 	signatureBytes, err := hex.DecodeString(strings.TrimPrefix(policy.Signature, "0x"))
 	if err != nil {
 		s.logger.WithError(err).Error("failed to decode signature bytes")
@@ -94,8 +97,8 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) b
 		s.logger.WithError(err).Error("failed to get derived public key")
 		return false
 	}
-	messageHash := sha256.Sum256([]byte(msgHex))
-	isVerified, err := sigutil.VerifySignature(derivedPublicKey, messageHash[:], signatureBytes)
+
+	isVerified, err := sigutil.VerifyPolicySignature(derivedPublicKey, messageBytes, signatureBytes)
 	if err != nil {
 		s.logger.Errorf("failed to verify signature: %s", err)
 		return false

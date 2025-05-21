@@ -35,6 +35,7 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 	if policy.ID.String() == "" {
 		policy.ID = uuid.New()
 	}
+
 	// TODO: validate if the policy is correct
 	if !s.verifyPolicySignature(policy, false) {
 		s.logger.Error("invalid policy signature")
@@ -49,11 +50,11 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, newPolicy)
 }
-func (s *Server) getVault(publicKeyECDSA string) (*v1.Vault, error) {
+func (s *Server) getVault(publicKeyECDSA, pluginId string) (*v1.Vault, error) {
 	if len(s.cfg.EncryptionSecret) == 0 {
 		return nil, fmt.Errorf("no encryption secret")
 	}
-	fileName := common.GetVaultBackupFilename(publicKeyECDSA)
+	fileName := common.GetVaultBackupFilename(publicKeyECDSA, pluginId)
 	vaultContent, err := s.vaultStorage.GetVault(fileName)
 	if err != nil {
 		s.logger.WithError(err).Error("fail to get vault")
@@ -83,7 +84,7 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) b
 		s.logger.WithError(err).Error("failed to decode signature bytes")
 		return false
 	}
-	vault, err := s.getVault(policy.PublicKey)
+	vault, err := s.getVault(policy.PublicKey, policy.PluginID.String())
 	if err != nil {
 		s.logger.WithError(err).Error("fail to get vault")
 		return false

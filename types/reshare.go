@@ -16,7 +16,7 @@ type ReshareRequest struct {
 	LocalPartyId     string   `json:"local_party_id"`     // local party id
 	OldParties       []string `json:"old_parties"`        // old parties
 	Email            string   `json:"email"`
-	OldResharePrefix string   `json:"old_reshare_prefix"`
+	PluginID         string   `json:"plugin_id"` // plugin id
 }
 
 func (req *ReshareRequest) IsValid() error {

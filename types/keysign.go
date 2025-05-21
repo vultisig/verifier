@@ -13,6 +13,7 @@ type KeysignRequest struct {
 	IsECDSA          bool     `json:"is_ecdsa"`           // indicate use ECDSA or EDDSA key to sign the messages
 	VaultPassword    string   `json:"vault_password"`     // password used to decrypt the vault file
 	Parties          []string `json:"parties"`            // parties to join the session
+	PluginID         string   `json:"plugin_id"`          // plugin id
 }
 
 // IsValid checks if the keysign request is valid

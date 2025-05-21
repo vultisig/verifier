@@ -1,7 +1,6 @@
 package api
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -35,6 +34,7 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 	if policy.ID.String() == "" {
 		policy.ID = uuid.New()
 	}
+
 	// TODO: validate if the policy is correct
 	if !s.verifyPolicySignature(policy, false) {
 		s.logger.Error("invalid policy signature")
@@ -49,11 +49,11 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, newPolicy)
 }
-func (s *Server) getVault(publicKeyECDSA string) (*v1.Vault, error) {
+func (s *Server) getVault(publicKeyECDSA, pluginId string) (*v1.Vault, error) {
 	if len(s.cfg.EncryptionSecret) == 0 {
 		return nil, fmt.Errorf("no encryption secret")
 	}
-	fileName := common.GetVaultBackupFilename(publicKeyECDSA)
+	fileName := common.GetVaultBackupFilename(publicKeyECDSA, pluginId)
 	vaultContent, err := s.vaultStorage.GetVault(fileName)
 	if err != nil {
 		s.logger.WithError(err).Error("fail to get vault")
@@ -77,13 +77,17 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) b
 		s.logger.Errorf("failed to convert policy to message hex: %s", err)
 		return false
 	}
-
+	messageBytes, err := hex.DecodeString(msgHex)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to decode message bytes")
+		return false
+	}
 	signatureBytes, err := hex.DecodeString(strings.TrimPrefix(policy.Signature, "0x"))
 	if err != nil {
 		s.logger.WithError(err).Error("failed to decode signature bytes")
 		return false
 	}
-	vault, err := s.getVault(policy.PublicKey)
+	vault, err := s.getVault(policy.PublicKey, policy.PluginID.String())
 	if err != nil {
 		s.logger.WithError(err).Error("fail to get vault")
 		return false
@@ -94,8 +98,8 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) b
 		s.logger.WithError(err).Error("failed to get derived public key")
 		return false
 	}
-	messageHash := sha256.Sum256([]byte(msgHex))
-	isVerified, err := sigutil.VerifySignature(derivedPublicKey, messageHash[:], signatureBytes)
+
+	isVerified, err := sigutil.VerifyPolicySignature(derivedPublicKey, messageBytes, signatureBytes)
 	if err != nil {
 		s.logger.Errorf("failed to verify signature: %s", err)
 		return false

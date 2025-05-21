@@ -296,8 +296,8 @@ func DeriveAddress(compressedPubKeyHex, hexChainCode, derivePath string) (*commo
 	return &address, nil
 }
 
-func GetVaultBackupFilename(publicKey string) string {
-	return fmt.Sprintf("%s%s", publicKey, vaultBackupSuffix)
+func GetVaultBackupFilename(publicKey, pluginId string) string {
+	return fmt.Sprintf("%s-%s%s", pluginId, publicKey, vaultBackupSuffix)
 }
 
 func CheckIfPublicKeyIsValid(pubKeyBytes []byte, isEcdsa bool) bool {

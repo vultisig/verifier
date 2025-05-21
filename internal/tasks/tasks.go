@@ -6,7 +6,7 @@ import (
 	"github.com/hibiken/asynq"
 )
 
-const QUEUE_NAME = "vultisigner"
+const QUEUE_NAME = "vultisig-verifier"
 const (
 	TypePluginTransaction = "plugin:transaction"
 	TypeKeyGenerationDKLS = "key:generationDKLS"

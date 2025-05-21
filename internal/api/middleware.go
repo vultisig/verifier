@@ -78,16 +78,15 @@ func (s *Server) VaultAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		// Get requested vault's public key from URL parameter
+		// keep in mind, quite some endpoint will not require user to pass `publicKeyECDSA` in the URL
 		requestedPublicKey := c.Param("publicKeyECDSA")
-		if requestedPublicKey == "" {
-			return c.JSON(http.StatusBadRequest, NewErrorResponse("Missing vault public key"))
-		}
-
-		// Verify the token's public key matches the requested vault
-		if claims.PublicKey != requestedPublicKey {
-			s.logger.Warnf("Access denied: token public key %s does not match requested vault %s",
-				claims.PublicKey, requestedPublicKey)
-			return c.JSON(http.StatusForbidden, NewErrorResponse("Access denied: token not authorized for this vault"))
+		if requestedPublicKey != "" {
+			// Verify the token's public key matches the requested vault
+			if claims.PublicKey != requestedPublicKey {
+				s.logger.Warnf("Access denied: token public key %s does not match requested vault %s",
+					claims.PublicKey, requestedPublicKey)
+				return c.JSON(http.StatusForbidden, NewErrorResponse("Access denied: token not authorized for this vault"))
+			}
 		}
 
 		// Store the public key in context for later use

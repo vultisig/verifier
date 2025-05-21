@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -19,7 +20,8 @@ import (
 func (t *DKLSTssService) ProcessReshare(vault *vaultType.Vault,
 	sessionID string,
 	hexEncryptionKey string,
-	email string) error {
+	email string,
+	pluginId string) error {
 	if vault.Name == "" {
 		return fmt.Errorf("vault name is empty")
 	}
@@ -28,6 +30,9 @@ func (t *DKLSTssService) ProcessReshare(vault *vaultType.Vault,
 	}
 	if vault.HexChainCode == "" {
 		return fmt.Errorf("hex chain code is empty")
+	}
+	if pluginId == "" {
+		return fmt.Errorf("plugin id is empty")
 	}
 	localPartyID := vault.LocalPartyId
 	client := relay.NewRelayClient(t.cfg.Relay.Server)
@@ -109,7 +114,7 @@ func (t *DKLSTssService) ProcessReshare(vault *vaultType.Vault,
 		LibType:       keygenType.LibType_LIB_TYPE_DKLS,
 		ResharePrefix: "",
 	}
-	return t.SaveVaultToStorage(newVault, email)
+	return t.SaveVaultToStorage(newVault, email, pluginId)
 }
 func (t *DKLSTssService) reshareWithRetry(vault *vaultType.Vault,
 	sessionID string,
@@ -186,7 +191,7 @@ func (t *DKLSTssService) reshare(vault *vaultType.Vault,
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create session from setup message: %w", err)
 	}
-
+	isInNewCommittee := slices.Contains(keygenCommittee, vault.LocalPartyId)
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
@@ -194,7 +199,7 @@ func (t *DKLSTssService) reshare(vault *vaultType.Vault,
 			t.logger.Error("failed to process keygen outbound", "error", err)
 		}
 	}()
-	publicKey, chainCode, err := t.processQcInbound(handle, sessionID, hexEncryptionKey, isEdDSA, localPartyID, wg)
+	publicKey, chainCode, err := t.processQcInbound(handle, sessionID, hexEncryptionKey, isEdDSA, localPartyID, isInNewCommittee, wg)
 	wg.Wait()
 	return publicKey, chainCode, err
 }
@@ -264,6 +269,7 @@ func (t *DKLSTssService) processQcInbound(handle Handle,
 	hexEncryptionKey string,
 	isEdDSA bool,
 	localPartyID string,
+	isInNewCommittee bool,
 	wg *sync.WaitGroup) (string, string, error) {
 	defer wg.Done()
 	var messageCache sync.Map
@@ -310,10 +316,17 @@ func (t *DKLSTssService) processQcInbound(handle Handle,
 				}
 				if isFinished {
 					t.logger.Infoln("Reshare finished")
+					defer func() {
+						t.isKeygenFinished.Store(true)
+					}()
 					result, err := mpcWrapper.QcSessionFinish(handle)
 					if err != nil {
 						t.logger.Error("fail to finish reshare", "error", err)
 						return "", "", err
+					}
+					if !isInNewCommittee {
+						t.logger.Infof("Reshare finished, but not in new committee")
+						return "", "", nil
 					}
 					buf, err := mpcWrapper.KeyshareToBytes(result)
 					if err != nil {
@@ -337,8 +350,7 @@ func (t *DKLSTssService) processQcInbound(handle Handle,
 						}
 						chainCode = hex.EncodeToString(chainCodeBytes)
 					}
-					// This sleep give the local party a chance to send last message to others
-					t.isKeygenFinished.Store(true)
+
 					if err := t.localStateAccessor.SaveLocalState(encodedPublicKey, encodedShare); err != nil {
 						t.logger.Error("fail to save local state", "error", err)
 						return "", "", err

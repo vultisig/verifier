@@ -56,5 +56,5 @@ type PluginUpdateDto struct {
 	Metadata       json.RawMessage `json:"metadata"`
 	ServerEndpoint string          `json:"server_endpoint"`
 	PricingID      uuid.UUID       `json:"pricing_id"`
-	CategoryID     string          `json:"category_id" validate:"required"`
+	CategoryID     string          `json:"category_id"`
 }

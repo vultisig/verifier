@@ -75,7 +75,7 @@ type PricingRepository interface {
 }
 
 type PluginRepository interface {
-	FindPlugins(ctx context.Context, filters itypes.PluginFilters, skip int, take int, sort string) (itypes.PluginsPaginatedList, error)
+	FindPlugins(ctx context.Context, filters itypes.PluginFilters, take int, skip int, sort string) (itypes.PluginsPaginatedList, error)
 	FindPluginById(ctx context.Context, dbTx pgx.Tx, id types.PluginID) (*itypes.Plugin, error)
 	CreatePlugin(ctx context.Context, dbTx pgx.Tx, pluginDto itypes.PluginCreateDto) (string, error)
 	UpdatePlugin(ctx context.Context, id types.PluginID, updates itypes.PluginUpdateDto) (*itypes.Plugin, error)

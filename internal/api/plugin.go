@@ -47,7 +47,11 @@ func (s *Server) GetAllPluginPolicies(c echo.Context) error {
 	take, err := strconv.Atoi(c.QueryParam("take"))
 
 	if err != nil {
-		take = 999
+		take = 20
+	}
+
+	if take > 100 {
+		take = 100
 	}
 
 	policies, err := s.policyService.GetPluginPolicies(c.Request().Context(), pluginType, publicKey, take, skip)
@@ -72,7 +76,11 @@ func (s *Server) GetPlugins(c echo.Context) error {
 	take, err := strconv.Atoi(c.QueryParam("take"))
 
 	if err != nil {
-		take = 999
+		take = 20
+	}
+
+	if take > 100 {
+		take = 100
 	}
 
 	sort := c.QueryParam("sort")
@@ -83,7 +91,7 @@ func (s *Server) GetPlugins(c echo.Context) error {
 		CategoryID: common.GetUUIDParam(c, "category_id"),
 	}
 
-	plugins, err := s.db.FindPlugins(c.Request().Context(), filters, skip, take, sort)
+	plugins, err := s.db.FindPlugins(c.Request().Context(), filters, take, skip, sort)
 
 	if err != nil {
 		message := echo.Map{
@@ -149,7 +157,7 @@ func (s *Server) UpdatePlugin(c echo.Context) error {
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
 		message := echo.Map{
-			"message": "failed to delete plugin",
+			"message": "failed to update plugin",
 			"error":   "plugin id is required",
 		}
 		return c.JSON(http.StatusBadRequest, message)
@@ -339,7 +347,11 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 	take, err := strconv.Atoi(c.QueryParam("take"))
 
 	if err != nil {
-		take = 999
+		take = 20
+	}
+
+	if take > 100 {
+		take = 100
 	}
 
 	policyHistory, err := s.policyService.GetPluginPolicyTransactionHistory(c.Request().Context(), policyID, take, skip)
@@ -417,7 +429,11 @@ func (s *Server) GetReviews(c echo.Context) error {
 	take, err := strconv.Atoi(c.QueryParam("take"))
 
 	if err != nil {
-		take = 999
+		take = 20
+	}
+
+	if take > 100 {
+		take = 100
 	}
 
 	sort := c.QueryParam("sort")

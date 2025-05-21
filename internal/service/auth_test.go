@@ -157,8 +157,8 @@ func (m *MockDatabaseStorage) FindPluginById(ctx context.Context, tx pgx.Tx, plu
 	return args.Get(0).(*itypes.Plugin), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) FindPlugins(ctx context.Context, filters itypes.PluginFilters, page, pageSize int, sortBy string) (itypes.PluginsPaginatedList, error) {
-	args := m.Called(ctx, filters, page, pageSize, sortBy)
+func (m *MockDatabaseStorage) FindPlugins(ctx context.Context, filters itypes.PluginFilters, pageSize int, page int, sortBy string) (itypes.PluginsPaginatedList, error) {
+	args := m.Called(ctx, filters, pageSize, page, sortBy)
 	if args.Get(0) == nil {
 		return itypes.PluginsPaginatedList{}, args.Error(1)
 	}
@@ -290,6 +290,9 @@ func (m *MockDatabaseStorage) CreateRatingForPlugin(ctx context.Context, tx pgx.
 
 func (m *MockDatabaseStorage) CreateReview(ctx context.Context, dbTx pgx.Tx, review itypes.ReviewCreateDto, pluginID string) (string, error) {
 	args := m.Called(ctx, dbTx, review, pluginID)
+	if args.Get(0) == nil {
+		return "", args.Error(1)
+	}
 	return args.String(0), args.Error(1)
 }
 

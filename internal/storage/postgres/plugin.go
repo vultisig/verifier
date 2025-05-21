@@ -113,8 +113,8 @@ func (p *PostgresBackend) FindPluginById(ctx context.Context, dbTx pgx.Tx, id pt
 func (p *PostgresBackend) FindPlugins(
 	ctx context.Context,
 	filters types.PluginFilters,
-	skip int,
 	take int,
+	skip int,
 	sort string,
 ) (types.PluginsPaginatedList, error) {
 	if p.pool == nil {

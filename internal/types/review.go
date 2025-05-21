@@ -5,7 +5,7 @@ import "time"
 type Review struct {
 	ID        string    `json:"id" validate:"required"`
 	Address   string    `json:"address" validate:"required"`
-	Rating    int       `json:"rating" validate:"required"`
+	Rating    int       `json:"rating" validate:"required,min=1,max=5"`
 	Comment   string    `json:"comment,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	PluginId  string    `json:"plugin_id" validate:"required"`

@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/verifier/internal/types"
+	ptypes "github.com/vultisig/verifier/types"
 )
 
 type Plugin interface {
@@ -22,12 +23,12 @@ type PluginServiceStorage interface {
 	CreateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string) error
 	UpdateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, reviewRating int) error
 
-	CreateReview(ctx context.Context, reviewDto types.ReviewCreateDto, pluginId string) (string, error)
+	CreateReview(ctx context.Context, dbTx pgx.Tx, reviewDto types.ReviewCreateDto, pluginId string) (string, error)
 	FindReviews(ctx context.Context, pluginId string, take int, skip int, sort string) (types.ReviewsDto, error)
 	FindReviewById(ctx context.Context, db pgx.Tx, id string) (*types.ReviewDto, error)
 
 	CreatePlugin(ctx context.Context, dbTx pgx.Tx, pluginDto types.PluginCreateDto) (string, error)
-	FindPluginById(ctx context.Context, dbTx pgx.Tx, id string) (*types.Plugin, error)
+	FindPluginById(ctx context.Context, dbTx pgx.Tx, id ptypes.PluginID) (*types.Plugin, error)
 }
 
 type PluginService struct {
@@ -63,7 +64,7 @@ func (s *PluginService) CreatePluginWithRating(ctx context.Context, pluginDto ty
 		}
 
 		// Find plugin
-		plugin, err = s.db.FindPluginById(ctx, tx, newPluginId)
+		plugin, err = s.db.FindPluginById(ctx, tx, ptypes.PluginID(newPluginId))
 		if err != nil {
 			return fmt.Errorf("failed to get plugin: %w", err)
 		}
@@ -91,8 +92,7 @@ func (s *PluginService) GetPluginWithRating(ctx context.Context, pluginId string
 		var err error
 
 		// Find plugin
-		plugin, err = s.db.FindPluginById(ctx, tx, pluginId)
-
+		plugin, err = s.db.FindPluginById(ctx, tx, ptypes.PluginID(pluginId))
 		if err != nil {
 			return fmt.Errorf("failed to get plugin: %w", err)
 		}
@@ -112,7 +112,6 @@ func (s *PluginService) GetPluginWithRating(ctx context.Context, pluginId string
 		return nil, err
 	}
 	return plugin, nil
-
 }
 
 func (s *PluginService) CreatePluginReviewWithRating(ctx context.Context, reviewDto types.ReviewCreateDto, pluginId string) (*types.ReviewDto, error) {
@@ -120,7 +119,7 @@ func (s *PluginService) CreatePluginReviewWithRating(ctx context.Context, review
 	err := s.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
 		var err error
 		// Insert review
-		reviewId, err := s.db.CreateReview(ctx, reviewDto, pluginId)
+		reviewId, err := s.db.CreateReview(ctx, tx, reviewDto, pluginId)
 		if err != nil {
 			return fmt.Errorf("failed to create review: %w", err)
 		}
@@ -134,7 +133,7 @@ func (s *PluginService) CreatePluginReviewWithRating(ctx context.Context, review
 		// Find review
 		review, err = s.db.FindReviewById(ctx, tx, reviewId)
 		if err != nil {
-			return fmt.Errorf("failed to get plugin: %w", err)
+			return fmt.Errorf("failed to get review: %w", err)
 		}
 
 		// Find rating
@@ -151,5 +150,4 @@ func (s *PluginService) CreatePluginReviewWithRating(ctx context.Context, review
 		return nil, err
 	}
 	return review, nil
-
 }

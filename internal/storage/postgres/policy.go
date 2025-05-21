@@ -52,10 +52,12 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, pluginType s
 	}
 
 	query := `
-  	SELECT id, public_key_ecdsa, public_key_eddsa, plugin_version, policy_version, plugin_type, is_ecdsa, chain_code_hex, derive_path, active, progress, signature, policy, COUNT(*) OVER() AS total_count
+  	SELECT id, public_key_ecdsa, public_key_eddsa, plugin_version, policy_version, plugin_type, is_ecdsa, chain_code_hex, derive_path, active, progress, signature, policy, 
+		COUNT(*) OVER() AS total_count
 		FROM plugin_policies
 		WHERE public_key_ecdsa = $1
 		AND plugin_type = $2
+		ORDER BY policy_version DESC -- or created_at DESC / id ASC
 		LIMIT $3 OFFSET $4`
 
 	rows, err := p.pool.Query(ctx, query, publicKeyEcdsa, pluginType, take, skip)

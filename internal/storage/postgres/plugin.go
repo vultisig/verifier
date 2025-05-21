@@ -54,8 +54,9 @@ func (P *PostgresBackend) collectPlugins(rows pgx.Rows) ([]types.Plugin, error) 
 
 		// add plugin if does not already exist in the map
 		if _, exists := pluginMap[plugin.ID]; !exists {
-			plugin.Tags = []types.Tag{}
-			pluginMap[plugin.ID] = &plugin
+			pluginCopy := plugin // copy to distinct memory
+			pluginCopy.Tags = []types.Tag{}
+			pluginMap[plugin.ID] = &pluginCopy
 		}
 
 		// add tag to plugin tag list
@@ -86,7 +87,13 @@ func (p *PostgresBackend) FindPluginById(ctx context.Context, dbTx pgx.Tx, id pt
 		PLUGINS_TABLE,
 	)
 
-	rows, err := dbTx.Query(ctx, query, id)
+	var rows pgx.Rows
+	var err error
+	if dbTx != nil {
+		rows, err = dbTx.Query(ctx, query, id)
+	} else {
+		rows, err = p.pool.Query(ctx, query, id)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -96,9 +103,11 @@ func (p *PostgresBackend) FindPluginById(ctx context.Context, dbTx pgx.Tx, id pt
 		return nil, err
 	}
 
-	plugin := plugins[0]
+	if len(plugins) == 0 {
+		return nil, fmt.Errorf("plugin not found")
+	}
 
-	return &plugin, nil
+	return &plugins[0], nil
 }
 
 func (p *PostgresBackend) FindPlugins(
@@ -169,8 +178,8 @@ func (p *PostgresBackend) FindPlugins(
 		filterClause = "AND"
 		currentArgNumber += 1
 
-		args = append(args, filters.TagID)
-		argsTotal = append(argsTotal, filters.TagID)
+		args = append(args, *filters.TagID)
+		argsTotal = append(argsTotal, *filters.TagID)
 
 		query += queryFilter
 		queryTotal += queryFilterTotal
@@ -203,7 +212,7 @@ func (p *PostgresBackend) FindPlugins(
 	args = append(args, take, skip)
 	query += queryOrderPaginate
 
-	queryTotal += " GROUP BY p.id;"
+	queryTotal += ";"
 
 	// execute
 	rows, err := p.pool.Query(ctx, query, args...)
@@ -221,7 +230,7 @@ func (p *PostgresBackend) FindPlugins(
 	err = p.pool.QueryRow(ctx, queryTotal, argsTotal...).Scan(&totalCount)
 	if err != nil {
 		// exactly 1 row expected, if no results return empty list
-		if err.Error() == "no rows in result set" {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return types.PluginsPaginatedList{
 				Plugins:    plugins,
 				TotalCount: 0,
@@ -293,7 +302,7 @@ func (p *PostgresBackend) UpdatePlugin(ctx context.Context, id ptypes.PluginID, 
 		value := v.Field(i) // field value
 
 		// filter out json undefined values
-		if !value.IsNil() {
+		if value.Kind() == reflect.Ptr && !value.IsNil() {
 			// get db field name (same as it is defined in the json input)
 			fieldName := field.Tag.Get("json")
 			if fieldName == "" {
@@ -449,7 +458,7 @@ func (p *PostgresBackend) FindReviews(ctx context.Context, pluginId string, skip
 	return pluginsDto, nil
 }
 
-func (p *PostgresBackend) CreateReview(ctx context.Context, reviewDto types.ReviewCreateDto, pluginId string) (string, error) {
+func (p *PostgresBackend) CreateReview(ctx context.Context, dbTx pgx.Tx, reviewDto types.ReviewCreateDto, pluginId string) (string, error) {
 	columns := []string{"address", "rating", "comment", "plugin_id", "created_at"}
 	argNames := []string{"@Address", "@Rating", "@Comment", "@PluginId", "@CreatedAt"}
 	args := pgx.NamedArgs{
@@ -467,9 +476,9 @@ func (p *PostgresBackend) CreateReview(ctx context.Context, reviewDto types.Revi
 	)
 
 	var createdId string
-	err := p.pool.QueryRow(ctx, query, args).Scan(&createdId)
+	err := dbTx.QueryRow(ctx, query, args).Scan(&createdId)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to create review: %w", err)
 	}
 
 	return createdId, nil

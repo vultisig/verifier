@@ -225,12 +225,12 @@ func (m *MockDatabaseStorage) UpdateTransactionStatusTx(ctx context.Context, dbT
 	return args.Error(0)
 }
 
-func (m *MockDatabaseStorage) GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) ([]itypes.TransactionHistory, error) {
+func (m *MockDatabaseStorage) GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) ([]itypes.TransactionHistory, int64, error) {
 	args := m.Called(ctx, policyID, transactionType, take, skip)
 	if args.Get(0) == nil {
-		return nil, args.Error(1)
+		return nil, 0, args.Error(2)
 	}
-	return args.Get(0).([]itypes.TransactionHistory), args.Error(1)
+	return args.Get(0).([]itypes.TransactionHistory), args.Get(1).(int64), args.Error(2)
 }
 
 func (m *MockDatabaseStorage) GetTransactionByHash(ctx context.Context, txHash string) (*itypes.TransactionHistory, error) {
@@ -285,8 +285,8 @@ func (m *MockDatabaseStorage) CreateRatingForPlugin(ctx context.Context, tx pgx.
 	return args.Error(0)
 }
 
-func (m *MockDatabaseStorage) CreateReview(ctx context.Context, review itypes.ReviewCreateDto, pluginID string) (string, error) {
-	args := m.Called(ctx, review, pluginID)
+func (m *MockDatabaseStorage) CreateReview(ctx context.Context, dbTx pgx.Tx, review itypes.ReviewCreateDto, pluginID string) (string, error) {
+	args := m.Called(ctx, dbTx, review, pluginID)
 	return args.String(0), args.Error(1)
 }
 

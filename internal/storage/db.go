@@ -59,7 +59,7 @@ type TransactionRepository interface {
 	UpdateTransactionStatusTx(ctx context.Context, dbTx pgx.Tx, txID uuid.UUID, status itypes.TransactionStatus, metadata map[string]interface{}) error
 	CreateTransactionHistory(ctx context.Context, tx itypes.TransactionHistory) (uuid.UUID, error)
 	UpdateTransactionStatus(ctx context.Context, txID uuid.UUID, status itypes.TransactionStatus, metadata map[string]interface{}) error
-	GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) ([]itypes.TransactionHistory, error)
+	GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) ([]itypes.TransactionHistory, int64, error)
 	GetTransactionByHash(ctx context.Context, txHash string) (*itypes.TransactionHistory, error)
 }
 
@@ -75,7 +75,7 @@ type PricingRepository interface {
 }
 
 type PluginRepository interface {
-	FindPlugins(ctx context.Context, filters itypes.PluginFilters, take int, skip int, sort string) (itypes.PluginsPaginatedList, error)
+	FindPlugins(ctx context.Context, filters itypes.PluginFilters, skip int, take int, sort string) (itypes.PluginsPaginatedList, error)
 	FindPluginById(ctx context.Context, dbTx pgx.Tx, id types.PluginID) (*itypes.Plugin, error)
 	CreatePlugin(ctx context.Context, dbTx pgx.Tx, pluginDto itypes.PluginCreateDto) (string, error)
 	UpdatePlugin(ctx context.Context, id types.PluginID, updates itypes.PluginUpdateDto) (*itypes.Plugin, error)
@@ -107,7 +107,7 @@ type TagRepository interface {
 }
 
 type ReviewRepository interface {
-	CreateReview(ctx context.Context, reviewDto itypes.ReviewCreateDto, pluginId string) (string, error)
+	CreateReview(ctx context.Context, dbTx pgx.Tx, reviewDto itypes.ReviewCreateDto, pluginId string) (string, error)
 	FindReviews(ctx context.Context, pluginId string, take int, skip int, sort string) (itypes.ReviewsDto, error)
 	FindReviewById(ctx context.Context, db pgx.Tx, id string) (*itypes.ReviewDto, error)
 }

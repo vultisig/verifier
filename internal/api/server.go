@@ -63,9 +63,17 @@ func NewServer(
 ) *Server {
 
 	var err error
+
+	logger := logrus.WithField("service", "verifier-server").Logger
+
 	policyService, err := service.NewPolicyService(db, client)
 	if err != nil {
 		logrus.Fatalf("Failed to initialize policy service: %v", err)
+	}
+
+	pluginService, err := service.NewPluginService(db, logger)
+	if err != nil {
+		logrus.Fatalf("Failed to initialize plugin service: %v", err)
 	}
 
 	authService := service.NewAuthService(jwtSecret, db, logrus.WithField("service", "auth-service").Logger)
@@ -78,9 +86,10 @@ func NewServer(
 		sdClient:      sdClient,
 		vaultStorage:  vaultStorage,
 		db:            db,
-		logger:        logrus.WithField("service", "verifier-server").Logger,
+		logger:        logger,
 		policyService: policyService,
 		authService:   authService,
+		pluginService: pluginService,
 	}
 }
 

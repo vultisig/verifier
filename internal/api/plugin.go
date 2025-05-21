@@ -1,11 +1,13 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"html"
 	"net/http"
 	"strconv"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/vultisig/verifier/common"
 
@@ -245,7 +247,7 @@ func (s *Server) AttachPluginTag(c echo.Context) error {
 	var tag *types.Tag
 	tag, err = s.db.FindTagByName(c.Request().Context(), createTagDto.Name)
 	if err != nil {
-		if err.Error() == "no rows in result set" {
+		if errors.Is(err, pgx.ErrNoRows) {
 			tag, err = s.db.CreateTag(c.Request().Context(), createTagDto)
 			if err != nil {
 				s.logger.Error(err)

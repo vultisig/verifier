@@ -198,13 +198,13 @@ func (s *PolicyService) GetPluginPolicyTransactionHistory(ctx context.Context, p
 		return itypes.TransactionHistoryPaginatedList{}, fmt.Errorf("invalid policy_id: %s", policyID)
 	}
 
-	history, err := s.db.GetTransactionHistory(ctx, policyUUID, "SWAP", take, skip)
+	history, totalCount, err := s.db.GetTransactionHistory(ctx, policyUUID, "SWAP", take, skip)
 	if err != nil {
 		return itypes.TransactionHistoryPaginatedList{}, fmt.Errorf("failed to get policy history: %w", err)
 	}
 
 	return itypes.TransactionHistoryPaginatedList{
 		History:    history,
-		TotalCount: len(history),
+		TotalCount: int(totalCount),
 	}, nil
 }

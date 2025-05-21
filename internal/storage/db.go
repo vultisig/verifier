@@ -17,7 +17,7 @@ type PoolProvider interface {
 
 type Transactor interface {
 	PoolProvider
-	// WithTransaction(ctx context.Context, fn func(ctx context.Context, tx pgx.Tx) error) error
+	WithTransaction(ctx context.Context, fn func(ctx context.Context, tx pgx.Tx) error) error
 }
 
 type DatabaseStorage interface {

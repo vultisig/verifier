@@ -233,6 +233,25 @@ func (p *PostgresBackend) CountTransactions(ctx context.Context, policyID uuid.U
 	return count, nil
 }
 
+func (p *PostgresBackend) WithTransaction(ctx context.Context, fn func(ctx context.Context, tx pgx.Tx) error) error {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	defer tx.Rollback(ctx)
+
+	if err := fn(ctx, tx); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
 func (p *PostgresBackend) Pool() *pgxpool.Pool {
 	return p.pool
 }

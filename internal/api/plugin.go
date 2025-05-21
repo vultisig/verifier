@@ -395,7 +395,7 @@ func (s *Server) AttachPluginTag(c echo.Context) error {
 			"error":   "plugin id is required",
 		})
 	}
-	plugin, err := s.db.FindPluginById(c.Request().Context(), nil, ptypes.PluginID(pluginID))
+	_, err := s.db.FindPluginById(c.Request().Context(), nil, ptypes.PluginID(pluginID))
 	if err != nil {
 		s.logger.Error(err)
 		return c.JSON(http.StatusBadRequest, echo.Map{
@@ -433,7 +433,7 @@ func (s *Server) AttachPluginTag(c echo.Context) error {
 		}
 	}
 
-	updatedPlugin, err := s.db.AttachTagToPlugin(c.Request().Context(), plugin.ID, tag.ID)
+	updatedPlugin, err := s.db.AttachTagToPlugin(c.Request().Context(), ptypes.PluginID(pluginID), tag.ID)
 	if err != nil {
 		s.logger.Error(err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{
@@ -452,7 +452,7 @@ func (s *Server) DetachPluginTag(c echo.Context) error {
 			"error":   "plugin id is required",
 		})
 	}
-	plugin, err := s.db.FindPluginById(c.Request().Context(), nil, ptypes.PluginID(pluginID))
+	_, err := s.db.FindPluginById(c.Request().Context(), nil, ptypes.PluginID(pluginID))
 	if err != nil {
 		s.logger.Error(err)
 		return c.JSON(http.StatusBadRequest, echo.Map{

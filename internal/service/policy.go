@@ -23,7 +23,7 @@ type Policy interface {
 	DeletePolicy(ctx context.Context, policyID uuid.UUID, pluginID types.PluginID, signature string) error
 	GetPluginPolicies(ctx context.Context, pluginType, publicKey string, take int, skip int) (itypes.PluginPolicyPaginatedList, error)
 	GetPluginPolicy(ctx context.Context, policyID uuid.UUID) (types.PluginPolicy, error)
-	GetPluginPolicyTransactionHistory(ctx context.Context, policyID uuid.UUID) ([]itypes.TransactionHistory, error)
+	GetPluginPolicyTransactionHistory(ctx context.Context, policyID string, take int, skip int) (itypes.TransactionHistoryPaginatedList, error)
 }
 
 var _ Policy = (*PolicyService)(nil)
@@ -192,12 +192,19 @@ func (s *PolicyService) GetPluginPolicy(ctx context.Context, policyID uuid.UUID)
 	return policy, nil
 }
 
-func (s *PolicyService) GetPluginPolicyTransactionHistory(ctx context.Context, policyID uuid.UUID) ([]itypes.TransactionHistory, error) {
-
-	history, err := s.db.GetTransactionHistory(ctx, policyID, "SWAP", 30, 0) // take the last 30 records and skip the first 0
+func (s *PolicyService) GetPluginPolicyTransactionHistory(ctx context.Context, policyID string, take int, skip int) (itypes.TransactionHistoryPaginatedList, error) {
+	policyUUID, err := uuid.Parse(policyID)
 	if err != nil {
-		return []itypes.TransactionHistory{}, fmt.Errorf("failed to get policy history: %w", err)
+		return itypes.TransactionHistoryPaginatedList{}, fmt.Errorf("invalid policy_id: %s", policyID)
 	}
 
-	return history, nil
+	history, err := s.db.GetTransactionHistory(ctx, policyUUID, "SWAP", take, skip)
+	if err != nil {
+		return itypes.TransactionHistoryPaginatedList{}, fmt.Errorf("failed to get policy history: %w", err)
+	}
+
+	return itypes.TransactionHistoryPaginatedList{
+		History:    history,
+		TotalCount: len(history),
+	}, nil
 }

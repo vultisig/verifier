@@ -198,22 +198,3 @@ func (s *Server) GetPluginPolicyById(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, policy)
 }
-
-func (s *Server) GetAllPluginPolicies(c echo.Context) error {
-	publicKey := c.Param("public_key")
-	if publicKey == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid public key"))
-	}
-
-	pluginType := c.Param("plugin_type")
-	if pluginType == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid plugin type"))
-	}
-
-	policies, err := s.policyService.GetPluginPolicies(c.Request().Context(), types.PluginID(pluginType), publicKey)
-	if err != nil {
-		s.logger.Errorf("failed to get policies for public_key: %s,plugin_type: %s,err: %s", publicKey, pluginType, err)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get policies"))
-	}
-	return c.JSON(http.StatusOK, policies)
-}

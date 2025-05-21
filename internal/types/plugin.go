@@ -17,7 +17,8 @@ type Plugin struct {
 	Metadata       json.RawMessage   `json:"metadata" validate:"required"`
 	ServerEndpoint string            `json:"server_endpoint" validate:"required"`
 	PricingID      uuid.UUID         `json:"pricing_id" validate:"required"`
-	CategoryID     string            `json:"category_id" validate:"required"`
+-	CategoryID     string            `json:"category_id" validate:"required"`
++	CategoryID     uuid.UUID         `json:"category_id" validate:"required"`
 	Tags           []Tag             `json:"tags"`
 	Ratings        []PluginRatingDto `json:"ratings,omitempty"`
 }

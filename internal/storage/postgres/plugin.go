@@ -400,6 +400,9 @@ func (p *PostgresBackend) FindReviewById(ctx context.Context, db pgx.Tx, id stri
 		&reviewDto.PluginId,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("review not found")
+		}
 		return nil, err
 	}
 

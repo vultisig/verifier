@@ -275,7 +275,7 @@ func (s *Server) SignMessages(c echo.Context) error {
 		s.logger.Error(wrappedErr)
 		return wrappedErr
 	}
-	_, err = common.DecryptVaultFromBackup(req.VaultPassword, content)
+	_, err = common.DecryptVaultFromBackup(s.cfg.EncryptionSecret, content)
 	if err != nil {
 		return fmt.Errorf("fail to decrypt vault from the backup, err: %w", err)
 	}

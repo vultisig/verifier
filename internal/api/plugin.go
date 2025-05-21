@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"html"
 	"net/http"
 	"strconv"
 
@@ -11,179 +12,6 @@ import (
 	"github.com/vultisig/verifier/internal/types"
 	ptypes "github.com/vultisig/verifier/types"
 )
-
-// func (s *Server) SignPluginMessages(c echo.Context) error {
-// 	s.logger.Debug("PLUGIN SERVER: SIGN MESSAGES")
-
-// var req types.PluginKeysignRequest
-// if err := c.Bind(&req); err != nil {
-// 	wrappedErr := fmt.Errorf("fail to parse request, err: %w", err)
-// 	s.logger.Error(wrappedErr)
-// 	message := map[string]interface{}{
-// 		"error": wrappedErr.Error(),
-// 	}
-// 	return c.JSON(http.StatusBadRequest, message)
-// }
-
-// // Plugin-specific validations //TODO: maybe this is not okay since we do not want this kind of specific checks in verifier
-// if len(req.Messages) != 1 {
-// 	wrappedErr := fmt.Errorf("plugin signing requires exactly one message hash, current: %d", len(req.Messages))
-// 	s.logger.Error(wrappedErr)
-// 	message := map[string]interface{}{
-// 		"error": wrappedErr.Error(),
-// 	}
-// 	return c.JSON(http.StatusBadRequest, message)
-// }
-
-// // Get policy from database
-// policy, err := s.db.GetPluginPolicy(c.Request().Context(), req.PolicyID)
-// if err != nil {
-// 	wrappedErr := fmt.Errorf("failed to get policy from database: %w", err)
-// 	s.logger.Error(wrappedErr)
-// 	message := map[string]interface{}{
-// 		"error": wrappedErr.Error(),
-// 	}
-// 	return c.JSON(http.StatusInternalServerError, message)
-// }
-
-// // Validate policy matches plugin
-// if policy.PluginType != req.PluginType {
-// 	mismatchErr := errors.New("policy plugin mismatch")
-// 	s.logger.Error(mismatchErr)
-// 	message := map[string]interface{}{
-// 		"error": mismatchErr.Error(),
-// 	}
-// 	return c.JSON(http.StatusBadRequest, message)
-// }
-
-// // We re-init plugin as verification server doesn't have plugin defined
-// var plg plugin.Plugin
-// plg, err = s.initializePlugin(policy.PluginType)
-// if err != nil {
-// 	wrappedErr := fmt.Errorf("fail to initialize plugin: %w", err)
-// 	s.logger.Error(wrappedErr)
-// 	message := map[string]interface{}{
-// 		"error": wrappedErr.Error(),
-// 	}
-// 	return c.JSON(http.StatusInternalServerError, message)
-// }
-
-// if err := plg.ValidateProposedTransactions(policy, []types.PluginKeysignRequest{req}); err != nil {
-// 	wrappedErr := fmt.Errorf("fail to validate proposed transactions: %w", err)
-// 	s.logger.Error(wrappedErr)
-// 	message := map[string]interface{}{
-// 		"error": wrappedErr.Error(),
-// 	}
-// 	return c.JSON(http.StatusBadRequest, message)
-// }
-
-// // Validate message hash matches transaction
-// txHash, err := calculateTransactionHash(req.Transaction)
-// if err != nil {
-// 	wrappedErr := fmt.Errorf("fail to calculate transaction hash: %w", err)
-// 	s.logger.Error(wrappedErr)
-// 	message := map[string]interface{}{
-// 		"error": wrappedErr.Error(),
-// 	}
-// 	return c.JSON(http.StatusInternalServerError, message)
-// }
-// if txHash != req.Messages[0] {
-// 	wrappedErr := fmt.Errorf("message hash does not match transaction hash. expected %s, got %s", txHash, req.Messages[0])
-// 	s.logger.Error(wrappedErr)
-// 	message := map[string]interface{}{
-// 		"error": wrappedErr.Error(),
-// 	}
-// 	return c.JSON(http.StatusInternalServerError, message)
-// }
-
-// // Reuse existing signing logic //TODO: why we return here with status OK
-// result, err := s.redis.Get(c.Request().Context(), req.SessionID)
-// if err == nil && result != "" {
-// 	return c.NoContent(http.StatusOK)
-// }
-
-// if err := s.redis.Set(c.Request().Context(), req.SessionID, req.SessionID, 30*time.Minute); err != nil {
-// 	//TODO: should we return error here or just log it
-// 	s.logger.Errorf("fail to set session, err: %v", err)
-// }
-
-// filePathName := common.GetVaultBackupFilename(req.PublicKey)
-// content, err := s.blockStorage.GetFile(filePathName)
-// if err != nil {
-// 	wrappedErr := fmt.Errorf("fail to read file: %s", filePathName)
-// 	message := map[string]interface{}{
-// 		"error": wrappedErr.Error(),
-// 	}
-// 	return c.JSON(http.StatusInternalServerError, message)
-// }
-
-// _, err = common.DecryptVaultFromBackup(req.VaultPassword, content)
-// if err != nil {
-// 	wrappedErr := fmt.Errorf("fail to decrypt file from the backup: %w", err)
-// 	s.logger.Error(wrappedErr)
-// 	message := map[string]interface{}{
-// 		"error": wrappedErr.Error(),
-// 	}
-// 	return c.JSON(http.StatusInternalServerError, message)
-// }
-
-// req.Parties = []string{common.PluginPartyID, common.VerifierPartyID}
-
-// buf, err := json.Marshal(req)
-// if err != nil {
-// 	wrappedErr := fmt.Errorf("fail to marshal request: %w", err)
-// 	s.logger.Error(wrappedErr)
-// 	message := map[string]interface{}{
-// 		"error": wrappedErr.Error(),
-// 	}
-// 	return c.JSON(http.StatusInternalServerError, message)
-// }
-
-// // TODO: check if this is relevant
-// // check that tx is done only once per period
-// // should we also copy the db to the vultiserver, so that it can be used by the vultiserver (and use scheduler.go)? or query the blockchain?
-
-// txToSign, err := s.db.GetTransactionByHash(c.Request().Context(), txHash)
-// if err != nil {
-// 	wrappedErr := fmt.Errorf("fail to get transaction by hash: %w", err)
-// 	s.logger.Error(wrappedErr)
-// 	message := map[string]interface{}{
-// 		"error": wrappedErr.Error(),
-// 	}
-// 	return c.JSON(http.StatusInternalServerError, message)
-// }
-
-// s.logger.Debug("PLUGIN SERVER: KEYSIGN TASK")
-
-// ti, err := s.client.EnqueueContext(c.Request().Context(),
-// 	asynq.NewTask(tasks.TypeKeySign, buf),
-// 	asynq.MaxRetry(0),
-// 	asynq.Timeout(2*time.Minute),
-// 	asynq.Retention(5*time.Minute),
-// 	asynq.Queue(tasks.QUEUE_NAME))
-
-// if err != nil {
-// 	txToSign.Metadata["error"] = err.Error()
-// 	if updateErr := s.db.UpdateTransactionStatus(c.Request().Context(), txToSign.ID, types.StatusSigningFailed, txToSign.Metadata); updateErr != nil {
-// 		s.logger.Errorf("Failed to update transaction status: %v", updateErr)
-// 	}
-// 	wrappedErr := fmt.Errorf("fail to enqueue task: %w", err)
-// 	s.logger.Error(wrappedErr)
-// 	message := map[string]interface{}{
-// 		"error": wrappedErr.Error(),
-// 	}
-// 	return c.JSON(http.StatusInternalServerError, message)
-// }
-
-// txToSign.Metadata["task_id"] = ti.ID
-// if err := s.db.UpdateTransactionStatus(c.Request().Context(), txToSign.ID, types.StatusSigned, txToSign.Metadata); err != nil {
-// 	s.logger.Errorf("Failed to update transaction with task ID: %v", err)
-// }
-
-// s.logger.Infof("Created transaction history for tx from plugin: %s...", req.Transaction[:min(20, len(req.Transaction))])
-
-// 	return c.JSON(http.StatusOK, ti.ID)
-// }
 
 func (s *Server) GetAllPluginPolicies(c echo.Context) error {
 	publicKey := c.Request().Header.Get("public_key")
@@ -523,4 +351,83 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, policyHistory)
+}
+
+func (s *Server) CreateReview(c echo.Context) error {
+	var review types.ReviewCreateDto
+	if err := c.Bind(&review); err != nil {
+		return fmt.Errorf("fail to parse request, err: %w", err)
+	}
+
+	if err := c.Validate(&review); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": err.Error(),
+		})
+	}
+
+	review.Comment = html.EscapeString(review.Comment) // Converts to safe string to prevent XSS todo rework this it escapes ' < when it shouldn't
+
+	pluginID := c.Param("pluginId")
+	if pluginID == "" {
+		err := fmt.Errorf("plugin id is required")
+		message := echo.Map{
+			"message": "failed to get plugin",
+			"error":   err.Error(),
+		}
+		s.logger.Error(err)
+
+		return c.JSON(http.StatusBadRequest, message)
+	}
+
+	created, err := s.pluginService.CreatePluginReviewWithRating(c.Request().Context(), review, pluginID)
+	if err != nil {
+		message := echo.Map{
+			"message": "failed to create review",
+		}
+		s.logger.Error(err)
+		return c.JSON(http.StatusInternalServerError, message)
+	}
+
+	fmt.Println(5, "CreateReview")
+
+	return c.JSON(http.StatusOK, created)
+}
+
+func (s *Server) GetReviews(c echo.Context) error {
+	pluginId := c.Param("pluginId")
+	if pluginId == "" {
+		err := fmt.Errorf("plugin id is required")
+		message := echo.Map{
+			"message": "failed to get plugin",
+			"error":   err.Error(),
+		}
+		s.logger.Error(err)
+
+		return c.JSON(http.StatusBadRequest, message)
+	}
+
+	skip, err := strconv.Atoi(c.QueryParam("skip"))
+
+	if err != nil {
+		skip = 0
+	}
+
+	take, err := strconv.Atoi(c.QueryParam("take"))
+
+	if err != nil {
+		take = 999
+	}
+
+	sort := c.QueryParam("sort")
+
+	reviews, err := s.db.FindReviews(c.Request().Context(), pluginId, skip, take, sort)
+	if err != nil {
+		message := echo.Map{
+			"message": "failed to get reviews",
+		}
+		s.logger.Error(err)
+		return c.JSON(http.StatusInternalServerError, message)
+	}
+
+	return c.JSON(http.StatusOK, reviews)
 }

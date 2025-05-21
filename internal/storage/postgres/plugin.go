@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -18,6 +19,7 @@ import (
 
 const PLUGINS_TABLE = "plugins"
 const PLUGIN_TAGS_TABLE = "plugin_tags"
+const REVIEWS_TABLE = "reviews"
 
 func (P *PostgresBackend) collectPlugins(rows pgx.Rows) ([]types.Plugin, error) {
 	defer rows.Close()
@@ -374,4 +376,101 @@ func (p *PostgresBackend) DetachTagFromPlugin(ctx context.Context, pluginId ptyp
 	}
 
 	return p.FindPluginById(ctx, nil, pluginId)
+}
+
+func (p *PostgresBackend) FindReviewById(ctx context.Context, db pgx.Tx, id string) (*types.ReviewDto, error) {
+	query := fmt.Sprintf(`SELECT * FROM %s WHERE id = $1 LIMIT 1;`, REVIEWS_TABLE)
+
+	var reviewDto types.ReviewDto
+	err := db.QueryRow(ctx, query, id).Scan(
+		&reviewDto.ID,
+		&reviewDto.Address,
+		&reviewDto.Rating,
+		&reviewDto.Comment,
+		&reviewDto.CreatedAt,
+		&reviewDto.PluginId,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &reviewDto, nil
+}
+
+func (p *PostgresBackend) FindReviews(ctx context.Context, pluginId string, skip int, take int, sort string) (types.ReviewsDto, error) {
+	if p.pool == nil {
+		return types.ReviewsDto{}, fmt.Errorf("database pool is nil")
+	}
+
+	allowedSortingColumns := map[string]bool{"created_at": true}
+	orderBy, orderDirection := common.GetSortingCondition(sort, allowedSortingColumns)
+
+	query := fmt.Sprintf(`
+		SELECT *, COUNT(*) OVER() AS total_count
+		FROM %s
+		WHERE plugin_id = $1
+		ORDER BY %s %s
+		LIMIT $2 OFFSET $3`, REVIEWS_TABLE, orderBy, orderDirection)
+
+	rows, err := p.pool.Query(ctx, query, pluginId, take, skip)
+	if err != nil {
+		return types.ReviewsDto{}, err
+	}
+
+	defer rows.Close()
+
+	var reviews []types.Review
+	var totalCount int
+
+	for rows.Next() {
+		var review types.Review
+
+		err := rows.Scan(
+			&review.ID,
+			&review.Address,
+			&review.Rating,
+			&review.Comment,
+			&review.CreatedAt,
+			&review.PluginId,
+			&totalCount,
+		)
+		if err != nil {
+			return types.ReviewsDto{}, err
+		}
+
+		reviews = append(reviews, review)
+	}
+
+	pluginsDto := types.ReviewsDto{
+		Reviews:    reviews,
+		TotalCount: totalCount,
+	}
+
+	return pluginsDto, nil
+}
+
+func (p *PostgresBackend) CreateReview(ctx context.Context, reviewDto types.ReviewCreateDto, pluginId string) (string, error) {
+	columns := []string{"address", "rating", "comment", "plugin_id", "created_at"}
+	argNames := []string{"@Address", "@Rating", "@Comment", "@PluginId", "@CreatedAt"}
+	args := pgx.NamedArgs{
+		"Address":   reviewDto.Address,
+		"Rating":    reviewDto.Rating,
+		"Comment":   reviewDto.Comment,
+		"PluginId":  pluginId,
+		"CreatedAt": time.Now(),
+	}
+
+	query := fmt.Sprintf(
+		`INSERT INTO reviews (%s) VALUES (%s) RETURNING id;`,
+		strings.Join(columns, ", "),
+		strings.Join(argNames, ", "),
+	)
+
+	var createdId string
+	err := p.pool.QueryRow(ctx, query, args).Scan(&createdId)
+	if err != nil {
+		return "", err
+	}
+
+	return createdId, nil
 }

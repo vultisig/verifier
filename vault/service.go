@@ -206,7 +206,6 @@ func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task
 			HexChainCode:   req.HexChainCode,
 			LocalPartyId:   req.LocalPartyId,
 			Signers:        req.OldParties,
-			ResharePrefix:  req.OldResharePrefix,
 			LibType:        keygenType.LibType_LIB_TYPE_DKLS,
 		}
 	} else {
@@ -224,7 +223,7 @@ func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task
 		return fmt.Errorf("NewDKLSTssService failed: %v: %w", err, asynq.SkipRetry)
 	}
 
-	if err := service.ProcessReshare(vault, req.SessionID, req.HexEncryptionKey, req.Email); err != nil {
+	if err := service.ProcessReshare(vault, req.SessionID, req.HexEncryptionKey, req.Email, req.PluginID); err != nil {
 		s.logger.Errorf("reshare failed: %v", err)
 		return fmt.Errorf("reshare failed: %v: %w", err, asynq.SkipRetry)
 	}

@@ -7,13 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type LibType int
-
-const (
-	GG20 LibType = iota
-	DKLS
-)
-
 // VaultCreateRequest is a struct that represents a request to create a new vault from integration.
 type VaultCreateRequest struct {
 	Name             string   `json:"name" validate:"required"`
@@ -23,6 +16,7 @@ type VaultCreateRequest struct {
 	LocalPartyId     string   `json:"local_party_id"`            // when this field is empty , then server will generate a random local party id
 	Email            string   `json:"email" validate:"required"` // this is the email of the user that the vault backup will be sent to
 	Parties          []string `json:"parties"`                   // this is the list of parties that will participate in the vault creation process
+	PluginID         string   `json:"plugin_id"`
 }
 
 func isValidHexString(s string) bool {

@@ -22,6 +22,7 @@ import (
 
 	vcommon "github.com/vultisig/vultiserver/common"
 
+	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/types"
 )
 
@@ -42,8 +43,8 @@ func (t *DKLSTssService) GetExistingVault(vaultFileName, password string) (*vaul
 
 func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[string]tss.KeysignResponse, error) {
 	result := map[string]tss.KeysignResponse{}
-	vaultFileName := req.PublicKey + ".bak"
-	vault, err := t.GetExistingVault(vaultFileName, req.VaultPassword)
+	vaultFileName := common.GetVaultBackupFilename(req.PublicKey, req.PluginID)
+	vault, err := t.GetExistingVault(vaultFileName, t.cfg.EncryptionSecret)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get vault: %w", err)
 	}

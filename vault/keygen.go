@@ -101,14 +101,15 @@ func (t *DKLSTssService) ProcessDKLSKeygen(req types.VaultCreateRequest) (string
 			"error":       err,
 		}).Error("Failed to check completed parties")
 	}
-	err = t.BackupVault(req, partiesJoined, publicKeyECDSA, publicKeyEdDSA, chainCodeECDSA, t.localStateAccessor)
+	err = t.BackupVault(req.Name, req.LocalPartyId, req.Email, req.PluginID,
+		partiesJoined, publicKeyECDSA, publicKeyEdDSA, chainCodeECDSA, t.localStateAccessor)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to backup vault: %w", err)
 	}
 	return publicKeyECDSA, publicKeyEdDSA, nil
 }
 
-func (t *DKLSTssService) BackupVault(req types.VaultCreateRequest,
+func (t *DKLSTssService) BackupVault(vaultName, localPartyId, email, pluginId string,
 	partiesJoined []string,
 	ecdsaPubkey, eddsaPubkey string,
 	hexChainCode string,
@@ -124,7 +125,7 @@ func (t *DKLSTssService) BackupVault(req types.VaultCreateRequest,
 	}
 
 	vault := &vaultType.Vault{
-		Name:           req.Name,
+		Name:           vaultName,
 		PublicKeyEcdsa: ecdsaPubkey,
 		PublicKeyEddsa: eddsaPubkey,
 		Signers:        partiesJoined,
@@ -140,24 +141,29 @@ func (t *DKLSTssService) BackupVault(req types.VaultCreateRequest,
 				Keyshare:  eddsaKeyShare,
 			},
 		},
-		LocalPartyId:  req.LocalPartyId,
+		LocalPartyId:  localPartyId,
 		ResharePrefix: "",
 		LibType:       keygen.LibType_LIB_TYPE_DKLS,
 	}
 
-	return t.SaveVaultToStorage(vault, req.Email)
+	return t.SaveVaultToStorage(vault, email, pluginId)
 }
 
-func (s *DKLSTssService) SaveVaultToStorage(vault *vaultType.Vault, email string) error {
-	if len(s.cfg.EncryptionSecret) == 0 {
+func (t *DKLSTssService) SaveVaultToStorage(vault *vaultType.Vault, email, pluginId string) error {
+	if len(t.cfg.EncryptionSecret) == 0 {
 		return fmt.Errorf("encryption secret is empty")
 	}
+
+	if len(pluginId) == 0 {
+		return fmt.Errorf("failed to save vault to storage,plugin id is empty")
+	}
+
 	vaultData, err := proto.Marshal(vault)
 	if err != nil {
 		return fmt.Errorf("failed to Marshal vault: %w", err)
 	}
 
-	vaultData, err = common.EncryptVault(s.cfg.EncryptionSecret, vaultData)
+	vaultData, err = common.EncryptVault(t.cfg.EncryptionSecret, vaultData)
 	if err != nil {
 		return fmt.Errorf("common.EncryptVault failed: %w", err)
 	}
@@ -168,7 +174,7 @@ func (s *DKLSTssService) SaveVaultToStorage(vault *vaultType.Vault, email string
 		IsEncrypted: true,
 	}
 
-	filePathName := common.GetVaultBackupFilename(vault.PublicKeyEcdsa)
+	filePathName := common.GetVaultBackupFilename(vault.PublicKeyEcdsa, pluginId)
 	vaultBackupData, err := proto.Marshal(vaultBackup)
 	if err != nil {
 		return fmt.Errorf("failed to Marshal vaultBackup: %w", err)
@@ -176,7 +182,7 @@ func (s *DKLSTssService) SaveVaultToStorage(vault *vaultType.Vault, email string
 
 	base64VaultContent := base64.StdEncoding.EncodeToString(vaultBackupData)
 
-	if s.cfg.QueueEmailTask && len(email) != 0 {
+	if t.cfg.QueueEmailTask && len(email) != 0 {
 		emailRequest := types.EmailRequest{
 			Email:       email,
 			FileName:    common.GetVaultName(vault),
@@ -188,15 +194,15 @@ func (s *DKLSTssService) SaveVaultToStorage(vault *vaultType.Vault, email string
 			return fmt.Errorf("json.Marshal failed: %w", err)
 		}
 
-		taskInfo, err := s.queueClient.Enqueue(asynq.NewTask(EmailVaultBackupTypeName, buf),
+		taskInfo, err := t.queueClient.Enqueue(asynq.NewTask(EmailVaultBackupTypeName, buf),
 			asynq.Retention(10*time.Minute),
 			asynq.Queue(EmailQueueName))
 		if err != nil {
-			s.logger.Errorf("fail to enqueue email task: %v", err)
+			t.logger.Errorf("fail to enqueue email task: %v", err)
 		}
-		s.logger.Info("Email task enqueued: ", taskInfo.ID)
+		t.logger.Info("Email task enqueued: ", taskInfo.ID)
 	}
-	return s.storage.SaveVault(filePathName, []byte(base64VaultContent))
+	return t.storage.SaveVault(filePathName, []byte(base64VaultContent))
 }
 
 func (t *DKLSTssService) keygenWithRetry(sessionID string,

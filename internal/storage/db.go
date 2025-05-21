@@ -26,7 +26,7 @@ type DatabaseStorage interface {
 	GetActiveVaultTokens(ctx context.Context, publicKey string) ([]itypes.VaultToken, error)
 
 	GetPluginPolicy(ctx context.Context, id uuid.UUID) (types.PluginPolicy, error)
-	GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID) ([]types.PluginPolicy, error)
+	GetAllPluginPolicies(ctx context.Context, pluginType string, publicKey string, take int, skip int) (itypes.PluginPolicyPaginatedList, error)
 	DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id uuid.UUID) error
 	InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error)
 	UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error)
@@ -43,13 +43,20 @@ type DatabaseStorage interface {
 	GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) ([]itypes.TransactionHistory, error)
 	GetTransactionByHash(ctx context.Context, txHash string) (*itypes.TransactionHistory, error)
 
-	FindPlugins(ctx context.Context, take int, skip int, sort string) (itypes.PluginsDto, error)
-	FindPluginById(ctx context.Context, id types.PluginID) (*itypes.Plugin, error)
-	CreatePlugin(ctx context.Context, pluginDto itypes.PluginCreateDto) (*itypes.Plugin, error)
+	FindPlugins(ctx context.Context, filters itypes.PluginFilters, take int, skip int, sort string) (itypes.PluginsPaginatedList, error)
+	FindPluginById(ctx context.Context, dbTx pgx.Tx, id types.PluginID) (*itypes.Plugin, error)
+	CreatePlugin(ctx context.Context, dbTx pgx.Tx, pluginDto itypes.PluginCreateDto) (string, error)
 	UpdatePlugin(ctx context.Context, id types.PluginID, updates itypes.PluginUpdateDto) (*itypes.Plugin, error)
 	DeletePluginById(ctx context.Context, id types.PluginID) error
+	AttachTagToPlugin(ctx context.Context, pluginId types.PluginID, tagId string) (*itypes.Plugin, error)
+	DetachTagFromPlugin(ctx context.Context, pluginId types.PluginID, tagId string) (*itypes.Plugin, error)
 
 	FindCategories(ctx context.Context) ([]itypes.Category, error)
+
+	FindTags(ctx context.Context) ([]itypes.Tag, error)
+	FindTagById(ctx context.Context, id string) (*itypes.Tag, error)
+	FindTagByName(ctx context.Context, name string) (*itypes.Tag, error)
+	CreateTag(ctx context.Context, tagDto itypes.CreateTagDto) (*itypes.Tag, error)
 
 	AddPluginPolicySync(ctx context.Context, dbTx pgx.Tx, policy itypes.PluginPolicySync) error
 	GetPluginPolicySync(ctx context.Context, id uuid.UUID) (*itypes.PluginPolicySync, error)

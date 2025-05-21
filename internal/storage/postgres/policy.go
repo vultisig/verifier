@@ -46,43 +46,57 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (ty
 	return policy, nil
 }
 
-func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID) ([]types.PluginPolicy, error) {
+func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, pluginType string, publicKeyEcdsa string, take int, skip int) (itypes.PluginPolicyPaginatedList, error) {
 	if p.pool == nil {
-		return []types.PluginPolicy{}, fmt.Errorf("database pool is nil")
+		return itypes.PluginPolicyPaginatedList{}, fmt.Errorf("database pool is nil")
 	}
 
 	query := `
-  	SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, policy, recipe
+  	SELECT id, public_key_ecdsa, public_key_eddsa, plugin_version, policy_version, plugin_type, is_ecdsa, chain_code_hex, derive_path, active, progress, signature, policy, COUNT(*) OVER() AS total_count
 		FROM plugin_policies
-		WHERE public_key = $1
-		AND plugin_id = $2`
+		WHERE public_key_ecdsa = $1
+		AND plugin_type = $2
+		LIMIT $3 OFFSET $4`
 
-	rows, err := p.pool.Query(ctx, query, publicKey, pluginID)
+	rows, err := p.pool.Query(ctx, query, publicKeyEcdsa, pluginType, take, skip)
+
 	if err != nil {
-		return nil, err
+		return itypes.PluginPolicyPaginatedList{}, err
 	}
 	defer rows.Close()
-	var policies []types.PluginPolicy
+
+	var policies []itypes.PluginPolicy
+	var totalCount int
 	for rows.Next() {
-		var policy types.PluginPolicy
+		var policy itypes.PluginPolicy
 		err := rows.Scan(
 			&policy.ID,
-			&policy.PublicKey,
-			&policy.PluginID,
+			&policy.PublicKeyEcdsa,
+			&policy.PublicKeyEddsa,
 			&policy.PluginVersion,
 			&policy.PolicyVersion,
-			&policy.Signature,
+			&policy.PluginType,
+			&policy.IsEcdsa,
+			&policy.ChainCodeHex,
+			&policy.DerivePath,
 			&policy.Active,
+			&policy.Progress,
+			&policy.Signature,
 			&policy.Policy,
-			&policy.Recipe,
+			&totalCount,
 		)
 		if err != nil {
-			return nil, err
+			return itypes.PluginPolicyPaginatedList{}, err
 		}
 		policies = append(policies, policy)
 	}
 
-	return policies, nil
+	dto := itypes.PluginPolicyPaginatedList{
+		Policies:   policies,
+		TotalCount: totalCount,
+	}
+
+	return dto, nil
 }
 
 func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {

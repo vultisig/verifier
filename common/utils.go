@@ -17,6 +17,7 @@ import (
 	"github.com/eager7/dogd/btcec"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/labstack/echo/v4"
 	"github.com/ulikunitz/xz"
 	v1 "github.com/vultisig/commondata/go/vultisig/keygen/v1"
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
@@ -329,7 +330,7 @@ func CheckIfPublicKeyIsValid(pubKeyBytes []byte, isEcdsa bool) bool {
 	return false
 }
 
-func GetSortingCondition(sort string) (string, string) {
+func GetSortingCondition(sort string, allowedColumns map[string]bool) (string, string) {
 	// Default sorting column
 	orderBy := "created_at"
 	orderDirection := "ASC"
@@ -339,7 +340,6 @@ func GetSortingCondition(sort string) (string, string) {
 	columnName := strings.TrimPrefix(sort, "-") // Remove "-" if present
 
 	// Ensure orderBy is a valid column name (prevent SQL injection)
-	allowedColumns := map[string]bool{"updated_at": true, "created_at": true, "title": true}
 	if allowedColumns[columnName] {
 		orderBy = columnName // Use the provided column if valid
 	}
@@ -350,4 +350,12 @@ func GetSortingCondition(sort string) (string, string) {
 	}
 
 	return orderBy, orderDirection
+}
+
+func GetQueryParam(c echo.Context, key string) *string {
+	val := c.QueryParam(key)
+	if val == "" {
+		return nil
+	}
+	return &val
 }

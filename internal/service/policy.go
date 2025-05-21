@@ -21,7 +21,7 @@ type Policy interface {
 	CreatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
 	UpdatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
 	DeletePolicy(ctx context.Context, policyID uuid.UUID, pluginID types.PluginID, signature string) error
-	GetPluginPolicies(ctx context.Context, pluginID types.PluginID, publicKey string) ([]types.PluginPolicy, error)
+	GetPluginPolicies(ctx context.Context, pluginType, publicKey string, take int, skip int) (itypes.PluginPolicyPaginatedList, error)
 	GetPluginPolicy(ctx context.Context, policyID uuid.UUID) (types.PluginPolicy, error)
 	GetPluginPolicyTransactionHistory(ctx context.Context, policyID uuid.UUID) ([]itypes.TransactionHistory, error)
 }
@@ -176,10 +176,10 @@ func (s *PolicyService) DeletePolicy(ctx context.Context, policyID uuid.UUID, pl
 	return nil
 }
 
-func (s *PolicyService) GetPluginPolicies(ctx context.Context, pluginID types.PluginID, publicKey string) ([]types.PluginPolicy, error) {
-	policies, err := s.db.GetAllPluginPolicies(ctx, publicKey, pluginID)
+func (s *PolicyService) GetPluginPolicies(ctx context.Context, pluginType, publicKey string, take int, skip int) (itypes.PluginPolicyPaginatedList, error) {
+	policies, err := s.db.GetAllPluginPolicies(ctx, pluginType, publicKey, take, skip)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get policies: %w", err)
+		return itypes.PluginPolicyPaginatedList{}, fmt.Errorf("failed to get policies: %w", err)
 	}
 	return policies, nil
 }

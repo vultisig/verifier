@@ -109,12 +109,9 @@ func (m *MockDatabaseStorage) CountTransactions(ctx context.Context, policyID uu
 }
 
 // CreatePlugin is a stub to satisfy the DatabaseStorage interface
-func (m *MockDatabaseStorage) CreatePlugin(ctx context.Context, pluginDto itypes.PluginCreateDto) (*itypes.Plugin, error) {
-	args := m.Called(ctx, pluginDto)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*itypes.Plugin), args.Error(1)
+func (m *MockDatabaseStorage) CreatePlugin(ctx context.Context, tx pgx.Tx, pluginDto itypes.PluginCreateDto) (string, error) {
+	args := m.Called(ctx, tx, pluginDto)
+	return args.String(0), args.Error(1)
 }
 
 // CreatePricing is a stub to satisfy the DatabaseStorage interface
@@ -149,17 +146,20 @@ func (m *MockDatabaseStorage) DeletePluginById(ctx context.Context, id types.Plu
 	return args.Error(0)
 }
 
-func (m *MockDatabaseStorage) FindPluginById(ctx context.Context, id types.PluginID) (*itypes.Plugin, error) {
-	args := m.Called(ctx, id)
+func (m *MockDatabaseStorage) FindPluginById(ctx context.Context, tx pgx.Tx, pluginID types.PluginID) (*itypes.Plugin, error) {
+	args := m.Called(ctx, tx, pluginID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*itypes.Plugin), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) FindPlugins(ctx context.Context, take int, skip int, sort string) (itypes.PluginsDto, error) {
-	args := m.Called(ctx, take, skip, sort)
-	return args.Get(0).(itypes.PluginsDto), args.Error(1)
+func (m *MockDatabaseStorage) FindPlugins(ctx context.Context, filters itypes.PluginFilters, page, pageSize int, sortBy string) (itypes.PluginsPaginatedList, error) {
+	args := m.Called(ctx, filters, page, pageSize, sortBy)
+	if args.Get(0) == nil {
+		return itypes.PluginsPaginatedList{}, args.Error(1)
+	}
+	return args.Get(0).(itypes.PluginsPaginatedList), args.Error(1)
 }
 
 func (m *MockDatabaseStorage) UpdatePlugin(ctx context.Context, pluginID types.PluginID, updates itypes.PluginUpdateDto) (*itypes.Plugin, error) {
@@ -178,12 +178,12 @@ func (m *MockDatabaseStorage) GetPluginPolicy(ctx context.Context, id uuid.UUID)
 	return args.Get(0).(types.PluginPolicy), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID) ([]types.PluginPolicy, error) {
-	args := m.Called(ctx, publicKey, pluginID)
+func (m *MockDatabaseStorage) GetAllPluginPolicies(ctx context.Context, pluginType string, publicKeyEcdsa string, take int, skip int) (itypes.PluginPolicyPaginatedList, error) {
+	args := m.Called(ctx, pluginType, publicKeyEcdsa, take, skip)
 	if args.Get(0) == nil {
-		return nil, args.Error(1)
+		return itypes.PluginPolicyPaginatedList{}, args.Error(1)
 	}
-	return args.Get(0).([]types.PluginPolicy), args.Error(1)
+	return args.Get(0).(itypes.PluginPolicyPaginatedList), args.Error(1)
 }
 
 func (m *MockDatabaseStorage) DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id uuid.UUID) error {
@@ -269,6 +269,106 @@ func (m *MockDatabaseStorage) UpdatePluginPolicySync(ctx context.Context, dbTx p
 
 func (m *MockDatabaseStorage) UpdateTransactionStatus(ctx context.Context, txID uuid.UUID, status itypes.TransactionStatus, metadata map[string]interface{}) error {
 	args := m.Called(ctx, txID, status, metadata)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) AttachTagToPlugin(ctx context.Context, pluginID types.PluginID, tagID string) (*itypes.Plugin, error) {
+	args := m.Called(ctx, pluginID, tagID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.Plugin), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) CreateRatingForPlugin(ctx context.Context, tx pgx.Tx, pluginID string) error {
+	args := m.Called(ctx, tx, pluginID)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) CreateReview(ctx context.Context, review itypes.ReviewCreateDto, pluginID string) (string, error) {
+	args := m.Called(ctx, review, pluginID)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) CreateTag(ctx context.Context, tag itypes.CreateTagDto) (*itypes.Tag, error) {
+	args := m.Called(ctx, tag)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.Tag), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) DetachTagFromPlugin(ctx context.Context, pluginID types.PluginID, tagID string) (*itypes.Plugin, error) {
+	args := m.Called(ctx, pluginID, tagID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.Plugin), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) FindCategories(ctx context.Context) ([]itypes.Category, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]itypes.Category), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) FindRatingByPluginId(ctx context.Context, dbTx pgx.Tx, pluginID string) ([]itypes.PluginRatingDto, error) {
+	args := m.Called(ctx, dbTx, pluginID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]itypes.PluginRatingDto), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) FindReviewById(ctx context.Context, db pgx.Tx, id string) (*itypes.ReviewDto, error) {
+	args := m.Called(ctx, db, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.ReviewDto), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) FindReviews(ctx context.Context, pluginId string, take int, skip int, sort string) (itypes.ReviewsDto, error) {
+	args := m.Called(ctx, pluginId, take, skip, sort)
+	if args.Get(0) == nil {
+		return itypes.ReviewsDto{}, args.Error(1)
+	}
+	return args.Get(0).(itypes.ReviewsDto), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) FindTagById(ctx context.Context, id string) (*itypes.Tag, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.Tag), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) FindTagByName(ctx context.Context, name string) (*itypes.Tag, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.Tag), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) FindTags(ctx context.Context) ([]itypes.Tag, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]itypes.Tag), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) UpdateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, reviewRating int) error {
+	args := m.Called(ctx, dbTx, pluginId, reviewRating)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) WithTransaction(ctx context.Context, fn func(ctx context.Context, tx pgx.Tx) error) error {
+	args := m.Called(ctx, fn)
 	return args.Error(0)
 }
 

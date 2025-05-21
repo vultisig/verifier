@@ -136,6 +136,9 @@ func (s *Server) StartServer() error {
 	pluginsGroup.POST("/:pluginId", s.UpdatePlugin, s.userAuthMiddleware)
 	pluginsGroup.DELETE("/:pluginId", s.DeletePlugin, s.userAuthMiddleware)
 
+	categoriesGroup := e.Group("/categories")
+	categoriesGroup.GET("", s.GetCategories)
+
 	pricingsGroup := e.Group("/pricing")
 	pricingsGroup.GET("/:pricingId", s.GetPricing)
 	pricingsGroup.POST("", s.CreatePricing, s.userAuthMiddleware)

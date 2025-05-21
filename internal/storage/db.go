@@ -49,6 +49,8 @@ type DatabaseStorage interface {
 	UpdatePlugin(ctx context.Context, id types.PluginID, updates itypes.PluginUpdateDto) (*itypes.Plugin, error)
 	DeletePluginById(ctx context.Context, id types.PluginID) error
 
+	FindCategories(ctx context.Context) ([]itypes.Category, error)
+
 	AddPluginPolicySync(ctx context.Context, dbTx pgx.Tx, policy itypes.PluginPolicySync) error
 	GetPluginPolicySync(ctx context.Context, id uuid.UUID) (*itypes.PluginPolicySync, error)
 	DeletePluginPolicySync(ctx context.Context, id uuid.UUID) error

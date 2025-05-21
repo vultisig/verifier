@@ -17,6 +17,7 @@ import (
 	"github.com/eager7/dogd/btcec"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/ulikunitz/xz"
 	v1 "github.com/vultisig/commondata/go/vultisig/keygen/v1"
@@ -358,4 +359,16 @@ func GetQueryParam(c echo.Context, key string) *string {
 		return nil
 	}
 	return &val
+}
+
+func GetUUIDParam(c echo.Context, param string) *uuid.UUID {
+	val := c.QueryParam(param)
+	if val == "" {
+		return nil
+	}
+	id, err := uuid.Parse(val)
+	if err != nil {
+		return nil
+	}
+	return &id
 }

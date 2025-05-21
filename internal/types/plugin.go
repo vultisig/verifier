@@ -23,17 +23,12 @@ type Plugin struct {
 }
 
 type PluginFilters struct {
-	Term       *string `json:"term"`
-	TagID      *string `json:"tag_id"`
-	CategoryID *string `json:"category_id"`
+	Term       *string    `json:"term"`
+	TagID      *uuid.UUID `json:"tag_id"`
+	CategoryID *uuid.UUID `json:"category_id"`
 }
 
 type PluginsPaginatedList struct {
-	Plugins    []Plugin `json:"plugins"`
-	TotalCount int      `json:"total_count"`
-}
-
-type PluginsDto struct {
 	Plugins    []Plugin `json:"plugins"`
 	TotalCount int      `json:"total_count"`
 }

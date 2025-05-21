@@ -242,9 +242,16 @@ func (p *PostgresBackend) WithTransaction(ctx context.Context, fn func(ctx conte
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	defer tx.Rollback(ctx)
+	// Roll back on error *or* panic.
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback(ctx)
+			panic(p)
+		}
+	}()
 
 	if err := fn(ctx, tx); err != nil {
+		_ = tx.Rollback(ctx)
 		return err
 	}
 

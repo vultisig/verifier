@@ -111,6 +111,9 @@ func (m *MockDatabaseStorage) CountTransactions(ctx context.Context, policyID uu
 // CreatePlugin is a stub to satisfy the DatabaseStorage interface
 func (m *MockDatabaseStorage) CreatePlugin(ctx context.Context, tx pgx.Tx, pluginDto itypes.PluginCreateDto) (string, error) {
 	args := m.Called(ctx, tx, pluginDto)
+	if args.Get(0) == nil {
+		return "", args.Error(1)
+	}
 	return args.String(0), args.Error(1)
 }
 

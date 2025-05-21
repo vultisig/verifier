@@ -3,12 +3,12 @@ package api
 import (
 	"errors"
 	"fmt"
-	"html"
 	"net/http"
 	"strconv"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/vultisig/verifier/common"
 
 	"github.com/vultisig/verifier/internal/types"
@@ -79,8 +79,8 @@ func (s *Server) GetPlugins(c echo.Context) error {
 
 	filters := types.PluginFilters{
 		Term:       common.GetQueryParam(c, "term"),
-		TagID:      common.GetQueryParam(c, "tag_id"),
-		CategoryID: common.GetQueryParam(c, "category_id"),
+		TagID:      common.GetUUIDParam(c, "tag_id"),
+		CategoryID: common.GetUUIDParam(c, "category_id"),
 	}
 
 	plugins, err := s.db.FindPlugins(c.Request().Context(), filters, skip, take, sort)
@@ -367,7 +367,9 @@ func (s *Server) CreateReview(c echo.Context) error {
 		})
 	}
 
-	review.Comment = html.EscapeString(review.Comment) // Converts to safe string to prevent XSS todo rework this it escapes ' < when it shouldn't
+	// If allowing HTML, sanitize with bluemonday:
+	p := bluemonday.UGCPolicy()
+	review.Comment = p.Sanitize(review.Comment)
 
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
@@ -389,8 +391,6 @@ func (s *Server) CreateReview(c echo.Context) error {
 		s.logger.Error(err)
 		return c.JSON(http.StatusInternalServerError, message)
 	}
-
-	fmt.Println(5, "CreateReview")
 
 	return c.JSON(http.StatusOK, created)
 }

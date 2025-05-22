@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -31,7 +30,8 @@ func (s *Server) GetPricing(c echo.Context) error {
 func (s *Server) CreatePricing(c echo.Context) error {
 	var pricing types.PricingCreateDto
 	if err := c.Bind(&pricing); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
+		s.logger.WithError(err).Error("Failed to parse request")
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request"))
 	}
 
 	if err := c.Validate(&pricing); err != nil {

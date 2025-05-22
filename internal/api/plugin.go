@@ -69,7 +69,8 @@ func (s *Server) GetPlugin(c echo.Context) error {
 func (s *Server) CreatePlugin(c echo.Context) error {
 	var plugin types.PluginCreateDto
 	if err := c.Bind(&plugin); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
+		s.logger.WithError(err).Error("Failed to parse request")
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request"))
 	}
 
 	if err := c.Validate(&plugin); err != nil {
@@ -94,7 +95,8 @@ func (s *Server) UpdatePlugin(c echo.Context) error {
 
 	var plugin types.PluginUpdateDto
 	if err := c.Bind(&plugin); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
+		s.logger.WithError(err).Error("Failed to parse request")
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request"))
 	}
 
 	if err := c.Validate(&plugin); err != nil {
@@ -150,13 +152,17 @@ func (s *Server) AttachPluginTag(c echo.Context) error {
 	}
 	_, err := s.db.FindPluginById(c.Request().Context(), nil, ptypes.PluginID(pluginID))
 	if err != nil {
-		s.logger.Error(err)
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to find plugin"))
+		s.logger.WithError(err).Error("Failed to find plugin")
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, NewErrorResponse("plugin not found"))
+		}
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to find plugin"))
 	}
 
 	var createTagDto types.CreateTagDto
 	if err := c.Bind(&createTagDto); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
+		s.logger.WithError(err).Error("Failed to parse request")
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request"))
 	}
 	if err := c.Validate(&createTagDto); err != nil {
 		s.logger.Error(err)
@@ -194,8 +200,11 @@ func (s *Server) DetachPluginTag(c echo.Context) error {
 	}
 	_, err := s.db.FindPluginById(c.Request().Context(), nil, ptypes.PluginID(pluginID))
 	if err != nil {
-		s.logger.Error(err)
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to find plugin"))
+		s.logger.WithError(err).Error("Failed to find plugin")
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, NewErrorResponse("plugin not found"))
+		}
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to find plugin"))
 	}
 
 	tagID := c.Param("tagId")
@@ -204,8 +213,11 @@ func (s *Server) DetachPluginTag(c echo.Context) error {
 	}
 	tag, err := s.db.FindTagById(c.Request().Context(), tagID)
 	if err != nil {
-		s.logger.Error(err)
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to find tag"))
+		s.logger.WithError(err).Error("Failed to find tag")
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, NewErrorResponse("tag not found"))
+		}
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to find tag"))
 	}
 
 	updatedPlugin, err := s.db.DetachTagFromPlugin(c.Request().Context(), ptypes.PluginID(pluginID), tag.ID)
@@ -254,7 +266,8 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 func (s *Server) CreateReview(c echo.Context) error {
 	var review types.ReviewCreateDto
 	if err := c.Bind(&review); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
+		s.logger.WithError(err).Error("Failed to parse request")
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request"))
 	}
 
 	if err := c.Validate(&review); err != nil {
@@ -306,6 +319,11 @@ func (s *Server) GetReviews(c echo.Context) error {
 	}
 
 	sort := c.QueryParam("sort")
+
+	allowedSortFields := []string{"created_at", "rating", "updated_at"}
+	if sort != "" && !common.IsValidSortField(sort, allowedSortFields) {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid sort parameter"))
+	}
 
 	reviews, err := s.db.FindReviews(c.Request().Context(), pluginId, skip, take, sort)
 	if err != nil {

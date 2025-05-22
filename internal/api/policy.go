@@ -31,7 +31,8 @@ func NewErrorResponse(message string) ErrorResponse {
 func (s *Server) CreatePluginPolicy(c echo.Context) error {
 	var policy types.PluginPolicy
 	if err := c.Bind(&policy); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
+		s.logger.WithError(err).Error("Failed to parse request")
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request"))
 	}
 	if policy.ID.String() == "" {
 		policy.ID = uuid.New()
@@ -126,7 +127,8 @@ func policyToMessageHex(policy types.PluginPolicy, isUpdate bool) (string, error
 func (s *Server) UpdatePluginPolicyById(c echo.Context) error {
 	var policy types.PluginPolicy
 	if err := c.Bind(&policy); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
+		s.logger.WithError(err).Error("Failed to parse request")
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request"))
 	}
 
 	if !s.verifyPolicySignature(policy, true) {
@@ -150,7 +152,8 @@ func (s *Server) DeletePluginPolicyById(c echo.Context) error {
 	}
 
 	if err := c.Bind(&reqBody); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
+		s.logger.WithError(err).Error("Failed to parse request")
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request"))
 	}
 
 	policyID := c.Param("policyId")

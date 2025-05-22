@@ -372,3 +372,19 @@ func GetUUIDParam(c echo.Context, param string) *uuid.UUID {
 	}
 	return &id
 }
+
+// IsValidSortField checks if the sort parameter is valid
+func IsValidSortField(sort string, allowedFields []string) bool {
+	// Remove any direction indicator (- or +)
+	field := sort
+	if len(sort) > 0 && (sort[0] == '-' || sort[0] == '+') {
+		field = sort[1:]
+	}
+
+	for _, allowed := range allowedFields {
+		if field == allowed {
+			return true
+		}
+	}
+	return false
+}

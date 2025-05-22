@@ -17,3 +17,8 @@ type PluginPolicy struct {
 	Recipe        string          `json:"recipe" validate:"required"`
 	Active        bool            `json:"active" validate:"required"`
 }
+
+type PluginPolicyPaginatedList struct {
+	Policies   []PluginPolicy `json:"policies" validate:"required"`
+	TotalCount int            `json:"total_count" validate:"required"`
+}

@@ -46,54 +46,50 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (ty
 	return policy, nil
 }
 
-func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, pluginType string, publicKeyEcdsa string, take int, skip int) (itypes.PluginPolicyPaginatedList, error) {
+func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (types.PluginPolicyPaginatedList, error) {
 	if p.pool == nil {
-		return itypes.PluginPolicyPaginatedList{}, fmt.Errorf("database pool is nil")
+		return types.PluginPolicyPaginatedList{}, fmt.Errorf("database pool is nil")
 	}
 
 	query := `
-  	SELECT id, public_key_ecdsa, public_key_eddsa, plugin_version, policy_version, plugin_type, is_ecdsa, chain_code_hex, derive_path, active, progress, signature, policy, 
+  	SELECT id, public_key, plugin_version, policy_version, signature, active, policy, recipe
 		COUNT(*) OVER() AS total_count
 		FROM plugin_policies
-		WHERE public_key_ecdsa = $1
-		AND plugin_type = $2
+		WHERE public_key = $1
+		AND plugin_id = $2
 		ORDER BY policy_version DESC -- or created_at DESC / id ASC
 		LIMIT $3 OFFSET $4`
 
-	rows, err := p.pool.Query(ctx, query, publicKeyEcdsa, pluginType, take, skip)
+	rows, err := p.pool.Query(ctx, query, publicKey, pluginID, take, skip)
 
 	if err != nil {
-		return itypes.PluginPolicyPaginatedList{}, err
+		return types.PluginPolicyPaginatedList{}, err
 	}
 	defer rows.Close()
 
-	var policies []itypes.PluginPolicy
+	var policies []types.PluginPolicy
 	var totalCount int
 	for rows.Next() {
-		var policy itypes.PluginPolicy
+		var policy types.PluginPolicy
 		err := rows.Scan(
 			&policy.ID,
-			&policy.PublicKeyEcdsa,
-			&policy.PublicKeyEddsa,
+			&policy.PublicKey,
+			&policy.PluginID,
 			&policy.PluginVersion,
 			&policy.PolicyVersion,
-			&policy.PluginType,
-			&policy.IsEcdsa,
-			&policy.ChainCodeHex,
-			&policy.DerivePath,
-			&policy.Active,
-			&policy.Progress,
 			&policy.Signature,
 			&policy.Policy,
+			&policy.Recipe,
+			&policy.Active,
 			&totalCount,
 		)
 		if err != nil {
-			return itypes.PluginPolicyPaginatedList{}, err
+			return types.PluginPolicyPaginatedList{}, err
 		}
 		policies = append(policies, policy)
 	}
 
-	dto := itypes.PluginPolicyPaginatedList{
+	dto := types.PluginPolicyPaginatedList{
 		Policies:   policies,
 		TotalCount: totalCount,
 	}

@@ -15,57 +15,6 @@ import (
 	ptypes "github.com/vultisig/verifier/types"
 )
 
-func (s *Server) GetAllPluginPolicies(c echo.Context) error {
-	publicKey := c.Request().Header.Get("public_key")
-	if publicKey == "" {
-		err := fmt.Errorf("missing required header: public_key")
-		message := map[string]interface{}{
-			"message": "failed to get policies",
-			"error":   err.Error(),
-		}
-		s.logger.Error(err)
-		return c.JSON(http.StatusBadRequest, message)
-	}
-
-	pluginID := c.Request().Header.Get("plugin_id")
-	if pluginID == "" {
-		err := fmt.Errorf("missing required header: plugin_id")
-		message := map[string]interface{}{
-			"message": "failed to get policies",
-			"error":   err.Error(),
-		}
-		s.logger.Error(err)
-		return c.JSON(http.StatusBadRequest, message)
-	}
-
-	skip, err := strconv.Atoi(c.QueryParam("skip"))
-
-	if err != nil {
-		skip = 0
-	}
-
-	take, err := strconv.Atoi(c.QueryParam("take"))
-
-	if err != nil {
-		take = 20
-	}
-
-	if take > 100 {
-		take = 100
-	}
-
-	policies, err := s.policyService.GetPluginPolicies(c.Request().Context(), publicKey, ptypes.PluginID(pluginID), take, skip)
-	if err != nil {
-		message := map[string]interface{}{
-			"message": fmt.Sprintf("failed to get policies for public_key: %s", publicKey),
-		}
-		s.logger.Error(err)
-		return c.JSON(http.StatusInternalServerError, message)
-	}
-
-	return c.JSON(http.StatusOK, policies)
-}
-
 func (s *Server) GetPlugins(c echo.Context) error {
 	skip, err := strconv.Atoi(c.QueryParam("skip"))
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -15,6 +16,7 @@ import (
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/internal/sigutil"
 	"github.com/vultisig/verifier/types"
+	ptypes "github.com/vultisig/verifier/types"
 )
 
 type ErrorResponse struct {
@@ -197,4 +199,40 @@ func (s *Server) GetPluginPolicyById(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get policy"))
 	}
 	return c.JSON(http.StatusOK, policy)
+}
+
+func (s *Server) GetAllPluginPolicies(c echo.Context) error {
+	publicKey := c.Request().Header.Get("public_key")
+	if publicKey == "" {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to get policies"))
+	}
+
+	pluginID := c.Request().Header.Get("plugin_id")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to get policies"))
+	}
+
+	skip, err := strconv.Atoi(c.QueryParam("skip"))
+
+	if err != nil {
+		skip = 0
+	}
+
+	take, err := strconv.Atoi(c.QueryParam("take"))
+
+	if err != nil {
+		take = 20
+	}
+
+	if take > 100 {
+		take = 100
+	}
+
+	policies, err := s.policyService.GetPluginPolicies(c.Request().Context(), publicKey, ptypes.PluginID(pluginID), take, skip)
+	if err != nil {
+		s.logger.WithError(err).Error(fmt.Sprintf("Failed to get policies for public_key: %s", publicKey))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(fmt.Sprintf("failed to get policies for public_key: %s", publicKey)))
+	}
+
+	return c.JSON(http.StatusOK, policies)
 }

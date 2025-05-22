@@ -157,8 +157,8 @@ func (m *MockDatabaseStorage) FindPluginById(ctx context.Context, tx pgx.Tx, plu
 	return args.Get(0).(*itypes.Plugin), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) FindPlugins(ctx context.Context, filters itypes.PluginFilters, pageSize int, page int, sortBy string) (itypes.PluginsPaginatedList, error) {
-	args := m.Called(ctx, filters, pageSize, page, sortBy)
+func (m *MockDatabaseStorage) FindPlugins(ctx context.Context, filters itypes.PluginFilters, take int, skip int, sort string) (itypes.PluginsPaginatedList, error) {
+	args := m.Called(ctx, filters, take, skip, sort)
 	if args.Get(0) == nil {
 		return itypes.PluginsPaginatedList{}, args.Error(1)
 	}

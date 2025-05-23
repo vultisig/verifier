@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/vultisig/verifier/types"
 )
 
 type Plugin struct {
@@ -51,4 +52,9 @@ type PluginUpdateDto struct {
 	ServerEndpoint string          `json:"server_endpoint"`
 	PricingID      uuid.UUID       `json:"pricing_id"`
 	CategoryID     uuid.UUID       `json:"category_id"`
+}
+
+type PluginPolicyPaginatedList struct {
+	Policies   []types.PluginPolicy `json:"policies" validate:"required"`
+	TotalCount int                  `json:"total_count" validate:"required"`
 }

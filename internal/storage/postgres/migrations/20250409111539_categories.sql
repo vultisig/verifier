@@ -6,11 +6,18 @@ CREATE TABLE categories (
 );
 
 ALTER TABLE plugins
-    ADD COLUMN category_id UUID NOT NULL,
+    ADD COLUMN category_id UUID,
     ADD CONSTRAINT fk_plugins_category FOREIGN KEY (category_id) REFERENCES categories(id);
 
 INSERT INTO categories (name)
     VALUES ('AI Agent'), ('Plugin');
+
+UPDATE plugins
+    SET category_id = (SELECT id FROM categories WHERE name = 'Plugin');
+
+ALTER TABLE plugins
+    ALTER COLUMN category_id SET NOT NULL;
+    
 -- +goose StatementEnd
 
 -- +goose Down

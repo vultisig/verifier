@@ -1,5 +1,7 @@
 // more on the exposed methods here: https://github.com/vultisig/vultisig-windows/blob/main/clients/extension/docs/integration-guide.md
 
+import { publish } from "@/utils/eventBus";
+
 interface ProviderError {
   code: number;
   message: string;
@@ -7,9 +9,11 @@ interface ProviderError {
 
 const VulticonnectWalletService = {
   connectToVultiConnect: async () => {
-    console.log("connectToVultiConnect");
     if (!window.vultisig?.ethereum) {
-      alert(`No ethereum provider found. Please install VultiConnect.`);
+      publish("onToast", {
+        message: "No ethereum provider found. Please install VultiConnect.",
+        type: "error",
+      });
       return;
     }
 
@@ -17,7 +21,7 @@ const VulticonnectWalletService = {
       const accounts = await window.vultisig.ethereum.request({
         method: "eth_requestAccounts",
       });
-      console.log("accounts", accounts);
+
       return accounts;
     } catch (error) {
       const { code, message } = error as ProviderError;
@@ -28,7 +32,10 @@ const VulticonnectWalletService = {
 
   getConnectedEthAccounts: async () => {
     if (!window.vultisig?.ethereum) {
-      alert(`No ethereum provider found. Please install VultiConnect.`);
+      publish("onToast", {
+        message: "No ethereum provider found. Please install VultiConnect.",
+        type: "error",
+      });
       return;
     }
 
@@ -49,7 +56,10 @@ const VulticonnectWalletService = {
 
   signCustomMessage: async (hexMessage: string, walletAddress: string) => {
     if (!window.vultisig?.ethereum) {
-      alert(`No ethereum provider found. Please install VultiConnect.`);
+      publish("onToast", {
+        message: "No ethereum provider found. Please install VultiConnect.",
+        type: "error",
+      });
       return;
     }
 
@@ -71,7 +81,10 @@ const VulticonnectWalletService = {
 
   getVaults: async () => {
     if (!window.vultisig) {
-      alert(`No wallet found. Please install VultiConnect.`);
+      publish("onToast", {
+        message: "No wallet found. Please install VultiConnect.",
+        type: "error",
+      });
       return;
     }
 

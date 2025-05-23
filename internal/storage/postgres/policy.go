@@ -46,25 +46,32 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (ty
 	return policy, nil
 }
 
-func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID) ([]types.PluginPolicy, error) {
+func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (itypes.PluginPolicyPaginatedList, error) {
 	if p.pool == nil {
-		return []types.PluginPolicy{}, fmt.Errorf("database pool is nil")
+		return itypes.PluginPolicyPaginatedList{}, fmt.Errorf("database pool is nil")
 	}
 
 	query := `
-  	SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, policy, recipe
+  	SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, policy, recipe,
+		COUNT(*) OVER() AS total_count
 		FROM plugin_policies
 		WHERE public_key = $1
-		AND plugin_id = $2`
+		AND plugin_id = $2
+		ORDER BY policy_version DESC
+		LIMIT $3 OFFSET $4`
 
-	rows, err := p.pool.Query(ctx, query, publicKey, pluginID)
+	rows, err := p.pool.Query(ctx, query, publicKey, pluginID, take, skip)
+
 	if err != nil {
-		return nil, err
+		return itypes.PluginPolicyPaginatedList{}, err
 	}
 	defer rows.Close()
+
 	var policies []types.PluginPolicy
+	var totalCount int
 	for rows.Next() {
 		var policy types.PluginPolicy
+		var policyJSON []byte
 		err := rows.Scan(
 			&policy.ID,
 			&policy.PublicKey,
@@ -73,16 +80,23 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 			&policy.PolicyVersion,
 			&policy.Signature,
 			&policy.Active,
-			&policy.Policy,
+			&policyJSON,
 			&policy.Recipe,
+			&totalCount,
 		)
 		if err != nil {
-			return nil, err
+			return itypes.PluginPolicyPaginatedList{}, err
 		}
+		policy.Policy = json.RawMessage(policyJSON)
 		policies = append(policies, policy)
 	}
 
-	return policies, nil
+	dto := itypes.PluginPolicyPaginatedList{
+		Policies:   policies,
+		TotalCount: totalCount,
+	}
+
+	return dto, nil
 }
 
 func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {
@@ -202,7 +216,8 @@ func (p *PostgresBackend) DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 }
 
 func (p *PostgresBackend) AddPluginPolicySync(ctx context.Context, dbTx pgx.Tx, policy itypes.PluginPolicySync) error {
-	qry := `INSERT INTO plugin_policy_sync (id,policy_id,sync_type,signature, status, reason,plugin_id) values ($1, $2, $3, $4,$5,$6,$7)`
+	qry := `INSERT INTO plugin_policy_sync (id, policy_id, sync_type, signature, status, reason, plugin_id) 
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`
 	_, err := dbTx.Exec(ctx, qry,
 		policy.ID,
 		policy.PolicyID,
@@ -218,7 +233,9 @@ func (p *PostgresBackend) AddPluginPolicySync(ctx context.Context, dbTx pgx.Tx, 
 }
 
 func (p *PostgresBackend) GetPluginPolicySync(ctx context.Context, id uuid.UUID) (*itypes.PluginPolicySync, error) {
-	qry := `SELECT id, policy_id, sync_type,signature,status, reason,plugin_id FROM plugin_policy_sync WHERE id = $1`
+	qry := `SELECT id, policy_id, sync_type, signature, status, reason, plugin_id 
+		FROM plugin_policy_sync 
+		WHERE id = $1`
 	var policy itypes.PluginPolicySync
 	err := p.pool.QueryRow(ctx, qry, id).Scan(
 		&policy.ID,
@@ -244,7 +261,9 @@ func (p *PostgresBackend) DeletePluginPolicySync(ctx context.Context, id uuid.UU
 }
 
 func (p *PostgresBackend) GetUnFinishedPluginPolicySyncs(ctx context.Context) ([]itypes.PluginPolicySync, error) {
-	qry := `SELECT id, policy_id,sync_type,signature, status, reason,plugin_id FROM plugin_policy_sync WHERE status != $1`
+	qry := `SELECT id, policy_id, sync_type, signature, status, reason, plugin_id 
+		FROM plugin_policy_sync 
+		WHERE status != $1`
 	rows, err := p.pool.Query(ctx, qry, itypes.Synced)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get unfinished plugin policy syncs: %w", err)
@@ -271,7 +290,10 @@ func (p *PostgresBackend) GetUnFinishedPluginPolicySyncs(ctx context.Context) ([
 }
 
 func (p *PostgresBackend) UpdatePluginPolicySync(ctx context.Context, dbTx pgx.Tx, policy itypes.PluginPolicySync) error {
-	qry := `UPDATE plugin_policy_sync SET status = $1, reason = $2 WHERE id = $3`
+	qry := `UPDATE plugin_policy_sync 
+		SET status = $1, 
+				reason = $2 
+		WHERE id = $3`
 	_, err := dbTx.Exec(ctx, qry,
 		policy.Status,
 		policy.FailReason,

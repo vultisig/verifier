@@ -5,21 +5,31 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/vultisig/verifier/types"
 )
 
 type Plugin struct {
-	ID             uuid.UUID       `json:"id" validate:"required"`
-	CreatedAt      time.Time       `json:"created_at"`
-	UpdatedAt      time.Time       `json:"updated_at"`
-	Type           string          `json:"type" validate:"required"`
-	Title          string          `json:"title" validate:"required"`
-	Description    string          `json:"description" validate:"required"`
-	Metadata       json.RawMessage `json:"metadata" validate:"required"`
-	ServerEndpoint string          `json:"server_endpoint" validate:"required"`
-	PricingID      uuid.UUID       `json:"pricing_id" validate:"required"`
+	ID             uuid.UUID         `json:"id" validate:"required"`
+	CreatedAt      time.Time         `json:"created_at"`
+	UpdatedAt      time.Time         `json:"updated_at"`
+	Type           string            `json:"type" validate:"required"`
+	Title          string            `json:"title" validate:"required"`
+	Description    string            `json:"description" validate:"required"`
+	Metadata       json.RawMessage   `json:"metadata" validate:"required"`
+	ServerEndpoint string            `json:"server_endpoint" validate:"required"`
+	PricingID      uuid.UUID         `json:"pricing_id" validate:"required"`
+	CategoryID     uuid.UUID         `json:"category_id" validate:"required"`
+	Tags           []Tag             `json:"tags"`
+	Ratings        []PluginRatingDto `json:"ratings,omitempty"`
 }
 
-type PluginsDto struct {
+type PluginFilters struct {
+	Term       *string    `json:"term"`
+	TagID      *uuid.UUID `json:"tag_id"`
+	CategoryID *uuid.UUID `json:"category_id"`
+}
+
+type PluginsPaginatedList struct {
 	Plugins    []Plugin `json:"plugins"`
 	TotalCount int      `json:"total_count"`
 }
@@ -31,6 +41,7 @@ type PluginCreateDto struct {
 	Metadata       json.RawMessage `json:"metadata" validate:"required"`
 	ServerEndpoint string          `json:"server_endpoint" validate:"required"`
 	PricingID      uuid.UUID       `json:"pricing_id" validate:"required"`
+	CategoryID     uuid.UUID       `json:"category_id" validate:"required"`
 }
 
 // using references on struct fields allows us to process partially field DTOs
@@ -40,4 +51,10 @@ type PluginUpdateDto struct {
 	Metadata       json.RawMessage `json:"metadata"`
 	ServerEndpoint string          `json:"server_endpoint"`
 	PricingID      uuid.UUID       `json:"pricing_id"`
+	CategoryID     uuid.UUID       `json:"category_id"`
+}
+
+type PluginPolicyPaginatedList struct {
+	Policies   []types.PluginPolicy `json:"policies" validate:"required"`
+	TotalCount int                  `json:"total_count" validate:"required"`
 }

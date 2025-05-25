@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -86,22 +85,18 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		resourcePathString := rule.GetResource() // Use generated getter
 		resourcePath, err := util.ParseResource(resourcePathString)
 		if err != nil {
-			log.Printf("Skipping rule %s: invalid resource path %s: %v", rule.GetId(), resourcePathString, err)
+			s.logger.WithError(err).Errorf("skipping rule %s: invalid resource path %s", rule.GetId(), resourcePathString)
 			continue
 		}
 
 		if resourcePath.ChainId != "ethereum" {
-			log.Printf("Skipping rule %s: target chain %s is not 'ethereum'", rule.GetId(), resourcePath.ChainId)
+			s.logger.Errorf("skipping rule %s: target chain %s is not 'ethereum'", rule.GetId(), resourcePath.ChainId)
 			continue
 		}
 
-		fmt.Printf("\nEvaluating rule: %s (Description: %s)\n", rule.GetId(), rule.GetDescription())
-		fmt.Printf("  Targeting: Chain='%s', Asset='%s', Function='%s'\n",
-			resourcePath.ChainId, resourcePath.ProtocolId, resourcePath.FunctionId)
-
 		protocol, err := ethChain.GetProtocol(resourcePath.ProtocolId)
 		if err != nil {
-			log.Printf("  Skipping rule %s: Could not get protocol for asset '%s': %v", rule.GetId(), resourcePath.ProtocolId, err)
+			s.logger.WithError(err).Errorf("skipping rule %s: could not get protocol for asset '%s'", rule.GetId(), resourcePath.ProtocolId)
 			continue
 		}
 		fmt.Printf("  Using protocol: %s (ID: %s)\n", protocol.Name(), protocol.ID())
@@ -113,7 +108,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 
 		matches, _, err := protocol.MatchFunctionCall(decodedTx, policyMatcher)
 		if err != nil {
-			log.Printf("  Error during transaction matching for rule %s, function %s: %v", rule.GetId(), resourcePath.FunctionId, err)
+			s.logger.WithError(err).Errorf("error during transaction matching for rule %s, function %s", rule.GetId(), resourcePath.FunctionId)
 			continue
 		}
 

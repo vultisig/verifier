@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -55,7 +56,12 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	}
 
 	var recipe rtypes.Policy
-	if err := protojson.Unmarshal([]byte(policy.Recipe), &recipe); err != nil {
+	policyBytes, err := base64.StdEncoding.DecodeString(policy.Recipe)
+	if err != nil {
+		return fmt.Errorf("failed to decode policy recipe: %w", err)
+	}
+
+	if err := protojson.Unmarshal(policyBytes, &recipe); err != nil {
 		return fmt.Errorf("failed to unmarshal recipe: %w", err)
 	}
 

@@ -99,7 +99,6 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 			s.logger.WithError(err).Errorf("skipping rule %s: could not get protocol for asset '%s'", rule.GetId(), resourcePath.ProtocolId)
 			continue
 		}
-		fmt.Printf("  Using protocol: %s (ID: %s)\n", protocol.Name(), protocol.ID())
 
 		policyMatcher := &rtypes.PolicyFunctionMatcher{
 			FunctionID:  resourcePath.FunctionId,
@@ -113,8 +112,8 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		}
 
 		if matches {
-			fmt.Printf("  SUCCESS: Transaction matches rule %s for function %s!\n", rule.GetId(), resourcePath.FunctionId)
 			transactionAllowedByPolicy = true
+			break
 		}
 	}
 

@@ -24,15 +24,14 @@ const Wallet = () => {
   const [walletAddress, setWalletAddress] = useState("");
 
   const connectWallet = async (chain: string) => {
-    console.log("chain", chain);
+
     switch (chain) {
       // add more switch cases as more chains are supported
       case "ethereum": {
         try {
-          console.log("connecting to vulti connect");
+ 
           const accounts = await VulticonnectWalletService.connectToVultiConnect();
-          console.log("accounts", accounts);
-
+ 
           if (accounts.length && accounts[0]) {
             setConnectedWallet(true);
             setWalletAddress(accounts[0]);
@@ -68,14 +67,9 @@ const Wallet = () => {
         throw new Error("No vaults found");
       }
 
-      console.log("vaults", vaults);
-
       // 2. Get required data from first vault
       const publicKey = vaults[0].publicKeyEcdsa;
       const chainCodeHex = vaults[0].hexChainCode;
-
-      console.log("publicKey", publicKey);
-      console.log("chainCodeHex", chainCodeHex);
 
       if (!publicKey || !chainCodeHex) {
         throw new Error("Missing required vault data");
@@ -86,17 +80,12 @@ const Wallet = () => {
 
       // 4. Generate hex message for signing
       const signingMessage = "Sign into Vultisig App Store\n\nAddress: " + walletAddress;
-      console.log("Message to sign:", signingMessage);
-      console.log("walletAddress", walletAddress);
 
       // 5. Sign the message using VultiConnect
       const signature = await VulticonnectWalletService.signCustomMessage(
         signingMessage,
         walletAddress
       );
-
-      console.log("Signature:", signature);
-      // return
 
       // 6. Call auth endpoint
       const token = await MarketplaceService.getAuthToken(

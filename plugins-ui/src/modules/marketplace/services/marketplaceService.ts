@@ -87,6 +87,11 @@ const MarketplaceService = {
   ): Promise<string> => {
     try {
       const endpoint = `${getMarketplaceUrl()}/auth`;
+      console.log("endpoint : getAuthToken", endpoint);
+      console.log("message : getAuthToken", message);
+      console.log("signature : getAuthToken", signature);
+      console.log("publicKey : getAuthToken", publicKey);
+      console.log("chainCodeHex : getAuthToken", chainCodeHex);
       const response = await post(endpoint, {
         message: message,
         signature: signature,

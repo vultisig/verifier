@@ -136,11 +136,11 @@ func (s *ManagementService) HandleKeySignDKLS(ctx context.Context, t *asynq.Task
 	defer s.measureTime("worker.vault.sign.latency", time.Now(), []string{})
 	s.incCounter("worker.vault.sign", []string{})
 	s.logger.WithFields(logrus.Fields{
-		"PublicKey":  p.PublicKey,
-		"session":    p.SessionID,
-		"Messages":   p.Messages,
-		"DerivePath": p.DerivePath,
-		"IsECDSA":    p.IsECDSA,
+		"PublicKey": p.PublicKey,
+		"session":   p.SessionID,
+		"Messages":  len(p.Messages),
+		"PluginID":  p.PluginID,
+		"PolicyID":  p.PolicyID,
 	}).Info("joining keysign")
 
 	dklsService, err := NewDKLSTssService(s.cfg, s.vaultStorage, s.queueClient)

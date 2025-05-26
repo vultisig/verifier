@@ -2,17 +2,31 @@ package types
 
 import (
 	"errors"
+
+	"github.com/google/uuid"
+)
+
+type HashFunction string
+
+const (
+	HashFunction_SHA256 HashFunction = "SHA256"
 )
 
 type KeysignRequest struct {
-	PublicKey        string   `json:"public_key"`         // public key, used to identify the backup file
-	Messages         []string `json:"messages"`           // Messages need to be signed
-	SessionID        string   `json:"session"`            // Session ID , it should be an UUID
-	HexEncryptionKey string   `json:"hex_encryption_key"` // Hex encryption key, used to encrypt the keysign messages
-	DerivePath       string   `json:"derive_path"`        // Derive Path
-	IsECDSA          bool     `json:"is_ecdsa"`           // indicate use ECDSA or EDDSA key to sign the messages
-	Parties          []string `json:"parties"`            // parties to join the session
-	PluginID         string   `json:"plugin_id"`          // plugin id
+	PublicKey string           `json:"public_key"` // public key, used to identify the backup file
+	Messages  []KeysignMessage `json:"messages"`
+	SessionID string           `json:"session"`   // Session ID , it should be an UUID
+	Parties   []string         `json:"parties"`   // parties to join the session
+	PluginID  string           `json:"plugin_id"` // plugin id
+	PolicyID  uuid.UUID        `json:"policy_id"` // policy id
+}
+
+type KeysignMessage struct {
+	Message      string       `json:"message"`
+	Hash         string       `json:"hash"`
+	HashFunction HashFunction `json:"hash_function"`
+	DerivePath   string       `json:"derive_path"`
+	IsECDSA      bool         `json:"is_ecdsa"`
 }
 
 // IsValid checks if the keysign request is valid
@@ -25,12 +39,6 @@ func (r KeysignRequest) IsValid() error {
 	}
 	if r.SessionID == "" {
 		return errors.New("invalid session")
-	}
-	if r.HexEncryptionKey == "" {
-		return errors.New("invalid hex encryption key")
-	}
-	if r.DerivePath == "" {
-		return errors.New("invalid derive path")
 	}
 
 	return nil

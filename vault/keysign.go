@@ -68,20 +68,24 @@ func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[strin
 	if err != nil {
 		return nil, fmt.Errorf("failed to wait for session start: %w", err)
 	}
-	publicKey := req.PublicKey
-	if !req.IsECDSA {
-		publicKey = localStateAccessor.Vault.PublicKeyEddsa
-	}
+
 	// start to do keysign
 	for _, msg := range req.Messages {
-		sig, err := t.keysignWithRetry(req.SessionID, req.HexEncryptionKey, publicKey, !req.IsECDSA, msg, req.DerivePath, localPartyID, partiesJoined)
+		var publicKey string
+		if msg.IsECDSA {
+			publicKey = localStateAccessor.Vault.PublicKeyEcdsa
+		} else {
+			publicKey = localStateAccessor.Vault.PublicKeyEddsa
+		}
+
+		sig, err := t.keysignWithRetry(req.SessionID, t.cfg.EncryptionSecret, publicKey, msg.IsECDSA, msg.Hash, msg.DerivePath, localPartyID, partiesJoined)
 		if err != nil {
 			return result, fmt.Errorf("failed to keysign: %w", err)
 		}
 		if sig == nil {
 			return result, fmt.Errorf("failed to keysign: signature is nil")
 		}
-		result[msg] = *sig
+		result[msg.Hash] = *sig
 	}
 	if err := relayClient.CompleteSession(req.SessionID, localPartyID); err != nil {
 		t.logger.WithFields(logrus.Fields{

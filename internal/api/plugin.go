@@ -1,19 +1,82 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
+	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/vultisig/verifier/common"
 
+	"github.com/vultisig/verifier/internal/tasks"
 	"github.com/vultisig/verifier/internal/types"
 	ptypes "github.com/vultisig/verifier/types"
 )
+
+func (s *Server) SignPluginMessages(c echo.Context) error {
+	s.logger.Debug("PLUGIN SERVER: SIGN MESSAGES")
+
+	var req ptypes.PluginKeysignRequest
+	if err := c.Bind(&req); err != nil {
+		return fmt.Errorf("fail to parse request, err: %w", err)
+	}
+
+	// Plugin-specific validations
+	if len(req.Messages) != 1 {
+		return fmt.Errorf("plugin signing requires exactly one message hash, current: %d", len(req.Messages))
+	}
+
+	policyUUID, err := uuid.Parse(req.PolicyID)
+	if err != nil {
+		return fmt.Errorf("failed to parse policy ID: %w", err)
+	}
+
+	// Get policy from database
+	policy, err := s.db.GetPluginPolicy(c.Request().Context(), policyUUID)
+	if err != nil {
+		return fmt.Errorf("failed to get policy from database: %w", err)
+	}
+
+	// Validate policy matches plugin
+	if policy.PluginID != ptypes.PluginID(req.PluginID) {
+		return fmt.Errorf("policy plugin ID mismatch")
+	}
+
+	// Reuse existing signing logic
+	result, err := s.redis.Get(c.Request().Context(), req.SessionID)
+	if err == nil && result != "" {
+		return c.NoContent(http.StatusOK)
+	}
+
+	if err := s.redis.Set(c.Request().Context(), req.SessionID, req.SessionID, 30*time.Minute); err != nil {
+		s.logger.Errorf("fail to set session, err: %v", err)
+	}
+
+	buf, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("fail to marshal to json, err: %w", err)
+	}
+
+	ti, err := s.client.EnqueueContext(c.Request().Context(),
+		asynq.NewTask(tasks.TypeKeySignDKLS, buf),
+		asynq.MaxRetry(0),
+		asynq.Timeout(2*time.Minute),
+		asynq.Retention(5*time.Minute),
+		asynq.Queue(tasks.QUEUE_NAME))
+
+	if err != nil {
+		return fmt.Errorf("fail to enqueue keysign task: %w", err)
+	}
+
+	return c.JSON(http.StatusOK, ti.ID)
+}
 
 func (s *Server) GetPlugins(c echo.Context) error {
 	skip, err := strconv.Atoi(c.QueryParam("skip"))

@@ -132,6 +132,7 @@ func (s *Server) StartServer() error {
 	pluginGroup := e.Group("/plugin", s.userAuthMiddleware)
 	pluginGroup.POST("/policy", s.CreatePluginPolicy)
 	pluginGroup.PUT("/policy", s.UpdatePluginPolicyById)
+	pluginGroup.POST("/sign", s.SignPluginMessages)
 
 	pluginGroup.GET("/policies", s.GetAllPluginPolicies)
 	pluginGroup.GET("/policy/:policyId", s.GetPluginPolicyById)

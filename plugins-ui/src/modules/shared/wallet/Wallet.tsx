@@ -30,7 +30,7 @@ const Wallet = () => {
       case "ethereum": {
         try {
           console.log("connecting to vulti connect");
-          const accounts =  await VulticonnectWalletService.connectToVultiConnect();
+          const accounts = await VulticonnectWalletService.connectToVultiConnect();
           console.log("accounts", accounts);
 
           if (accounts.length && accounts[0]) {
@@ -73,10 +73,10 @@ const Wallet = () => {
       // 2. Get required data from first vault
       const publicKey = vaults[0].publicKeyEcdsa;
       const chainCodeHex = vaults[0].hexChainCode;
-      
+
       console.log("publicKey", publicKey);
       console.log("chainCodeHex", chainCodeHex);
-      
+
       if (!publicKey || !chainCodeHex) {
         throw new Error("Missing required vault data");
       }
@@ -85,13 +85,13 @@ const Wallet = () => {
       localStorage.setItem("publicKey", publicKey);
 
       // 4. Generate hex message for signing
-      const hexMessage = generateHexMessage(publicKey);
-      console.log("Message to sign:", hexMessage);
+      const signingMessage = "Sign into Vultisig App Store\n\nAddress: " + walletAddress;
+      console.log("Message to sign:", signingMessage);
       console.log("walletAddress", walletAddress);
 
       // 5. Sign the message using VultiConnect
       const signature = await VulticonnectWalletService.signCustomMessage(
-        hexMessage,
+        signingMessage,
         walletAddress
       );
 
@@ -100,7 +100,7 @@ const Wallet = () => {
 
       // 6. Call auth endpoint
       const token = await MarketplaceService.getAuthToken(
-        hexMessage,
+        signingMessage,
         signature,
         publicKey,
         chainCodeHex
@@ -141,14 +141,14 @@ const Wallet = () => {
 
   return (
     <>
-    <Button
-      size="medium"
-      styleType="primary"
-      type="button"
-      onClick={() => connectWallet(chain)}
-    >
-      {connectedWallet ? "Connected " + walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4) : "Connect Wallet"}
-    </Button>
+      <Button
+        size="medium"
+        styleType="primary"
+        type="button"
+        onClick={() => connectWallet(chain)}
+      >
+        {connectedWallet ? "Connected " + walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4) : "Connect Wallet"}
+      </Button>
 
       {connectedWallet && (
         <Button

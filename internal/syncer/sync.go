@@ -160,7 +160,7 @@ func (s *Syncer) getServerAddrFromStorage(ctx context.Context, pluginID ptypes.P
 		return "", err
 	}
 	s.logger.Infof("pluginid: %s", pluginID.String())
-	plugin, err := s.storage.FindPluginById(ctx, pluginID)
+	plugin, err := s.storage.FindPluginById(ctx, nil, pluginID)
 	if err != nil {
 		return "", fmt.Errorf("failed to find plugin by id: %w", err)
 	}

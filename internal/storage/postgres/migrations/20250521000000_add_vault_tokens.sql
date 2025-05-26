@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE vault_tokens (
+CREATE TABLE IF NOT EXISTS vault_tokens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     public_key TEXT NOT NULL,
     token_id TEXT NOT NULL,  -- First part of JWT for identification
@@ -14,9 +14,9 @@ CREATE TABLE vault_tokens (
 );
 
 -- Indexes for faster lookups
-CREATE INDEX idx_vault_tokens_public_key ON vault_tokens(public_key);
-CREATE INDEX idx_vault_tokens_token_id ON vault_tokens(token_id);
-CREATE INDEX idx_vault_tokens_is_revoked ON vault_tokens(is_revoked);
+CREATE INDEX IF NOT EXISTS idx_vault_tokens_public_key ON vault_tokens(public_key);
+CREATE INDEX IF NOT EXISTS idx_vault_tokens_token_id ON vault_tokens(token_id);
+CREATE INDEX IF NOT EXISTS idx_vault_tokens_is_revoked ON vault_tokens(is_revoked);
 -- +goose StatementEnd
 
 -- +goose Down

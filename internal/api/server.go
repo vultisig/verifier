@@ -44,6 +44,7 @@ type Server struct {
 	inspector     *asynq.Inspector
 	sdClient      *statsd.Client
 	policyService service.Policy
+	pluginService service.Plugin
 	authService   *service.AuthService
 	logger        *logrus.Logger
 }
@@ -61,9 +62,17 @@ func NewServer(
 ) *Server {
 
 	var err error
+
+	logger := logrus.WithField("service", "verifier-server").Logger
+
 	policyService, err := service.NewPolicyService(db, client)
 	if err != nil {
 		logrus.Fatalf("Failed to initialize policy service: %v", err)
+	}
+
+	pluginService, err := service.NewPluginService(db, logger)
+	if err != nil {
+		logrus.Fatalf("Failed to initialize plugin service: %v", err)
 	}
 
 	authService := service.NewAuthService(jwtSecret, db, logrus.WithField("service", "auth-service").Logger)
@@ -76,9 +85,10 @@ func NewServer(
 		sdClient:      sdClient,
 		vaultStorage:  vaultStorage,
 		db:            db,
-		logger:        logrus.WithField("service", "verifier-server").Logger,
+		logger:        logger,
 		policyService: policyService,
 		authService:   authService,
+		pluginService: pluginService,
 	}
 }
 
@@ -122,9 +132,12 @@ func (s *Server) StartServer() error {
 	pluginGroup := e.Group("/plugin", s.userAuthMiddleware)
 	pluginGroup.POST("/policy", s.CreatePluginPolicy)
 	pluginGroup.PUT("/policy", s.UpdatePluginPolicyById)
-	pluginGroup.GET("/policy", s.GetAllPluginPolicies)
+	pluginGroup.POST("/sign", s.SignPluginMessages)
+
+	pluginGroup.GET("/policies", s.GetAllPluginPolicies)
 	pluginGroup.GET("/policy/:policyId", s.GetPluginPolicyById)
 	pluginGroup.DELETE("/policy/:policyId", s.DeletePluginPolicyById)
+	pluginGroup.GET("/policies/:policyId/history", s.GetPluginPolicyTransactionHistory, s.AuthMiddleware)
 
 	pluginsGroup := e.Group("/plugins")
 	pluginsGroup.GET("", s.GetPlugins)
@@ -132,6 +145,17 @@ func (s *Server) StartServer() error {
 	pluginsGroup.POST("", s.CreatePlugin, s.userAuthMiddleware)
 	pluginsGroup.POST("/:pluginId", s.UpdatePlugin, s.userAuthMiddleware)
 	pluginsGroup.DELETE("/:pluginId", s.DeletePlugin, s.userAuthMiddleware)
+	pluginsGroup.POST("/:pluginId/tags", s.AttachPluginTag, s.userAuthMiddleware)
+	pluginsGroup.DELETE("/:pluginId/tags/:tagId", s.DetachPluginTag, s.userAuthMiddleware)
+
+	pluginsGroup.GET("/:pluginId/reviews", s.GetReviews)
+	pluginsGroup.POST("/:pluginId/reviews", s.CreateReview, s.AuthMiddleware)
+
+	categoriesGroup := e.Group("/categories")
+	categoriesGroup.GET("", s.GetCategories)
+
+	tagsGroup := e.Group("/tags")
+	tagsGroup.GET("", s.GetTags)
 
 	pricingsGroup := e.Group("/pricing")
 	pricingsGroup.GET("/:pricingId", s.GetPricing)

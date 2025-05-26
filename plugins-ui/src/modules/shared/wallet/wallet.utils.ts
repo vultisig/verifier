@@ -11,6 +11,26 @@ export const toHex = (str: string): string => {
   );
 };
 
+export const getHexMessage = (publicKey: string): string => {
+  const messageToSign =
+    (publicKey.startsWith("0x") ? publicKey.slice(2) : publicKey) + "1";
+
+  const hexMessage = toHex(messageToSign);
+  return hexMessage;
+};
+
+export const derivePathMap = {
+  ethereum: "m/44'/60'/0'/0/0",
+  thor: "thor derivation path",
+};
+
+export const setLocalStorageAuthToken = (value: string) => {
+  localStorage.setItem("authToken", value);
+
+  // Dispatch custom event to notify other components
+  window.dispatchEvent(new Event("storage"));
+};
+
 /**
  * Generates a hex message for wallet verification.
  * Matches the server's GenerateHexMessage implementation exactly.
@@ -26,9 +46,4 @@ export const generateHexMessage = (publicKey: string): string => {
   
   // Add 0x prefix
   return "0x" + messageToSign;
-};
-
-export const derivePathMap = {
-  ethereum: "m/44'/60'/0'/0/0",
-  thor: "thor derivation path",
 };

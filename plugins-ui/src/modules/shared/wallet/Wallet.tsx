@@ -1,9 +1,13 @@
 import Button from "@/modules/core/components/ui/button/Button";
 import VulticonnectWalletService from "./vulticonnectWalletService";
-import { useState } from "react";
-import PolicyService from "@/modules/policy/services/policyService";
-import { derivePathMap, generateHexMessage } from "./wallet.utils";
+import { useEffect, useState } from "react";
+import {
+  generateHexMessage,
+  setLocalStorageAuthToken,
+} from "./wallet.utils";
+import { publish } from "@/utils/eventBus";
 import { ethers } from "ethers";
+import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 
 const Wallet = () => {
   let chain = localStorage.getItem("chain") as string;
@@ -12,28 +16,43 @@ const Wallet = () => {
     localStorage.setItem("chain", "ethereum");
     chain = localStorage.getItem("chain") as string;
   }
+  const [authToken, setAuthToken] = useState(
+    localStorage.getItem("authToken") || ""
+  );
 
   const [connectedWallet, setConnectedWallet] = useState(false);
   const [walletAddress, setWalletAddress] = useState("");
 
-  // connect to wallet
   const connectWallet = async (chain: string) => {
-    console.log("connectWallet", chain);
-
     switch (chain) {
       // add more switch cases as more chains are supported
       case "ethereum": {
-        const accounts =   await VulticonnectWalletService.connectToVultiConnect();
-        console.log("accounts", accounts);
-        if (accounts.length && accounts[0]) {
-          setConnectedWallet(true);
-          setWalletAddress(accounts[0]);
+        try {
+          const accounts =  await VulticonnectWalletService.connectToVultiConnect();
+          console.log("accounts", accounts);
+
+          if (accounts.length && accounts[0]) {
+            setConnectedWallet(true);
+            setWalletAddress(accounts[0]);
+          }
+
+          break;
+        } catch (error) {
+          if (error instanceof Error) {
+            console.error("Failed to connect wallet:", error.message, error);
+            publish("onToast", {
+              message: "Wallet connection failed!",
+              type: "error",
+            });
+          }
         }
-        break;
       }
 
       default:
-        alert(`Chain ${chain} is currently not supported.`); // toast
+        publish("onToast", {
+          message: `Chain ${chain} is currently not supported.`,
+          type: "error",
+        });
         break;
     }
   };
@@ -83,13 +102,11 @@ const Wallet = () => {
     console.log("signature", signature);
 
     if (signature && typeof signature === "string") {
-      const token = await PolicyService.verifyWalletAndAuth(
-        {
-          publicKey,
-          chainCodeHex,
-          message: hexMessage,
-          signature: signature.toString()
-        }
+      const token = await MarketplaceService.getAuthToken(
+        hexMessage,
+        signature.toString(),
+        publicKey,
+        chainCodeHex
       );
       console.log("token", token);
       localStorage.setItem("authToken", token);
@@ -97,33 +114,32 @@ const Wallet = () => {
     }
   };
 
-/**
- * Converts a hex string to a Uint8Array
- * @param hexString - The hex string to convert (with or without 0x prefix)
- * @returns Uint8Array of the hex string
- */
-const hexToBytes = (hexString: string): Uint8Array => {
-  const hex = hexString.startsWith('0x') ? hexString.slice(2) : hexString;
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
-  }
-  return bytes;
-};
 
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const hasToken = !!localStorage.getItem("authToken");
+      setConnectedWallet(hasToken);
+    };
+
+    // Listen for storage changes
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, [authToken]);
 
   return (
-    <> 
-      <Button
-        size="medium"
-        styleType="primary"
-        type="button"
-        onClick={() => connectWallet(chain)}
+    <>
+    <Button
+      size="medium"
+      styleType="primary"
+      type="button"
+      onClick={() => connectWallet(chain)}
     >
-      {connectedWallet ? "Connected" : "Connect Wallet"}
-      </Button>
+      {connectedWallet ? "Connected " + walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4) : "Connect Wallet"}
+    </Button>
 
-      {connectedWallet && <div>{walletAddress}</div>}
       {connectedWallet && (
         <Button
           size="medium"

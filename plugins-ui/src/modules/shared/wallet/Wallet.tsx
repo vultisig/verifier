@@ -77,16 +77,23 @@ const Wallet = () => {
       // 3. Store public key in localStorage
       localStorage.setItem("publicKey", publicKey);
 
-      // 4. Generate hex message for signing
-      const signingMessage = "Sign into Vultisig App Store\n\nAddress: " + walletAddress;
+      // 4. Generate nonce and expiry timestamp
+      const nonce = ethers.hexlify(ethers.randomBytes(16));
+      const expiryTime = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 minutes from now
 
-      // 5. Sign the message using VultiConnect
+      // 5. Generate hex message for signing
+      const signingMessage = `Sign into Vultisig App Store
+                                  Nonce: ${nonce}
+                                  Expires At: ${expiryTime}
+                                  Address: ${walletAddress}`;
+
+      // 6. Sign the message using VultiConnect
       const signature = await VulticonnectWalletService.signCustomMessage(
         signingMessage,
         walletAddress
       );
 
-      // 6. Call auth endpoint
+      // 7. Call auth endpoint
       const token = await MarketplaceService.getAuthToken(
         signingMessage,
         signature,
@@ -94,7 +101,7 @@ const Wallet = () => {
         chainCodeHex
       );
 
-      // 7. Store token and update state
+      // 8. Store token and update state
       localStorage.setItem("authToken", token);
       setAuthToken(token);
       setConnectedWallet(true);

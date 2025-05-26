@@ -1,11 +1,13 @@
 package api
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
@@ -75,6 +77,18 @@ func NewServer(
 	}
 
 	authService := service.NewAuthService(jwtSecret, db, logrus.WithField("service", "auth-service").Logger)
+
+	// Start periodic cleanup of expired nonces
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			if err := db.CleanupExpiredNonces(context.Background()); err != nil {
+				logger.Errorf("Failed to cleanup expired nonces: %v", err)
+			}
+		}
+	}()
 
 	return &Server{
 		cfg:           cfg,
@@ -377,6 +391,37 @@ func (s *Server) Auth(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse(err.Error()))
 	}
 
+	// Parse message to extract nonce and expiry
+	fmt.Println("req.Message", req.Message)
+	nonce, expiryTime, err := parseAuthMessage(req.Message)
+	fmt.Println("nonce", nonce)
+	fmt.Println("expiryTime", expiryTime)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(err.Error()))
+	}
+
+	// Validate expiry time --> expiry time should be in the future [15 minutes]
+	if time.Now().After(expiryTime) {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("Message has expired"))
+	}
+
+	// Check if expiry is too far in the future (15 minutes)
+	fmt.Println("expiryTime.Sub(time.Now())", expiryTime.Sub(time.Now()))
+	fmt.Println("time.Duration(s.cfg.Auth.NonceExpiryMinutes)*time.Minute", time.Duration(s.cfg.Auth.NonceExpiryMinutes)*time.Minute)
+	if expiryTime.Sub(time.Now()) >= time.Duration(s.cfg.Auth.NonceExpiryMinutes)*time.Minute {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("Expiry time too far in the future"))
+	}
+
+	// // Check if nonce has been used
+	// exists, err := s.db.CheckNonceExists(c.Request().Context(), nonce)
+	// if err != nil {
+	// 	s.logger.Errorf("Failed to check nonce: %v", err)
+	// 	return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to validate nonce"))
+	// }
+	// if exists {
+	// 	return c.JSON(http.StatusBadRequest, NewErrorResponse("Nonce already used"))
+	// }
+
 	// Decode signature from hex (remove 0x prefix first)
 	sigBytes, err := hex.DecodeString(req.Signature)
 	if err != nil {
@@ -388,6 +433,7 @@ func (s *Server) Auth(c echo.Context) error {
 		s.logger.Errorf("failed to get derived public key: %v", err)
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid public key format"))
 	}
+	fmt.Println("ethAddress", ethAddress)
 
 	//extract the public key from the signature , make sure it match the eth public key
 	success, err := sigutil.VerifyEthAddressSignature(ecommon.HexToAddress(ethAddress), []byte(req.Message), sigBytes)
@@ -395,10 +441,17 @@ func (s *Server) Auth(c echo.Context) error {
 		s.logger.Errorf("signature verification failed: %v", err)
 		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Signature verification failed: "+err.Error()))
 	}
+	fmt.Println("success", success)
 
 	if !success {
 		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Invalid signature"))
 	}
+
+	// Store the nonce
+	// if err := s.db.StoreNonce(c.Request().Context(), nonce, req.PublicKey); err != nil {
+	// 	s.logger.Errorf("Failed to store nonce: %v", err)
+	// 	return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to store nonce"))
+	// }
 
 	// Generate JWT token with the public key
 	token, err := s.authService.GenerateToken(c.Request().Context(), req.PublicKey)
@@ -416,6 +469,37 @@ func (s *Server) Auth(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"token": token})
+}
+
+// parseAuthMessage extracts nonce and expiry time from the auth message
+func parseAuthMessage(message string) (string, time.Time, error) {
+	lines := strings.Split(strings.TrimSpace(message), "\n")
+	if len(lines) < 4 {
+		return "", time.Time{}, fmt.Errorf("invalid message format")
+	}
+
+	var nonce string
+	var expiryStr string
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Nonce: ") {
+			nonce = strings.TrimPrefix(line, "Nonce: ")
+		} else if strings.HasPrefix(line, "Expires At: ") {
+			expiryStr = strings.TrimPrefix(line, "Expires At: ")
+		}
+	}
+
+	if nonce == "" || expiryStr == "" {
+		return "", time.Time{}, fmt.Errorf("missing nonce or expiry time")
+	}
+
+	expiryTime, err := time.Parse(time.RFC3339, expiryStr)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("invalid expiry time format: %w", err)
+	}
+
+	return nonce, expiryTime, nil
 }
 
 func (s *Server) RefreshToken(c echo.Context) error {

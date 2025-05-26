@@ -22,5 +22,8 @@
   "datadog": {
     "host": "localhost",
     "port": "8125"
+  },
+  "auth": {
+    "nonce_expiry_minutes": 15
   }
 }

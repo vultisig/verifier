@@ -89,7 +89,7 @@ func ReadVerifierConfig() (*VerifierConfig, error) {
 	viper.AutomaticEnv()
 
 	// Set default values
-	viper.SetDefault("auth.nonce_expiry_minutes", 5)
+	viper.SetDefault("auth.nonce_expiry_minutes", 15)
 
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("fail to reading config file, %w", err)

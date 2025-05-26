@@ -37,8 +37,8 @@ func (p *PostgresBackend) CleanupExpiredNonces(ctx context.Context) error {
 
 	// Delete records older than 2*EXPIRY_WINDOW
 	_, err = p.pool.Exec(ctx,
-		fmt.Sprintf("DELETE FROM auth_nonces WHERE created_at < NOW() - INTERVAL '%d minutes'",
-			2*cfg.Auth.NonceExpiryMinutes),
+		"DELETE FROM auth_nonces WHERE created_at < NOW() - INTERVAL $1",
+		fmt.Sprintf("%d minutes", 2*cfg.Auth.NonceExpiryMinutes),
 	)
 	return err
 }

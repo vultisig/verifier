@@ -97,7 +97,7 @@ func NewServer(
 func (s *Server) StartServer() error {
 	// Start cleanup service
 	ctx := context.Background()
-	s.cleanupService.Start(ctx, 5*time.Minute)
+	s.cleanupService.Start(ctx, time.Duration(s.cfg.Auth.NonceExpiryMinutes)*time.Minute)
 	defer s.cleanupService.Stop()
 
 	e := echo.New()
@@ -434,7 +434,6 @@ func (s *Server) Auth(c echo.Context) error {
 		s.logger.Errorf("failed to get derived public key: %v", err)
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid public key format"))
 	}
-	fmt.Println("ethAddress", ethAddress)
 
 	//extract the public key from the signature , make sure it match the eth public key
 	success, err := sigutil.VerifyEthAddressSignature(ecommon.HexToAddress(ethAddress), []byte(req.Message), sigBytes)
@@ -442,7 +441,6 @@ func (s *Server) Auth(c echo.Context) error {
 		s.logger.Errorf("signature verification failed: %v", err)
 		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Signature verification failed: "+err.Error()))
 	}
-	fmt.Println("success", success)
 
 	if !success {
 		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Invalid signature"))

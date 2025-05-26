@@ -46,6 +46,13 @@ func (s *CleanupService) Start(ctx context.Context, interval time.Duration) {
 func (s *CleanupService) Stop() {
 	if s.cleanupTicker != nil {
 		s.cleanupTicker.Stop()
+		<-s.done
+	} else {
+		// If Start was never called, don't wait
+		select {
+		case <-s.done:
+		default:
+			close(s.done)
+		}
 	}
-	<-s.done
 }

@@ -83,9 +83,9 @@ const Wallet = () => {
 
       // 5. Generate hex message for signing
       const signingMessage = `Sign into Vultisig App Store
-                                  Nonce: ${nonce}
-                                  Expires At: ${expiryTime}
-                                  Address: ${walletAddress}`;
++Nonce: ${nonce}
++Expires At: ${expiryTime}
++Address: ${walletAddress}`;
 
       // 6. Sign the message using VultiConnect
       const signature = await VulticonnectWalletService.signCustomMessage(

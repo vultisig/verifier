@@ -37,17 +37,18 @@ import (
 )
 
 type Server struct {
-	cfg           config.VerifierConfig
-	db            storage.DatabaseStorage
-	redis         *storage.RedisStorage
-	vaultStorage  vault.Storage
-	client        *asynq.Client
-	inspector     *asynq.Inspector
-	sdClient      *statsd.Client
-	policyService service.Policy
-	pluginService service.Plugin
-	authService   *service.AuthService
-	logger        *logrus.Logger
+	cfg            config.VerifierConfig
+	db             storage.DatabaseStorage
+	redis          *storage.RedisStorage
+	vaultStorage   vault.Storage
+	client         *asynq.Client
+	inspector      *asynq.Inspector
+	sdClient       *statsd.Client
+	policyService  service.Policy
+	pluginService  service.Plugin
+	authService    *service.AuthService
+	cleanupService *service.CleanupService
+	logger         *logrus.Logger
 }
 
 // NewServer returns a new server.
@@ -85,27 +86,29 @@ func NewServer(
 
 		for range ticker.C {
 			if err := db.CleanupExpiredNonces(context.Background()); err != nil {
-				logger.Errorf("Failed to cleanup expired nonces: %v", err)
-			}
-		}
-	}()
 
 	return &Server{
-		cfg:           cfg,
-		redis:         redis,
-		client:        client,
-		inspector:     inspector,
-		sdClient:      sdClient,
-		vaultStorage:  vaultStorage,
-		db:            db,
-		logger:        logger,
-		policyService: policyService,
-		authService:   authService,
-		pluginService: pluginService,
+		cfg:            cfg,
+		redis:          redis,
+		client:         client,
+		inspector:      inspector,
+		sdClient:       sdClient,
+		vaultStorage:   vaultStorage,
+		db:             db,
+		logger:         logger,
+		policyService:  policyService,
+		authService:    authService,
+		pluginService:  pluginService,
+		cleanupService: cleanupService,
 	}
 }
 
 func (s *Server) StartServer() error {
+	// Start cleanup service
+	ctx := context.Background()
+	s.cleanupService.Start(ctx, 5*time.Minute)
+	defer s.cleanupService.Stop()
+
 	e := echo.New()
 	e.Logger.SetLevel(log.DEBUG)
 	e.Use(middleware.Logger())
@@ -392,35 +395,42 @@ func (s *Server) Auth(c echo.Context) error {
 	}
 
 	// Parse message to extract nonce and expiry
-	fmt.Println("req.Message", req.Message)
 	nonce, expiryTime, err := parseAuthMessage(req.Message)
-	fmt.Println("nonce", nonce)
-	fmt.Println("expiryTime", expiryTime)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse(err.Error()))
 	}
 
-	// Validate expiry time --> expiry time should be in the future [15 minutes]
+	// Validate expiry time
 	if time.Now().After(expiryTime) {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Message has expired"))
 	}
 
-	// Check if expiry is too far in the future (15 minutes)
-	fmt.Println("expiryTime.Sub(time.Now())", expiryTime.Sub(time.Now()))
-	fmt.Println("time.Duration(s.cfg.Auth.NonceExpiryMinutes)*time.Minute", time.Duration(s.cfg.Auth.NonceExpiryMinutes)*time.Minute)
-	if expiryTime.Sub(time.Now()) >= time.Duration(s.cfg.Auth.NonceExpiryMinutes)*time.Minute {
+	// Check if expiry is too far in the future
+	if time.Until(expiryTime) > time.Duration(s.cfg.Auth.NonceExpiryMinutes)*time.Minute {
+		// Store the nonce with the adjusted createdAt time to prevent time delayed replays
+		createdAt := expiryTime.Add(-time.Duration(s.cfg.Auth.NonceExpiryMinutes) * time.Minute)
+		if err := s.db.StoreNonce(c.Request().Context(), nonce, req.PublicKey, expiryTime, createdAt); err != nil {
+			s.logger.Errorf("Failed to store nonce: %v", err)
+			return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to store nonce"))
+		}
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Expiry time too far in the future"))
 	}
 
-	// // Check if nonce has been used
-	// exists, err := s.db.CheckNonceExists(c.Request().Context(), nonce)
-	// if err != nil {
-	// 	s.logger.Errorf("Failed to check nonce: %v", err)
-	// 	return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to validate nonce"))
-	// }
-	// if exists {
-	// 	return c.JSON(http.StatusBadRequest, NewErrorResponse("Nonce already used"))
-	// }
+	// Check if nonce has been used
+	exists, err := s.db.CheckNonceExists(c.Request().Context(), nonce, req.PublicKey)
+	if err != nil {
+		s.logger.Errorf("Failed to check nonce: %v", err)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to validate nonce"))
+	}
+	if exists {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("Nonce already used"))
+	}
+
+	// Store the nonce with the message's expiry time
+	if err := s.db.StoreNonce(c.Request().Context(), nonce, req.PublicKey, expiryTime, time.Now()); err != nil {
+		s.logger.Errorf("Failed to store nonce: %v", err)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to store nonce"))
+	}
 
 	// Decode signature from hex (remove 0x prefix first)
 	sigBytes, err := hex.DecodeString(req.Signature)
@@ -446,12 +456,6 @@ func (s *Server) Auth(c echo.Context) error {
 	if !success {
 		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Invalid signature"))
 	}
-
-	// Store the nonce
-	// if err := s.db.StoreNonce(c.Request().Context(), nonce, req.PublicKey); err != nil {
-	// 	s.logger.Errorf("Failed to store nonce: %v", err)
-	// 	return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to store nonce"))
-	// }
 
 	// Generate JWT token with the public key
 	token, err := s.authService.GenerateToken(c.Request().Context(), req.PublicKey)

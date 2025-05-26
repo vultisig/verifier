@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,7 +15,11 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/vultisig/verifier/common"
+	"google.golang.org/protobuf/encoding/protojson"
 
+	"github.com/vultisig/recipes/ethereum"
+	rtypes "github.com/vultisig/recipes/types"
+	"github.com/vultisig/recipes/util"
 	"github.com/vultisig/verifier/internal/tasks"
 	"github.com/vultisig/verifier/internal/types"
 	ptypes "github.com/vultisig/verifier/types"
@@ -47,6 +52,73 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	// Validate policy matches plugin
 	if policy.PluginID != ptypes.PluginID(req.PluginID) {
 		return fmt.Errorf("policy plugin ID mismatch")
+	}
+
+	var recipe rtypes.Policy
+	policyBytes, err := base64.StdEncoding.DecodeString(policy.Recipe)
+	if err != nil {
+		return fmt.Errorf("failed to decode policy recipe: %w", err)
+	}
+
+	if err := protojson.Unmarshal(policyBytes, &recipe); err != nil {
+		return fmt.Errorf("failed to unmarshal recipe: %w", err)
+	}
+
+	// Presently we can only verify for payroll
+	if policy.PluginID != ptypes.PluginVultisigPayroll_0000 {
+		return fmt.Errorf("unsupported plugin ID: %s", policy.PluginID)
+	}
+
+	transactionAllowedByPolicy := false
+
+	// Payroll only builds ethereum txs right now
+	ethChain := ethereum.NewEthereum()
+	decodedTx, err := ethChain.ParseTransaction(req.Transaction)
+	if err != nil {
+		return fmt.Errorf("failed to parse transaction: %w", err)
+	}
+
+	for _, rule := range recipe.GetRules() { // Use generated GetRules() getter
+		if rule == nil { // Defensive check
+			continue
+		}
+		resourcePathString := rule.GetResource() // Use generated getter
+		resourcePath, err := util.ParseResource(resourcePathString)
+		if err != nil {
+			s.logger.WithError(err).Errorf("skipping rule %s: invalid resource path %s", rule.GetId(), resourcePathString)
+			continue
+		}
+
+		if resourcePath.ChainId != "ethereum" {
+			s.logger.Errorf("skipping rule %s: target chain %s is not 'ethereum'", rule.GetId(), resourcePath.ChainId)
+			continue
+		}
+
+		protocol, err := ethChain.GetProtocol(resourcePath.ProtocolId)
+		if err != nil {
+			s.logger.WithError(err).Errorf("skipping rule %s: could not get protocol for asset '%s'", rule.GetId(), resourcePath.ProtocolId)
+			continue
+		}
+
+		policyMatcher := &rtypes.PolicyFunctionMatcher{
+			FunctionID:  resourcePath.FunctionId,
+			Constraints: rule.GetParameterConstraints(), // Use generated getter
+		}
+
+		matches, _, err := protocol.MatchFunctionCall(decodedTx, policyMatcher)
+		if err != nil {
+			s.logger.WithError(err).Errorf("error during transaction matching for rule %s, function %s", rule.GetId(), resourcePath.FunctionId)
+			continue
+		}
+
+		if matches {
+			transactionAllowedByPolicy = true
+			break
+		}
+	}
+
+	if !transactionAllowedByPolicy {
+		return fmt.Errorf("transaction does not match any rule in the policy")
 	}
 
 	// Reuse existing signing logic

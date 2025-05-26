@@ -24,7 +24,6 @@ const Wallet = () => {
   const [walletAddress, setWalletAddress] = useState("");
 
   const connectWallet = async (chain: string) => {
-
     switch (chain) {
       // add more switch cases as more chains are supported
       case "ethereum": {

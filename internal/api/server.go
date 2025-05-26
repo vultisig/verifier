@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-playground/validator/v10"
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
@@ -383,41 +382,24 @@ func (s *Server) Auth(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid signature format"))
 	}
-	msgBytes, err := hex.DecodeString(req.Message)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid message format"))
 
-	}
-	ethPublicKey, err := tss.GetDerivedPubKey(req.PublicKey, req.ChainCodeHex, common.Ethereum.GetDerivePath(), false)
+	ethAddress, _, _, err := address.GetAddress(req.PublicKey, req.ChainCodeHex, common.Ethereum)
 	if err != nil {
 		s.logger.Errorf("failed to get derived public key: %v", err)
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid public key format"))
 	}
-	msgHashBytes := crypto.Keccak256Hash(msgBytes)
-	// Verify the signature is valid , and signed with the eth public key
-	success, err := sigutil.VerifySignature(ethPublicKey, msgHashBytes.Bytes(), sigBytes)
+
+	//extract the public key from the signature , make sure it match the eth public key
+	success, err := sigutil.VerifyEthAddressSignature(ecommon.HexToAddress(ethAddress), []byte(req.Message), sigBytes)
 	if err != nil {
 		s.logger.Errorf("signature verification failed: %v", err)
 		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Signature verification failed: "+err.Error()))
-	}
-	if !success {
-		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Invalid signature"))
-	}
-	// extract the public key from the signature , make sure it match the eth public key
-	ethAddress, err := address.GetEVMAddress(ethPublicKey)
-	if err != nil {
-		s.logger.Errorf("failed to get EVM address: %v", err)
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid public key format"))
 	}
 
-	success, err = sigutil.VerifyEthAddressSignature(ecommon.HexToAddress(ethAddress), msgBytes, sigBytes)
-	if err != nil {
-		s.logger.Errorf("signature verification failed: %v", err)
-		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Signature verification failed: "+err.Error()))
-	}
 	if !success {
 		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Invalid signature"))
 	}
+
 	// Generate JWT token with the public key
 	token, err := s.authService.GenerateToken(c.Request().Context(), req.PublicKey)
 	if err != nil {

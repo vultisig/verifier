@@ -24,13 +24,14 @@ const Wallet = () => {
   const [walletAddress, setWalletAddress] = useState("");
 
   const connectWallet = async (chain: string) => {
+
     switch (chain) {
       // add more switch cases as more chains are supported
       case "ethereum": {
         try {
-          const accounts =  await VulticonnectWalletService.connectToVultiConnect();
-          console.log("accounts", accounts);
-
+ 
+          const accounts = await VulticonnectWalletService.connectToVultiConnect();
+ 
           if (accounts.length && accounts[0]) {
             setConnectedWallet(true);
             setWalletAddress(accounts[0]);
@@ -59,58 +60,56 @@ const Wallet = () => {
 
   // sign message
   const signMessage = async () => {
+    try {
+      // 1. Get vaults from VultiConnect
+      const vaults = await VulticonnectWalletService.getVaults();
+      if (!vaults || vaults.length === 0) {
+        throw new Error("No vaults found");
+      }
 
-    // Create a new random wallet
-    const wallet = ethers.Wallet.createRandom();
-    const address = wallet.address;
-    const publicKey = address;
-    
-    console.log("address", address);
-    console.log("publicKey", publicKey);
+      // 2. Get required data from first vault
+      const publicKey = vaults[0].publicKeyEcdsa;
+      const chainCodeHex = vaults[0].hexChainCode;
 
-    const chainCodeHex = "0x" + "00".repeat(32);
-    console.log("chainCodeHex", chainCodeHex);
+      if (!publicKey || !chainCodeHex) {
+        throw new Error("Missing required vault data");
+      }
 
-    // const vaults = await VulticonnectWalletService.getVaults();
-    // console.log("vaults", vaults);
+      // 3. Store public key in localStorage
+      localStorage.setItem("publicKey", publicKey);
 
-    // const publicKey = vaults[0].publicKeyEcdsa;
-    // if (publicKey) {
-    //   localStorage.setItem("publicKey", publicKey);
-    // }
-    // console.log("publicKey", publicKey);
+      // 4. Generate hex message for signing
+      const signingMessage = "Sign into Vultisig App Store\n\nAddress: " + walletAddress;
 
-    // const chainCodeHex = vaults[0].hexChainCode;
-    // console.log("chainCodeHex", chainCodeHex);
+      // 5. Sign the message using VultiConnect
+      const signature = await VulticonnectWalletService.signCustomMessage(
+        signingMessage,
+        walletAddress
+      );
 
-    // const derivePath = derivePathMap[chain as keyof typeof derivePathMap];
-    // console.log("derivePath", derivePath);
-
-    const hexMessage = generateHexMessage(publicKey);
-    console.log("hexMessage", hexMessage);
-
-    // const signature = await VulticonnectWalletService.signCustomMessage(
-    //   hexMessage,
-    //   walletAddress
-    // );
-    // console.log("signature", signature);
-
-    // const messageBytes = hexToBytes(hexMessage);
-    const signature = await wallet.signMessage( hexMessage);
-    // let { r, s, v } = ethers.splitSignature(signature);
-
-    console.log("signature", signature);
-
-    if (signature && typeof signature === "string") {
+      // 6. Call auth endpoint
       const token = await MarketplaceService.getAuthToken(
-        hexMessage,
-        signature.toString(),
+        signingMessage,
+        signature,
         publicKey,
         chainCodeHex
       );
-      console.log("token", token);
+
+      // 7. Store token and update state
       localStorage.setItem("authToken", token);
-      console.log("token", token);
+      setAuthToken(token);
+      setConnectedWallet(true);
+
+      publish("onToast", {
+        message: "Successfully authenticated!",
+        type: "success",
+      });
+    } catch (error) {
+      console.error("Authentication failed:", error);
+      publish("onToast", {
+        message: error instanceof Error ? error.message : "Authentication failed",
+        type: "error",
+      });
     }
   };
 
@@ -131,14 +130,14 @@ const Wallet = () => {
 
   return (
     <>
-    <Button
-      size="medium"
-      styleType="primary"
-      type="button"
-      onClick={() => connectWallet(chain)}
-    >
-      {connectedWallet ? "Connected " + walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4) : "Connect Wallet"}
-    </Button>
+      <Button
+        size="medium"
+        styleType="primary"
+        type="button"
+        onClick={() => connectWallet(chain)}
+      >
+        {connectedWallet ? "Connected " + walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4) : "Connect Wallet"}
+      </Button>
 
       {connectedWallet && (
         <Button

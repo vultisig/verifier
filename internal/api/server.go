@@ -126,7 +126,6 @@ func (s *Server) StartServer() error {
 	vaultGroup.POST("/reshare", s.ReshareVault)
 	vaultGroup.GET("/get/:pluginId/:publicKeyECDSA", s.GetVault, s.VaultAuthMiddleware)     // Get Vault Data
 	vaultGroup.GET("/exist/:pluginId/:publicKeyECDSA", s.ExistVault, s.VaultAuthMiddleware) // Check if Vault exists
-	vaultGroup.POST("/sign", s.SignMessages, s.VaultAuthMiddleware)                         // Sign messages
 	vaultGroup.GET("/sign/response/:taskId", s.GetKeysignResult, s.VaultAuthMiddleware)     // Get keysign result
 
 	pluginGroup := e.Group("/plugin", s.userAuthMiddleware)
@@ -266,61 +265,6 @@ func (s *Server) GetVault(c echo.Context) error {
 		HexChainCode:   v.HexChainCode,
 		LocalPartyId:   v.LocalPartyId,
 	})
-}
-
-// SignMessages is a handler to process Keysing request
-func (s *Server) SignMessages(c echo.Context) error {
-	s.logger.Debug("VERIFIER SERVER: SIGN MESSAGES")
-
-	var req tv.KeysignRequest
-	if err := c.Bind(&req); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
-	}
-	if err := req.IsValid(); err != nil {
-		return fmt.Errorf("invalid request, err: %w", err)
-	}
-	if !s.isValidHash(req.PublicKey) {
-		return c.NoContent(http.StatusBadRequest)
-	}
-	result, err := s.redis.Get(c.Request().Context(), req.SessionID)
-	if err == nil && result != "" {
-		return c.NoContent(http.StatusOK)
-	}
-
-	if err := s.redis.Set(c.Request().Context(), req.SessionID, req.SessionID, 30*time.Minute); err != nil {
-		s.logger.Errorf("fail to set session, err: %v", err)
-	}
-
-	filePathName := common.GetVaultBackupFilename(req.PublicKey, req.PluginID)
-	content, err := s.vaultStorage.GetVault(filePathName)
-	if err != nil {
-		wrappedErr := fmt.Errorf("fail to read file in SignMessages, err: %w", err)
-		s.logger.Infof("fail to read file in SignMessages, err: %v", err)
-		s.logger.Error(wrappedErr)
-		return wrappedErr
-	}
-	_, err = common.DecryptVaultFromBackup(s.cfg.EncryptionSecret, content)
-	if err != nil {
-		return fmt.Errorf("fail to decrypt vault from the backup, err: %w", err)
-	}
-	buf, err := json.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("fail to marshal to json, err: %w", err)
-	}
-
-	ti, err := s.client.EnqueueContext(c.Request().Context(),
-		asynq.NewTask(tasks.TypeKeySignDKLS, buf),
-		asynq.MaxRetry(-1),
-		asynq.Timeout(2*time.Minute),
-		asynq.Retention(5*time.Minute),
-		asynq.Queue(tasks.QUEUE_NAME))
-
-	if err != nil {
-		return fmt.Errorf("fail to enqueue task, err: %w", err)
-	}
-
-	return c.JSON(http.StatusOK, ti.ID)
-
 }
 
 // GetKeysignResult is a handler to get the keysign response

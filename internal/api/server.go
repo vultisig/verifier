@@ -62,9 +62,7 @@ func NewServer(
 	sdClient *statsd.Client,
 	jwtSecret string,
 ) *Server {
-
 	var err error
-
 	logger := logrus.WithField("service", "verifier-server").Logger
 
 	policyService, err := service.NewPolicyService(db, client)
@@ -78,14 +76,7 @@ func NewServer(
 	}
 
 	authService := service.NewAuthService(jwtSecret, db, logrus.WithField("service", "auth-service").Logger)
-
-	// Start periodic cleanup of expired nonces
-	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
-		defer ticker.Stop()
-
-		for range ticker.C {
-			if err := db.CleanupExpiredNonces(context.Background()); err != nil {
+	cleanupService := service.NewCleanupService(db, logger)
 
 	return &Server{
 		cfg:            cfg,

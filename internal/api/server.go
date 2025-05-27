@@ -386,6 +386,29 @@ func (s *Server) Auth(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Message has expired"))
 	}
 
+	// Decode signature from hex (remove 0x prefix first)
+	sigBytes, err := hex.DecodeString(req.Signature)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid signature format"))
+	}
+
+	ethAddress, _, _, err := address.GetAddress(req.PublicKey, req.ChainCodeHex, common.Ethereum)
+	if err != nil {
+		s.logger.Errorf("failed to get derived public key: %v", err)
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid public key format"))
+	}
+
+	//extract the public key from the signature , make sure it match the eth public key
+	success, err := sigutil.VerifyEthAddressSignature(ecommon.HexToAddress(ethAddress), []byte(req.Message), sigBytes)
+	if err != nil {
+		s.logger.Errorf("signature verification failed: %v", err)
+		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Signature verification failed: "+err.Error()))
+	}
+
+	if !success {
+		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Invalid signature"))
+	}
+
 	// Unique nonce-public key identifier
 	nonceKey := fmt.Sprintf("%s:%s", req.PublicKey, nonce)
 
@@ -413,29 +436,6 @@ func (s *Server) Auth(c echo.Context) error {
 	if err := s.redis.Set(c.Request().Context(), nonceKey, "1", time.Until(expiryTime)); err != nil {
 		s.logger.Errorf("Failed to store nonce: %v", err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to store nonce"))
-	}
-
-	// Decode signature from hex (remove 0x prefix first)
-	sigBytes, err := hex.DecodeString(req.Signature)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid signature format"))
-	}
-
-	ethAddress, _, _, err := address.GetAddress(req.PublicKey, req.ChainCodeHex, common.Ethereum)
-	if err != nil {
-		s.logger.Errorf("failed to get derived public key: %v", err)
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid public key format"))
-	}
-
-	//extract the public key from the signature , make sure it match the eth public key
-	success, err := sigutil.VerifyEthAddressSignature(ecommon.HexToAddress(ethAddress), []byte(req.Message), sigBytes)
-	if err != nil {
-		s.logger.Errorf("signature verification failed: %v", err)
-		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Signature verification failed: "+err.Error()))
-	}
-
-	if !success {
-		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Invalid signature"))
 	}
 
 	// Generate JWT token with the public key

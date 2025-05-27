@@ -378,21 +378,6 @@ func (m *MockDatabaseStorage) WithTransaction(ctx context.Context, fn func(ctx c
 	return args.Error(0)
 }
 
-func (m *MockDatabaseStorage) CheckNonceExists(ctx context.Context, nonce string, publicKey string) (bool, error) {
-	args := m.Called(ctx, nonce, publicKey)
-	return args.Bool(0), args.Error(1)
-}
-
-func (m *MockDatabaseStorage) StoreNonce(ctx context.Context, nonce string, publicKey string, messageExpiry time.Time, createdAt time.Time) error {
-	args := m.Called(ctx, nonce, publicKey, messageExpiry, createdAt)
-	return args.Error(0)
-}
-
-func (m *MockDatabaseStorage) CleanupExpiredNonces(ctx context.Context) error {
-	args := m.Called(ctx)
-	return args.Error(0)
-}
-
 func TestGenerateToken(t *testing.T) {
 	testCases := []struct {
 		name          string

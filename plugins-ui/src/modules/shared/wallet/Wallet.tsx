@@ -82,10 +82,12 @@ const Wallet = () => {
       const expiryTime = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 minutes from now
 
       // 5. Generate hex message for signing
-      const signingMessage = `Sign into Vultisig App Store
-+Nonce: ${nonce}
-+Expires At: ${expiryTime}
-+Address: ${walletAddress}`;
+      const signingMessage = JSON.stringify({
+        message: "Sign into Vultisig App Store",
+        nonce: nonce,
+        expiresAt: expiryTime,
+        address: walletAddress
+      });
 
       // 6. Sign the message using VultiConnect
       const signature = await VulticonnectWalletService.signCustomMessage(

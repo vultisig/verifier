@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -34,7 +33,6 @@ type DatabaseStorage interface {
 	TagRepository
 	ReviewRepository
 	RatingRepository
-	NonceRepository
 	Close() error
 }
 
@@ -118,10 +116,4 @@ type RatingRepository interface {
 	FindRatingByPluginId(ctx context.Context, dbTx pgx.Tx, pluginId string) ([]itypes.PluginRatingDto, error)
 	CreateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string) error
 	UpdateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, reviewRating int) error
-}
-
-type NonceRepository interface {
-	CheckNonceExists(ctx context.Context, nonce string, publicKey string) (bool, error)
-	StoreNonce(ctx context.Context, nonce string, publicKey string, messageExpiry time.Time, createdAt time.Time) error
-	CleanupExpiredNonces(ctx context.Context) error
 }

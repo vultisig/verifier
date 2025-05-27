@@ -1,13 +1,11 @@
 package api
 
 import (
-	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
@@ -37,18 +35,17 @@ import (
 )
 
 type Server struct {
-	cfg            config.VerifierConfig
-	db             storage.DatabaseStorage
-	redis          *storage.RedisStorage
-	vaultStorage   vault.Storage
-	client         *asynq.Client
-	inspector      *asynq.Inspector
-	sdClient       *statsd.Client
-	policyService  service.Policy
-	pluginService  service.Plugin
-	authService    *service.AuthService
-	cleanupService *service.CleanupService
-	logger         *logrus.Logger
+	cfg           config.VerifierConfig
+	db            storage.DatabaseStorage
+	redis         *storage.RedisStorage
+	vaultStorage  vault.Storage
+	client        *asynq.Client
+	inspector     *asynq.Inspector
+	sdClient      *statsd.Client
+	policyService service.Policy
+	pluginService service.Plugin
+	authService   *service.AuthService
+	logger        *logrus.Logger
 }
 
 // NewServer returns a new server.
@@ -76,30 +73,23 @@ func NewServer(
 	}
 
 	authService := service.NewAuthService(jwtSecret, db, logrus.WithField("service", "auth-service").Logger)
-	cleanupService := service.NewCleanupService(db, logger)
 
 	return &Server{
-		cfg:            cfg,
-		redis:          redis,
-		client:         client,
-		inspector:      inspector,
-		sdClient:       sdClient,
-		vaultStorage:   vaultStorage,
-		db:             db,
-		logger:         logger,
-		policyService:  policyService,
-		authService:    authService,
-		pluginService:  pluginService,
-		cleanupService: cleanupService,
+		cfg:           cfg,
+		redis:         redis,
+		client:        client,
+		inspector:     inspector,
+		sdClient:      sdClient,
+		vaultStorage:  vaultStorage,
+		db:            db,
+		logger:        logger,
+		policyService: policyService,
+		authService:   authService,
+		pluginService: pluginService,
 	}
 }
 
 func (s *Server) StartServer() error {
-	// Start cleanup service
-	ctx := context.Background()
-	s.cleanupService.Start(ctx, time.Duration(s.cfg.Auth.NonceExpiryMinutes)*time.Minute)
-	defer s.cleanupService.Stop()
-
 	e := echo.New()
 	e.Logger.SetLevel(log.DEBUG)
 	e.Use(middleware.Logger())
@@ -398,17 +388,12 @@ func (s *Server) Auth(c echo.Context) error {
 
 	// Check if expiry is too far in the future
 	if time.Until(expiryTime) > time.Duration(s.cfg.Auth.NonceExpiryMinutes)*time.Minute {
-		// Store the nonce with the adjusted createdAt time to prevent time delayed replays
-		createdAt := expiryTime.Add(-time.Duration(s.cfg.Auth.NonceExpiryMinutes) * time.Minute)
-		if err := s.db.StoreNonce(c.Request().Context(), nonce, req.PublicKey, expiryTime, createdAt); err != nil {
-			s.logger.Errorf("Failed to store nonce: %v", err)
-			return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to store nonce"))
-		}
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Expiry time too far in the future"))
 	}
 
-	// Check if nonce has been used
-	exists, err := s.db.CheckNonceExists(c.Request().Context(), nonce, req.PublicKey)
+	// Check if nonce has been used using Redis
+	nonceKey := fmt.Sprintf("%s-%s", req.PublicKey, nonce)
+	exists, err := s.redis.Exists(c.Request().Context(), nonceKey)
 	if err != nil {
 		s.logger.Errorf("Failed to check nonce: %v", err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to validate nonce"))
@@ -417,8 +402,9 @@ func (s *Server) Auth(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Nonce already used"))
 	}
 
-	// Store the nonce with the message's expiry time
-	if err := s.db.StoreNonce(c.Request().Context(), nonce, req.PublicKey, expiryTime, time.Now()); err != nil {
+	// Store the nonce in Redis with expiry
+	expiryDuration := time.Until(expiryTime)
+	if err := s.redis.Set(c.Request().Context(), nonceKey, "1", expiryDuration); err != nil {
 		s.logger.Errorf("Failed to store nonce: %v", err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to store nonce"))
 	}
@@ -466,33 +452,27 @@ func (s *Server) Auth(c echo.Context) error {
 
 // parseAuthMessage extracts nonce and expiry time from the auth message
 func parseAuthMessage(message string) (string, time.Time, error) {
-	lines := strings.Split(strings.TrimSpace(message), "\n")
-	if len(lines) < 4 {
-		return "", time.Time{}, fmt.Errorf("invalid message format")
+	var authData struct {
+		Message   string `json:"message"`
+		Nonce     string `json:"nonce"`
+		ExpiresAt string `json:"expiresAt"`
+		Address   string `json:"address"`
 	}
 
-	var nonce string
-	var expiryStr string
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "Nonce: ") {
-			nonce = strings.TrimPrefix(line, "Nonce: ")
-		} else if strings.HasPrefix(line, "Expires At: ") {
-			expiryStr = strings.TrimPrefix(line, "Expires At: ")
-		}
+	if err := json.Unmarshal([]byte(message), &authData); err != nil {
+		return "", time.Time{}, fmt.Errorf("invalid message format: %w", err)
 	}
 
-	if nonce == "" || expiryStr == "" {
+	if authData.Nonce == "" || authData.ExpiresAt == "" {
 		return "", time.Time{}, fmt.Errorf("missing nonce or expiry time")
 	}
 
-	expiryTime, err := time.Parse(time.RFC3339, expiryStr)
+	expiryTime, err := time.Parse(time.RFC3339, authData.ExpiresAt)
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("invalid expiry time format: %w", err)
 	}
 
-	return nonce, expiryTime, nil
+	return authData.Nonce, expiryTime, nil
 }
 
 func (s *Server) RefreshToken(c echo.Context) error {

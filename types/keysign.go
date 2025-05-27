@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
+	"github.com/vultisig/verifier/common"
 )
 
 type HashFunction string
@@ -25,8 +26,7 @@ type KeysignMessage struct {
 	Message      string       `json:"message"`
 	Hash         string       `json:"hash"`
 	HashFunction HashFunction `json:"hash_function"`
-	DerivePath   string       `json:"derive_path"`
-	IsECDSA      bool         `json:"is_ecdsa"`
+	Chain        common.Chain `json:"chain"`
 }
 
 // IsValid checks if the keysign request is valid

@@ -7,5 +7,5 @@ DROP COLUMN IF EXISTS policy;
 -- +goose Down
 -- +goose StatementBegin
 ALTER TABLE plugin_policies
-    ADD COLUMN IF NOT EXISTS policy JSONB NOT NULL;
+    ADD COLUMN IF NOT EXISTS policy JSONB NOT NULL DEFAULT '{}';
 -- +goose StatementEnd

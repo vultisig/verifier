@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-playground/validator/v10"
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
@@ -126,7 +125,6 @@ func (s *Server) StartServer() error {
 	vaultGroup.POST("/reshare", s.ReshareVault)
 	vaultGroup.GET("/get/:pluginId/:publicKeyECDSA", s.GetVault, s.VaultAuthMiddleware)     // Get Vault Data
 	vaultGroup.GET("/exist/:pluginId/:publicKeyECDSA", s.ExistVault, s.VaultAuthMiddleware) // Check if Vault exists
-	vaultGroup.POST("/sign", s.SignMessages, s.VaultAuthMiddleware)                         // Sign messages
 	vaultGroup.GET("/sign/response/:taskId", s.GetKeysignResult, s.VaultAuthMiddleware)     // Get keysign result
 
 	pluginGroup := e.Group("/plugin", s.userAuthMiddleware)
@@ -268,61 +266,6 @@ func (s *Server) GetVault(c echo.Context) error {
 	})
 }
 
-// SignMessages is a handler to process Keysing request
-func (s *Server) SignMessages(c echo.Context) error {
-	s.logger.Debug("VERIFIER SERVER: SIGN MESSAGES")
-
-	var req tv.KeysignRequest
-	if err := c.Bind(&req); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
-	}
-	if err := req.IsValid(); err != nil {
-		return fmt.Errorf("invalid request, err: %w", err)
-	}
-	if !s.isValidHash(req.PublicKey) {
-		return c.NoContent(http.StatusBadRequest)
-	}
-	result, err := s.redis.Get(c.Request().Context(), req.SessionID)
-	if err == nil && result != "" {
-		return c.NoContent(http.StatusOK)
-	}
-
-	if err := s.redis.Set(c.Request().Context(), req.SessionID, req.SessionID, 30*time.Minute); err != nil {
-		s.logger.Errorf("fail to set session, err: %v", err)
-	}
-
-	filePathName := common.GetVaultBackupFilename(req.PublicKey, req.PluginID)
-	content, err := s.vaultStorage.GetVault(filePathName)
-	if err != nil {
-		wrappedErr := fmt.Errorf("fail to read file in SignMessages, err: %w", err)
-		s.logger.Infof("fail to read file in SignMessages, err: %v", err)
-		s.logger.Error(wrappedErr)
-		return wrappedErr
-	}
-	_, err = common.DecryptVaultFromBackup(s.cfg.EncryptionSecret, content)
-	if err != nil {
-		return fmt.Errorf("fail to decrypt vault from the backup, err: %w", err)
-	}
-	buf, err := json.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("fail to marshal to json, err: %w", err)
-	}
-
-	ti, err := s.client.EnqueueContext(c.Request().Context(),
-		asynq.NewTask(tasks.TypeKeySignDKLS, buf),
-		asynq.MaxRetry(-1),
-		asynq.Timeout(2*time.Minute),
-		asynq.Retention(5*time.Minute),
-		asynq.Queue(tasks.QUEUE_NAME))
-
-	if err != nil {
-		return fmt.Errorf("fail to enqueue task, err: %w", err)
-	}
-
-	return c.JSON(http.StatusOK, ti.ID)
-
-}
-
 // GetKeysignResult is a handler to get the keysign response
 func (s *Server) GetKeysignResult(c echo.Context) error {
 	taskID := c.Param("taskId")
@@ -439,41 +382,24 @@ func (s *Server) Auth(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid signature format"))
 	}
-	msgBytes, err := hex.DecodeString(req.Message)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid message format"))
 
-	}
-	ethPublicKey, err := tss.GetDerivedPubKey(req.PublicKey, req.ChainCodeHex, common.Ethereum.GetDerivePath(), false)
+	ethAddress, _, _, err := address.GetAddress(req.PublicKey, req.ChainCodeHex, common.Ethereum)
 	if err != nil {
 		s.logger.Errorf("failed to get derived public key: %v", err)
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid public key format"))
 	}
-	msgHashBytes := crypto.Keccak256Hash(msgBytes)
-	// Verify the signature is valid , and signed with the eth public key
-	success, err := sigutil.VerifySignature(ethPublicKey, msgHashBytes.Bytes(), sigBytes)
+
+	//extract the public key from the signature , make sure it match the eth public key
+	success, err := sigutil.VerifyEthAddressSignature(ecommon.HexToAddress(ethAddress), []byte(req.Message), sigBytes)
 	if err != nil {
 		s.logger.Errorf("signature verification failed: %v", err)
 		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Signature verification failed: "+err.Error()))
-	}
-	if !success {
-		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Invalid signature"))
-	}
-	// extract the public key from the signature , make sure it match the eth public key
-	ethAddress, err := address.GetEVMAddress(ethPublicKey)
-	if err != nil {
-		s.logger.Errorf("failed to get EVM address: %v", err)
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid public key format"))
 	}
 
-	success, err = sigutil.VerifyEthAddressSignature(ecommon.HexToAddress(ethAddress), msgBytes, sigBytes)
-	if err != nil {
-		s.logger.Errorf("signature verification failed: %v", err)
-		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Signature verification failed: "+err.Error()))
-	}
 	if !success {
 		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Invalid signature"))
 	}
+
 	// Generate JWT token with the public key
 	token, err := s.authService.GenerateToken(c.Request().Context(), req.PublicKey)
 	if err != nil {

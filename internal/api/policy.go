@@ -73,8 +73,11 @@ func (s *Server) getVault(publicKeyECDSA, pluginId string) (*v1.Vault, error) {
 }
 
 func (s *Server) verifyPolicySignature(policy types.PluginPolicy) bool {
-	messageBytes := policyToMessageHex(policy)
-
+	messageBytes, err := policyToMessageHex(policy)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to convert policy to message hex")
+		return false
+	}
 	signatureBytes, err := hex.DecodeString(strings.TrimPrefix(policy.Signature, "0x"))
 	if err != nil {
 		s.logger.WithError(err).Error("failed to decode signature bytes")
@@ -100,13 +103,20 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy) bool {
 	return isVerified
 }
 
-func policyToMessageHex(policy types.PluginPolicy) []byte {
-	result := strings.Join([]string{
+func policyToMessageHex(policy types.PluginPolicy) ([]byte, error) {
+	delimiter := "*#*"
+	fields := []string{
 		policy.Recipe,
 		policy.PublicKey,
 		policy.PolicyVersion,
-		policy.PluginVersion}, "*#*")
-	return []byte(result)
+		policy.PluginVersion}
+	for _, item := range fields {
+		if strings.Contains(item, delimiter) {
+			return nil, fmt.Errorf("invalid policy signature")
+		}
+	}
+	result := strings.Join(fields, delimiter)
+	return []byte(result), nil
 }
 
 func (s *Server) UpdatePluginPolicyById(c echo.Context) error {

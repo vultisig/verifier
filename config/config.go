@@ -31,6 +31,9 @@ type VerifierConfig struct {
 	BlockStorageConfig vault.BlockStorageConfig `mapstructure:"block_storage_config" json:"block_storage_config,omitempty"`
 	Datadog            DatadogConfig            `mapstructure:"datadog" json:"datadog"`
 	EncryptionSecret   string                   `mapstructure:"encryption_secret" json:"encryption_secret,omitempty"`
+	Auth               struct {
+		NonceExpiryMinutes int `mapstructure:"nonce_expiry_minutes" json:"nonce_expiry_minutes,omitempty"`
+	} `mapstructure:"auth" json:"auth"`
 }
 
 type DatadogConfig struct {
@@ -84,6 +87,9 @@ func ReadVerifierConfig() (*VerifierConfig, error) {
 	viper.SetConfigName(configName)
 	viper.AddConfigPath(".")
 	viper.AutomaticEnv()
+
+	// Set default values
+	viper.SetDefault("auth.nonce_expiry_minutes", 15)
 
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("fail to reading config file, %w", err)

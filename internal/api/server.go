@@ -386,25 +386,31 @@ func (s *Server) Auth(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Message has expired"))
 	}
 
+	// Unique nonce-public key identifier
+	nonceKey := fmt.Sprintf("%s-%s", req.PublicKey, nonce)
+
 	// Check if expiry is too far in the future
 	if time.Until(expiryTime) > time.Duration(s.cfg.Auth.NonceExpiryMinutes)*time.Minute {
+		// We should still store the nonce in redis to avoid delayed replays
+		if err := s.redis.Set(c.Request().Context(), nonceKey, "1", time.Until(expiryTime)); err != nil {
+			s.logger.Errorf("Failed to store nonce: %v", err)
+			return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to store nonce"))
+		}
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Expiry time too far in the future"))
 	}
 
 	// Check if nonce has been used using Redis
-	nonceKey := fmt.Sprintf("%s-%s", req.PublicKey, nonce)
 	exists, err := s.redis.Exists(c.Request().Context(), nonceKey)
 	if err != nil {
-		s.logger.Errorf("Failed to check nonce: %v", err)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to validate nonce"))
+		s.logger.Errorf("Nonce already used: %v", err)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Nonce was already used"))
 	}
 	if exists {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Nonce already used"))
 	}
 
 	// Store the nonce in Redis with expiry
-	expiryDuration := time.Until(expiryTime)
-	if err := s.redis.Set(c.Request().Context(), nonceKey, "1", expiryDuration); err != nil {
+	if err := s.redis.Set(c.Request().Context(), nonceKey, "1", time.Until(expiryTime)); err != nil {
 		s.logger.Errorf("Failed to store nonce: %v", err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to store nonce"))
 	}

@@ -14,12 +14,13 @@ const (
 )
 
 type KeysignRequest struct {
-	PublicKey string           `json:"public_key"` // public key, used to identify the backup file
-	Messages  []KeysignMessage `json:"messages"`
-	SessionID string           `json:"session"`   // Session ID , it should be an UUID
-	Parties   []string         `json:"parties"`   // parties to join the session
-	PluginID  string           `json:"plugin_id"` // plugin id
-	PolicyID  uuid.UUID        `json:"policy_id"` // policy id
+	PublicKey        string           `json:"public_key"` // public key, used to identify the backup file
+	Messages         []KeysignMessage `json:"messages"`
+	SessionID        string           `json:"session"`            // Session ID , it should be an UUID
+	HexEncryptionKey string           `json:"hex_encryption_key"` // Hex encryption key, used to encrypt the keysign messages
+	Parties          []string         `json:"parties"`            // parties to join the session
+	PluginID         string           `json:"plugin_id"`          // plugin id
+	PolicyID         uuid.UUID        `json:"policy_id"`          // policy id
 }
 
 type KeysignMessage struct {
@@ -39,6 +40,9 @@ func (r KeysignRequest) IsValid() error {
 	}
 	if r.SessionID == "" {
 		return errors.New("invalid session")
+	}
+	if r.HexEncryptionKey == "" {
+		return errors.New("invalid hex encryption key")
 	}
 
 	return nil

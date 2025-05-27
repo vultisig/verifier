@@ -96,7 +96,7 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 	query := `
   	INSERT INTO plugin_policies (
       id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe
 	`
 

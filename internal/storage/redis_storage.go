@@ -81,7 +81,7 @@ func (r *RedisStorage) CheckNonceExists(ctx context.Context, nonce string, publi
 	if err := contexthelper.CheckCancellation(ctx); err != nil {
 		return false, err
 	}
-	key := fmt.Sprintf("%s-%s", publicKey, nonce)
+	key := fmt.Sprintf("%s:%s", publicKey, nonce)
 	return r.Exists(ctx, key)
 }
 
@@ -90,7 +90,10 @@ func (r *RedisStorage) StoreNonce(ctx context.Context, nonce string, publicKey s
 	if err := contexthelper.CheckCancellation(ctx); err != nil {
 		return err
 	}
-	key := fmt.Sprintf("%s-%s", publicKey, nonce)
+	if expiryTime.Before(time.Now()) {
+		return fmt.Errorf("expiry time cannot be in the past")
+	}
+	key := fmt.Sprintf("%s:%s", publicKey, nonce)
 	expiryDuration := time.Until(expiryTime)
 	return r.Set(ctx, key, "1", expiryDuration)
 }

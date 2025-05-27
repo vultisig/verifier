@@ -387,7 +387,7 @@ func (s *Server) Auth(c echo.Context) error {
 	}
 
 	// Unique nonce-public key identifier
-	nonceKey := fmt.Sprintf("%s-%s", req.PublicKey, nonce)
+	nonceKey := fmt.Sprintf("%s:%s", req.PublicKey, nonce)
 
 	// Check if expiry is too far in the future
 	if time.Until(expiryTime) > time.Duration(s.cfg.Auth.NonceExpiryMinutes)*time.Minute {

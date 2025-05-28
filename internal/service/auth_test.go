@@ -33,22 +33,6 @@ func (m *MockDatabaseStorage) Pool() *pgxpool.Pool {
 	return nil
 }
 
-func (m *MockDatabaseStorage) FindUserById(ctx context.Context, userId string) (*itypes.User, error) {
-	args := m.Called(ctx, userId)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*itypes.User), args.Error(1)
-}
-
-func (m *MockDatabaseStorage) FindUserByName(ctx context.Context, username string) (*itypes.UserWithPassword, error) {
-	args := m.Called(ctx, username)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*itypes.UserWithPassword), args.Error(1)
-}
-
 func (m *MockDatabaseStorage) CreateVaultToken(ctx context.Context, token itypes.VaultTokenCreate) (*itypes.VaultToken, error) {
 	args := m.Called(ctx, token)
 	if args.Get(0) == nil {

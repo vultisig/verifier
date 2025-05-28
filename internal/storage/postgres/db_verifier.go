@@ -25,11 +25,13 @@ func NewVerifierMigrationManager(pool *pgxpool.Pool) *VerifierMigrationManager {
 func (v *VerifierMigrationManager) Migrate() error {
 	logrus.Info("Starting verifier database migration...")
 	goose.SetBaseFS(verifierMigrations)
+	defer goose.SetBaseFS(nil)
 	if err := goose.SetDialect("postgres"); err != nil {
 		return fmt.Errorf("failed to set goose dialect: %w", err)
 	}
 
 	db := stdlib.OpenDBFromPool(v.pool)
+	defer db.Close()
 	if err := goose.Up(db, "migrations/verifier", goose.WithAllowMissing()); err != nil {
 		return fmt.Errorf("failed to run verifier migrations: %w", err)
 	}

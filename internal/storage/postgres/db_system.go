@@ -25,11 +25,13 @@ func NewSystemMigrationManager(pool *pgxpool.Pool) *SystemMigrationManager {
 func (s *SystemMigrationManager) Migrate() error {
 	logrus.Info("Starting system database migration...")
 	goose.SetBaseFS(systemMigrations)
+	defer goose.SetBaseFS(nil)
 	if err := goose.SetDialect("postgres"); err != nil {
 		return fmt.Errorf("failed to set goose dialect: %w", err)
 	}
 
 	db := stdlib.OpenDBFromPool(s.pool)
+	defer db.Close()
 	if err := goose.Up(db, "migrations/system", goose.WithAllowMissing()); err != nil {
 		return fmt.Errorf("failed to run system migrations: %w", err)
 	}

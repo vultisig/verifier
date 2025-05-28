@@ -30,11 +30,13 @@ const MarketplaceService = {
   ): Promise<PluginMap> => {
     try {
       const sort = sortOrder === "DESC" ? `-${sortBy}` : sortBy;
-      const endpoint = `${getMarketplaceUrl()}/plugins?term=${encodeURIComponent(
-        term
-      )}&category_id=${encodeURIComponent(
-        categoryId
-      )}&sort=${encodeURIComponent(sort)}&skip=${skip}&take=${take}`;
+      const endpoint = `${getMarketplaceUrl()}/plugins`;
+
+      // const endpoint = `${getMarketplaceUrl()}/plugins?term=${encodeURIComponent(
+      //   term
+      // )}&category_id=${encodeURIComponent(
+      //   categoryId
+      // )}&sort=${encodeURIComponent(sort)}&skip=${skip}&take=${take}`;
       const plugins = await get(endpoint);
       return plugins;
     } catch (error) {

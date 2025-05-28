@@ -10,13 +10,14 @@ const MAX_BAR_LENGTH = 336;
 
 const Rating = () => {
   const { pluginRatings } = useReviews();
+  const safePluginRatings = pluginRatings ?? [];
   const ratingsMap = new Map(
-    pluginRatings?.map((ratingObj) => [ratingObj.rating, ratingObj])
+    safePluginRatings.map((ratingObj) => [ratingObj.rating, ratingObj])
   );
 
   const rating_bars = [5, 4, 3, 2, 1];
 
-  const { ratingsCount, ratingSum, maxRatingCount } = pluginRatings.reduce(
+  const { ratingsCount, ratingSum, maxRatingCount } = safePluginRatings.reduce(
     (acc, rating) => {
       acc.ratingsCount += rating.count;
       acc.ratingSum += rating.rating * rating.count;

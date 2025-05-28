@@ -41,7 +41,7 @@ func main() {
 		client,
 		sdClient, vaultStorage)
 
-	backendDB, err := postgres.NewPostgresBackend(cfg.Database.DSN)
+	backendDB, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil)
 	if err != nil {
 		panic(fmt.Sprintf("failed to initialize database: %v", err))
 	}

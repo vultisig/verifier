@@ -59,7 +59,9 @@ func NewServer(
 	sdClient *statsd.Client,
 	jwtSecret string,
 ) *Server {
+
 	var err error
+
 	logger := logrus.WithField("service", "verifier-server").Logger
 
 	policyService, err := service.NewPolicyService(db, client)
@@ -138,11 +140,6 @@ func (s *Server) StartServer() error {
 	pluginsGroup := e.Group("/plugins")
 	pluginsGroup.GET("", s.GetPlugins)
 	pluginsGroup.GET("/:pluginId", s.GetPlugin)
-	pluginsGroup.POST("", s.CreatePlugin, s.userAuthMiddleware)
-	pluginsGroup.POST("/:pluginId", s.UpdatePlugin, s.userAuthMiddleware)
-	pluginsGroup.DELETE("/:pluginId", s.DeletePlugin, s.userAuthMiddleware)
-	pluginsGroup.POST("/:pluginId/tags", s.AttachPluginTag, s.userAuthMiddleware)
-	pluginsGroup.DELETE("/:pluginId/tags/:tagId", s.DetachPluginTag, s.userAuthMiddleware)
 
 	pluginsGroup.GET("/:pluginId/reviews", s.GetReviews)
 	pluginsGroup.POST("/:pluginId/reviews", s.CreateReview, s.AuthMiddleware)
@@ -155,10 +152,8 @@ func (s *Server) StartServer() error {
 
 	pricingsGroup := e.Group("/pricing")
 	pricingsGroup.GET("/:pricingId", s.GetPricing)
-	pricingsGroup.POST("", s.CreatePricing, s.userAuthMiddleware)
-	pricingsGroup.DELETE("/:pricingId", s.DeletePricing, s.userAuthMiddleware)
-	syncGroup := e.Group("/sync", s.userAuthMiddleware)
 
+	syncGroup := e.Group("/sync", s.userAuthMiddleware)
 	syncGroup.POST("/transaction", s.CreateTransaction)
 	syncGroup.PUT("/transaction", s.UpdateTransaction)
 

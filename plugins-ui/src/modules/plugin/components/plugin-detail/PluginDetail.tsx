@@ -8,6 +8,7 @@ import MarketplaceService from "@/modules/marketplace/services/marketplaceServic
 import { Plugin } from "../../models/plugin";
 import Reviews from "@/modules/review/components/reviews/Reviews";
 import { publish } from "@/utils/eventBus";
+import { ReviewProvider } from "@/modules/review/context/ReviewProvider";
 
 const PluginDetail = () => {
   const navigate = useNavigate();
@@ -35,6 +36,8 @@ const PluginDetail = () => {
 
     fetchPlugin();
   }, []);
+
+  console.log("plugin", plugin);
 
   return (
     <>
@@ -71,7 +74,9 @@ const PluginDetail = () => {
               </section>
             </section>
 
-            <Reviews plugin={plugin} />
+            <ReviewProvider pluginId={plugin.id} ratings={plugin.ratings}>
+              <Reviews plugin={plugin} />
+            </ReviewProvider>
           </>
         )}
       </div>

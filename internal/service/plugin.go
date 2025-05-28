@@ -11,7 +11,6 @@ import (
 )
 
 type Plugin interface {
-	CreatePluginWithRating(ctx context.Context, pluginDto types.PluginCreateDto) (*types.Plugin, error)
 	GetPluginWithRating(ctx context.Context, pluginId string) (*types.Plugin, error)
 	CreatePluginReviewWithRating(ctx context.Context, reviewDto types.ReviewCreateDto, pluginId string) (*types.ReviewDto, error)
 }
@@ -27,7 +26,6 @@ type PluginServiceStorage interface {
 	FindReviews(ctx context.Context, pluginId string, take int, skip int, sort string) (types.ReviewsDto, error)
 	FindReviewById(ctx context.Context, db pgx.Tx, id string) (*types.ReviewDto, error)
 
-	CreatePlugin(ctx context.Context, dbTx pgx.Tx, pluginDto types.PluginCreateDto) (string, error)
 	FindPluginById(ctx context.Context, dbTx pgx.Tx, id ptypes.PluginID) (*types.Plugin, error)
 }
 
@@ -46,46 +44,6 @@ func NewPluginService(db PluginServiceStorage, logger *logrus.Logger) (*PluginSe
 	}, nil
 }
 
-func (s *PluginService) CreatePluginWithRating(ctx context.Context, pluginDto types.PluginCreateDto) (*types.Plugin, error) {
-	var plugin *types.Plugin
-	err := s.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
-		var err error
-
-		// Insert plugin
-		newPluginId, err := s.db.CreatePlugin(ctx, tx, pluginDto)
-		if err != nil {
-			return fmt.Errorf("failed to insert plugin: %w", err)
-		}
-
-		// Insert rating
-		err = s.db.CreateRatingForPlugin(ctx, tx, newPluginId)
-		if err != nil {
-			return fmt.Errorf("failed to insert rating: %w", err)
-		}
-
-		// Find plugin
-		plugin, err = s.db.FindPluginById(ctx, tx, ptypes.PluginID(newPluginId))
-		if err != nil {
-			return fmt.Errorf("failed to get plugin: %w", err)
-		}
-
-		// Find rating
-		rating, err := s.db.FindRatingByPluginId(ctx, tx, newPluginId)
-		if err != nil {
-			return fmt.Errorf("failed to get rating: %w", err)
-		}
-
-		plugin.Ratings = rating
-
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-	return plugin, nil
-}
-
 func (s *PluginService) GetPluginWithRating(ctx context.Context, pluginId string) (*types.Plugin, error) {
 	var plugin *types.Plugin
 	err := s.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
@@ -98,13 +56,12 @@ func (s *PluginService) GetPluginWithRating(ctx context.Context, pluginId string
 		}
 
 		// Find rating
-		var rating []types.PluginRatingDto
-		rating, err = s.db.FindRatingByPluginId(ctx, tx, pluginId)
-		if err != nil {
-			return fmt.Errorf("failed to get rating: %w", err)
-		}
-
-		plugin.Ratings = rating
+		// TODO: restore ratings with a custom type
+		// var rating []types.PluginRatingDto
+		// rating, err = s.db.FindRatingByPluginId(ctx, tx, pluginId)
+		// if err != nil {
+		// 	return fmt.Errorf("failed to get rating: %w", err)
+		// }
 
 		return nil
 	})

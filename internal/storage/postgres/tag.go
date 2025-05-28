@@ -57,25 +57,3 @@ func (p *PostgresBackend) FindTagByName(ctx context.Context, name string) (*type
 
 	return &tag, nil
 }
-
-func (p *PostgresBackend) CreateTag(ctx context.Context, tagDto types.CreateTagDto) (*types.Tag, error) {
-	query := fmt.Sprintf(`INSERT INTO %s (
-		name,
-		color
-	) VALUES (
-		@Name,
-		@Color
-	) RETURNING id;`, TAGS_TABLE)
-	args := pgx.NamedArgs{
-		"Name":  tagDto.Name,
-		"Color": tagDto.Color,
-	}
-
-	var createdId string
-	err := p.pool.QueryRow(ctx, query, args).Scan(&createdId)
-	if err != nil {
-		return nil, err
-	}
-
-	return p.FindTagById(ctx, createdId)
-}

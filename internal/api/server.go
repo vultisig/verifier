@@ -59,7 +59,9 @@ func NewServer(
 	sdClient *statsd.Client,
 	jwtSecret string,
 ) *Server {
+
 	var err error
+
 	logger := logrus.WithField("service", "verifier-server").Logger
 
 	policyService, err := service.NewPolicyService(db, client)
@@ -138,11 +140,6 @@ func (s *Server) StartServer() error {
 	pluginsGroup := e.Group("/plugins")
 	pluginsGroup.GET("", s.GetPlugins)
 	pluginsGroup.GET("/:pluginId", s.GetPlugin)
-	pluginsGroup.POST("", s.CreatePlugin, s.userAuthMiddleware)
-	pluginsGroup.POST("/:pluginId", s.UpdatePlugin, s.userAuthMiddleware)
-	pluginsGroup.DELETE("/:pluginId", s.DeletePlugin, s.userAuthMiddleware)
-	pluginsGroup.POST("/:pluginId/tags", s.AttachPluginTag, s.userAuthMiddleware)
-	pluginsGroup.DELETE("/:pluginId/tags/:tagId", s.DetachPluginTag, s.userAuthMiddleware)
 
 	pluginsGroup.GET("/:pluginId/reviews", s.GetReviews)
 	pluginsGroup.POST("/:pluginId/reviews", s.CreateReview, s.AuthMiddleware)
@@ -155,10 +152,8 @@ func (s *Server) StartServer() error {
 
 	pricingsGroup := e.Group("/pricing")
 	pricingsGroup.GET("/:pricingId", s.GetPricing)
-	pricingsGroup.POST("", s.CreatePricing, s.userAuthMiddleware)
-	pricingsGroup.DELETE("/:pricingId", s.DeletePricing, s.userAuthMiddleware)
-	syncGroup := e.Group("/sync", s.userAuthMiddleware)
 
+	syncGroup := e.Group("/sync", s.userAuthMiddleware)
 	syncGroup.POST("/transaction", s.CreateTransaction)
 	syncGroup.PUT("/transaction", s.UpdateTransaction)
 
@@ -375,17 +370,6 @@ func (s *Server) Auth(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse(err.Error()))
 	}
 
-	// Parse message to extract nonce and expiry
-	nonce, expiryTime, err := parseAuthMessage(req.Message)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err.Error()))
-	}
-
-	// Validate expiry time
-	if time.Now().After(expiryTime) {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("Message has expired"))
-	}
-
 	// Decode signature from hex (remove 0x prefix first)
 	sigBytes, err := hex.DecodeString(req.Signature)
 	if err != nil {
@@ -409,35 +393,6 @@ func (s *Server) Auth(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, NewErrorResponse("Invalid signature"))
 	}
 
-	// Unique nonce-public key identifier
-	nonceKey := fmt.Sprintf("%s:%s", req.PublicKey, nonce)
-
-	// Check if expiry is too far in the future
-	if time.Until(expiryTime) > time.Duration(s.cfg.Auth.NonceExpiryMinutes)*time.Minute {
-		// We should still store the nonce in redis to avoid delayed replays
-		if err := s.redis.Set(c.Request().Context(), nonceKey, "1", time.Until(expiryTime)); err != nil {
-			s.logger.Errorf("Failed to store nonce: %v", err)
-			return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to store nonce"))
-		}
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("Expiry time too far in the future"))
-	}
-
-	// Check if nonce has been used using Redis
-	exists, err := s.redis.Exists(c.Request().Context(), nonceKey)
-	if err != nil {
-		s.logger.Errorf("Nonce already used: %v", err)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Nonce was already used"))
-	}
-	if exists {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("Nonce already used"))
-	}
-
-	// Store the nonce in Redis with expiry
-	if err := s.redis.Set(c.Request().Context(), nonceKey, "1", time.Until(expiryTime)); err != nil {
-		s.logger.Errorf("Failed to store nonce: %v", err)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to store nonce"))
-	}
-
 	// Generate JWT token with the public key
 	token, err := s.authService.GenerateToken(c.Request().Context(), req.PublicKey)
 	if err != nil {
@@ -454,31 +409,6 @@ func (s *Server) Auth(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"token": token})
-}
-
-// parseAuthMessage extracts nonce and expiry time from the auth message
-func parseAuthMessage(message string) (string, time.Time, error) {
-	var authData struct {
-		Message   string `json:"message"`
-		Nonce     string `json:"nonce"`
-		ExpiresAt string `json:"expiresAt"`
-		Address   string `json:"address"`
-	}
-
-	if err := json.Unmarshal([]byte(message), &authData); err != nil {
-		return "", time.Time{}, fmt.Errorf("invalid message format: %w", err)
-	}
-
-	if authData.Nonce == "" || authData.ExpiresAt == "" {
-		return "", time.Time{}, fmt.Errorf("missing nonce or expiry time")
-	}
-
-	expiryTime, err := time.Parse(time.RFC3339, authData.ExpiresAt)
-	if err != nil {
-		return "", time.Time{}, fmt.Errorf("invalid expiry time format: %w", err)
-	}
-
-	return authData.Nonce, expiryTime, nil
 }
 
 func (s *Server) RefreshToken(c echo.Context) error {

@@ -9,18 +9,14 @@ import (
 )
 
 type Plugin struct {
-	ID             uuid.UUID         `json:"id" validate:"required"`
-	CreatedAt      time.Time         `json:"created_at"`
-	UpdatedAt      time.Time         `json:"updated_at"`
-	Type           string            `json:"type" validate:"required"`
-	Title          string            `json:"title" validate:"required"`
-	Description    string            `json:"description" validate:"required"`
-	Metadata       json.RawMessage   `json:"metadata" validate:"required"`
-	ServerEndpoint string            `json:"server_endpoint" validate:"required"`
-	PricingID      uuid.UUID         `json:"pricing_id" validate:"required"`
-	CategoryID     uuid.UUID         `json:"category_id" validate:"required"`
-	Tags           []Tag             `json:"tags"`
-	Ratings        []PluginRatingDto `json:"ratings,omitempty"`
+	ID             types.PluginID `json:"id" validate:"required"`
+	Title          string         `json:"title" validate:"required"`
+	Description    string         `json:"description" validate:"required"`
+	ServerEndpoint string         `json:"server_endpoint" validate:"required"`
+	PricingID      uuid.UUID      `json:"pricing_id" validate:"required"`
+	Category       PluginCategory `json:"category_id" validate:"required"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
 }
 
 type PluginFilters struct {

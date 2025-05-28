@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
-	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/vultisig/verifier/common"
@@ -201,74 +199,22 @@ func (s *Server) GetPlugin(c echo.Context) error {
 	return c.JSON(http.StatusOK, plugin)
 }
 
-func (s *Server) CreatePlugin(c echo.Context) error {
-	var plugin types.PluginCreateDto
-	if err := c.Bind(&plugin); err != nil {
-		s.logger.WithError(err).Error("Failed to parse request")
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request"))
-	}
-
-	if err := c.Validate(&plugin); err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err.Error()))
-	}
-
-	created, err := s.pluginService.CreatePluginWithRating(c.Request().Context(), plugin)
-	if err != nil {
-		s.logger.WithError(err).Error("Failed to create plugin")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to create plugin"))
-	}
-
-	return c.JSON(http.StatusOK, created)
-}
-
-func (s *Server) UpdatePlugin(c echo.Context) error {
-	pluginID := c.Param("pluginId")
-	if pluginID == "" {
-		s.logger.Error("plugin id is required")
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("plugin id is required"))
-	}
-
-	var plugin types.PluginUpdateDto
-	if err := c.Bind(&plugin); err != nil {
-		s.logger.WithError(err).Error("Failed to parse request")
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request"))
-	}
-
-	if err := c.Validate(&plugin); err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err.Error()))
-	}
-
-	updated, err := s.db.UpdatePlugin(c.Request().Context(), ptypes.PluginID(pluginID), plugin)
-	if err != nil {
-		s.logger.WithError(err).Error("Failed to update plugin")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to update plugin"))
-	}
-
-	return c.JSON(http.StatusOK, updated)
-}
-
-func (s *Server) DeletePlugin(c echo.Context) error {
-	pluginID := c.Param("pluginId")
-	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("plugin id is required"))
-	}
-
-	if err := s.db.DeletePluginById(c.Request().Context(), ptypes.PluginID(pluginID)); err != nil {
-		s.logger.WithError(err).Error("Failed to delete plugin")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to delete plugin"))
-	}
-
-	return c.NoContent(http.StatusNoContent)
-}
-
 func (s *Server) GetCategories(c echo.Context) error {
-	categories, err := s.db.FindCategories(c.Request().Context())
-	if err != nil {
-		s.logger.WithError(err).Error("Failed to get categories")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get categories"))
+	resp := []struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}{
+		{
+			ID:   string(types.PluginCategoryAIAgent),
+			Name: types.PluginCategoryAIAgent.String(),
+		},
+		{
+			ID:   string(types.PluginCategoryPlugin),
+			Name: types.PluginCategoryPlugin.String(),
+		},
 	}
 
-	return c.JSON(http.StatusOK, categories)
+	return c.JSON(http.StatusOK, resp)
 }
 
 func (s *Server) GetTags(c echo.Context) error {
@@ -278,90 +224,6 @@ func (s *Server) GetTags(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get tags"))
 	}
 	return c.JSON(http.StatusOK, tags)
-}
-
-func (s *Server) AttachPluginTag(c echo.Context) error {
-	pluginID := c.Param("pluginId")
-	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("plugin id is required"))
-	}
-	_, err := s.db.FindPluginById(c.Request().Context(), nil, ptypes.PluginID(pluginID))
-	if err != nil {
-		s.logger.WithError(err).Error("Failed to find plugin")
-		if errors.Is(err, pgx.ErrNoRows) {
-			return c.JSON(http.StatusNotFound, NewErrorResponse("plugin not found"))
-		}
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to find plugin"))
-	}
-
-	var createTagDto types.CreateTagDto
-	if err := c.Bind(&createTagDto); err != nil {
-		s.logger.WithError(err).Error("Failed to parse request")
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request"))
-	}
-	if err := c.Validate(&createTagDto); err != nil {
-		s.logger.Error(err)
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err.Error()))
-	}
-
-	var tag *types.Tag
-	tag, err = s.db.FindTagByName(c.Request().Context(), createTagDto.Name)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			tag, err = s.db.CreateTag(c.Request().Context(), createTagDto)
-			if err != nil {
-				s.logger.WithError(err).Error("Failed to create tag")
-				return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to create tag"))
-			}
-		} else {
-			s.logger.WithError(err).Error("Failed to check for existing tag")
-			return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to check for existing tag"))
-		}
-	}
-
-	updatedPlugin, err := s.db.AttachTagToPlugin(c.Request().Context(), ptypes.PluginID(pluginID), tag.ID)
-	if err != nil {
-		s.logger.WithError(err).Error("Failed to attach tag")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to attach tag"))
-	}
-
-	return c.JSON(http.StatusOK, updatedPlugin)
-}
-
-func (s *Server) DetachPluginTag(c echo.Context) error {
-	pluginID := c.Param("pluginId")
-	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("plugin id is required"))
-	}
-	_, err := s.db.FindPluginById(c.Request().Context(), nil, ptypes.PluginID(pluginID))
-	if err != nil {
-		s.logger.WithError(err).Error("Failed to find plugin")
-		if errors.Is(err, pgx.ErrNoRows) {
-			return c.JSON(http.StatusNotFound, NewErrorResponse("plugin not found"))
-		}
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to find plugin"))
-	}
-
-	tagID := c.Param("tagId")
-	if tagID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("tag id is required"))
-	}
-	tag, err := s.db.FindTagById(c.Request().Context(), tagID)
-	if err != nil {
-		s.logger.WithError(err).Error("Failed to find tag")
-		if errors.Is(err, pgx.ErrNoRows) {
-			return c.JSON(http.StatusNotFound, NewErrorResponse("tag not found"))
-		}
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to find tag"))
-	}
-
-	updatedPlugin, err := s.db.DetachTagFromPlugin(c.Request().Context(), ptypes.PluginID(pluginID), tag.ID)
-	if err != nil {
-		s.logger.WithError(err).Error("Failed to detach tag")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to detach tag"))
-	}
-
-	return c.JSON(http.StatusOK, updatedPlugin)
 }
 
 func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {

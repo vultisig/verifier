@@ -28,7 +28,6 @@ type DatabaseStorage interface {
 	TransactionRepository
 	PricingRepository
 	PluginRepository
-	CategoryRepository
 	TagRepository
 	ReviewRepository
 	RatingRepository
@@ -71,11 +70,6 @@ type PricingRepository interface {
 type PluginRepository interface {
 	FindPlugins(ctx context.Context, filters itypes.PluginFilters, take int, skip int, sort string) (itypes.PluginsPaginatedList, error)
 	FindPluginById(ctx context.Context, dbTx pgx.Tx, id types.PluginID) (*itypes.Plugin, error)
-	CreatePlugin(ctx context.Context, dbTx pgx.Tx, pluginDto itypes.PluginCreateDto) (string, error)
-	UpdatePlugin(ctx context.Context, id types.PluginID, updates itypes.PluginUpdateDto) (*itypes.Plugin, error)
-	DeletePluginById(ctx context.Context, id types.PluginID) error
-	AttachTagToPlugin(ctx context.Context, pluginId types.PluginID, tagId string) (*itypes.Plugin, error)
-	DetachTagFromPlugin(ctx context.Context, pluginId types.PluginID, tagId string) (*itypes.Plugin, error)
 
 	Pool() *pgxpool.Pool
 }
@@ -89,15 +83,10 @@ type VaultTokenRepository interface {
 	GetActiveVaultTokens(ctx context.Context, publicKey string) ([]itypes.VaultToken, error)
 }
 
-type CategoryRepository interface {
-	FindCategories(ctx context.Context) ([]itypes.Category, error)
-}
-
 type TagRepository interface {
 	FindTags(ctx context.Context) ([]itypes.Tag, error)
 	FindTagById(ctx context.Context, id string) (*itypes.Tag, error)
 	FindTagByName(ctx context.Context, name string) (*itypes.Tag, error)
-	CreateTag(ctx context.Context, tagDto itypes.CreateTagDto) (*itypes.Tag, error)
 }
 
 type ReviewRepository interface {

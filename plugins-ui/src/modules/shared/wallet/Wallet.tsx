@@ -8,6 +8,7 @@ import {
 import { publish } from "@/utils/eventBus";
 import { ethers } from "ethers";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
+import "./wallet.styles.css";
 
 const Wallet = () => {
   let chain = localStorage.getItem("chain") as string;
@@ -23,6 +24,16 @@ const Wallet = () => {
   const [connectedWallet, setConnectedWallet] = useState(false);
   const [walletAddress, setWalletAddress] = useState("");
 
+  // Add copy-to-clipboard logic
+  const [copyTooltip, setCopyTooltip] = useState("Copy");
+  const handleCopy = () => {
+    if (walletAddress) {
+      navigator.clipboard.writeText(walletAddress);
+      setCopyTooltip("Copied!");
+      setTimeout(() => setCopyTooltip("Copy"), 1200);
+    }
+  };
+
   const connectWallet = async (chain: string) => {
     switch (chain) {
       // add more switch cases as more chains are supported
@@ -30,6 +41,17 @@ const Wallet = () => {
         try {
  
           const accounts = await VulticonnectWalletService.connectToVultiConnect();
+
+          let is_authenticated = await signMessage();
+          console.log("is_authenticated", is_authenticated);
+
+          if (!is_authenticated) {
+            publish("onToast", {
+              message: "Authentication failed!",
+              type: "error",
+            });
+            return;
+          }
  
           if (accounts.length && accounts[0]) {
             setConnectedWallet(true);
@@ -95,10 +117,12 @@ const Wallet = () => {
         walletAddress
       );
 
+      console.log("signature", signature);
+
       // 7. Call auth endpoint
       const token = await MarketplaceService.getAuthToken(
         signingMessage,
-        signature,
+        signature.txHash,
         publicKey,
         chainCodeHex
       );
@@ -112,12 +136,16 @@ const Wallet = () => {
         message: "Successfully authenticated!",
         type: "success",
       });
+
+      return true;
     } catch (error) {
       console.error("Authentication failed:", error);
       publish("onToast", {
         message: error instanceof Error ? error.message : "Authentication failed",
         type: "error",
       });
+
+      return false;
     }
   };
 
@@ -138,25 +166,35 @@ const Wallet = () => {
 
   return (
     <>
-      <Button
-        size="medium"
-        styleType="primary"
-        type="button"
-        onClick={() => connectWallet(chain)}
-      >
-        {connectedWallet ? "Connected " + walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4) : "Connect Wallet"}
-      </Button>
-
-      {connectedWallet && (
+      {connectedWallet ? (
+        <div className="wallet-address-container">
+          <div className="wallet-address-pill">
+            {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+          </div>
+          <button
+            onClick={handleCopy}
+            className={`wallet-copy-btn${copyTooltip === "Copied!" ? " copied" : ""}${copyTooltip !== "Copy" ? " show-tooltip" : ""}`}
+            title={copyTooltip}
+            type="button"
+          >
+            <span className="wallet-copy-tooltip">{copyTooltip}</span>
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="5" y="5" width="10" height="12" rx="3" fill="#64748b"/>
+              <rect x="8" y="2" width="9" height="12" rx="2" fill="#cbd5e1"/>
+            </svg>
+          </button>
+        </div>
+      ) : (
         <Button
           size="medium"
           styleType="primary"
           type="button"
-          onClick={() => signMessage()}
+          onClick={() => connectWallet(chain)}
         >
-          Sign Message
+          Connect Wallet
         </Button>
       )}
+
     </>
   );
 };

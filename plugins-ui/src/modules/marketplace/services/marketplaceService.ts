@@ -87,7 +87,6 @@ const MarketplaceService = {
   ): Promise<string> => {
     try {
       const endpoint = `${getMarketplaceUrl()}/auth`;
-
       const response = await post(endpoint, {
         message: message,
         signature: signature,

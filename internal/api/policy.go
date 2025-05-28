@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -38,8 +37,7 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 		policy.ID = uuid.New()
 	}
 
-	// TODO: validate if the policy is correct
-	if !s.verifyPolicySignature(policy, false) {
+	if !s.verifyPolicySignature(policy) {
 		s.logger.Error("invalid policy signature")
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid policy signature"))
 	}
@@ -74,15 +72,10 @@ func (s *Server) getVault(publicKeyECDSA, pluginId string) (*v1.Vault, error) {
 	return v, nil
 }
 
-func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) bool {
-	msgHex, err := policyToMessageHex(policy, update)
+func (s *Server) verifyPolicySignature(policy types.PluginPolicy) bool {
+	messageBytes, err := policyToMessageHex(policy)
 	if err != nil {
-		s.logger.Errorf("failed to convert policy to message hex: %s", err)
-		return false
-	}
-	messageBytes, err := hex.DecodeString(msgHex)
-	if err != nil {
-		s.logger.WithError(err).Error("failed to decode message bytes")
+		s.logger.WithError(err).Error("failed to convert policy to message hex")
 		return false
 	}
 	signatureBytes, err := hex.DecodeString(strings.TrimPrefix(policy.Signature, "0x"))
@@ -110,19 +103,20 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) b
 	return isVerified
 }
 
-func policyToMessageHex(policy types.PluginPolicy, isUpdate bool) (string, error) {
-	if !isUpdate {
-		policy.ID = uuid.Nil
+func policyToMessageHex(policy types.PluginPolicy) ([]byte, error) {
+	delimiter := "*#*"
+	fields := []string{
+		policy.Recipe,
+		policy.PublicKey,
+		policy.PolicyVersion,
+		policy.PluginVersion}
+	for _, item := range fields {
+		if strings.Contains(item, delimiter) {
+			return nil, fmt.Errorf("invalid policy signature")
+		}
 	}
-	// signature is not part of the message that is signed
-	policy.Signature = ""
-
-	serializedPolicy, err := json.Marshal(policy)
-	if err != nil {
-		return "", fmt.Errorf("failed to serialize policy")
-	}
-
-	return hex.EncodeToString(serializedPolicy), nil
+	result := strings.Join(fields, delimiter)
+	return []byte(result), nil
 }
 
 func (s *Server) UpdatePluginPolicyById(c echo.Context) error {
@@ -132,7 +126,7 @@ func (s *Server) UpdatePluginPolicyById(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request"))
 	}
 
-	if !s.verifyPolicySignature(policy, true) {
+	if !s.verifyPolicySignature(policy) {
 		s.logger.Error("invalid policy signature")
 		return c.JSON(http.StatusForbidden, NewErrorResponse("Invalid policy signature"))
 	}
@@ -174,7 +168,7 @@ func (s *Server) DeletePluginPolicyById(c echo.Context) error {
 	// This is because we have different signature stored in the database.
 	policy.Signature = reqBody.Signature
 
-	if !s.verifyPolicySignature(policy, true) {
+	if !s.verifyPolicySignature(policy) {
 		s.logger.Error("invalid policy signature")
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid policy"))
 	}

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/viper"
 
@@ -34,6 +35,20 @@ type VerifierConfig struct {
 	Auth               struct {
 		NonceExpiryMinutes int `mapstructure:"nonce_expiry_minutes" json:"nonce_expiry_minutes,omitempty"`
 	} `mapstructure:"auth" json:"auth"`
+}
+
+type TxIndexerConfig struct {
+	Database         DatabaseConfig `mapstructure:"database" json:"database,omitempty"`
+	Rpc              RpcConfig      `mapstructure:"rpc" json:"rpc,omitempty"`
+	Interval         time.Duration  `mapstructure:"interval" json:"interval,omitempty"`
+	IterationTimeout time.Duration  `mapstructure:"iteration_timeout" json:"iteration_timeout,omitempty"`
+	MarkLostAfter    time.Duration  `mapstructure:"mark_lost_after" json:"mark_lost_after,omitempty"`
+	Concurrency      int            `mapstructure:"concurrency" json:"concurrency,omitempty"`
+}
+
+type RpcConfig struct {
+	Bitcoin  string `mapstructure:"bitcoin" json:"bitcoin,omitempty"`
+	Ethereum string `mapstructure:"ethereum" json:"ethereum,omitempty"`
 }
 
 type DatadogConfig struct {
@@ -95,6 +110,26 @@ func ReadVerifierConfig() (*VerifierConfig, error) {
 		return nil, fmt.Errorf("fail to reading config file, %w", err)
 	}
 	var cfg VerifierConfig
+	err := viper.Unmarshal(&cfg)
+	if err != nil {
+		return nil, fmt.Errorf("unable to decode into struct, %w", err)
+	}
+	return &cfg, nil
+}
+
+func ReadTxIndexerConfig() (*TxIndexerConfig, error) {
+	configName := os.Getenv("VS_TX_INDEXER_CONFIG_NAME")
+	if configName == "" {
+		configName = "config"
+	}
+	viper.SetConfigName(configName)
+	viper.AddConfigPath(".")
+	viper.AutomaticEnv()
+
+	if err := viper.ReadInConfig(); err != nil {
+		return nil, fmt.Errorf("fail to reading config file, %w", err)
+	}
+	var cfg TxIndexerConfig
 	err := viper.Unmarshal(&cfg)
 	if err != nil {
 		return nil, fmt.Errorf("unable to decode into struct, %w", err)

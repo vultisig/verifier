@@ -56,6 +56,7 @@ const Wallet = () => {
           if (accounts.length && accounts[0]) {
             setConnectedWallet(true);
             setWalletAddress(accounts[0]);
+            localStorage.setItem("walletAddress", accounts[0]);
           }
 
           break;

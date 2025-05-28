@@ -36,7 +36,7 @@ CREATE TABLE plugin_policy_sync (
     tx_hash VARCHAR(255) NOT NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
     signature TEXT,
-    plugin_id plugin_id,
+    plugin_id plugin_id NOT NULL REFERENCES plugins(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

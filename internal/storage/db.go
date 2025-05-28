@@ -33,6 +33,7 @@ type DatabaseStorage interface {
 	TagRepository
 	ReviewRepository
 	RatingRepository
+	ApiKeyRepository
 	Close() error
 }
 
@@ -116,4 +117,8 @@ type RatingRepository interface {
 	FindRatingByPluginId(ctx context.Context, dbTx pgx.Tx, pluginId string) ([]itypes.PluginRatingDto, error)
 	CreateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string) error
 	UpdateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, reviewRating int) error
+}
+
+type ApiKeyRepository interface {
+	GetAPIKey(ctx context.Context, apiKey string) (*itypes.APIKey, error)
 }

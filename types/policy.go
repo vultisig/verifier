@@ -11,6 +11,6 @@ type PluginPolicy struct {
 	PluginVersion string    `json:"plugin_version" validate:"required"`
 	PolicyVersion string    `json:"policy_version" validate:"required"`
 	Signature     string    `json:"signature" validate:"required"`
-	Recipe        string    `json:"recipe" validate:"required"`
+	Recipe        string    `json:"recipe" validate:"required"` // base64 encoded recipe protobuf bytes
 	Active        bool      `json:"active" validate:"required"`
 }

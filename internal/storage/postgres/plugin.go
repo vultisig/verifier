@@ -21,7 +21,7 @@ const PLUGINS_TABLE = "plugins"
 const PLUGIN_TAGS_TABLE = "plugin_tags"
 const REVIEWS_TABLE = "reviews"
 
-func (P *PostgresBackend) collectPlugins(rows pgx.Rows) ([]types.Plugin, error) {
+func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]types.Plugin, error) {
 	defer rows.Close()
 
 	var plugins []types.Plugin
@@ -134,8 +134,8 @@ func (p *PostgresBackend) FindPlugins(
 	query := `SELECT p.*, t.*` + joinQuery
 	queryTotal := `SELECT COUNT(DISTINCT p.id) as total_count` + joinQuery
 
-	args := []any{}
-	argsTotal := []any{}
+	var args []any
+	var argsTotal []any
 	currentArgNumber := 1
 
 	// filters
@@ -248,7 +248,6 @@ func (p *PostgresBackend) FindPlugins(
 }
 
 func (p *PostgresBackend) CreatePlugin(ctx context.Context, dbTx pgx.Tx, pluginDto types.PluginCreateDto) (string, error) {
-
 	query := fmt.Sprintf(`INSERT INTO %s (
 		type,
 		title,

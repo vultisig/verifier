@@ -16,7 +16,7 @@ CREATE TABLE tx_history (
     -- null -> PENDING -> SUCCESS / FAIL
     status_onchain TINYTEXT,
 
-    -- is Tx stuck in PENDING_ONCHAIN status more than configured timeout,
+    -- is Tx stuck in status_onchain=PENDING more than configured timeout,
     -- flag to exclude it from on-chain status polling
     lost BOOLEAN NOT NULL DEFAULT false,
 
@@ -27,6 +27,6 @@ CREATE TABLE tx_history (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 )
 
-CREATE INDEX idx_tx_history_status_lost ON tx_history(status, lost)
+CREATE INDEX idx_tx_history_status_onchain_lost ON tx_history(status_onchain, lost)
 END
 -- +goose StatementEnd

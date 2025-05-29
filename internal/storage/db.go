@@ -39,7 +39,7 @@ type DatabaseStorage interface {
 type TxIndexerRepository interface {
 	SetStatus(ctx context.Context, id uuid.UUID, status itypes.TxStatus) error
 	SetLost(ctx context.Context, id uuid.UUID) error
-	SetSignedAndBroadcasted(ctx context.Context, id uuid.UUID) error
+	SetSignedAndBroadcasted(ctx context.Context, id uuid.UUID, txHash string) error
 	SetOnChainStatus(ctx context.Context, id uuid.UUID, status itypes.TxOnChainStatus) error
 	GetPendingTxs(ctx context.Context) <-chan itypes.TxErr
 	CreateTx(ctx context.Context, req itypes.CreateTxDto) (itypes.Tx, error)

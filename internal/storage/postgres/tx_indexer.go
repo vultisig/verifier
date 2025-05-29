@@ -112,16 +112,17 @@ func (p *PostgresBackend) SetLost(c context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (p *PostgresBackend) SetSignedAndBroadcasted(c context.Context, id uuid.UUID) error {
+func (p *PostgresBackend) SetSignedAndBroadcasted(c context.Context, id uuid.UUID, txHash string) error {
 	ctx, cancel := context.WithTimeout(c, defaultTimeout)
 	defer cancel()
 
 	_, err := p.pool.Exec(
 		ctx,
-		`UPDATE tx_indexer SET status = $1 and status_onchain = $2 and broadcasted_at = now() AND updated_at = now()
-                  WHERE id = $3`,
+		`UPDATE tx_indexer SET status = $1 AND status_onchain = $2 AND tx_hash = $3 AND broadcasted_at = now()
+                                   AND updated_at = now() WHERE id = $4`,
 		types.TxSigned,
 		types.TxOnChainPending,
+		txHash,
 		id,
 	)
 	if err != nil {

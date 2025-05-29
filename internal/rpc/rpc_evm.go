@@ -1,4 +1,4 @@
-package tx_indexer
+package rpc
 
 import (
 	"context"

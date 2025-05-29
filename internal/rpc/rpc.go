@@ -1,4 +1,4 @@
-package tx_indexer
+package rpc
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-type Client interface {
+type TxIndexer interface {
 	GetTxStatus(ctx context.Context, txHash string) (types.TxOnChainStatus, error)
 }
 

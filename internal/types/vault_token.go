@@ -8,7 +8,6 @@ type VaultToken struct {
 	TokenID    string    `json:"token_id"`
 	PublicKey  string    `json:"public_key"`
 	ExpiresAt  time.Time `json:"expires_at"`
-	IsRevoked  bool      `json:"is_revoked"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 	LastUsedAt time.Time `json:"last_used_at"`

@@ -39,7 +39,7 @@ const Wallet = () => {
       // add more switch cases as more chains are supported
       case "ethereum": {
         try {
- 
+
           const accounts = await VulticonnectWalletService.connectToVultiConnect();
 
           let is_authenticated = await signMessage();
@@ -52,7 +52,7 @@ const Wallet = () => {
             });
             return;
           }
- 
+
           if (accounts.length && accounts[0]) {
             setConnectedWallet(true);
             setWalletAddress(accounts[0]);
@@ -180,8 +180,8 @@ const Wallet = () => {
           >
             <span className="wallet-copy-tooltip">{copyTooltip}</span>
             <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="5" y="5" width="10" height="12" rx="3" fill="#64748b"/>
-              <rect x="8" y="2" width="9" height="12" rx="2" fill="#cbd5e1"/>
+              <rect x="5" y="5" width="10" height="12" rx="3" fill="#64748b" />
+              <rect x="8" y="2" width="9" height="12" rx="2" fill="#cbd5e1" />
             </svg>
           </button>
         </div>

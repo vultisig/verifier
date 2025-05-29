@@ -14,6 +14,10 @@ type VaultToken struct {
 	RevokedAt  time.Time `json:"revoked_at"`
 }
 
+func (t *VaultToken) IsRevoked() bool {
+	return !t.RevokedAt.IsZero() && t.RevokedAt.Before(time.Now())
+}
+
 // VaultTokenCreate represents the data needed to create a new vault token
 type VaultTokenCreate struct {
 	PublicKey string    `json:"public_key"`

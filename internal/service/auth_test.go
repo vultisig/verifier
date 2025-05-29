@@ -1,13 +1,13 @@
 package service_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
-	"context"
-
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
 	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/types"
 
@@ -314,6 +314,13 @@ func (m *MockDatabaseStorage) UpdateRatingForPlugin(ctx context.Context, dbTx pg
 func (m *MockDatabaseStorage) WithTransaction(ctx context.Context, fn func(ctx context.Context, tx pgx.Tx) error) error {
 	args := m.Called(ctx, fn)
 	return args.Error(0)
+}
+func (m *MockDatabaseStorage) GetAPIKey(ctx context.Context, apiKey string) (*itypes.APIKey, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.APIKey), args.Error(1)
 }
 
 func TestGenerateToken(t *testing.T) {

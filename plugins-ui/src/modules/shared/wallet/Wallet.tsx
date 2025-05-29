@@ -123,7 +123,7 @@ const Wallet = () => {
       // 7. Call auth endpoint
       const token = await MarketplaceService.getAuthToken(
         signingMessage,
-        signature.txHash,
+        signature,
         publicKey,
         chainCodeHex
       );

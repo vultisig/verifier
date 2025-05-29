@@ -6,7 +6,7 @@ CREATE TABLE plugin_apikey (
     apikey TEXT NOT NULL UNIQUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ NULL,
-    status INT NOT NULL DEFAULT 1 -- 1: active, 0: inactive
+    status INT NOT NULL DEFAULT 1 CHECK (status IN (0, 1)) -- 1: active, 0: inactive
 );
 CREATE INDEX idx_plugin_apikey_plugin_id ON plugin_apikey(plugin_id);
 CREATE INDEX idx_plugin_apikey_apikey ON plugin_apikey(apikey);

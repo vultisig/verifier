@@ -1,13 +1,13 @@
 package service_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
-	"context"
-
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
 	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/types"
 
@@ -315,6 +315,13 @@ func (m *MockDatabaseStorage) WithTransaction(ctx context.Context, fn func(ctx c
 	args := m.Called(ctx, fn)
 	return args.Error(0)
 }
+func (m *MockDatabaseStorage) GetAPIKey(ctx context.Context, apiKey string) (*itypes.APIKey, error) {
+	args := m.Called(ctx, apiKey)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.APIKey), args.Error(1)
+}
 
 func TestGenerateToken(t *testing.T) {
 	testCases := []struct {
@@ -369,12 +376,10 @@ func TestValidateToken(t *testing.T) {
 			setupToken: func() string {
 				mockDB := new(MockDatabaseStorage)
 				mockDB.On("CreateVaultToken", mock.Anything, mock.Anything).Return(&itypes.VaultToken{
-					TokenID:   "valid-token",
-					IsRevoked: false,
+					TokenID: "valid-token",
 				}, nil)
 				mockDB.On("GetVaultToken", mock.Anything, mock.Anything).Return(&itypes.VaultToken{
-					TokenID:   "valid-token",
-					IsRevoked: false,
+					TokenID: "valid-token",
 				}, nil)
 				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
 
@@ -447,8 +452,7 @@ func TestValidateToken(t *testing.T) {
 			tokenString := tc.setupToken()
 			mockDB := new(MockDatabaseStorage)
 			mockDB.On("GetVaultToken", mock.Anything, mock.Anything).Return(&itypes.VaultToken{
-				TokenID:   "valid-token",
-				IsRevoked: false,
+				TokenID: "valid-token",
 			}, nil)
 			mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
 
@@ -485,13 +489,11 @@ func TestRefreshToken(t *testing.T) {
 					Return(&itypes.VaultToken{
 						TokenID:   tokenID,
 						PublicKey: testPublicKey,
-						IsRevoked: false,
 					}, nil)
 				mockDB.On("GetVaultToken", mock.Anything, tokenID).
 					Return(&itypes.VaultToken{
 						TokenID:   tokenID,
 						PublicKey: testPublicKey,
-						IsRevoked: false,
 					}, nil)
 				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, tokenID).Return(nil)
 				mockDB.On("RevokeVaultToken", mock.Anything, tokenID).Return(nil)
@@ -537,13 +539,11 @@ func TestRefreshToken(t *testing.T) {
 					Return(&itypes.VaultToken{
 						TokenID:   tokenID,
 						PublicKey: testPublicKey,
-						IsRevoked: false,
 					}, nil)
 				mockDB.On("GetVaultToken", mock.Anything, mock.Anything).
 					Return(&itypes.VaultToken{
 						TokenID:   tokenID,
 						PublicKey: testPublicKey,
-						IsRevoked: false,
 					}, nil)
 				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
 				mockDB.On("RevokeVaultToken", mock.Anything, mock.Anything).Return(nil)

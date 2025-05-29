@@ -137,7 +137,7 @@ func (a *AuthService) ValidateToken(ctx context.Context, tokenStr string) (*Clai
 		return nil, errors.New("token not found in database")
 	}
 
-	if dbToken.IsRevoked {
+	if dbToken.IsRevoked() {
 		return nil, errors.New("token has been revoked")
 	}
 

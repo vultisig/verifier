@@ -95,3 +95,34 @@ func (s *Server) VaultAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		return next(c)
 	}
 }
+func (s *Server) PluginAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
+		if authHeader == "" {
+			return c.JSON(http.StatusUnauthorized, NewErrorResponse("Authorization header required"))
+		}
+
+		items := strings.Fields(authHeader)
+		if len(items) != 2 || items[0] != "Bearer" {
+			return c.JSON(http.StatusUnauthorized, NewErrorResponse("Invalid authorization header format"))
+		}
+		tokenStr := items[1]
+		apiKey, err := s.db.GetAPIKey(c.Request().Context(), tokenStr)
+		if err != nil {
+			s.logger.Errorf("fail to get API key, err: %v", err)
+			return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to validate API key"))
+		}
+		if apiKey.Status == 0 {
+			s.logger.Warnf("API key is disabled, id: %s", apiKey.ID)
+			return c.JSON(http.StatusUnauthorized, NewErrorResponse("Invalid API key"))
+		}
+		if apiKey.ExpiresAt != nil {
+			if apiKey.ExpiresAt.Before(time.Now()) {
+				s.logger.Warnf("API key is expired, id: %s", apiKey.ID)
+				return c.JSON(http.StatusUnauthorized, NewErrorResponse("API key has expired"))
+			}
+		}
+		c.Set("plugin_id", apiKey.PluginID)
+		return next(c)
+	}
+}

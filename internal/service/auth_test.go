@@ -369,12 +369,10 @@ func TestValidateToken(t *testing.T) {
 			setupToken: func() string {
 				mockDB := new(MockDatabaseStorage)
 				mockDB.On("CreateVaultToken", mock.Anything, mock.Anything).Return(&itypes.VaultToken{
-					TokenID:   "valid-token",
-					IsRevoked: false,
+					TokenID: "valid-token",
 				}, nil)
 				mockDB.On("GetVaultToken", mock.Anything, mock.Anything).Return(&itypes.VaultToken{
-					TokenID:   "valid-token",
-					IsRevoked: false,
+					TokenID: "valid-token",
 				}, nil)
 				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
 
@@ -447,8 +445,7 @@ func TestValidateToken(t *testing.T) {
 			tokenString := tc.setupToken()
 			mockDB := new(MockDatabaseStorage)
 			mockDB.On("GetVaultToken", mock.Anything, mock.Anything).Return(&itypes.VaultToken{
-				TokenID:   "valid-token",
-				IsRevoked: false,
+				TokenID: "valid-token",
 			}, nil)
 			mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
 
@@ -485,13 +482,11 @@ func TestRefreshToken(t *testing.T) {
 					Return(&itypes.VaultToken{
 						TokenID:   tokenID,
 						PublicKey: testPublicKey,
-						IsRevoked: false,
 					}, nil)
 				mockDB.On("GetVaultToken", mock.Anything, tokenID).
 					Return(&itypes.VaultToken{
 						TokenID:   tokenID,
 						PublicKey: testPublicKey,
-						IsRevoked: false,
 					}, nil)
 				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, tokenID).Return(nil)
 				mockDB.On("RevokeVaultToken", mock.Anything, tokenID).Return(nil)
@@ -537,13 +532,11 @@ func TestRefreshToken(t *testing.T) {
 					Return(&itypes.VaultToken{
 						TokenID:   tokenID,
 						PublicKey: testPublicKey,
-						IsRevoked: false,
 					}, nil)
 				mockDB.On("GetVaultToken", mock.Anything, mock.Anything).
 					Return(&itypes.VaultToken{
 						TokenID:   tokenID,
 						PublicKey: testPublicKey,
-						IsRevoked: false,
 					}, nil)
 				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
 				mockDB.On("RevokeVaultToken", mock.Anything, mock.Anything).Return(nil)

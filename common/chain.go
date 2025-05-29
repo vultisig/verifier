@@ -155,7 +155,7 @@ func (c *Chain) Scan(value interface{}) error {
 
 	str, ok := value.([]byte)
 	if !ok {
-		return fmt.Errorf("failed to scan ChainID enum: %v", value)
+		return fmt.Errorf("failed to scan Chain enum: %v", value)
 	}
 	for key, value := range chainToString {
 		if value == string(str) {

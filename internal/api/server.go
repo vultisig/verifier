@@ -111,11 +111,10 @@ func (s *Server) StartServer() error {
 
 	// Auth endpoints - not requiring authentication
 	e.POST("/auth", s.Auth)
-	e.POST("/auth/refresh", s.RefreshToken)
+	e.POST("/auth/refresh", s.RefreshToken, s.VaultAuthMiddleware) // only when user has logged in with their vault
 
 	// Token management endpoints
-	tokenGroup := e.Group("/auth/tokens")
-	tokenGroup.Use(s.VaultAuthMiddleware)
+	tokenGroup := e.Group("/auth/tokens", s.VaultAuthMiddleware)
 	tokenGroup.DELETE("/:tokenId", s.RevokeToken)
 	tokenGroup.DELETE("/all", s.RevokeAllTokens)
 	tokenGroup.GET("", s.GetActiveTokens)
@@ -125,17 +124,16 @@ func (s *Server) StartServer() error {
 	vaultGroup.POST("/reshare", s.ReshareVault)
 	vaultGroup.GET("/get/:pluginId/:publicKeyECDSA", s.GetVault, s.VaultAuthMiddleware)     // Get Vault Data
 	vaultGroup.GET("/exist/:pluginId/:publicKeyECDSA", s.ExistVault, s.VaultAuthMiddleware) // Check if Vault exists
-	vaultGroup.GET("/sign/response/:taskId", s.GetKeysignResult, s.VaultAuthMiddleware)     // Get keysign result
+	vaultGroup.POST("/sign", s.SignPluginMessages, s.PluginAuthMiddleware)                  // Sign messages
+	vaultGroup.GET("/sign/response/:taskId", s.GetKeysignResult, s.PluginAuthMiddleware)    // Get keysign result
 
-	pluginGroup := e.Group("/plugin", s.userAuthMiddleware)
+	pluginGroup := e.Group("/plugin", s.VaultAuthMiddleware)
 	pluginGroup.POST("/policy", s.CreatePluginPolicy)
 	pluginGroup.PUT("/policy", s.UpdatePluginPolicyById)
-	pluginGroup.POST("/sign", s.SignPluginMessages)
-
 	pluginGroup.GET("/policies", s.GetAllPluginPolicies)
 	pluginGroup.GET("/policy/:policyId", s.GetPluginPolicyById)
 	pluginGroup.DELETE("/policy/:policyId", s.DeletePluginPolicyById)
-	pluginGroup.GET("/policies/:policyId/history", s.GetPluginPolicyTransactionHistory, s.AuthMiddleware)
+	pluginGroup.GET("/policies/:policyId/history", s.GetPluginPolicyTransactionHistory)
 
 	pluginsGroup := e.Group("/plugins")
 	pluginsGroup.GET("", s.GetPlugins)
@@ -393,7 +391,7 @@ func (s *Server) Auth(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid public key format"))
 	}
 
-	//extract the public key from the signature , make sure it match the eth public key
+	// extract the public key from the signature , make sure it match the eth public key
 	success, err := sigutil.VerifyEthAddressSignature(ecommon.HexToAddress(ethAddress), []byte(req.Message), sigBytes)
 	if err != nil {
 		s.logger.Errorf("signature verification failed: %v", err)

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
@@ -380,7 +381,7 @@ func (s *Server) Auth(c echo.Context) error {
 	}
 
 	// Decode signature from hex (remove 0x prefix first)
-	sigBytes, err := hex.DecodeString(req.Signature)
+	sigBytes, err := hex.DecodeString(strings.TrimPrefix(req.Signature, "0x"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid signature format"))
 	}

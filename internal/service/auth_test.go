@@ -316,7 +316,7 @@ func (m *MockDatabaseStorage) WithTransaction(ctx context.Context, fn func(ctx c
 	return args.Error(0)
 }
 func (m *MockDatabaseStorage) GetAPIKey(ctx context.Context, apiKey string) (*itypes.APIKey, error) {
-	args := m.Called(ctx)
+	args := m.Called(ctx, apiKey)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

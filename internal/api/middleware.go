@@ -110,15 +110,17 @@ func (s *Server) PluginAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		apiKey, err := s.db.GetAPIKey(c.Request().Context(), tokenStr)
 		if err != nil {
 			s.logger.Errorf("fail to get API key, err: %v", err)
-			return c.JSON(http.StatusInternalServerError, NewErrorResponse("Internal server error"))
+			return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to validate API key"))
 		}
 		if apiKey.Status == 0 {
 			s.logger.Warnf("API key is disabled, id: %s", apiKey.ID)
-			return c.JSON(http.StatusForbidden, NewErrorResponse("Invalid API key"))
+			return c.JSON(http.StatusUnauthorized, NewErrorResponse("Invalid API key"))
 		}
-		if apiKey.ExpiresAt.Before(time.Now()) {
-			s.logger.Warnf("API key is expired, id: %s", apiKey.ID)
-			return c.JSON(http.StatusForbidden, NewErrorResponse("API key has expired"))
+		if apiKey.ExpiresAt != nil {
+			if apiKey.ExpiresAt.Before(time.Now()) {
+				s.logger.Warnf("API key is expired, id: %s", apiKey.ID)
+				return c.JSON(http.StatusUnauthorized, NewErrorResponse("API key has expired"))
+			}
 		}
 		c.Set("plugin_id", apiKey.PluginID)
 		return next(c)

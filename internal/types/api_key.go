@@ -11,5 +11,5 @@ type APIKey struct {
 	ApiKey    string         `json:"apiKey"`
 	PluginID  types.PluginID `json:"pluginId"`
 	Status    int64          `json:"status"`
-	ExpiresAt time.Time      `json:"expires_at"`
+	ExpiresAt *time.Time     `json:"expires_at"`
 }

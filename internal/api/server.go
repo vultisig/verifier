@@ -124,7 +124,7 @@ func (s *Server) StartServer() error {
 	vaultGroup.POST("/reshare", s.ReshareVault)
 	vaultGroup.GET("/get/:pluginId/:publicKeyECDSA", s.GetVault, s.VaultAuthMiddleware)     // Get Vault Data
 	vaultGroup.GET("/exist/:pluginId/:publicKeyECDSA", s.ExistVault, s.VaultAuthMiddleware) // Check if Vault exists
-	vaultGroup.POST("/sign", s.SignPluginMessages, s.VaultAuthMiddleware)                   // Sign messages
+	vaultGroup.POST("/sign", s.SignPluginMessages, s.PluginAuthMiddleware)                  // Sign messages
 	vaultGroup.GET("/sign/response/:taskId", s.GetKeysignResult, s.PluginAuthMiddleware)    // Get keysign result
 
 	pluginGroup := e.Group("/plugin", s.VaultAuthMiddleware)

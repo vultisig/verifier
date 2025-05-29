@@ -14,8 +14,8 @@ func (p *PostgresBackend) GetAPIKey(ctx context.Context, apiKey string) (*types.
 			plugin_id, 
 			apikey, 
 			status, 
-			expires_at,
-		FROM plugin_apikeys
+			expires_at
+		FROM plugin_apikey
 		WHERE apikey = $1
 	`
 	var key types.APIKey

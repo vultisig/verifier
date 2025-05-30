@@ -122,11 +122,14 @@ func (s *Server) StartServer() error {
 
 	// Protected vault endpoints
 	vaultGroup := e.Group("/vault")
+	// Reshare vault endpoint , we only allow the vault owner to reshare the vault
 	vaultGroup.POST("/reshare", s.ReshareVault)
 	vaultGroup.GET("/get/:pluginId/:publicKeyECDSA", s.GetVault, s.VaultAuthMiddleware)     // Get Vault Data
 	vaultGroup.GET("/exist/:pluginId/:publicKeyECDSA", s.ExistVault, s.VaultAuthMiddleware) // Check if Vault exists
-	vaultGroup.POST("/sign", s.SignPluginMessages, s.PluginAuthMiddleware)                  // Sign messages
-	vaultGroup.GET("/sign/response/:taskId", s.GetKeysignResult, s.PluginAuthMiddleware)    // Get keysign result
+
+	// Sign endpoint, plugin should authenticate themselves using the API Key issued by the Verifier
+	vaultGroup.POST("/sign", s.SignPluginMessages, s.PluginAuthMiddleware)               // Sign messages
+	vaultGroup.GET("/sign/response/:taskId", s.GetKeysignResult, s.PluginAuthMiddleware) // Get keysign result
 
 	pluginGroup := e.Group("/plugin", s.VaultAuthMiddleware)
 	pluginGroup.POST("/policy", s.CreatePluginPolicy)

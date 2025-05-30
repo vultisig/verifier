@@ -33,10 +33,11 @@ CREATE TABLE plugins (
 CREATE TABLE plugin_policy_sync (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     policy_id UUID NOT NULL REFERENCES plugin_policies(id) ON DELETE CASCADE,
-    tx_hash VARCHAR(255) NOT NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
-    signature TEXT,
     plugin_id plugin_id NOT NULL REFERENCES plugins(id) ON DELETE CASCADE,
+    sync_type INT NOT NULL, -- 0: add policy, 1: update, 2: delete
+    signature TEXT,
+    status INT NOT NULL DEFAULT 0, -- 0: not sync, 1: synced, 2: failed
+    reason TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

@@ -14,15 +14,11 @@ import (
 	"math"
 	"strings"
 
-	"github.com/eager7/dogd/btcec"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/ulikunitz/xz"
 	v1 "github.com/vultisig/commondata/go/vultisig/keygen/v1"
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
-	"github.com/vultisig/mobile-tss-lib/tss"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -271,31 +267,6 @@ func DecryptGCM(rawData []byte, hexEncryptKey string) ([]byte, error) {
 	}
 
 	return plaintext, nil
-}
-
-// TODO: pass if the key is ecdsa or eddsa
-func DeriveAddress(compressedPubKeyHex, hexChainCode, derivePath string) (*common.Address, error) {
-	derivedPubKeyHex, err := tss.GetDerivedPubKey(compressedPubKeyHex, hexChainCode, derivePath, false)
-	if err != nil {
-		return nil, err
-	}
-
-	derivedPubKeyBytes, err := hex.DecodeString(derivedPubKeyHex)
-	if err != nil {
-		return nil, err
-	}
-
-	derivedPubKey, err := btcec.ParsePubKey(derivedPubKeyBytes, btcec.S256())
-	if err != nil {
-		return nil, err
-	}
-
-	uncompressedPubKeyBytes := derivedPubKey.SerializeUncompressed()
-	pubKeyBytesWithoutPrefix := uncompressedPubKeyBytes[1:]
-	hash := crypto.Keccak256(pubKeyBytesWithoutPrefix)
-	address := common.BytesToAddress(hash[12:])
-
-	return &address, nil
 }
 
 func GetVaultBackupFilename(publicKey, pluginId string) string {

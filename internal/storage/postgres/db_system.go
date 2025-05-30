@@ -1,17 +1,14 @@
 package postgres
 
 import (
-	"embed"
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"github.com/sirupsen/logrus"
+	"github.com/vultisig/verifier/common"
 )
-
-//go:embed migrations/system/*.sql
-var systemMigrations embed.FS
 
 // SystemMigrationManager handles system-level migrations (plugin_policies table)
 type SystemMigrationManager struct {
@@ -24,7 +21,7 @@ func NewSystemMigrationManager(pool *pgxpool.Pool) *SystemMigrationManager {
 
 func (s *SystemMigrationManager) Migrate() error {
 	logrus.Info("Starting system database migration...")
-	goose.SetBaseFS(systemMigrations)
+	goose.SetBaseFS(common.SystemMigrations())
 	defer goose.SetBaseFS(nil)
 	if err := goose.SetDialect("postgres"); err != nil {
 		return fmt.Errorf("failed to set goose dialect: %w", err)

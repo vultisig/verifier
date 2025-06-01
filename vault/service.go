@@ -16,7 +16,6 @@ import (
 	"github.com/sirupsen/logrus"
 	keygenType "github.com/vultisig/commondata/go/vultisig/keygen/v1"
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
-	"github.com/vultisig/vultiserver/common"
 	"github.com/vultisig/vultiserver/contexthelper"
 
 	"github.com/vultisig/verifier/types"
@@ -232,27 +231,14 @@ func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task
 		return fmt.Errorf("invalid reshare request: %s: %w", err, asynq.SkipRetry)
 	}
 
-	var vault *vaultType.Vault
-	// trying to get existing vault
-	vaultFileName := req.PublicKey + ".bak"
-	vaultContent, err := s.vaultStorage.GetVault(vaultFileName)
-	if err != nil || vaultContent == nil {
-		vault = &vaultType.Vault{
-			Name:           req.Name,
-			PublicKeyEcdsa: "",
-			PublicKeyEddsa: "",
-			HexChainCode:   req.HexChainCode,
-			LocalPartyId:   req.LocalPartyId,
-			Signers:        req.OldParties,
-			LibType:        keygenType.LibType_LIB_TYPE_DKLS,
-		}
-	} else {
-		// decrypt the vault
-		vault, err = common.DecryptVaultFromBackup(s.cfg.EncryptionSecret, vaultContent)
-		if err != nil {
-			s.logger.Errorf("fail to decrypt vault from the backup, err: %v", err)
-			return fmt.Errorf("fail to decrypt vault from the backup, err: %v: %w", err, asynq.SkipRetry)
-		}
+	vault := &vaultType.Vault{
+		Name:           req.Name,
+		PublicKeyEcdsa: "",
+		PublicKeyEddsa: "",
+		HexChainCode:   req.HexChainCode,
+		LocalPartyId:   s.cfg.LocalPartyId,
+		Signers:        req.OldParties,
+		LibType:        keygenType.LibType_LIB_TYPE_DKLS,
 	}
 
 	service, err := NewDKLSTssService(s.cfg, s.vaultStorage, s.queueClient)

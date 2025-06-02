@@ -338,15 +338,15 @@ func (s *Server) GetPluginRecipeSpecification(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("plugin id is required"))
 	}
 
-	fmt.Printf("[GetPluginRecipeSpecification] Getting recipe spec for pluginID=%s\n", pluginID)
+	s.logger.Debugf("[GetPluginRecipeSpecification] Getting recipe spec for pluginID=%s\n", pluginID)
 
 	recipeSpec, err := s.pluginService.GetPluginRecipeSpecification(c.Request().Context(), pluginID)
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get plugin recipe specification")
-		fmt.Printf("[GetPluginRecipeSpecification] Failed to get recipe spec: %v\n", err)
+		s.logger.Debugf("[GetPluginRecipeSpecification] Failed to get recipe spec: %v\n", err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get recipe specification"))
 	}
 
-	fmt.Printf("[GetPluginRecipeSpecification] Successfully got recipe spec for plugin %s\n", pluginID)
+	s.logger.Debugf("[GetPluginRecipeSpecification] Successfully got recipe spec for plugin %s\n", pluginID)
 	return c.JSON(http.StatusOK, recipeSpec)
 }

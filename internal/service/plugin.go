@@ -127,7 +127,7 @@ func (s *PluginService) GetPluginRecipeSpecification(ctx context.Context, plugin
 		if err == nil && cached != "" {
 			var cachedSpec interface{}
 			if err := json.Unmarshal([]byte(cached), &cachedSpec); err == nil {
-				fmt.Printf("[GetPluginRecipeSpecification] Cache hit for plugin %s\n", pluginID)
+				s.logger.Debugf("[GetPluginRecipeSpecification] Cache hit for plugin %s\n", pluginID)
 				return cachedSpec, nil
 			}
 		}
@@ -149,7 +149,10 @@ func (s *PluginService) GetPluginRecipeSpecification(ctx context.Context, plugin
 	if s.redis != nil {
 		specBytes, _ := json.Marshal(recipeSpec)
 		_ = s.redis.Set(ctx, cacheKey, string(specBytes), 2*time.Hour)
-		fmt.Printf("[GetPluginRecipeSpecification] Cached recipe spec for plugin %s\n", pluginID)
+		if err := s.redis.Set(ctx, cacheKey, string(specBytes), 2*time.Hour); err != nil {
+			s.logger.WithError(err).Warnf("Failed to cache recipe spec for plugin %s", pluginID)
+		}
+		s.logger.Debugf("[GetPluginRecipeSpecification] Cached recipe spec for plugin %s\n", pluginID)
 	}
 
 	return recipeSpec, nil
@@ -159,7 +162,7 @@ func (s *PluginService) GetPluginRecipeSpecification(ctx context.Context, plugin
 func (s *PluginService) fetchRecipeSpecificationFromPlugin(ctx context.Context, serverEndpoint string) (interface{}, error) {
 	url := fmt.Sprintf("%s/recipe-specification", strings.TrimSuffix(serverEndpoint, "/"))
 
-	fmt.Printf("[fetchRecipeSpecificationFromPlugin] Calling plugin endpoint: %s\n", url)
+	s.logger.Debugf("[fetchRecipeSpecificationFromPlugin] Calling plugin endpoint: %s\n", url)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {

@@ -1,5 +1,6 @@
 import SevenZip from '7z-wasm';
 import { fromBinary } from '@bufbuild/protobuf';
+import pMemoize from 'p-memoize';
 // Import your proto schemas here
 // import { ReshareMessageSchema } from '@/proto/reshare_message_pb';
 // import { KeysignMessageSchema } from '@/proto/keysign_message_pb';
@@ -10,24 +11,11 @@ const tssSchemas: Record<string, any> = {
   Reshare: ReshareMessageSchema,
   // Add other types as needed
 };
-
-// Simple Promise memoizer – resolves the async fn once and reuses the same promise thereafter
-export function memoizeAsync<F extends (...args: any[]) => Promise<any>>(fn: F): F {
-  let cached: Promise<ReturnType<F>> | undefined;
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-  return (async (...args: Parameters<F>): Promise<ReturnType<F>> => {
-    if (!cached) {
-      cached = fn(...args);
-    }
-    return cached as Promise<ReturnType<F>>;
-  }) as unknown as F;
-}
-
-export const getSevenZip = memoizeAsync(() => {
-  return SevenZip({
-    locateFile: (file: any) => `/7z-wasm/${file}`,
-  }).catch(() => SevenZip())
-})
+ 
+// 7zz.wasm copied to /public, so instruct 7z-wasm to fetch from root
+export const getSevenZip = pMemoize(async () => {
+  return SevenZip({ locateFile: () => "/7zz.wasm" }).catch(() => SevenZip());
+});
 
 export const decompressQrPayload = async (value: string): Promise<Uint8Array> => {
   // Normalize base64 (handle URL-safe chars, missing padding, whitespace)
@@ -42,6 +30,7 @@ export const decompressQrPayload = async (value: string): Promise<Uint8Array> =>
   console.log("bufferData", bufferData);
 
   const sevenZip = await getSevenZip();
+  console.log("sevenZip", sevenZip);
   sevenZip.FS.writeFile('data.xz', bufferData);
   sevenZip.callMain(['x', 'data.xz', '-y']);
   return sevenZip.FS.readFile('data');

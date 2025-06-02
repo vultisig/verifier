@@ -84,6 +84,37 @@ const VulticonnectWalletService = {
     }
   },
 
+
+  startReshareSession: async () => {
+    if (!window.vultisig?.ethereum) {
+      publish("onToast", {
+        message: "No ethereum provider found. Please install VultiConnect.",
+        type: "error",
+      });
+      return;
+    }
+
+    // console.log("hexMessage", hexMessage);
+    // console.log("walletAddress", walletAddress);
+
+    try {
+      const response = await window.vultisig.plugin.request({method:"plugin_request_reshare"});
+
+      console.log("response", response);
+
+
+      // if (signature && signature.error) {
+      //   throw signature.error;
+      // }
+      return true;
+    } catch (error) {
+      console.error("Failed to sign the message", error);
+      throw new Error("Failed to sign the message");
+    }
+  },
+
+
+
   getVaults: async () => {
     if (!window.vultisig) {
       publish("onToast", {

@@ -2,7 +2,6 @@ import Button from "@/modules/core/components/ui/button/Button";
 import VulticonnectWalletService from "./vulticonnectWalletService";
 import { useEffect, useState } from "react";
 import {
-  generateHexMessage,
   setLocalStorageAuthToken,
 } from "./wallet.utils";
 import { publish } from "@/utils/eventBus";
@@ -104,33 +103,33 @@ const Wallet = () => {
       const nonce = ethers.hexlify(ethers.randomBytes(16));
       const expiryTime = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 minutes from now
 
-      // 5. Generate hex message for signing
-      const signingMessage = JSON.stringify({
-        message: "Sign into Vultisig App Store",
-        nonce: nonce,
-        expiresAt: expiryTime,
-        address: walletAddress
-      });
+      // // 5. Generate hex message for signing
+      // const signingMessage = JSON.stringify({
+      //   message: "Sign into Vultisig App Store",
+      //   nonce: nonce,
+      //   expiresAt: expiryTime,
+      //   address: walletAddress
+      // });
 
-      // 6. Sign the message using VultiConnect
-      const signature = await VulticonnectWalletService.signCustomMessage(
-        signingMessage,
-        walletAddress
-      );
+      // // 6. Sign the message using VultiConnect
+      // const signature = await VulticonnectWalletService.signCustomMessage(
+      //   signingMessage,
+      //   walletAddress
+      // );
 
-      console.log("signature", signature);
+      // console.log("signature", signature);
 
-      // 7. Call auth endpoint
-      const token = await MarketplaceService.getAuthToken(
-        signingMessage,
-        signature,
-        publicKey,
-        chainCodeHex
-      );
+      // // 7. Call auth endpoint
+      // const token = await MarketplaceService.getAuthToken(
+      //   signingMessage,
+      //   signature,
+      //   publicKey,
+      //   chainCodeHex
+      // );
 
-      // 8. Store token and update state
-      localStorage.setItem("authToken", token);
-      setAuthToken(token);
+      // // 8. Store token and update state
+      // localStorage.setItem("authToken", token);
+      // setAuthToken(token);
       setConnectedWallet(true);
 
       publish("onToast", {

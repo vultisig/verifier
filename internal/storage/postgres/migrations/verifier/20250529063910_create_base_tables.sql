@@ -19,7 +19,7 @@ CREATE TABLE pricings (
 
 -- Plugins table (simplified)
 CREATE TABLE plugins (
-    id plugin_id PRIMARY KEY,
+    id TEXT PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     server_endpoint TEXT NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE plugins (
 CREATE TABLE plugin_policy_sync (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     policy_id UUID NOT NULL REFERENCES plugin_policies(id) ON DELETE CASCADE,
-    plugin_id plugin_id NOT NULL REFERENCES plugins(id) ON DELETE CASCADE,
+    plugin_id TEXT NOT NULL REFERENCES plugins(id) ON DELETE CASCADE,
     sync_type INT NOT NULL, -- 0: add policy, 1: update, 2: delete
     signature TEXT,
     status INT NOT NULL DEFAULT 0, -- 0: not sync, 1: synced, 2: failed
@@ -64,7 +64,7 @@ CREATE TABLE tags (
 
 -- Plugin tags junction table
 CREATE TABLE plugin_tags (
-    plugin_id plugin_id REFERENCES plugins(id) ON DELETE CASCADE,
+    plugin_id TEXT REFERENCES plugins(id) ON DELETE CASCADE,
     tag_id UUID REFERENCES tags(id) ON DELETE CASCADE,
     PRIMARY KEY (plugin_id, tag_id)
 );
@@ -72,7 +72,7 @@ CREATE TABLE plugin_tags (
 -- Reviews
 CREATE TABLE reviews (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    plugin_id plugin_id REFERENCES plugins(id) ON DELETE CASCADE,
+    plugin_id TEXT REFERENCES plugins(id) ON DELETE CASCADE,
     public_key TEXT NOT NULL,
     rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
     comment TEXT,
@@ -82,7 +82,7 @@ CREATE TABLE reviews (
 
 -- Plugin ratings (aggregated)
 CREATE TABLE plugin_ratings (
-    plugin_id plugin_id PRIMARY KEY REFERENCES plugins(id) ON DELETE CASCADE,
+    plugin_id TEXT PRIMARY KEY REFERENCES plugins(id) ON DELETE CASCADE,
     avg_rating DECIMAL(3, 2) NOT NULL DEFAULT 0,
     total_ratings INTEGER NOT NULL DEFAULT 0,
     rating_1_count INTEGER NOT NULL DEFAULT 0,
@@ -103,5 +103,16 @@ CREATE INDEX idx_reviews_public_key ON reviews(public_key);
 
 -- +goose Down
 -- +goose StatementBegin
-ROLLBACK;
+DROP TABLE IF EXISTS plugin_ratings;
+DROP TABLE IF EXISTS reviews;
+DROP TABLE IF EXISTS plugin_tags;
+DROP TABLE IF EXISTS tags;
+DROP TABLE IF EXISTS vault_tokens;
+DROP TABLE IF EXISTS plugin_policy_sync;
+DROP TABLE IF EXISTS plugins;
+DROP TABLE IF EXISTS pricings;
+DROP TYPE IF EXISTS pricing_type;
+DROP TYPE IF EXISTS pricing_metric;
+DROP TYPE IF EXISTS pricing_frequency;
+DROP TYPE IF EXISTS plugin_category;
 -- +goose StatementEnd

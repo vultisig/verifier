@@ -13,10 +13,16 @@ const normalizeBase64 = (str: string) => {
 
 // 7zz.wasm copied from extension codebase to /public folder
 export const getSevenZip = pMemoize(async () => {
-  return SevenZip({ locateFile: () => "/7zz.wasm" }).catch(() => SevenZip());
+  try {
+    return await SevenZip({ locateFile: () => "/7zz.wasm" });
+  } catch (error) {
+    console.warn('Failed to load 7z-wasm with custom locateFile, falling back to default', error);
+    return await SevenZip();
+  }
 });
 
 export const decompressQrPayload = async (value: string): Promise<Uint8Array> => {
+  try {
   const b64 = normalizeBase64(value);
   const bufferData = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
   // console.log("bufferData", bufferData);
@@ -26,10 +32,18 @@ export const decompressQrPayload = async (value: string): Promise<Uint8Array> =>
   sevenZip.FS.writeFile('data.xz', bufferData);
   sevenZip.callMain(['x', 'data.xz', '-y']);
   return sevenZip.FS.readFile('data');
+  } catch (error) {
+    console.error("Failed to decompress QR payload", error);
+    throw new Error("Failed to decompress QR payload");
+  }
 };
 
-export const decodeTssPayload = (tssType: string, payload: Uint8Array) => {
-  const schema = ReshareMessageSchema;
-  if (!schema) throw new Error(`Unknown TSS type: ${tssType}`);
-  return fromBinary(schema, payload);
+export const decodeTssPayload = (payload: Uint8Array) => {
+  try {
+    const schema = ReshareMessageSchema;
+    return fromBinary(schema, payload);
+  } catch (error) {
+    console.error("Failed to decode TSS payload", error);
+    throw new Error("Failed to decode TSS payload");
+  }
 }; 

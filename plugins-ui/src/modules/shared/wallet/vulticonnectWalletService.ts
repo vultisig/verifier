@@ -100,13 +100,11 @@ const VulticonnectWalletService = {
       const url = new URL(response);
       console.log("url", url);
       const jsonData = url.searchParams.get("jsonData");
-      const tssType = url.searchParams.get("tssType");
+      // const tssType = url.searchParams.get("tssType");
 
-      console.log("jsonData", jsonData);
-      console.log("tssType", tssType);
+      // console.log("jsonData", jsonData);
 
       if (!jsonData) throw new Error("jsonData param missing in deeplink");
-      if (!tssType) throw new Error("tssType param missing in deeplink");
 
       // Decompress the payload
       const payload = await decompressQrPayload(jsonData);

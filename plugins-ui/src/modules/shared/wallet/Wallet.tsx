@@ -2,7 +2,6 @@ import Button from "@/modules/core/components/ui/button/Button";
 import VulticonnectWalletService from "./vulticonnectWalletService";
 import { useEffect, useState } from "react";
 import {
-  generateHexMessage,
   setLocalStorageAuthToken,
 } from "./wallet.utils";
 import { publish } from "@/utils/eventBus";

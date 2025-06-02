@@ -6,6 +6,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/vultisig/verifier/internal/types"
+	"strings"
 )
 
 type BitcoinClient struct {
@@ -14,10 +15,21 @@ type BitcoinClient struct {
 
 func NewBitcoinClient(rpcURL string) (*BitcoinClient, error) {
 	cl, err := rpcclient.New(&rpcclient.ConnConfig{
-		Host: rpcURL,
+		Host:         strings.TrimPrefix(rpcURL, "https://"),
+		HTTPPostMode: true,
+
+		// should be not empty, otherwise btc-client would try to load cookie from a local file which is empty
+		User: "user",
+		Pass: "pass",
 	}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("rpcclient.New: %w", err)
+	}
+
+	// ping
+	_, err = cl.GetBlockCount()
+	if err != nil {
+		return nil, fmt.Errorf("cl.GetBlockCount: %w", err)
 	}
 
 	return &BitcoinClient{
@@ -35,7 +47,7 @@ func (c *BitcoinClient) GetTxStatus(ctx context.Context, txHash string) (types.T
 		return "", fmt.Errorf("chainhash.NewHashFromStr: %w", err)
 	}
 
-	tx, err := c.rpc.GetTransaction(hash)
+	tx, err := c.rpc.GetRawTransaction(hash)
 	if err != nil || tx == nil {
 		return types.TxOnChainPending, nil
 	}

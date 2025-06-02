@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
+	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/types"
 	"time"
 )
@@ -23,7 +23,7 @@ func (p *PostgresBackend) createTx(ctx context.Context, tx types.Tx) error {
                         lost,
                         broadcasted_at,
                         created_at,
-                        updated_at,
+                        updated_at
 ) VALUES (
           $1,
           $2,
@@ -57,36 +57,15 @@ func (p *PostgresBackend) createTx(ctx context.Context, tx types.Tx) error {
 	return nil
 }
 
-func decodeTxRow(rows pgx.Rows) (types.Tx, error) {
-	var tx types.Tx
-	err := rows.Scan(
-		&tx.ID,
-		&tx.PluginID,
-		&tx.TxHash,
-		&tx.ChainID,
-		&tx.PolicyID,
-		&tx.FromPublicKey,
-		&tx.ProposedTxObject,
-		&tx.Status,
-		&tx.StatusOnChain,
-		&tx.Lost,
-		&tx.BroadcastedAt,
-		&tx.CreatedAt,
-		&tx.UpdatedAt,
-	)
-	if err != nil {
-		return types.Tx{}, fmt.Errorf("rows.Scan: %w", err)
-	}
-	return tx, nil
-}
-
 func (p *PostgresBackend) SetStatus(c context.Context, id uuid.UUID, status types.TxStatus) error {
 	ctx, cancel := context.WithTimeout(c, defaultTimeout)
 	defer cancel()
 
 	_, err := p.pool.Exec(
 		ctx,
-		`UPDATE tx_indexer SET status = $1 AND updated_at = now() WHERE id = $2`,
+		`UPDATE tx_indexer SET status = $1::tx_indexer_status,
+                                   updated_at = now()
+                               WHERE id = $2`,
 		status,
 		id,
 	)
@@ -102,7 +81,9 @@ func (p *PostgresBackend) SetLost(c context.Context, id uuid.UUID) error {
 
 	_, err := p.pool.Exec(
 		ctx,
-		`UPDATE tx_indexer SET lost = $1 AND updated_at = now() WHERE id = $2`,
+		`UPDATE tx_indexer SET lost = $1,
+                                   updated_at = now()
+                               WHERE id = $2`,
 		true,
 		id,
 	)
@@ -118,8 +99,12 @@ func (p *PostgresBackend) SetSignedAndBroadcasted(c context.Context, id uuid.UUI
 
 	_, err := p.pool.Exec(
 		ctx,
-		`UPDATE tx_indexer SET status = $1 AND status_onchain = $2 AND tx_hash = $3 AND broadcasted_at = now()
-                                   AND updated_at = now() WHERE id = $4`,
+		`UPDATE tx_indexer SET status = $1::tx_indexer_status,
+                                   status_onchain = $2::tx_indexer_status_onchain,
+                                   tx_hash = $3,
+                                   broadcasted_at = now(),
+                                   updated_at = now()
+                               WHERE id = $4`,
 		types.TxSigned,
 		types.TxOnChainPending,
 		txHash,
@@ -137,7 +122,9 @@ func (p *PostgresBackend) SetOnChainStatus(c context.Context, id uuid.UUID, stat
 
 	_, err := p.pool.Exec(
 		ctx,
-		`UPDATE tx_indexer SET status_onchain = $1 AND updated_at = now() WHERE id = $2`,
+		`UPDATE tx_indexer SET status_onchain = $1::tx_indexer_status_onchain,
+                                   updated_at = now()
+                               WHERE id = $2`,
 		status,
 		id,
 	)
@@ -147,37 +134,34 @@ func (p *PostgresBackend) SetOnChainStatus(c context.Context, id uuid.UUID, stat
 	return nil
 }
 
-func (p *PostgresBackend) GetPendingTxs(ctx context.Context) <-chan types.TxErr {
-	ch := make(chan types.TxErr)
+func (p *PostgresBackend) GetPendingTxs(ctx context.Context) <-chan storage.RowsStream[types.Tx] {
+	return storage.GetRowsStream[types.Tx](
+		ctx,
+		p.pool,
+		types.TxFromRow,
+		`SELECT * FROM tx_indexer WHERE status_onchain = $1 AND lost = $2`,
+		types.TxOnChainPending,
+		false,
+	)
+}
 
-	go func() {
-		defer close(ch)
+func (p *PostgresBackend) GetTxByID(c context.Context, id uuid.UUID) (types.Tx, error) {
+	ctx, cancel := context.WithTimeout(c, defaultTimeout)
+	defer cancel()
 
-		rows, err := p.pool.Query(
-			ctx,
-			`SELECT * FROM tx_indexer WHERE status_onchain = $1 AND lost = $2`,
-			types.TxOnChainPending,
-			false,
-		)
-		if err != nil {
-			ch <- types.TxErr{Err: fmt.Errorf("p.pool.Query: %w", err)}
-			return
-		}
+	rows, err := p.pool.Query(ctx, `SELECT * FROM tx_indexer WHERE id = $1 LIMIT 1`, id)
+	if err != nil {
+		return types.Tx{}, fmt.Errorf("p.pool.Query: %w", err)
+	}
+	if !rows.Next() {
+		return types.Tx{}, fmt.Errorf("rows.Next: %w", err)
+	}
 
-		for rows.Next() {
-			tx, er := decodeTxRow(rows)
-			if er != nil {
-				ch <- types.TxErr{Err: fmt.Errorf("decodeTxRow: %w", err)}
-				return
-			}
-
-			ch <- types.TxErr{
-				Tx: tx,
-			}
-		}
-	}()
-
-	return ch
+	tx, err := types.TxFromRow(rows)
+	if err != nil {
+		return types.Tx{}, fmt.Errorf("types.TxFromRow: %w", err)
+	}
+	return tx, nil
 }
 
 func (p *PostgresBackend) CreateTx(c context.Context, req types.CreateTxDto) (types.Tx, error) {
@@ -194,7 +178,7 @@ func (p *PostgresBackend) CreateTx(c context.Context, req types.CreateTxDto) (ty
 		ID:               id,
 		PluginID:         req.PluginID,
 		TxHash:           nil,
-		ChainID:          req.ChainID,
+		ChainID:          int(req.ChainID),
 		PolicyID:         req.PolicyID,
 		FromPublicKey:    req.FromPublicKey,
 		ProposedTxObject: req.ProposedTxObject,

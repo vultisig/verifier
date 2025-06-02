@@ -8,6 +8,7 @@ import (
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/graceful"
 	"github.com/vultisig/verifier/internal/rpc"
+	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/internal/tx_indexer"
 	"golang.org/x/sync/errgroup"
 )
@@ -22,14 +23,19 @@ func main() {
 		panic(fmt.Errorf("config.ReadTxIndexerConfig: %w", err))
 	}
 
-	rpcBtc, err := rpc.NewBitcoinClient(cfg.Rpc.Bitcoin)
+	rpcBtc, err := rpc.NewBitcoinClient(cfg.Rpc.Bitcoin.URL)
 	if err != nil {
 		panic(fmt.Errorf("rpc.NewBitcoinClient: %w", err))
 	}
 
-	rpcEth, err := rpc.NewEvmClient(ctx, cfg.Rpc.Ethereum)
+	rpcEth, err := rpc.NewEvmClient(ctx, cfg.Rpc.Ethereum.URL)
 	if err != nil {
 		panic(fmt.Errorf("rpc.NewEvmClient: %w", err))
+	}
+
+	db, err := postgres.NewPostgresBackend(cfg.Database.DSN)
+	if err != nil {
+		panic(fmt.Errorf("postgres.NewPostgresBackend: %w", err))
 	}
 
 	worker := tx_indexer.NewWorker(
@@ -38,6 +44,7 @@ func main() {
 		cfg.IterationTimeout,
 		cfg.MarkLostAfter,
 		cfg.Concurrency,
+		db,
 		map[common.Chain]rpc.TxIndexer{
 			common.Bitcoin:  rpcBtc,
 			common.Ethereum: rpcEth,

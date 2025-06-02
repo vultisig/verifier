@@ -30,10 +30,12 @@ func NewWorker(
 	iterationTimeout time.Duration,
 	markLostAfter time.Duration,
 	concurrency int,
+	repo storage.TxIndexerRepository,
 	clients map[common.Chain]rpc.TxIndexer,
 ) *Worker {
 	return &Worker{
 		logger:           logger.WithField("pkg", "tx_indexer.worker").Logger,
+		repo:             repo,
 		interval:         interval,
 		iterationTimeout: iterationTimeout,
 		markLostAfter:    markLostAfter,
@@ -43,15 +45,20 @@ func NewWorker(
 }
 
 func (w *Worker) Start(aliveCtx context.Context) error {
+	err := w.updatePendingTxs()
+	if err != nil {
+		return fmt.Errorf("w.updatePendingTxs: %w", err)
+	}
+
 	for {
 		select {
 		case <-aliveCtx.Done():
 			w.logger.Infof("context done & no processing: stop worker")
 			return nil
 		case <-time.After(w.interval):
-			err := w.updatePendingTxs()
-			if err != nil {
-				w.logger.Errorf("processing error, continue loop: %v", err)
+			er := w.updatePendingTxs()
+			if er != nil {
+				w.logger.Errorf("processing error, continue loop: %v", er)
 			}
 		}
 	}
@@ -79,13 +86,17 @@ func (w *Worker) updateTxStatus(ctx context.Context, tx types.Tx) error {
 		return nil
 	}
 
-	client, ok := w.clients[tx.ChainID]
+	client, ok := w.clients[common.Chain(tx.ChainID)]
 	if !ok {
 		err := w.repo.SetLost(ctx, tx.ID)
 		if err != nil {
 			return fmt.Errorf("w.repo.SetLost: %w", err)
 		}
-		w.logger.WithFields(fields).Infof("updated as lost (rpc unimplemented, chain=%s)", tx.ChainID.String())
+		w.logger.WithFields(fields).Infof(
+			"updated as lost (rpc unimplemented, chain=%s, tx_id=%s)",
+			common.Chain(tx.ChainID).String(),
+			tx.ID.String(),
+		)
 		return nil
 	}
 
@@ -123,7 +134,7 @@ func (w *Worker) updatePendingTxs() error {
 				return fmt.Errorf("row.Err: %w", row.Err)
 			}
 
-			err := w.updateTxStatus(ctx, row.Tx)
+			err := w.updateTxStatus(ctx, row.Row)
 			if err != nil {
 				return fmt.Errorf("w.updateTxStatus: %w", err)
 			}

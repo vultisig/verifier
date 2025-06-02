@@ -41,8 +41,9 @@ type TxIndexerRepository interface {
 	SetLost(ctx context.Context, id uuid.UUID) error
 	SetSignedAndBroadcasted(ctx context.Context, id uuid.UUID, txHash string) error
 	SetOnChainStatus(ctx context.Context, id uuid.UUID, status itypes.TxOnChainStatus) error
-	GetPendingTxs(ctx context.Context) <-chan itypes.TxErr
+	GetPendingTxs(ctx context.Context) <-chan RowsStream[itypes.Tx]
 	CreateTx(ctx context.Context, req itypes.CreateTxDto) (itypes.Tx, error)
+	GetTxByID(c context.Context, id uuid.UUID) (itypes.Tx, error)
 }
 
 type PolicyRepository interface {

@@ -47,8 +47,12 @@ type TxIndexerConfig struct {
 }
 
 type RpcConfig struct {
-	Bitcoin  string `mapstructure:"bitcoin" json:"bitcoin,omitempty"`
-	Ethereum string `mapstructure:"ethereum" json:"ethereum,omitempty"`
+	Bitcoin  RpcItem `mapstructure:"bitcoin" json:"bitcoin,omitempty"`
+	Ethereum RpcItem `mapstructure:"ethereum" json:"ethereum,omitempty"`
+}
+
+type RpcItem struct {
+	URL string `mapstructure:"url" json:"url,omitempty"`
 }
 
 type DatadogConfig struct {

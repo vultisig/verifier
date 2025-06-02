@@ -110,10 +110,9 @@ const VulticonnectWalletService = {
 
       // Decompress the payload
       const payload = await decompressQrPayload(jsonData);
-      console.log("payload 1 ", payload);
+      
       // Decode the binary using the correct schema
       const reshareMsg = decodeTssPayload(tssType, payload);
-
 
       console.log("reshareMsg", reshareMsg);
 

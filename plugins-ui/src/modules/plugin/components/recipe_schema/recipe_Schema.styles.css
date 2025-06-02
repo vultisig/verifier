@@ -1,0 +1,59 @@
+.recipe-schema-popup {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.recipe-schema-content {
+  background: #181A20;
+  border-radius: 12px;
+  padding: 32px 28px 28px 28px;
+  min-width: 400px;
+  max-width: 90vw;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.35);
+  position: relative;
+  color: #F0F4FC;
+  border: 1.5px solid #23242b;
+}
+.recipe-schema-content.error {
+  border: 2px solid #e57373;
+}
+.recipe-schema-close {
+  position: absolute;
+  top: 14px;
+  right: 20px;
+  background: none;
+  border: none;
+  font-size: 2rem;
+  color: #888;
+  cursor: pointer;
+  font-weight: bold;
+  transition: color 0.2s;
+}
+.recipe-schema-close:hover {
+  color: #e57373;
+}
+.recipe-schema-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+}
+.recipe-schema-error-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+  color: #e57373;
+}
+.recipe-schema-error-text {
+  color: #e57373;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+h2 {
+  color: #F0F4FC;
+  margin-bottom: 18px;
+}

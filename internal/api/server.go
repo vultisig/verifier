@@ -70,7 +70,7 @@ func NewServer(
 		logrus.Fatalf("Failed to initialize policy service: %v", err)
 	}
 
-	pluginService, err := service.NewPluginService(db, logger)
+	pluginService, err := service.NewPluginService(db, redis, logger)
 	if err != nil {
 		logrus.Fatalf("Failed to initialize plugin service: %v", err)
 	}
@@ -145,6 +145,7 @@ func (s *Server) StartServer() error {
 
 	pluginsGroup.GET("/:pluginId/reviews", s.GetReviews)
 	pluginsGroup.POST("/:pluginId/reviews", s.CreateReview, s.AuthMiddleware)
+	pluginsGroup.GET("/:pluginId/recipe-specification", s.GetPluginRecipeSpecification)
 
 	categoriesGroup := e.Group("/categories")
 	categoriesGroup.GET("", s.GetCategories)

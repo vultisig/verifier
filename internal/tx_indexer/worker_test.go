@@ -13,6 +13,7 @@ import (
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/internal/types"
+	"os"
 	"testing"
 )
 
@@ -58,6 +59,10 @@ func createWorker() (*Worker, context.CancelFunc, storage.TxIndexerRepository, e
 }
 
 func TestWorker_positive(t *testing.T) {
+	if os.Getenv("INTEGRATION_TESTS") != "true" {
+		return
+	}
+
 	ctx := context.Background()
 
 	worker, stop, db, createErr := createWorker()

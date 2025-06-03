@@ -13,16 +13,31 @@ import (
 
 func TestAddPluginPolicySync(t *testing.T) {
 	t.Skip("Skipping postgres test")
-	db, err := NewPostgresBackend("user=myuser password=mypassword dbname=vultisig-verifier host=localhost port=5432 sslmode=disable")
+	db, err := NewPostgresBackend("user=myuser password=mypassword dbname=vultisig-verifier host=localhost port=5432 sslmode=disable", nil)
 	assert.NoError(t, err)
 	ctx := context.Background()
 	tx, err := db.Pool().Begin(ctx)
 	assert.NoError(t, err)
 	syncID := uuid.New()
+	policy, err := db.InsertPluginPolicyTx(ctx, tx, ptypes.PluginPolicy{
+		ID:            uuid.New(),
+		PluginID:      ptypes.PluginVultisigPayroll_0000,
+		PublicKey:     "publicKey",
+		Signature:     "signature",
+		Recipe:        "recipe",
+		Active:        true,
+		PluginVersion: "1.0.0",
+		PolicyVersion: "1",
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, policy)
+	if err != nil {
+		return
+	}
 	err = db.AddPluginPolicySync(ctx, tx, itypes.PluginPolicySync{
 		ID:         syncID,
-		PolicyID:   uuid.New(),
-		PluginID:   ptypes.PluginVultisigDCA_0000,
+		PolicyID:   policy.ID,
+		PluginID:   ptypes.PluginVultisigPayroll_0000,
 		SyncType:   itypes.AddPolicy,
 		Signature:  "signature",
 		Status:     itypes.NotSynced,

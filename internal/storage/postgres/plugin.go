@@ -2,14 +2,11 @@ package postgres
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/vultisig/verifier/common"
@@ -21,11 +18,10 @@ const PLUGINS_TABLE = "plugins"
 const PLUGIN_TAGS_TABLE = "plugin_tags"
 const REVIEWS_TABLE = "reviews"
 
-func (P *PostgresBackend) collectPlugins(rows pgx.Rows) ([]types.Plugin, error) {
+func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]types.Plugin, error) {
 	defer rows.Close()
 
 	var plugins []types.Plugin
-	pluginMap := make(map[uuid.UUID]*types.Plugin)
 	for rows.Next() {
 		var plugin types.Plugin
 		var tagId *string
@@ -34,15 +30,13 @@ func (P *PostgresBackend) collectPlugins(rows pgx.Rows) ([]types.Plugin, error) 
 
 		err := rows.Scan(
 			&plugin.ID,
-			&plugin.CreatedAt,
-			&plugin.UpdatedAt,
-			&plugin.Type,
 			&plugin.Title,
 			&plugin.Description,
-			&plugin.Metadata,
 			&plugin.ServerEndpoint,
 			&plugin.PricingID,
-			&plugin.CategoryID,
+			&plugin.Category,
+			&plugin.CreatedAt,
+			&plugin.UpdatedAt,
 			&tagId,
 			&tagName,
 			&tagColor,
@@ -52,26 +46,7 @@ func (P *PostgresBackend) collectPlugins(rows pgx.Rows) ([]types.Plugin, error) 
 			return plugins, err
 		}
 
-		// add plugin if does not already exist in the map
-		if _, exists := pluginMap[plugin.ID]; !exists {
-			pluginCopy := plugin // copy to distinct memory
-			pluginCopy.Tags = []types.Tag{}
-			pluginMap[plugin.ID] = &pluginCopy
-		}
-
-		// add tag to plugin tag list
-		if tagId != nil {
-			pluginMap[plugin.ID].Tags = append(pluginMap[plugin.ID].Tags, types.Tag{
-				ID:    *tagId,
-				Name:  *tagName,
-				Color: *tagColor,
-			})
-		}
-	}
-
-	// convert map to list
-	for _, p := range pluginMap {
-		plugins = append(plugins, *p)
+		plugins = append(plugins, plugin)
 	}
 
 	return plugins, nil
@@ -134,8 +109,8 @@ func (p *PostgresBackend) FindPlugins(
 	query := `SELECT p.*, t.*` + joinQuery
 	queryTotal := `SELECT COUNT(DISTINCT p.id) as total_count` + joinQuery
 
-	args := []any{}
-	argsTotal := []any{}
+	var args []any
+	var argsTotal []any
 	currentArgNumber := 1
 
 	// filters
@@ -245,146 +220,6 @@ func (p *PostgresBackend) FindPlugins(
 	}
 
 	return pluginsList, nil
-}
-
-func (p *PostgresBackend) CreatePlugin(ctx context.Context, dbTx pgx.Tx, pluginDto types.PluginCreateDto) (string, error) {
-
-	query := fmt.Sprintf(`INSERT INTO %s (
-		type,
-		title,
-		description,
-		metadata,
-		server_endpoint,
-		pricing_id,
-		category_id
-	) VALUES (
-		@Type,
-		@Title,
-		@Description,
-		@Metadata,
-		@ServerEndpoint,
-		@PricingID,
-		@CategoryID
-	) RETURNING id;`, PLUGINS_TABLE)
-	args := pgx.NamedArgs{
-		"Type":           pluginDto.Type,
-		"Title":          pluginDto.Title,
-		"Description":    pluginDto.Description,
-		"Metadata":       pluginDto.Metadata,
-		"ServerEndpoint": pluginDto.ServerEndpoint,
-		"PricingID":      pluginDto.PricingID,
-		"CategoryID":     pluginDto.CategoryID,
-	}
-
-	var createdId string
-	err := dbTx.QueryRow(ctx, query, args).Scan(&createdId)
-	if err != nil {
-		return "", fmt.Errorf("failed to insert plugin: %w", err)
-	}
-
-	return createdId, nil
-}
-
-func (p *PostgresBackend) UpdatePlugin(ctx context.Context, id ptypes.PluginID, updates types.PluginUpdateDto) (*types.Plugin, error) {
-	t := reflect.TypeOf(updates)
-	v := reflect.ValueOf(updates)
-	numFields := t.NumField()
-
-	query := fmt.Sprintf(`UPDATE %s SET `, PLUGINS_TABLE)
-	args := pgx.NamedArgs{
-		"id": id,
-	}
-
-	// iterate over dto props and assign non-empty for update
-	var updateStatements []string
-	for i := 0; i < numFields; i++ {
-		field := t.Field(i) // field metadata
-		value := v.Field(i) // field value
-
-		// filter out json undefined values
-		if value.Kind() == reflect.Ptr && !value.IsNil() {
-			// get db field name (same as it is defined in the json input)
-			fieldName := field.Tag.Get("json")
-			if fieldName == "" {
-				// fallback to prop name
-				fieldName = field.Name
-			}
-
-			// get value from dto reference
-			var fieldValue interface{}
-			if field.Type == reflect.TypeOf((*json.RawMessage)(nil)) {
-				// keep as reference to []byte
-				fieldValue = value.Interface().(*json.RawMessage)
-			} else {
-				// dereference
-				fieldValue = value.Elem().Interface()
-			}
-
-			updateStatements = append(updateStatements, fmt.Sprintf("%s = @%s", fieldName, fieldName))
-			args[fieldName] = fieldValue
-		}
-	}
-
-	if len(updateStatements) == 0 {
-		return nil, errors.New("no updates provided")
-	}
-
-	query += strings.Join(updateStatements, ", ")
-	query += " WHERE id = @id;"
-
-	_, err := p.pool.Exec(ctx, query, args)
-	if err != nil {
-		return nil, err
-	}
-
-	return p.FindPluginById(ctx, nil, id)
-}
-
-func (p *PostgresBackend) DeletePluginById(ctx context.Context, id ptypes.PluginID) error {
-	query := fmt.Sprintf(`DELETE FROM %s WHERE id = $1;`, PLUGINS_TABLE)
-
-	_, err := p.pool.Exec(ctx, query, id)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (p *PostgresBackend) AttachTagToPlugin(ctx context.Context, pluginId ptypes.PluginID, tagId string) (*types.Plugin, error) {
-	query := fmt.Sprintf(`INSERT INTO %s (
-		plugin_id,
-		tag_id
-	) VALUES (
-		@PluginID,
-		@TagID
-	);`, PLUGIN_TAGS_TABLE)
-	args := pgx.NamedArgs{
-		"PluginID": pluginId,
-		"TagID":    tagId,
-	}
-
-	_, err := p.pool.Exec(ctx, query, args)
-	if err != nil {
-		return nil, err
-	}
-
-	return p.FindPluginById(ctx, nil, pluginId)
-}
-
-func (p *PostgresBackend) DetachTagFromPlugin(ctx context.Context, pluginId ptypes.PluginID, tagId string) (*types.Plugin, error) {
-	query := fmt.Sprintf(`DELETE FROM %s WHERE plugin_id = @PluginID AND tag_id = @TagID;`, PLUGIN_TAGS_TABLE)
-	args := pgx.NamedArgs{
-		"PluginID": pluginId,
-		"TagID":    tagId,
-	}
-
-	_, err := p.pool.Exec(ctx, query, args)
-	if err != nil {
-		return nil, err
-	}
-
-	return p.FindPluginById(ctx, nil, pluginId)
 }
 
 func (p *PostgresBackend) FindReviewById(ctx context.Context, db pgx.Tx, id string) (*types.ReviewDto, error) {

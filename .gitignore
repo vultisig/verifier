@@ -43,3 +43,5 @@ plugins-ui/coverage
 
 guide.md
 verifier.json
+
+zz_scripts/*

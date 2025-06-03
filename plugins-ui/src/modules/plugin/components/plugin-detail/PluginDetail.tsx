@@ -8,6 +8,8 @@ import MarketplaceService from "@/modules/marketplace/services/marketplaceServic
 import { Plugin } from "../../models/plugin";
 import Reviews from "@/modules/review/components/reviews/Reviews";
 import { publish } from "@/utils/eventBus";
+import { ReviewProvider } from "@/modules/review/context/ReviewProvider";
+import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
 
 const PluginDetail = () => {
   const navigate = useNavigate();
@@ -36,6 +38,8 @@ const PluginDetail = () => {
     fetchPlugin();
   }, []);
 
+  console.log("plugin", plugin);
+
   return (
     <>
       <div className="only-section plugin-detail">
@@ -62,7 +66,13 @@ const PluginDetail = () => {
                     size="small"
                     type="button"
                     styleType="primary"
-                    onClick={() => navigate(`/plugins/${plugin.id}/policies`)}
+                    onClick={async () => {
+                      try {
+                        const ok = await VulticonnectWalletService.startReshareSession();
+                      } catch (err) {
+                        console.error("Failed to start reshare session", err);
+                      }
+                    }}
                   >
                     Install
                   </Button>
@@ -71,7 +81,9 @@ const PluginDetail = () => {
               </section>
             </section>
 
-            <Reviews plugin={plugin} />
+            <ReviewProvider pluginId={plugin.id} ratings={plugin.ratings}>
+              <Reviews plugin={plugin} />
+            </ReviewProvider>
           </>
         )}
       </div>

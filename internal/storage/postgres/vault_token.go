@@ -9,28 +9,24 @@ import (
 
 func (p *PostgresBackend) CreateVaultToken(ctx context.Context, token types.VaultTokenCreate) (*types.VaultToken, error) {
 	query := `
-		INSERT INTO vault_tokens (public_key, token_id, issued_at, expires_at, is_revoked, last_used_at, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id, public_key, token_id, issued_at, expires_at, is_revoked, last_used_at, created_at, updated_at`
+		INSERT INTO vault_tokens (token_id, public_key, expires_at, last_used_at, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, token_id, public_key, expires_at, last_used_at, created_at, updated_at`
 
 	now := time.Now()
 	var vaultToken types.VaultToken
 	err := p.pool.QueryRow(ctx, query,
-		token.PublicKey,
 		token.TokenID,
-		now,
+		token.PublicKey,
 		token.ExpiresAt,
-		false,
 		now,
 		now,
 		now,
 	).Scan(
 		&vaultToken.ID,
-		&vaultToken.PublicKey,
 		&vaultToken.TokenID,
-		&vaultToken.IssuedAt,
+		&vaultToken.PublicKey,
 		&vaultToken.ExpiresAt,
-		&vaultToken.IsRevoked,
 		&vaultToken.LastUsedAt,
 		&vaultToken.CreatedAt,
 		&vaultToken.UpdatedAt,
@@ -44,21 +40,20 @@ func (p *PostgresBackend) CreateVaultToken(ctx context.Context, token types.Vaul
 
 func (p *PostgresBackend) GetVaultToken(ctx context.Context, tokenID string) (*types.VaultToken, error) {
 	query := `
-		SELECT id, public_key, token_id, issued_at, expires_at, is_revoked, last_used_at, created_at, updated_at
+		SELECT id, token_id, public_key, expires_at, last_used_at, created_at, updated_at, revoked_at
 		FROM vault_tokens
 		WHERE token_id = $1`
 
 	var vaultToken types.VaultToken
 	err := p.pool.QueryRow(ctx, query, tokenID).Scan(
 		&vaultToken.ID,
-		&vaultToken.PublicKey,
 		&vaultToken.TokenID,
-		&vaultToken.IssuedAt,
+		&vaultToken.PublicKey,
 		&vaultToken.ExpiresAt,
-		&vaultToken.IsRevoked,
 		&vaultToken.LastUsedAt,
 		&vaultToken.CreatedAt,
 		&vaultToken.UpdatedAt,
+		&vaultToken.RevokedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -70,7 +65,7 @@ func (p *PostgresBackend) GetVaultToken(ctx context.Context, tokenID string) (*t
 func (p *PostgresBackend) RevokeVaultToken(ctx context.Context, tokenID string) error {
 	query := `
 		UPDATE vault_tokens
-		SET is_revoked = true, updated_at = $1
+		SET revoked_at = $1, updated_at = $1
 		WHERE token_id = $2`
 
 	_, err := p.pool.Exec(ctx, query, time.Now(), tokenID)
@@ -80,7 +75,7 @@ func (p *PostgresBackend) RevokeVaultToken(ctx context.Context, tokenID string) 
 func (p *PostgresBackend) RevokeAllVaultTokens(ctx context.Context, publicKey string) error {
 	query := `
 		UPDATE vault_tokens
-		SET is_revoked = true, updated_at = $1
+		SET revoked_at = $1, updated_at = $1
 		WHERE public_key = $2`
 
 	_, err := p.pool.Exec(ctx, query, time.Now(), publicKey)
@@ -100,12 +95,12 @@ func (p *PostgresBackend) UpdateVaultTokenLastUsed(ctx context.Context, tokenID 
 
 func (p *PostgresBackend) GetActiveVaultTokens(ctx context.Context, publicKey string) ([]types.VaultToken, error) {
 	query := `
-		SELECT id, public_key, token_id, issued_at, expires_at, is_revoked, last_used_at, created_at, updated_at
+		SELECT id, token_id, public_key, expires_at, last_used_at, created_at, updated_at, revoked_at
 		FROM vault_tokens
 		WHERE public_key = $1
-		AND is_revoked = false
+		AND revoked_at IS NULL
 		AND expires_at > $2
-		ORDER BY issued_at DESC`
+		ORDER BY created_at DESC`
 
 	rows, err := p.pool.Query(ctx, query, publicKey, time.Now())
 	if err != nil {
@@ -118,14 +113,13 @@ func (p *PostgresBackend) GetActiveVaultTokens(ctx context.Context, publicKey st
 		var token types.VaultToken
 		err := rows.Scan(
 			&token.ID,
-			&token.PublicKey,
 			&token.TokenID,
-			&token.IssuedAt,
+			&token.PublicKey,
 			&token.ExpiresAt,
-			&token.IsRevoked,
 			&token.LastUsedAt,
 			&token.CreatedAt,
 			&token.UpdatedAt,
+			&token.RevokedAt,
 		)
 		if err != nil {
 			return nil, err

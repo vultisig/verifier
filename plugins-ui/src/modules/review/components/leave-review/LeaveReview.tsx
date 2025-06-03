@@ -1,5 +1,5 @@
 import "./LeaveReview.css";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Button from "@/modules/core/components/ui/button/Button";
 import { CreateReview } from "@/modules/marketplace/models/marketplace";
 import { useReviews } from "../../context/ReviewProvider";
@@ -10,11 +10,16 @@ const LeaveReview = () => {
 
   const [input, setInput] = useState("");
   const [rating, setRating] = useState(0);
+  const [canReview, setCanReview] = useState(false);
+
+  useEffect(() => {
+    setCanReview(!!localStorage.getItem("authToken"));
+  }, []);
 
   const submitReview = () => {
-    if (rating && input) {
+    if (canReview && rating && input) {
       const review: CreateReview = {
-        address: "TODO", // todo remove this when we have the participant from installation
+        address: localStorage.getItem("walletAddress") || "",
         comment: input,
         rating: rating,
       };
@@ -42,17 +47,23 @@ const LeaveReview = () => {
       <textarea
         cols={78}
         className="review-textarea"
-        placeholder="Install the plugin to leave a review"
+        placeholder={
+          canReview
+            ? "Write your review here"
+            : "Install the plugin and sign in to leave a review"
+        }
         value={input}
         onChange={(e) => setInput(e.target.value)}
+        disabled={!canReview}
       ></textarea>
 
       <Button
-        className={`review-button ${!rating || !input ? "disabled" : ""}`}
+        className={`review-button ${!canReview || !rating || !input ? "disabled" : ""}`}
         size="medium"
         type="button"
         styleType="primary"
         onClick={submitReview}
+        disabled={!canReview || !rating || !input}
       >
         Leave a review
       </Button>

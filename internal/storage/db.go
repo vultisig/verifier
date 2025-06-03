@@ -29,10 +29,10 @@ type DatabaseStorage interface {
 	UserRepository
 	PricingRepository
 	PluginRepository
-	CategoryRepository
 	TagRepository
 	ReviewRepository
 	RatingRepository
+	ApiKeyRepository
 	Close() error
 }
 
@@ -63,6 +63,16 @@ type PluginPolicySyncRepository interface {
 	UpdatePluginPolicySync(ctx context.Context, dbTx pgx.Tx, policy itypes.PluginPolicySync) error
 }
 
+type TransactionRepository interface {
+	CountTransactions(ctx context.Context, policyID uuid.UUID, status itypes.TransactionStatus, txType string) (int64, error)
+	CreateTransactionHistoryTx(ctx context.Context, dbTx pgx.Tx, tx itypes.TransactionHistory) (uuid.UUID, error)
+	UpdateTransactionStatusTx(ctx context.Context, dbTx pgx.Tx, txID uuid.UUID, status itypes.TransactionStatus, metadata map[string]interface{}) error
+	CreateTransactionHistory(ctx context.Context, tx itypes.TransactionHistory) (uuid.UUID, error)
+	UpdateTransactionStatus(ctx context.Context, txID uuid.UUID, status itypes.TransactionStatus, metadata map[string]interface{}) error
+	GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) ([]itypes.TransactionHistory, int64, error)
+	GetTransactionByHash(ctx context.Context, txHash string) (*itypes.TransactionHistory, error)
+}
+
 type UserRepository interface {
 	FindUserById(ctx context.Context, userId string) (*itypes.User, error)
 	FindUserByName(ctx context.Context, username string) (*itypes.UserWithPassword, error)
@@ -77,11 +87,6 @@ type PricingRepository interface {
 type PluginRepository interface {
 	FindPlugins(ctx context.Context, filters itypes.PluginFilters, take int, skip int, sort string) (itypes.PluginsPaginatedList, error)
 	FindPluginById(ctx context.Context, dbTx pgx.Tx, id types.PluginID) (*itypes.Plugin, error)
-	CreatePlugin(ctx context.Context, dbTx pgx.Tx, pluginDto itypes.PluginCreateDto) (string, error)
-	UpdatePlugin(ctx context.Context, id types.PluginID, updates itypes.PluginUpdateDto) (*itypes.Plugin, error)
-	DeletePluginById(ctx context.Context, id types.PluginID) error
-	AttachTagToPlugin(ctx context.Context, pluginId types.PluginID, tagId string) (*itypes.Plugin, error)
-	DetachTagFromPlugin(ctx context.Context, pluginId types.PluginID, tagId string) (*itypes.Plugin, error)
 
 	Pool() *pgxpool.Pool
 }
@@ -95,15 +100,10 @@ type VaultTokenRepository interface {
 	GetActiveVaultTokens(ctx context.Context, publicKey string) ([]itypes.VaultToken, error)
 }
 
-type CategoryRepository interface {
-	FindCategories(ctx context.Context) ([]itypes.Category, error)
-}
-
 type TagRepository interface {
 	FindTags(ctx context.Context) ([]itypes.Tag, error)
 	FindTagById(ctx context.Context, id string) (*itypes.Tag, error)
 	FindTagByName(ctx context.Context, name string) (*itypes.Tag, error)
-	CreateTag(ctx context.Context, tagDto itypes.CreateTagDto) (*itypes.Tag, error)
 }
 
 type ReviewRepository interface {
@@ -116,4 +116,8 @@ type RatingRepository interface {
 	FindRatingByPluginId(ctx context.Context, dbTx pgx.Tx, pluginId string) ([]itypes.PluginRatingDto, error)
 	CreateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string) error
 	UpdateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, reviewRating int) error
+}
+
+type ApiKeyRepository interface {
+	GetAPIKey(ctx context.Context, apiKey string) (*itypes.APIKey, error)
 }

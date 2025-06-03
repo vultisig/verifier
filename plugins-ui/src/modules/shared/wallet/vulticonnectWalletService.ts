@@ -1,6 +1,7 @@
 // more on the exposed methods here: https://github.com/vultisig/vultisig-windows/blob/main/clients/extension/docs/integration-guide.md
 
 import { publish } from "@/utils/eventBus";
+import { decompressQrPayload, decodeTssPayload } from "./vultisigProtoUtils";
 
 interface ProviderError {
   code: number;
@@ -81,6 +82,46 @@ const VulticonnectWalletService = {
     } catch (error) {
       console.error("Failed to sign the message", error);
       throw new Error("Failed to sign the message");
+    }
+  },
+
+  startReshareSession: async () => {
+    if (!window.vultisig?.ethereum) {
+      publish("onToast", {
+        message: "No ethereum provider found. Please install VultiConnect.",
+        type: "error",
+      });
+      return;
+    }
+    try {
+      const response = await window.vultisig.plugin.request({ method: "plugin_request_reshare" });
+      console.log("response", response);
+      // Example response: vultisig://vultisig.com?type=NewVault&tssType=Reshare&jsonData=...
+      const url = new URL(response);
+      console.log("url", url);
+      const jsonData = url.searchParams.get("jsonData");
+      // const tssType = url.searchParams.get("tssType");
+
+      // console.log("jsonData", jsonData);
+
+      if (!jsonData) throw new Error("jsonData param missing in deeplink");
+
+      // Decompress the payload
+      const payload = await decompressQrPayload(jsonData);
+      
+      // Decode the binary using the correct schema
+      const reshareMsg = decodeTssPayload(payload);
+
+      console.log("reshareMsg", reshareMsg);
+
+      return reshareMsg;
+    } catch (error) {
+      console.error("Failed to process reshare session", error);
+      publish("onToast", {
+        message: error instanceof Error ? error.message : "Failed to process reshare session",
+        type: "error",
+      });
+      throw new Error("Failed to process reshare session");
     }
   },
 

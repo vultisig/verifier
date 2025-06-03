@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
@@ -59,7 +60,9 @@ func NewServer(
 	sdClient *statsd.Client,
 	jwtSecret string,
 ) *Server {
+
 	var err error
+
 	logger := logrus.WithField("service", "verifier-server").Logger
 
 	policyService, err := service.NewPolicyService(db, client)
@@ -67,7 +70,7 @@ func NewServer(
 		logrus.Fatalf("Failed to initialize policy service: %v", err)
 	}
 
-	pluginService, err := service.NewPluginService(db, logger)
+	pluginService, err := service.NewPluginService(db, redis, logger)
 	if err != nil {
 		logrus.Fatalf("Failed to initialize plugin service: %v", err)
 	}
@@ -109,43 +112,40 @@ func (s *Server) StartServer() error {
 
 	// Auth endpoints - not requiring authentication
 	e.POST("/auth", s.Auth)
-	e.POST("/auth/refresh", s.RefreshToken)
+	e.POST("/auth/refresh", s.RefreshToken, s.VaultAuthMiddleware) // only when user has logged in with their vault
 
 	// Token management endpoints
-	tokenGroup := e.Group("/auth/tokens")
-	tokenGroup.Use(s.VaultAuthMiddleware)
+	tokenGroup := e.Group("/auth/tokens", s.VaultAuthMiddleware)
 	tokenGroup.DELETE("/:tokenId", s.RevokeToken)
 	tokenGroup.DELETE("/all", s.RevokeAllTokens)
 	tokenGroup.GET("", s.GetActiveTokens)
 
 	// Protected vault endpoints
 	vaultGroup := e.Group("/vault")
+	// Reshare vault endpoint , we only allow the vault owner to reshare the vault
 	vaultGroup.POST("/reshare", s.ReshareVault)
 	vaultGroup.GET("/get/:pluginId/:publicKeyECDSA", s.GetVault, s.VaultAuthMiddleware)     // Get Vault Data
 	vaultGroup.GET("/exist/:pluginId/:publicKeyECDSA", s.ExistVault, s.VaultAuthMiddleware) // Check if Vault exists
-	vaultGroup.GET("/sign/response/:taskId", s.GetKeysignResult, s.VaultAuthMiddleware)     // Get keysign result
 
-	pluginGroup := e.Group("/plugin", s.userAuthMiddleware)
+	// Sign endpoint, plugin should authenticate themselves using the API Key issued by the Verifier
+	vaultGroup.POST("/sign", s.SignPluginMessages, s.PluginAuthMiddleware)               // Sign messages
+	vaultGroup.GET("/sign/response/:taskId", s.GetKeysignResult, s.PluginAuthMiddleware) // Get keysign result
+
+	pluginGroup := e.Group("/plugin", s.VaultAuthMiddleware)
 	pluginGroup.POST("/policy", s.CreatePluginPolicy)
 	pluginGroup.PUT("/policy", s.UpdatePluginPolicyById)
-	pluginGroup.POST("/sign", s.SignPluginMessages)
-
 	pluginGroup.GET("/policies", s.GetAllPluginPolicies)
 	pluginGroup.GET("/policy/:policyId", s.GetPluginPolicyById)
 	pluginGroup.DELETE("/policy/:policyId", s.DeletePluginPolicyById)
-	pluginGroup.GET("/policies/:policyId/history", s.GetPluginPolicyTransactionHistory, s.AuthMiddleware)
+	pluginGroup.GET("/policies/:policyId/history", s.GetPluginPolicyTransactionHistory)
 
 	pluginsGroup := e.Group("/plugins")
 	pluginsGroup.GET("", s.GetPlugins)
 	pluginsGroup.GET("/:pluginId", s.GetPlugin)
-	pluginsGroup.POST("", s.CreatePlugin, s.userAuthMiddleware)
-	pluginsGroup.POST("/:pluginId", s.UpdatePlugin, s.userAuthMiddleware)
-	pluginsGroup.DELETE("/:pluginId", s.DeletePlugin, s.userAuthMiddleware)
-	pluginsGroup.POST("/:pluginId/tags", s.AttachPluginTag, s.userAuthMiddleware)
-	pluginsGroup.DELETE("/:pluginId/tags/:tagId", s.DetachPluginTag, s.userAuthMiddleware)
 
 	pluginsGroup.GET("/:pluginId/reviews", s.GetReviews)
 	pluginsGroup.POST("/:pluginId/reviews", s.CreateReview, s.AuthMiddleware)
+	pluginsGroup.GET("/:pluginId/recipe-specification", s.GetPluginRecipeSpecification)
 
 	categoriesGroup := e.Group("/categories")
 	categoriesGroup.GET("", s.GetCategories)
@@ -155,10 +155,8 @@ func (s *Server) StartServer() error {
 
 	pricingsGroup := e.Group("/pricing")
 	pricingsGroup.GET("/:pricingId", s.GetPricing)
-	pricingsGroup.POST("", s.CreatePricing, s.userAuthMiddleware)
-	pricingsGroup.DELETE("/:pricingId", s.DeletePricing, s.userAuthMiddleware)
-	syncGroup := e.Group("/sync", s.userAuthMiddleware)
 
+	syncGroup := e.Group("/sync", s.userAuthMiddleware)
 	syncGroup.POST("/transaction", s.CreateTransaction)
 	syncGroup.PUT("/transaction", s.UpdateTransaction)
 
@@ -387,7 +385,7 @@ func (s *Server) Auth(c echo.Context) error {
 	}
 
 	// Decode signature from hex (remove 0x prefix first)
-	sigBytes, err := hex.DecodeString(req.Signature)
+	sigBytes, err := hex.DecodeString(strings.TrimPrefix(req.Signature, "0x"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid signature format"))
 	}
@@ -398,7 +396,7 @@ func (s *Server) Auth(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid public key format"))
 	}
 
-	//extract the public key from the signature , make sure it match the eth public key
+	// extract the public key from the signature , make sure it match the eth public key
 	success, err := sigutil.VerifyEthAddressSignature(ecommon.HexToAddress(ethAddress), []byte(req.Message), sigBytes)
 	if err != nil {
 		s.logger.Errorf("signature verification failed: %v", err)

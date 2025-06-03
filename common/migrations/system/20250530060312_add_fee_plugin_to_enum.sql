@@ -1,9 +1,9 @@
 -- +goose Up
 -- +goose StatementBegin
-ALTER TABLE plugin_policies DROP COLUMN derive_path;
+ALTER TYPE plugin_id ADD VALUE 'vultisig-fees-feee';
 -- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
-ALTER TABLE plugin_policies ADD COLUMN derive_path TEXT NOT NULL;
+ROLLBACK;
 -- +goose StatementEnd

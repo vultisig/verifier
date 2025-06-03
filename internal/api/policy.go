@@ -1,7 +1,9 @@
 package api
 
 import (
+	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -11,6 +13,8 @@ import (
 	"github.com/labstack/echo/v4"
 	v1 "github.com/vultisig/commondata/go/vultisig/vault/v1"
 	"github.com/vultisig/mobile-tss-lib/tss"
+	rtypes "github.com/vultisig/recipes/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/internal/sigutil"
@@ -27,6 +31,22 @@ func NewErrorResponse(message string) ErrorResponse {
 		Message: message,
 	}
 }
+func (s *Server) validatePluginPolicy(policy types.PluginPolicy) error {
+	if len(policy.Recipe) == 0 {
+		return errors.New("recipe cannot be empty")
+	}
+	rbytes, err := base64.RawStdEncoding.DecodeString(policy.Recipe)
+	if err != nil {
+		return fmt.Errorf("fail to base64 decode recipe: %w", err)
+	}
+	var rPolicy rtypes.Policy
+	if err := proto.Unmarshal(rbytes, &rPolicy); err != nil {
+		return fmt.Errorf("fail to unmarshal recipe: %w", err)
+	}
+	// TODO: validate the recipe
+	return nil
+}
+
 func (s *Server) CreatePluginPolicy(c echo.Context) error {
 	var policy types.PluginPolicy
 	if err := c.Bind(&policy); err != nil {
@@ -41,7 +61,10 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 		s.logger.Error("invalid policy signature")
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid policy signature"))
 	}
-
+	if err := s.validatePluginPolicy(policy); err != nil {
+		s.logger.WithError(err).Error("failed to validate plugin policy")
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid plugin policy"))
+	}
 	newPolicy, err := s.policyService.CreatePolicy(c.Request().Context(), policy)
 	if err != nil {
 		s.logger.Errorf("failed to create plugin policy: %s", err)
@@ -50,6 +73,7 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, newPolicy)
 }
+
 func (s *Server) getVault(publicKeyECDSA, pluginId string) (*v1.Vault, error) {
 	if len(s.cfg.EncryptionSecret) == 0 {
 		return nil, fmt.Errorf("no encryption secret")
@@ -131,6 +155,10 @@ func (s *Server) UpdatePluginPolicyById(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, NewErrorResponse("Invalid policy signature"))
 	}
 
+	if err := s.validatePluginPolicy(policy); err != nil {
+		s.logger.WithError(err).Error("failed to validate plugin policy")
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid plugin policy"))
+	}
 	updatedPolicy, err := s.policyService.UpdatePolicy(c.Request().Context(), policy)
 	if err != nil {
 		s.logger.Errorf("failed to update plugin policy: %s", err)
@@ -165,6 +193,7 @@ func (s *Server) DeletePluginPolicyById(c echo.Context) error {
 		s.logger.Errorf("failed to get plugin policy: %s", err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("fail to delete policy"))
 	}
+
 	// This is because we have different signature stored in the database.
 	policy.Signature = reqBody.Signature
 

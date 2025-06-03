@@ -36,7 +36,7 @@ func createWorker() (*Worker, context.CancelFunc, storage.TxIndexerRepository, e
 		return nil, stop, nil, fmt.Errorf("rpc.NewEvmClient: %w", err)
 	}
 
-	db, err := postgres.NewPostgresBackend(cfg.Database.DSN)
+	db, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil)
 	if err != nil {
 		return nil, stop, nil, fmt.Errorf("postgres.NewPostgresBackend: %w", err)
 	}

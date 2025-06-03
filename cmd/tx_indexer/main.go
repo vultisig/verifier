@@ -33,7 +33,7 @@ func main() {
 		panic(fmt.Errorf("rpc.NewEvmClient: %w", err))
 	}
 
-	db, err := postgres.NewPostgresBackend(cfg.Database.DSN)
+	db, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil)
 	if err != nil {
 		panic(fmt.Errorf("postgres.NewPostgresBackend: %w", err))
 	}

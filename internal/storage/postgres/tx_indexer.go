@@ -154,7 +154,7 @@ func (p *PostgresBackend) GetTxByID(c context.Context, id uuid.UUID) (types.Tx, 
 		return types.Tx{}, fmt.Errorf("p.pool.Query: %w", err)
 	}
 	if !rows.Next() {
-		return types.Tx{}, fmt.Errorf("rows.Next: %w", err)
+		return types.Tx{}, fmt.Errorf("transaction not found")
 	}
 
 	tx, err := types.TxFromRow(rows)

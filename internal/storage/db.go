@@ -25,8 +25,8 @@ type DatabaseStorage interface {
 	PolicyRepository
 	PluginPolicySyncRepository
 	VaultTokenRepository
+	TransactionRepository
 	TxIndexerRepository
-	UserRepository
 	PricingRepository
 	PluginRepository
 	TagRepository
@@ -71,11 +71,6 @@ type TransactionRepository interface {
 	UpdateTransactionStatus(ctx context.Context, txID uuid.UUID, status itypes.TransactionStatus, metadata map[string]interface{}) error
 	GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) ([]itypes.TransactionHistory, int64, error)
 	GetTransactionByHash(ctx context.Context, txHash string) (*itypes.TransactionHistory, error)
-}
-
-type UserRepository interface {
-	FindUserById(ctx context.Context, userId string) (*itypes.User, error)
-	FindUserByName(ctx context.Context, username string) (*itypes.UserWithPassword, error)
 }
 
 type PricingRepository interface {

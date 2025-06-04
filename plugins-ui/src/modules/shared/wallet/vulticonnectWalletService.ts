@@ -86,7 +86,11 @@ const VulticonnectWalletService = {
     }
   },
 
-  startReshareSession: async () => {
+  startReshareSession: async (pluginId: any, plugin: any) => {
+
+    console.log("pluginId", pluginId);
+    console.log("plugin", plugin);
+
     if (!window.vultisig?.ethereum) {
       publish("onToast", {
         message: "No ethereum provider found. Please install VultiConnect.",
@@ -111,8 +115,9 @@ const VulticonnectWalletService = {
       const payload = await decompressQrPayload(jsonData);
       
       // Decode the binary using the schema and forward to verifier backend
-      const reshareMsg = decodeTssPayload(payload);
+      const reshareMsg: any  = decodeTssPayload(payload);
       console.log("reshareMsg", reshareMsg);
+      reshareMsg.pluginId = pluginId;
 
       try {
         await MarketplaceService.reshareVault(reshareMsg);

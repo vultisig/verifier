@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -60,7 +61,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	engine := engine.NewEngine()
 
 	for _, keysignMessage := range req.Messages {
-		messageChain, err := chain.GetChain(string(keysignMessage.Chain))
+		messageChain, err := chain.GetChain(strings.ToLower(keysignMessage.Chain.String()))
 		if err != nil {
 			return fmt.Errorf("failed to get chain: %w", err)
 		}

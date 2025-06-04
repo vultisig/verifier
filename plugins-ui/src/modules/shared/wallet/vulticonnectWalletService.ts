@@ -119,16 +119,21 @@ const VulticonnectWalletService = {
       console.log("reshareMsg", reshareMsg);
       reshareMsg.pluginId = pluginId;
 
+      // Transform the payload to match backend ReshareRequest structure
+      const backendPayload = {
+        name: reshareMsg.vaultName,
+        public_key: reshareMsg.publicKeyEcdsa,
+        session_id: reshareMsg.sessionId,
+        hex_encryption_key: reshareMsg.encryptionKeyHex,
+        hex_chain_code: reshareMsg.hexChainCode,
+        local_party_id: reshareMsg.serviceName,
+        old_parties: reshareMsg.oldParties,
+        email: "", // Not provided by extension, using empty string
+        plugin_id: pluginId // Use the pluginId parameter passed to function
+      };
+ 
       try {
-        await MarketplaceService.reshareVault(reshareMsg);
-        publish("onToast", { message: "Reshare session started", type: "success" });
-      } catch (err) {
-        console.error("Failed to call reshare endpoint", err);
-        publish("onToast", { message: "Failed to start reshare", type: "error" });
-      }
-
-      try {
-        await MarketplaceService.reshareVault(reshareMsg);
+        await MarketplaceService.reshareVault(backendPayload);
         publish("onToast", { message: "Reshare session started", type: "success" });
       } catch (err) {
         console.error("Failed to call reshare endpoint", err);

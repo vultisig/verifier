@@ -1,16 +1,17 @@
 -- +goose Up
 -- +goose StatementBegin
 CREATE TYPE billing_frequency AS ENUM(
-    'monthly' -- Recurring fee (e.g., monthly)
+    'monthly'
 );
 
 CREATE TYPE fee_type AS ENUM(
-    'tx', -- Fixed fee
-    'recurring' -- Percentage-based fee
+    'tx',
+    'recurring',
+    'once'
 );
 
 -- Stores info about charging frequencies
-CREATE TABLE IF NOT EXISTS billing(
+CREATE TABLE IF NOT EXISTS plugin_policy_billing(
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     type fee_type NOT NULL, -- Enum type for fee types
     frequency billing_frequency,
@@ -23,13 +24,13 @@ CREATE TABLE IF NOT EXISTS billing(
 CREATE TABLE IF NOT EXISTS fees(
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     type fee_type NOT NULL, -- Enum type for fee types
-    billing_id uuid NOT NULL, -- used for recurring fees
+    plugin_policy_billing_id uuid NOT NULL, -- used for recurring fees
     transaction_id uuid, -- used for tx based fees only
     billing_date date NOT NULL, -- used for tx based fees only
     amount bigint NOT NULL,
     created_at timestamp DEFAULT now(),
     collected_at timestamp,
-    CONSTRAINT fk_billing FOREIGN KEY (billing_id) REFERENCES billing(id) ON DELETE CASCADE
+    CONSTRAINT fk_billing FOREIGN KEY (plugin_policy_billing_id) REFERENCES plugin_policy_billing(id) ON DELETE CASCADE
 );
 
 -- +goose StatementEnd
@@ -37,7 +38,7 @@ CREATE TABLE IF NOT EXISTS fees(
 -- +goose StatementBegin
 DROP TABLE IF EXISTS fees;
 
-DROP TABLE IF EXISTS billing;
+DROP TABLE IF EXISTS plugin_policy_billing;
 
 DROP TYPE IF EXISTS billing_frequency;
 

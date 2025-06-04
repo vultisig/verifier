@@ -3,9 +3,11 @@ package api
 import (
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -129,11 +131,33 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy) bool {
 
 func policyToMessageHex(policy types.PluginPolicy) ([]byte, error) {
 	delimiter := "*#*"
+
+	billables := []string{}
+	for _, bill := range policy.Billing {
+		billable, err := json.Marshal(bill)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal billing policy: %w", err)
+		}
+		billables = append(billables, base64.StdEncoding.EncodeToString(billable))
+	}
+
+	sort.Slice(billables, func(i, j int) bool {
+		return billables[i] < billables[j]
+	})
+
+	billablesField := strings.Join(billables, ",")
+
 	fields := []string{
 		policy.Recipe,
 		policy.PublicKey,
 		policy.PolicyVersion,
-		policy.PluginVersion}
+		policy.PluginVersion,
+	}
+
+	if len(policy.Billing) > 0 {
+		fields = append(fields, billablesField)
+	}
+
 	for _, item := range fields {
 		if strings.Contains(item, delimiter) {
 			return nil, fmt.Errorf("invalid policy signature")

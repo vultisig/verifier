@@ -201,14 +201,19 @@ const MarketplaceService = {
   },
 
   /**
-   * Get recipe specification for a plugin.
+   * Send reshare request payload to the verifier backend.
+   * @param payload Decoded ReshareMessage object from VultiConnect extension
    */
-  getRecipeSpecification: async (pluginId: string): Promise<any> => {
+  reshareVault: async (payload: unknown): Promise<void> => {
     try {
-      const endpoint = `${getMarketplaceUrl()}/plugins/${pluginId}/recipe-specification`;
-      return await get(endpoint);
+      const endpoint = `${getMarketplaceUrl()}/vault/reshare`;
+      await post(endpoint, payload, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
     } catch (error) {
-      console.error("Error getting recipe specification:", error);
+      console.error("Error initiating vault reshare:", error);
       throw error;
     }
   },

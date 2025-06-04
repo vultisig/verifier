@@ -42,6 +42,9 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (ty
 
 	query = `SELECT id, type, frequency, start_date FROM plugin_policy_billing WHERE plugin_policy_id = $1`
 	billingRows, err := p.pool.Query(ctx, query, id)
+	if err != nil {
+		return types.PluginPolicy{}, fmt.Errorf("failed to get billing info: %w", err)
+	}
 	defer billingRows.Close()
 	for billingRows.Next() {
 		var billing types.BillingPolicy
@@ -107,7 +110,6 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 		billingQuery := `SELECT id, "type", frequency, start_date FROM plugin_policy_billing WHERE plugin_policy_id = $1`
 		billingRows, err := p.pool.Query(ctx, billingQuery, policy.ID)
 		if err != nil {
-			fmt.Println("Error on the billing query:", err)
 			return itypes.PluginPolicyPaginatedList{}, fmt.Errorf("failed to get billing info: %w", err)
 		}
 		for billingRows.Next() {
@@ -120,6 +122,7 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 				&billing.StartDate,
 			)
 			if err != nil {
+				billingRows.Close()
 				return itypes.PluginPolicyPaginatedList{}, fmt.Errorf("failed to scan billing info: %w", err)
 			}
 			if freq.Valid {
@@ -128,7 +131,6 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 			policy.Billing = append(policy.Billing, billing)
 		}
 		billingRows.Close()
-
 		policies = append(policies, policy)
 	}
 

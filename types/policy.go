@@ -11,6 +11,13 @@ type BillingPolicy struct {
 	StartDate string    `json:"start_date"`               // Number of a month, e.g., "1" for the first month. Only allow 1 for now
 }
 
+type BillingPolicy struct {
+	ID        uuid.UUID `json:"id" validate:"required"`
+	Type      string    `json:"type" validate:"required"` // "tx", "recurring" or "once"
+	Frequency string    `json:"frequency"`                // only "monthly" for now
+	StartDate string    `json:"start_date"`               // Number of a month, e.g., "1" for the first month. Only allow 1 for now
+}
+
 // This type should be used externally when creating or updating a plugin policy. It keeps the protobuf encoded billing recipe as a string which is used to verify a signature.
 type PluginPolicyCreateUpdate struct {
 	ID            uuid.UUID `json:"id" validate:"required"`

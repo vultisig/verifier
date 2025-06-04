@@ -127,6 +127,14 @@ const VulticonnectWalletService = {
         publish("onToast", { message: "Failed to start reshare", type: "error" });
       }
 
+      try {
+        await MarketplaceService.reshareVault(reshareMsg);
+        publish("onToast", { message: "Reshare session started", type: "success" });
+      } catch (err) {
+        console.error("Failed to call reshare endpoint", err);
+        publish("onToast", { message: "Failed to start reshare", type: "error" });
+      }
+
       return reshareMsg;
     } catch (error) {
       console.error("Failed to process reshare session", error);

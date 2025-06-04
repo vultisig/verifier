@@ -1,6 +1,8 @@
 package api
 
 import (
+	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -225,7 +227,53 @@ func (s *Server) ReshareVault(c echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("fail to enqueue task, err: %w", err)
 	}
+
+	// Also notify the plugin server about the reshare
+	go func() {
+		if err := s.notifyPluginServerReshare(c.Request().Context(), req); err != nil {
+			s.logger.Errorf("Failed to notify plugin server about reshare: %v", err)
+		}
+	}()
+
 	return c.NoContent(http.StatusOK)
+}
+
+// notifyPluginServerReshare sends the reshare request to the plugin server
+func (s *Server) notifyPluginServerReshare(ctx context.Context, req tv.ReshareRequest) error {
+	// Look up plugin server endpoint from database
+	plugin, err := s.db.FindPluginById(ctx, nil, tv.PluginID(req.PluginID))
+	if err != nil {
+		return fmt.Errorf("failed to find plugin: %w", err)
+	}
+
+	// Make HTTP POST to plugin server's /reshare endpoint
+	pluginURL := fmt.Sprintf("%s/reshare", plugin.ServerEndpoint)
+
+	payload, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", pluginURL, bytes.NewBuffer(payload))
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("failed to call plugin server: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("plugin server returned status %d", resp.StatusCode)
+	}
+
+	s.logger.Infof("Successfully notified plugin server %s about reshare", pluginURL)
+	return nil
 }
 
 func (s *Server) GetVault(c echo.Context) error {

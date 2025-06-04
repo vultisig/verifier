@@ -199,6 +199,24 @@ const MarketplaceService = {
       throw error;
     }
   },
+
+  /**
+   * Send reshare request payload to the verifier backend.
+   * @param payload Decoded ReshareMessage object from VultiConnect extension
+   */
+  reshareVault: async (payload: unknown): Promise<void> => {
+    try {
+      const endpoint = `${getMarketplaceUrl()}/vault/reshare`;
+      await post(endpoint, payload, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    } catch (error) {
+      console.error("Error initiating vault reshare:", error);
+      throw error;
+    }
+  },
 };
 
 export default MarketplaceService;

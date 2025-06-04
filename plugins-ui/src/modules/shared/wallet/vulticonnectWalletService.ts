@@ -2,6 +2,7 @@
 
 import { publish } from "@/utils/eventBus";
 import { decompressQrPayload, decodeTssPayload } from "./vultisigProtoUtils";
+import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 
 interface ProviderError {
   code: number;
@@ -109,10 +110,17 @@ const VulticonnectWalletService = {
       // Decompress the payload
       const payload = await decompressQrPayload(jsonData);
       
-      // Decode the binary using the correct schema
+      // Decode the binary using the schema and forward to verifier backend
       const reshareMsg = decodeTssPayload(payload);
-
       console.log("reshareMsg", reshareMsg);
+
+      try {
+        await MarketplaceService.reshareVault(reshareMsg);
+        publish("onToast", { message: "Reshare session started", type: "success" });
+      } catch (err) {
+        console.error("Failed to call reshare endpoint", err);
+        publish("onToast", { message: "Failed to start reshare", type: "error" });
+      }
 
       return reshareMsg;
     } catch (error) {

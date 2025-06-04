@@ -10,6 +10,7 @@ import Reviews from "@/modules/review/components/reviews/Reviews";
 import { publish } from "@/utils/eventBus";
 import { ReviewProvider } from "@/modules/review/context/ReviewProvider";
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
+import RecipeSchema from "@/modules/plugin/components/recipe_schema/recipe_Schema";
 
 const PluginDetail = () => {
   const navigate = useNavigate();

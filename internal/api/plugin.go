@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,9 +16,9 @@ import (
 	"github.com/vultisig/verifier/common"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/vultisig/recipes/ethereum"
+	"github.com/vultisig/recipes/chain"
+	"github.com/vultisig/recipes/engine"
 	rtypes "github.com/vultisig/recipes/types"
-	"github.com/vultisig/recipes/util"
 	"github.com/vultisig/verifier/internal/tasks"
 	"github.com/vultisig/verifier/internal/types"
 	ptypes "github.com/vultisig/verifier/types"
@@ -29,11 +30,6 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	var req ptypes.PluginKeysignRequest
 	if err := c.Bind(&req); err != nil {
 		return fmt.Errorf("fail to parse request, err: %w", err)
-	}
-
-	// Plugin-specific validations
-	if len(req.Messages) != 1 {
-		return fmt.Errorf("plugin signing requires exactly one message hash, current: %d", len(req.Messages))
 	}
 
 	policyUUID, err := uuid.Parse(req.PolicyID)
@@ -62,61 +58,27 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		return fmt.Errorf("failed to unmarshal recipe: %w", err)
 	}
 
-	// Presently we can only verify for payroll
-	if policy.PluginID != ptypes.PluginVultisigPayroll_0000 {
-		return fmt.Errorf("unsupported plugin ID: %s", policy.PluginID)
-	}
+	engine := engine.NewEngine()
 
-	transactionAllowedByPolicy := false
-
-	// Payroll only builds ethereum txs right now
-	ethChain := ethereum.NewEthereum()
-	decodedTx, err := ethChain.ParseTransaction(req.Transaction)
-	if err != nil {
-		return fmt.Errorf("failed to parse transaction: %w", err)
-	}
-
-	for _, rule := range recipe.GetRules() { // Use generated GetRules() getter
-		if rule == nil { // Defensive check
-			continue
-		}
-		resourcePathString := rule.GetResource() // Use generated getter
-		resourcePath, err := util.ParseResource(resourcePathString)
+	for _, keysignMessage := range req.Messages {
+		messageChain, err := chain.GetChain(strings.ToLower(keysignMessage.Chain.String()))
 		if err != nil {
-			s.logger.WithError(err).Errorf("skipping rule %s: invalid resource path %s", rule.GetId(), resourcePathString)
-			continue
+			return fmt.Errorf("failed to get chain: %w", err)
 		}
 
-		if resourcePath.ChainId != "ethereum" {
-			s.logger.Errorf("skipping rule %s: target chain %s is not 'ethereum'", rule.GetId(), resourcePath.ChainId)
-			continue
-		}
-
-		protocol, err := ethChain.GetProtocol(resourcePath.ProtocolId)
+		decodedTx, err := messageChain.ParseTransaction(keysignMessage.Message)
 		if err != nil {
-			s.logger.WithError(err).Errorf("skipping rule %s: could not get protocol for asset '%s'", rule.GetId(), resourcePath.ProtocolId)
-			continue
+			return fmt.Errorf("failed to parse transaction: %w", err)
 		}
 
-		policyMatcher := &rtypes.PolicyFunctionMatcher{
-			FunctionID:  resourcePath.FunctionId,
-			Constraints: rule.GetParameterConstraints(), // Use generated getter
-		}
-
-		matches, _, err := protocol.MatchFunctionCall(decodedTx, policyMatcher)
+		transactionAllowed, _, err := engine.Evaluate(recipe, messageChain, decodedTx)
 		if err != nil {
-			s.logger.WithError(err).Errorf("error during transaction matching for rule %s, function %s", rule.GetId(), resourcePath.FunctionId)
-			continue
+			return fmt.Errorf("failed to evaluate policy: %w", err)
 		}
 
-		if matches {
-			transactionAllowedByPolicy = true
-			break
+		if !transactionAllowed {
+			return fmt.Errorf("transaction %s on %s not allowed by policy", keysignMessage.Hash, keysignMessage.Chain)
 		}
-	}
-
-	if !transactionAllowedByPolicy {
-		return fmt.Errorf("transaction does not match any rule in the policy")
 	}
 
 	// Reuse existing signing logic

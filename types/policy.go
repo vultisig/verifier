@@ -11,13 +11,6 @@ type BillingPolicy struct {
 	StartDate string    `json:"start_date"`               // Number of a month, e.g., "1" for the first month. Only allow 1 for now
 }
 
-type BillingPolicy struct {
-	ID        uuid.UUID `json:"id" validate:"required"`
-	Type      string    `json:"type" validate:"required"` // "tx", "recurring" or "once"
-	Frequency string    `json:"frequency"`                // only "monthly" for now
-	StartDate string    `json:"start_date"`               // Number of a month, e.g., "1" for the first month. Only allow 1 for now
-}
-
 // This type should be used externally when creating or updating a plugin policy. It keeps the protobuf encoded billing recipe as a string which is used to verify a signature.
 type PluginPolicyCreateUpdate struct {
 	ID            uuid.UUID `json:"id" validate:"required"`
@@ -56,6 +49,20 @@ type PluginPolicy struct {
 	Recipe        string          `json:"recipe" validate:"required"` // base64 encoded recipe protobuf bytes
 	Billing       []BillingPolicy `json:"billing" validate:"required"`
 	Active        bool            `json:"active" validate:"required"`
+}
+
+func (p *PluginPolicy) ToPluginPolicyCreateUpdate() PluginPolicyCreateUpdate {
+	return PluginPolicyCreateUpdate{
+		ID:            p.ID,
+		PublicKey:     p.PublicKey,
+		PluginID:      p.PluginID,
+		PluginVersion: p.PluginVersion,
+		PolicyVersion: p.PolicyVersion,
+		Signature:     p.Signature,
+		Recipe:        p.Recipe,
+		BillingRecipe: "", // TODO garry This will be populated later
+		Active:        p.Active,
+	}
 }
 
 func (p *PluginPolicy) ToPluginPolicyCreateUpdate() PluginPolicyCreateUpdate {

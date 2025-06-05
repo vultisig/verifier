@@ -2,9 +2,10 @@ package service_test
 
 import (
 	"context"
-	"github.com/vultisig/verifier/internal/storage"
 	"testing"
 	"time"
+
+	"github.com/vultisig/verifier/internal/storage"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -201,20 +202,20 @@ func (m *MockDatabaseStorage) DeletePluginPolicyTx(ctx context.Context, dbTx pgx
 	return args.Error(0)
 }
 
-func (m *MockDatabaseStorage) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {
+func (m *MockDatabaseStorage) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error) {
 	args := m.Called(ctx, dbTx, policy)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*types.PluginPolicy), args.Error(1)
+	return args.Get(0).(*types.PluginPolicyCreateUpdate), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {
+func (m *MockDatabaseStorage) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error) {
 	args := m.Called(ctx, dbTx, policy)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*types.PluginPolicy), args.Error(1)
+	return args.Get(0).(*types.PluginPolicyCreateUpdate), args.Error(1)
 }
 
 func (m *MockDatabaseStorage) FindPricingById(ctx context.Context, id uuid.UUID) (*itypes.Pricing, error) {

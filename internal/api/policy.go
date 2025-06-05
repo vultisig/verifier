@@ -3,11 +3,9 @@ package api
 import (
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -33,24 +31,36 @@ func NewErrorResponse(message string) ErrorResponse {
 		Message: message,
 	}
 }
-func (s *Server) validatePluginPolicy(policy types.PluginPolicy) error {
+func (s *Server) validatePluginPolicy(policy types.PluginPolicyCreateUpdate) error {
 	if len(policy.Recipe) == 0 {
 		return errors.New("recipe cannot be empty")
 	}
-	rbytes, err := base64.RawStdEncoding.DecodeString(policy.Recipe)
+	recipeBytes, err := base64.RawStdEncoding.DecodeString(policy.Recipe)
 	if err != nil {
 		return fmt.Errorf("fail to base64 decode recipe: %w", err)
 	}
-	var rPolicy rtypes.Policy
-	if err := proto.Unmarshal(rbytes, &rPolicy); err != nil {
+
+	billingRecipeBytes, err := base64.RawStdEncoding.DecodeString(policy.BillingRecipe)
+	if err != nil {
+		return fmt.Errorf("fail to base64 decode billing recipe: %w", err)
+	}
+
+	var recipe rtypes.Policy
+	if err := proto.Unmarshal(recipeBytes, &recipe); err != nil {
 		return fmt.Errorf("fail to unmarshal recipe: %w", err)
 	}
+
+	var billingRecipe rtypes.Policy
+	if err := proto.Unmarshal(billingRecipeBytes, &billingRecipe); err != nil {
+		return fmt.Errorf("fail to unmarshal billing recipe: %w", err)
+	}
+
 	// TODO: validate the recipe
 	return nil
 }
 
 func (s *Server) CreatePluginPolicy(c echo.Context) error {
-	var policy types.PluginPolicy
+	var policy types.PluginPolicyCreateUpdate
 	if err := c.Bind(&policy); err != nil {
 		s.logger.WithError(err).Error("Failed to parse request")
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request"))
@@ -98,7 +108,7 @@ func (s *Server) getVault(publicKeyECDSA, pluginId string) (*v1.Vault, error) {
 	return v, nil
 }
 
-func (s *Server) verifyPolicySignature(policy types.PluginPolicy) bool {
+func (s *Server) verifyPolicySignature(policy types.PluginPolicyCreateUpdate) bool {
 	messageBytes, err := policyToMessageHex(policy)
 	if err != nil {
 		s.logger.WithError(err).Error("failed to convert policy to message hex")
@@ -129,33 +139,15 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy) bool {
 	return isVerified
 }
 
-func policyToMessageHex(policy types.PluginPolicy) ([]byte, error) {
+func policyToMessageHex(policy types.PluginPolicyCreateUpdate) ([]byte, error) {
 	delimiter := "*#*"
-
-	billables := []string{}
-	for _, bill := range policy.Billing {
-		billable, err := json.Marshal(bill)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal billing policy: %w", err)
-		}
-		billables = append(billables, base64.StdEncoding.EncodeToString(billable))
-	}
-
-	sort.Slice(billables, func(i, j int) bool {
-		return billables[i] < billables[j]
-	})
-
-	billablesField := strings.Join(billables, ",")
 
 	fields := []string{
 		policy.Recipe,
+		policy.BillingRecipe,
 		policy.PublicKey,
 		policy.PolicyVersion,
 		policy.PluginVersion,
-	}
-
-	if len(policy.Billing) > 0 {
-		fields = append(fields, billablesField)
 	}
 
 	for _, item := range fields {
@@ -168,7 +160,7 @@ func policyToMessageHex(policy types.PluginPolicy) ([]byte, error) {
 }
 
 func (s *Server) UpdatePluginPolicyById(c echo.Context) error {
-	var policy types.PluginPolicy
+	var policy types.PluginPolicyCreateUpdate
 	if err := c.Bind(&policy); err != nil {
 		s.logger.WithError(err).Error("Failed to parse request")
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request"))
@@ -213,6 +205,7 @@ func (s *Server) DeletePluginPolicyById(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid policy ID"))
 	}
 	policy, err := s.policyService.GetPluginPolicy(c.Request().Context(), policyUUID)
+	policyCreateUpdate := policy.ToPluginPolicyCreateUpdate()
 	if err != nil {
 		s.logger.Errorf("failed to get plugin policy: %s", err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("fail to delete policy"))
@@ -221,7 +214,7 @@ func (s *Server) DeletePluginPolicyById(c echo.Context) error {
 	// This is because we have different signature stored in the database.
 	policy.Signature = reqBody.Signature
 
-	if !s.verifyPolicySignature(policy) {
+	if !s.verifyPolicySignature(policyCreateUpdate) {
 		s.logger.Error("invalid policy signature")
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid policy"))
 	}

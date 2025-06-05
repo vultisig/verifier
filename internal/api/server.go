@@ -5,8 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/vultisig/verifier/internal/chains/bitcoin"
-	"github.com/vultisig/verifier/internal/chains/evm"
+	"github.com/vultisig/verifier/internal/tx_indexer"
 	"net/http"
 	"strings"
 	"time"
@@ -80,18 +79,10 @@ func NewServer(
 
 	authService := service.NewAuthService(jwtSecret, db, logrus.WithField("service", "auth-service").Logger)
 
-	ethID, err := common.Ethereum.EVMChainID()
-	if err != nil {
-		logrus.Fatalf("Failed to get Ethereum chain ID: %v", err)
-	}
-
 	txIndexerService := service.NewTxIndexerService(
 		logger,
 		db,
-		map[common.Chain]types.TxIndexerTss{
-			common.Bitcoin:  bitcoin.NewTss(),
-			common.Ethereum: evm.NewTss(ethID),
-		},
+		tx_indexer.Chains(),
 	)
 
 	return &Server{

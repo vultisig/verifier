@@ -2,12 +2,10 @@ package types
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
-	"github.com/vultisig/mobile-tss-lib/tss"
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/internal/conv"
 	"github.com/vultisig/verifier/types"
@@ -95,12 +93,3 @@ type CreateTxDto struct {
 type TxIndexerRpc interface {
 	GetTxStatus(ctx context.Context, txHash string) (TxOnChainStatus, error)
 }
-
-type TxIndexerTss interface {
-	// ComputeTxHash
-	// we can't use proposedTxObject to compute the hash because it doesn't include the signature,
-	// we need to properly decode tx bytes, append signature to it, and compute hash using the particular chain library
-	ComputeTxHash(proposedTxHex string, sigs []tss.KeysignResponse) (string, error)
-}
-
-var ErrChainNotImplemented = errors.New("chain not implemented")

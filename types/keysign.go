@@ -24,6 +24,7 @@ type KeysignRequest struct {
 }
 
 type KeysignMessage struct {
+	TxID         string       `json:"tx_id"` // Tx indexer uuid
 	Message      string       `json:"message"`
 	Hash         string       `json:"hash"`
 	HashFunction HashFunction `json:"hash_function"`
@@ -50,7 +51,6 @@ func (r KeysignRequest) IsValid() error {
 
 type PluginKeysignRequest struct {
 	KeysignRequest
-	TxID            string `json:"tx_id"` // Tx indexer uuid
 	Transaction     string `json:"transactions"`
 	PolicyID        string `json:"policy_id"`
 	TransactionType string `json:"transaction_type"`

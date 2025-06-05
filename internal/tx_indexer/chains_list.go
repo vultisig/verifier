@@ -3,17 +3,20 @@ package tx_indexer
 import (
 	"context"
 	"fmt"
+	"github.com/vultisig/recipes/bitcoin"
+	"github.com/vultisig/recipes/ethereum"
+	rtypes "github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/config"
-	"github.com/vultisig/verifier/internal/chains/bitcoin"
+	vbtc "github.com/vultisig/verifier/internal/chains/bitcoin"
 	"github.com/vultisig/verifier/internal/chains/evm"
 	"github.com/vultisig/verifier/internal/types"
 )
 
 // Single place to add new chains for tx indexer
 
-func Rpc(ctx context.Context, config config.RpcConfig) (map[common.Chain]types.TxIndexerRpc, error) {
-	btcRpc, err := bitcoin.NewRpc(config.Bitcoin.URL)
+func Rpcs(ctx context.Context, config config.RpcConfig) (map[common.Chain]types.TxIndexerRpc, error) {
+	btcRpc, err := vbtc.NewRpc(config.Bitcoin.URL)
 	if err != nil {
 		return nil, fmt.Errorf("bitcoin.NewRpc: %w", err)
 	}
@@ -29,14 +32,9 @@ func Rpc(ctx context.Context, config config.RpcConfig) (map[common.Chain]types.T
 	}, nil
 }
 
-func Tss() (map[common.Chain]types.TxIndexerTss, error) {
-	ethID, err := common.Ethereum.EVMChainID()
-	if err != nil {
-		return nil, fmt.Errorf("common.Ethereum.EVMChainID: %w", err)
+func Chains() map[common.Chain]rtypes.Chain {
+	return map[common.Chain]rtypes.Chain{
+		common.Bitcoin:  bitcoin.NewChain(),
+		common.Ethereum: ethereum.NewEthereum(),
 	}
-
-	return map[common.Chain]types.TxIndexerTss{
-		//common.Bitcoin:  bitcoin.NewTss(),
-		common.Ethereum: evm.NewTss(ethID),
-	}, nil
 }

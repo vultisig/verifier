@@ -31,7 +31,7 @@ func createWorker() (*Worker, context.CancelFunc, storage.TxIndexerRepository, e
 		return nil, stop, nil, fmt.Errorf("postgres.NewPostgresBackend: %w", err)
 	}
 
-	rpc, err := Rpc(ctx, cfg.Rpc)
+	rpc, err := Rpcs(ctx, cfg.Rpc)
 	if err != nil {
 		return nil, stop, nil, fmt.Errorf("rpc: %w", err)
 	}

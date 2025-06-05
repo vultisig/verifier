@@ -57,15 +57,10 @@ func main() {
 		},
 	)
 
-	tss, err := tx_indexer.Tss()
-	if err != nil {
-		panic(fmt.Sprintf("tx_indexer.Tss: %v", err))
-	}
-
 	txIndexerService := service.NewTxIndexerService(
 		logger,
 		backendDB,
-		tss,
+		tx_indexer.Chains(),
 	)
 
 	vaultMgmService, err := vault.NewManagementService(

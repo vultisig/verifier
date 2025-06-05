@@ -177,23 +177,26 @@ func (s *ManagementService) HandleKeySignDKLS(ctx context.Context, t *asynq.Task
 		return fmt.Errorf("t.ResultWriter.Write failed: %v: %w", err, asynq.SkipRetry)
 	}
 
-	var reqPlugin types.PluginKeysignRequest
-	if e := json.Unmarshal(t.Payload(), &reqPlugin); e == nil {
-		txID, er := uuid.Parse(reqPlugin.TxID)
+	orderedSigs, err := OriginalOrder(p, signatures)
+	if err != nil {
+		s.logger.Errorf("OriginalOrder: %v", err)
+		return fmt.Errorf("OriginalOrder: %v: %w", err, asynq.SkipRetry)
+	}
+
+	for _, msg := range p.Messages {
+		if msg.TxID == "" {
+			continue // not from plugin
+		}
+
+		txID, er := uuid.Parse(msg.TxID)
 		if er != nil {
 			s.logger.Errorf("uuid.Parse(reqPlugin.TxID): %v", er)
 			return fmt.Errorf("uuid.Parse(reqPlugin.TxID): %v: %w", er, asynq.SkipRetry)
 		}
 
-		orderedSigs, er := OriginalOrder(reqPlugin.KeysignRequest, signatures)
-		if er != nil {
-			s.logger.Errorf("OriginalOrder: %v", er)
-			return fmt.Errorf("OriginalOrder: %v: %w", er, asynq.SkipRetry)
-		}
-
 		er = s.txIndexerService.SetSignedAndBroadcasted(
 			ctx,
-			reqPlugin.Messages[0].Chain,
+			msg.Chain,
 			txID,
 			orderedSigs,
 		)

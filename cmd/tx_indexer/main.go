@@ -26,9 +26,9 @@ func main() {
 		panic(fmt.Errorf("postgres.NewPostgresBackend: %w", err))
 	}
 
-	rpc, err := tx_indexer.Rpc(ctx, cfg.Rpc)
+	rpcs, err := tx_indexer.Rpcs(ctx, cfg.Rpc)
 	if err != nil {
-		panic(fmt.Errorf("tx_indexer.Rpc: %w", err))
+		panic(fmt.Errorf("tx_indexer.Rpcs: %w", err))
 	}
 
 	worker := tx_indexer.NewWorker(
@@ -38,7 +38,7 @@ func main() {
 		cfg.MarkLostAfter,
 		cfg.Concurrency,
 		db,
-		rpc,
+		rpcs,
 	)
 
 	var eg errgroup.Group

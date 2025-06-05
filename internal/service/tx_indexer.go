@@ -2,11 +2,11 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/mobile-tss-lib/tss"
+	rtypes "github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/types"
@@ -15,18 +15,18 @@ import (
 type TxIndexerService struct {
 	logger *logrus.Logger
 	repo   storage.TxIndexerRepository
-	tss    map[common.Chain]types.TxIndexerTss
+	chains map[common.Chain]rtypes.Chain
 }
 
 func NewTxIndexerService(
 	logger *logrus.Logger,
 	repo storage.TxIndexerRepository,
-	tss map[common.Chain]types.TxIndexerTss,
+	chains map[common.Chain]rtypes.Chain,
 ) *TxIndexerService {
 	return &TxIndexerService{
 		logger: logger.WithField("pkg", "service.tx_indexer").Logger,
 		repo:   repo,
-		tss:    tss,
+		chains: chains,
 	}
 }
 
@@ -65,19 +65,13 @@ func (t *TxIndexerService) SetSignedAndBroadcasted(
 		return fmt.Errorf("t.repo.GetTxByID: %w", err)
 	}
 
-	client, ok := t.tss[chainID]
+	client, ok := t.chains[chainID]
 	if !ok {
-		return fmt.Errorf("tss client for chain %s not found", chainID)
+		return fmt.Errorf("client for chain not found: %s", chainID)
 	}
 
 	txHash, err := client.ComputeTxHash(tx.ProposedTxHex, sigs)
 	if err != nil {
-		if errors.Is(err, types.ErrChainNotImplemented) {
-			t.logger.WithFields(logrus.Fields{
-				"chain_id": chainID,
-			}).Error("ComputeTxHash: chain not implemented")
-			return nil
-		}
 		return fmt.Errorf("client.ComputeTxHash: %w", err)
 	}
 

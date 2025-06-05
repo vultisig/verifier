@@ -27,7 +27,7 @@ func TestAddPluginPolicySync(t *testing.T) {
 		Recipe:        "recipe",
 		Active:        true,
 		PluginVersion: "1.0.0",
-		PolicyVersion: "1",
+		PolicyVersion: 1,
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, policy)

@@ -1,14 +1,17 @@
 package types
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 )
 
 type BillingPolicy struct {
 	ID        uuid.UUID `json:"id" validate:"required"`
-	Type      string    `json:"type" validate:"required"` // "tx", "recurring" or "once"
-	Frequency string    `json:"frequency"`                // only "monthly" for now
-	StartDate string    `json:"start_date"`               // Number of a month, e.g., "1" for the first month. Only allow 1 for now
+	Type      string    `json:"type" validate:"required"`   // "tx", "recurring" or "once"
+	Frequency string    `json:"frequency"`                  // only "monthly" for now
+	StartDate time.Time `json:"start_date"`                 // Number of a month, e.g., "1" for the first month. Only allow 1 for now
+	Amount    int       `json:"amount" validate:"required"` // Amount in the smallest unit, e.g., "1000000" for 0.01 VULTI
 }
 
 // This type should be used externally when creating or updating a plugin policy. It keeps the protobuf encoded billing recipe as a string which is used to verify a signature.
@@ -44,7 +47,7 @@ type PluginPolicy struct {
 	PublicKey     string          `json:"public_key" validate:"required"`
 	PluginID      PluginID        `json:"plugin_id" validate:"required"`
 	PluginVersion string          `json:"plugin_version" validate:"required"`
-	PolicyVersion string          `json:"policy_version" validate:"required"`
+	PolicyVersion int             `json:"policy_version" validate:"required"`
 	Signature     string          `json:"signature" validate:"required"`
 	Recipe        string          `json:"recipe" validate:"required"` // base64 encoded recipe protobuf bytes
 	Billing       []BillingPolicy `json:"billing" validate:"required"`

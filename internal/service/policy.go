@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/syncer"
+	"github.com/vultisig/verifier/internal/tasks"
 	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/types"
 )
@@ -68,33 +70,63 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer s.handleRollback(tx, ctx)
 
 	// Insert policy
 	newPolicy, err := s.db.InsertPluginPolicyTx(ctx, tx, policy)
 	if err != nil {
+		s.handleRollback(tx, ctx)
 		return nil, fmt.Errorf("failed to insert policy: %w", err)
 	}
 
-	policySync := itypes.PluginPolicySync{
-		ID:         uuid.New(),
-		PolicyID:   newPolicy.ID,
-		PluginID:   newPolicy.PluginID,
-		Signature:  newPolicy.Signature,
-		SyncType:   itypes.AddPolicy,
-		Status:     itypes.NotSynced,
-		FailReason: "",
-	}
-	if err := s.db.AddPluginPolicySync(ctx, tx, policySync); err != nil {
-		return nil, fmt.Errorf("failed to add policy sync: %w", err)
+	// policySync := itypes.PluginPolicySync{
+	// 	ID:         uuid.New(),
+	// 	PolicyID:   newPolicy.ID,
+	// 	PluginID:   newPolicy.PluginID,
+	// 	Signature:  newPolicy.Signature,
+	// 	SyncType:   itypes.AddPolicy,
+	// 	Status:     itypes.NotSynced,
+	// 	FailReason: "",
+	// }
+
+	// //TODO garry
+	// if err := s.db.AddPluginPolicySync(ctx, tx, policySync); err != nil {
+	// 	s.handleRollback(tx, ctx)
+	// 	return nil, fmt.Errorf("failed to add policy sync: %w", err)
+	// }
+
+	// if err := tx.Commit(ctx); err != nil {
+	// 	return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	// }
+	// if err := s.syncPolicy(policySync); err != nil {
+	// 	s.logger.WithError(err).Error("failed post sync policy to queue")
+	// }
+
+	bid, err := newPolicy.ID.MarshalBinary()
+
+	fmt.Println(newPolicy.ID)
+
+	if err != nil {
+		//TODO garry we shouldn't fail here as DB tx is already committed
+		s.handleRollback(tx, ctx)
+		return nil, fmt.Errorf("failed to marshal policy ID: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
+		s.handleRollback(tx, ctx)
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	} else {
+		fmt.Println("Transaction committed successfully")
 	}
-	if err := s.syncPolicy(policySync); err != nil {
-		s.logger.WithError(err).Error("failed post sync policy to queue")
-	}
+
+	s.client.Enqueue(
+		asynq.NewTask(tasks.TypeOneTimeFeeRecord, bid),
+		asynq.MaxRetry(0),
+		asynq.Timeout(2*time.Minute),
+		asynq.Retention(5*time.Minute),
+		asynq.Queue(tasks.QUEUE_NAME),
+	)
+
+	//TODO garry, potentially we don't send this to a job but rather handle it in the same transaction. This reduces the risk of a committed
 
 	return newPolicy, nil
 }

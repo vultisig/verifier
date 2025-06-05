@@ -43,6 +43,7 @@ plugins-ui/coverage
 
 guide.md
 verifier.json
+worker.json
 
 zz_scripts/*
 worker.json

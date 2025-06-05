@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
@@ -24,6 +25,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
 	redisCfg := cfg.Redis
 	redisOptions := asynq.RedisClientOpt{
 		Addr:     redisCfg.Host + ":" + redisCfg.Port,
@@ -31,6 +33,7 @@ func main() {
 		Password: redisCfg.Password,
 		DB:       redisCfg.DB,
 	}
+
 	logger := logrus.StandardLogger()
 	client := asynq.NewClient(redisOptions)
 	vaultStorage, err := vault.NewBlockStorageImp(cfg.BlockStorageConfig)
@@ -38,11 +41,26 @@ func main() {
 		panic(fmt.Sprintf("failed to initialize vault storage: %v", err))
 	}
 
+	vaultMgmService, err := vault.NewManagementService(cfg.VaultServiceConfig,
+		client,
+		sdClient, vaultStorage)
+
 	backendDB, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil)
+
 	if err != nil {
 		panic(fmt.Sprintf("failed to initialize database: %v", err))
 	}
+
 	syncService := syncer.NewPolicySyncer(backendDB, client)
+
+	policyService, err := service.NewPolicyService(
+		backendDB,
+		client,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to initialize policy service: %v", err))
+	}
+
 	srv := asynq.NewServer(
 		redisOptions,
 		asynq.Config{
@@ -77,6 +95,8 @@ func main() {
 	mux.HandleFunc(tasks.TypeKeySignDKLS, vaultMgmService.HandleKeySignDKLS)
 	mux.HandleFunc(tasks.TypeReshareDKLS, vaultMgmService.HandleReshareDKLS)
 	mux.HandleFunc(syncer.TaskKeySyncPolicy, syncService.ProcessSyncTask)
+	mux.HandleFunc(tasks.TypeOneTimeFeeRecord, policyService.HandleOneTimeFeeRecord)
+
 	if err := syncService.Start(); err != nil {
 		panic(fmt.Sprintf("failed to start sync service: %v", err))
 	}

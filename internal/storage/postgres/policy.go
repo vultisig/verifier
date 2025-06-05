@@ -40,7 +40,7 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (ty
 		return types.PluginPolicy{}, fmt.Errorf("failed to get policy: %w", err)
 	}
 
-	query = `SELECT id, type, frequency, start_date FROM plugin_policy_billing WHERE plugin_policy_id = $1`
+	query = `SELECT id, type, frequency, start_date, amount FROM plugin_policy_billing WHERE plugin_policy_id = $1`
 	billingRows, err := p.pool.Query(ctx, query, id)
 	if err != nil {
 		return types.PluginPolicy{}, fmt.Errorf("failed to get billing info: %w", err)
@@ -54,6 +54,7 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (ty
 			&billing.Type,
 			&freq,
 			&billing.StartDate,
+			&billing.Amount,
 		)
 		if err != nil {
 			return types.PluginPolicy{}, fmt.Errorf("failed to scan billing info: %w", err)
@@ -107,7 +108,7 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 			return itypes.PluginPolicyPaginatedList{}, err
 		}
 
-		billingQuery := `SELECT id, "type", frequency, start_date FROM plugin_policy_billing WHERE plugin_policy_id = $1`
+		billingQuery := `SELECT id, "type", frequency, start_date, amount FROM plugin_policy_billing WHERE plugin_policy_id = $1`
 		billingRows, err := p.pool.Query(ctx, billingQuery, policy.ID)
 		if err != nil {
 			return itypes.PluginPolicyPaginatedList{}, fmt.Errorf("failed to get billing info: %w", err)
@@ -120,6 +121,7 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 				&billing.Type,
 				&freq,
 				&billing.StartDate,
+				&billing.Amount,
 			)
 			if err != nil {
 				billingRows.Close()
@@ -151,7 +153,12 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 	`
 
 	var insertedPolicy types.PluginPolicyCreateUpdate
-	err := dbTx.QueryRow(ctx, query,
+	tx, err := dbTx.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	err = tx.QueryRow(ctx, query,
 		policy.ID,
 		policy.PublicKey,
 		policy.PluginID,
@@ -171,7 +178,54 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		&insertedPolicy.Recipe,
 	)
 	if err != nil {
+		fmt.Println("TLD error inserting policy:", err)
+		tx.Rollback(ctx)
 		return nil, fmt.Errorf("failed to insert policy: %w", err)
+	}
+
+	billingQueryWithFrequency := `
+	INSERT INTO plugin_policy_billing (id, plugin_policy_id, type, frequency, start_date, amount)
+	VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, type, frequency, start_date, amount`
+	billingQueryWithoutFrequency := `
+	INSERT INTO plugin_policy_billing (id, plugin_policy_id, type, start_date, amount)
+	VALUES ($1, $2, $3, $4, $5) RETURNING id, type, start_date, amount`
+	for _, billing := range policy.Billing {
+		var err error
+		if billing.Frequency == "" {
+			err = tx.QueryRow(ctx, billingQueryWithoutFrequency,
+				billing.ID,
+				policy.ID,
+				billing.Type,
+				billing.StartDate,
+				billing.Amount,
+			).Scan(
+				&billing.ID,
+				&billing.Type,
+				&billing.StartDate,
+				&billing.Amount,
+			)
+		} else {
+			err = tx.QueryRow(ctx, billingQueryWithFrequency,
+				billing.ID,
+				policy.ID,
+				billing.Type,
+				billing.Frequency,
+				billing.StartDate,
+				billing.Amount,
+			).Scan(
+				&billing.ID,
+				&billing.Type,
+				&billing.Frequency,
+				&billing.StartDate,
+				&billing.Amount,
+			)
+		}
+		if err != nil {
+			fmt.Println("Error inserting billing policy XX:", err)
+			tx.Rollback(ctx)
+			return nil, fmt.Errorf("failed to insert billing policy: %w", err)
+		}
+		insertedPolicy.Billing = append(insertedPolicy.Billing, billing)
 	}
 
 	return &insertedPolicy, nil

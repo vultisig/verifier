@@ -133,7 +133,7 @@ func (s *PluginService) GetPluginRecipeSpecification(ctx context.Context, plugin
 		}
 	}
 
-	// GetTxStatus plugin from database to get server endpoint
+	// Get plugin from database to get server endpoint
 	plugin, err := s.db.FindPluginById(ctx, nil, ptypes.PluginID(pluginID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to find plugin: %w", err)

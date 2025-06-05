@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/vultisig/verifier/internal/storage"
+	"github.com/vultisig/verifier/internal/data"
 	"github.com/vultisig/verifier/internal/types"
 	"time"
 )
@@ -17,7 +17,7 @@ func (p *PostgresBackend) createTx(ctx context.Context, tx types.Tx) error {
                         chain_id,
                         policy_id,
                         from_public_key,
-                        proposed_tx_object,
+                        proposed_tx_hex,
                         status,
                         status_onchain,
                         lost,
@@ -44,7 +44,7 @@ func (p *PostgresBackend) createTx(ctx context.Context, tx types.Tx) error {
 		tx.ChainID,
 		tx.PolicyID,
 		tx.FromPublicKey,
-		tx.ProposedTxObject,
+		tx.ProposedTxHex,
 		tx.Status,
 		tx.StatusOnChain,
 		tx.Lost,
@@ -134,8 +134,8 @@ func (p *PostgresBackend) SetOnChainStatus(c context.Context, id uuid.UUID, stat
 	return nil
 }
 
-func (p *PostgresBackend) GetPendingTxs(ctx context.Context) <-chan storage.RowsStream[types.Tx] {
-	return storage.GetRowsStream[types.Tx](
+func (p *PostgresBackend) GetPendingTxs(ctx context.Context) <-chan data.RowsStream[types.Tx] {
+	return data.GetRowsStream[types.Tx](
 		ctx,
 		p.pool,
 		types.TxFromRow,
@@ -175,19 +175,19 @@ func (p *PostgresBackend) CreateTx(c context.Context, req types.CreateTxDto) (ty
 	}
 
 	tx := types.Tx{
-		ID:               id,
-		PluginID:         req.PluginID,
-		TxHash:           nil,
-		ChainID:          int(req.ChainID),
-		PolicyID:         req.PolicyID,
-		FromPublicKey:    req.FromPublicKey,
-		ProposedTxObject: req.ProposedTxObject,
-		Status:           types.TxProposed,
-		StatusOnChain:    nil,
-		Lost:             false,
-		BroadcastedAt:    nil,
-		CreatedAt:        now,
-		UpdatedAt:        now,
+		ID:            id,
+		PluginID:      req.PluginID,
+		TxHash:        nil,
+		ChainID:       int(req.ChainID),
+		PolicyID:      req.PolicyID,
+		FromPublicKey: req.FromPublicKey,
+		ProposedTxHex: req.ProposedTxHex,
+		Status:        types.TxProposed,
+		StatusOnChain: nil,
+		Lost:          false,
+		BroadcastedAt: nil,
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
 	err = p.createTx(ctx, tx)
 	if err != nil {

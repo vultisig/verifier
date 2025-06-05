@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/vultisig/verifier/config"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -26,7 +27,7 @@ import (
 var TssKeyGenTimeout = errors.New("keygen timeout")
 
 type DKLSTssService struct {
-	cfg                Config
+	cfg                config.VaultConfig
 	messenger          *relay.MessengerImp
 	logger             *logrus.Logger
 	localStateAccessor *LocalStateAccessorImp
@@ -36,7 +37,7 @@ type DKLSTssService struct {
 	queueClient        *asynq.Client
 }
 
-func NewDKLSTssService(cfg Config,
+func NewDKLSTssService(cfg config.VaultConfig,
 	storage Storage,
 	queueClient *asynq.Client) (*DKLSTssService, error) {
 	return &DKLSTssService{

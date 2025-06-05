@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/vultisig/verifier/internal/chains/bitcoin"
+	"github.com/vultisig/verifier/internal/chains/evm"
 	"net/http"
 	"strings"
 	"time"
@@ -36,17 +38,18 @@ import (
 )
 
 type Server struct {
-	cfg           config.VerifierConfig
-	db            storage.DatabaseStorage
-	redis         *storage.RedisStorage
-	vaultStorage  vault.Storage
-	client        *asynq.Client
-	inspector     *asynq.Inspector
-	sdClient      *statsd.Client
-	policyService service.Policy
-	pluginService service.Plugin
-	authService   *service.AuthService
-	logger        *logrus.Logger
+	cfg              config.VerifierConfig
+	db               storage.DatabaseStorage
+	redis            *storage.RedisStorage
+	vaultStorage     vault.Storage
+	client           *asynq.Client
+	inspector        *asynq.Inspector
+	sdClient         *statsd.Client
+	policyService    service.Policy
+	pluginService    service.Plugin
+	authService      *service.AuthService
+	txIndexerService *service.TxIndexerService
+	logger           *logrus.Logger
 }
 
 // NewServer returns a new server.
@@ -77,18 +80,33 @@ func NewServer(
 
 	authService := service.NewAuthService(jwtSecret, db, logrus.WithField("service", "auth-service").Logger)
 
+	ethID, err := common.Ethereum.EVMChainID()
+	if err != nil {
+		logrus.Fatalf("Failed to get Ethereum chain ID: %v", err)
+	}
+
+	txIndexerService := service.NewTxIndexerService(
+		logger,
+		db,
+		map[common.Chain]types.TxIndexerTss{
+			common.Bitcoin:  bitcoin.NewTss(),
+			common.Ethereum: evm.NewTss(ethID),
+		},
+	)
+
 	return &Server{
-		cfg:           cfg,
-		redis:         redis,
-		client:        client,
-		inspector:     inspector,
-		sdClient:      sdClient,
-		vaultStorage:  vaultStorage,
-		db:            db,
-		logger:        logger,
-		policyService: policyService,
-		authService:   authService,
-		pluginService: pluginService,
+		cfg:              cfg,
+		redis:            redis,
+		client:           client,
+		inspector:        inspector,
+		sdClient:         sdClient,
+		vaultStorage:     vaultStorage,
+		db:               db,
+		logger:           logger,
+		policyService:    policyService,
+		authService:      authService,
+		pluginService:    pluginService,
+		txIndexerService: txIndexerService,
 	}
 }
 
@@ -124,12 +142,12 @@ func (s *Server) StartServer() error {
 	vaultGroup := e.Group("/vault")
 	// Reshare vault endpoint , we only allow the vault owner to reshare the vault
 	vaultGroup.POST("/reshare", s.ReshareVault)
-	vaultGroup.GET("/get/:pluginId/:publicKeyECDSA", s.GetVault, s.VaultAuthMiddleware)     // Get Vault Data
+	vaultGroup.GET("/get/:pluginId/:publicKeyECDSA", s.GetVault, s.VaultAuthMiddleware)     // GetTxStatus Vault Data
 	vaultGroup.GET("/exist/:pluginId/:publicKeyECDSA", s.ExistVault, s.VaultAuthMiddleware) // Check if Vault exists
 
 	// Sign endpoint, plugin should authenticate themselves using the API Key issued by the Verifier
 	vaultGroup.POST("/sign", s.SignPluginMessages, s.PluginAuthMiddleware)               // Sign messages
-	vaultGroup.GET("/sign/response/:taskId", s.GetKeysignResult, s.PluginAuthMiddleware) // Get keysign result
+	vaultGroup.GET("/sign/response/:taskId", s.GetKeysignResult, s.PluginAuthMiddleware) // GetTxStatus keysign result
 
 	pluginGroup := e.Group("/plugin", s.VaultAuthMiddleware)
 	pluginGroup.POST("/policy", s.CreatePluginPolicy)
@@ -540,7 +558,7 @@ func (s *Server) RevokeToken(c echo.Context) error {
 
 // RevokeAllTokens revokes all tokens for the authenticated vault
 func (s *Server) RevokeAllTokens(c echo.Context) error {
-	// Get public key from context (set by VaultAuthMiddleware)
+	// GetTxStatus public key from context (set by VaultAuthMiddleware)
 	publicKey, ok := c.Get("vault_public_key").(string)
 	if !ok {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to get vault public key"))
@@ -557,7 +575,7 @@ func (s *Server) RevokeAllTokens(c echo.Context) error {
 
 // GetActiveTokens returns all active tokens for the authenticated vault
 func (s *Server) GetActiveTokens(c echo.Context) error {
-	// Get public key from context (set by VaultAuthMiddleware)
+	// GetTxStatus public key from context (set by VaultAuthMiddleware)
 	publicKey, ok := c.Get("vault_public_key").(string)
 	if !ok {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to get vault public key"))

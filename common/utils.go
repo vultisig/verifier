@@ -111,7 +111,7 @@ func DecryptVault(password string, vault []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	// Get the nonce size
+	// GetTxStatus the nonce size
 	nonceSize := gcm.NonceSize()
 	if len(vault) < nonceSize {
 		return nil, fmt.Errorf("ciphertext too short")
@@ -251,7 +251,7 @@ func DecryptGCM(rawData []byte, hexEncryptKey string) ([]byte, error) {
 		return nil, err
 	}
 
-	// Get the nonce size
+	// GetTxStatus the nonce size
 	nonceSize := gcm.NonceSize()
 	if len(rawData) < nonceSize {
 		return nil, fmt.Errorf("ciphertext too short")

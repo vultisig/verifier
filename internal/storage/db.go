@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"github.com/vultisig/verifier/internal/data"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -36,16 +37,6 @@ type DatabaseStorage interface {
 	Close() error
 }
 
-type TxIndexerRepository interface {
-	SetStatus(ctx context.Context, id uuid.UUID, status itypes.TxStatus) error
-	SetLost(ctx context.Context, id uuid.UUID) error
-	SetSignedAndBroadcasted(ctx context.Context, id uuid.UUID, txHash string) error
-	SetOnChainStatus(ctx context.Context, id uuid.UUID, status itypes.TxOnChainStatus) error
-	GetPendingTxs(ctx context.Context) <-chan RowsStream[itypes.Tx]
-	CreateTx(ctx context.Context, req itypes.CreateTxDto) (itypes.Tx, error)
-	GetTxByID(c context.Context, id uuid.UUID) (itypes.Tx, error)
-}
-
 type PolicyRepository interface {
 	GetPluginPolicy(ctx context.Context, id uuid.UUID) (types.PluginPolicy, error)
 	GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (itypes.PluginPolicyPaginatedList, error)
@@ -61,6 +52,16 @@ type PluginPolicySyncRepository interface {
 	DeletePluginPolicySync(ctx context.Context, id uuid.UUID) error
 	GetUnFinishedPluginPolicySyncs(ctx context.Context) ([]itypes.PluginPolicySync, error)
 	UpdatePluginPolicySync(ctx context.Context, dbTx pgx.Tx, policy itypes.PluginPolicySync) error
+}
+
+type TxIndexerRepository interface {
+	SetStatus(ctx context.Context, id uuid.UUID, status itypes.TxStatus) error
+	SetLost(ctx context.Context, id uuid.UUID) error
+	SetSignedAndBroadcasted(ctx context.Context, id uuid.UUID, txHash string) error
+	SetOnChainStatus(ctx context.Context, id uuid.UUID, status itypes.TxOnChainStatus) error
+	GetPendingTxs(ctx context.Context) <-chan data.RowsStream[itypes.Tx]
+	CreateTx(ctx context.Context, req itypes.CreateTxDto) (itypes.Tx, error)
+	GetTxByID(ctx context.Context, id uuid.UUID) (itypes.Tx, error)
 }
 
 type TransactionRepository interface {

@@ -50,6 +50,7 @@ func (r KeysignRequest) IsValid() error {
 
 type PluginKeysignRequest struct {
 	KeysignRequest
+	TxID            string `json:"tx_id"` // Tx indexer uuid
 	Transaction     string `json:"transactions"`
 	PolicyID        string `json:"policy_id"`
 	TransactionType string `json:"transaction_type"`

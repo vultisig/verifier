@@ -32,6 +32,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	}
 
 	// Plugin-specific validations
+	// TODO add validation for proposed BTC tx from plugins, also Messages for BTC always multi-message
 	if len(req.Messages) != 1 {
 		return fmt.Errorf("plugin signing requires exactly one message hash, current: %d", len(req.Messages))
 	}
@@ -65,6 +66,17 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	// Presently we can only verify for payroll
 	if policy.PluginID != ptypes.PluginVultisigPayroll_0000 {
 		return fmt.Errorf("unsupported plugin ID: %s", policy.PluginID)
+	}
+
+	txToTrack, err := s.txIndexerService.CreateTx(c.Request().Context(), types.CreateTxDto{
+		PluginID:      ptypes.PluginID(req.PluginID),
+		ChainID:       req.Messages[0].Chain,
+		PolicyID:      policyUUID,
+		FromPublicKey: req.PublicKey,
+		ProposedTxHex: req.Transaction,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create transaction for tracking: %w", err)
 	}
 
 	transactionAllowedByPolicy := false
@@ -119,6 +131,11 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		return fmt.Errorf("transaction does not match any rule in the policy")
 	}
 
+	err = s.txIndexerService.SetStatus(c.Request().Context(), txToTrack.ID, types.TxVerified)
+	if err != nil {
+		return fmt.Errorf("tx_id=%s, failed to set transaction status to verified: %w", txToTrack.ID, err)
+	}
+
 	// Reuse existing signing logic
 	result, err := s.redis.Get(c.Request().Context(), req.SessionID)
 	if err == nil && result != "" {
@@ -129,6 +146,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		s.logger.Errorf("fail to set session, err: %v", err)
 	}
 
+	req.TxID = txToTrack.ID.String()
 	buf, err := json.Marshal(req)
 	if err != nil {
 		return fmt.Errorf("fail to marshal to json, err: %w", err)

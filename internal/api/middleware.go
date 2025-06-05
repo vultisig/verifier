@@ -58,7 +58,7 @@ func (s *Server) AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 // VaultAuthMiddleware verifies JWT tokens and ensures users can only access their own vaults
 func (s *Server) VaultAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		// Get token from header
+		// GetTxStatus token from header
 		authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
 		if authHeader == "" {
 			return c.JSON(http.StatusUnauthorized, NewErrorResponse("Missing authorization header"))
@@ -77,7 +77,7 @@ func (s *Server) VaultAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return c.JSON(http.StatusInternalServerError, NewErrorResponse("An internal error occurred"))
 		}
 
-		// Get requested vault's public key from URL parameter
+		// GetTxStatus requested vault's public key from URL parameter
 		// keep in mind, quite some endpoint will not require user to pass `publicKeyECDSA` in the URL
 		requestedPublicKey := c.Param("publicKeyECDSA")
 		if requestedPublicKey != "" {

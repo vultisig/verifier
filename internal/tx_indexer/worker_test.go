@@ -9,7 +9,6 @@ import (
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/conv"
-	"github.com/vultisig/verifier/internal/rpc"
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/internal/types"
@@ -27,19 +26,14 @@ func createWorker() (*Worker, context.CancelFunc, storage.TxIndexerRepository, e
 		return nil, stop, nil, fmt.Errorf("config.ReadTxIndexerConfig: %w", err)
 	}
 
-	rpcBtc, err := rpc.NewBitcoinClient(cfg.Rpc.Bitcoin.URL)
-	if err != nil {
-		return nil, stop, nil, fmt.Errorf("rpc.NewBitcoinClient: %w", err)
-	}
-
-	rpcEth, err := rpc.NewEvmClient(ctx, cfg.Rpc.Ethereum.URL)
-	if err != nil {
-		return nil, stop, nil, fmt.Errorf("rpc.NewEvmClient: %w", err)
-	}
-
 	db, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil)
 	if err != nil {
 		return nil, stop, nil, fmt.Errorf("postgres.NewPostgresBackend: %w", err)
+	}
+
+	rpc, err := Rpc(ctx, cfg.Rpc)
+	if err != nil {
+		return nil, stop, nil, fmt.Errorf("rpc: %w", err)
 	}
 
 	worker := NewWorker(
@@ -49,10 +43,7 @@ func createWorker() (*Worker, context.CancelFunc, storage.TxIndexerRepository, e
 		cfg.MarkLostAfter,
 		cfg.Concurrency,
 		db,
-		map[common.Chain]rpc.TxIndexer{
-			common.Bitcoin:  rpcBtc,
-			common.Ethereum: rpcEth,
-		},
+		rpc,
 	)
 
 	return worker, stop, db, nil
@@ -83,17 +74,15 @@ func TestWorker_positive(t *testing.T) {
 		hash:          "0x87a75af70c563b78598434d65dfdeca7eabd98f5f75a68281216ea40ff15648a",
 		fromPublicKey: "0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5",
 	}} {
-		pluginID, err := uuid.NewUUID()
-		require.Nil(t, err)
 		policyID, err := uuid.NewUUID()
 		require.Nil(t, err)
 
 		txBefore, err := db.CreateTx(ctx, types.CreateTxDto{
-			PluginID:         pluginID,
-			ChainID:          testcase.chain,
-			PolicyID:         policyID,
-			FromPublicKey:    testcase.fromPublicKey,
-			ProposedTxObject: []byte(`{}`),
+			PluginID:      "vultisig-payroll-0000",
+			ChainID:       testcase.chain,
+			PolicyID:      policyID,
+			FromPublicKey: testcase.fromPublicKey,
+			ProposedTxHex: "0x1",
 		})
 		require.Nil(t, err, testcase.chain.String())
 		require.Equal(t, types.TxProposed, txBefore.Status, testcase.chain.String())

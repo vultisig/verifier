@@ -133,12 +133,12 @@ func (s *Server) StartServer() error {
 	vaultGroup := e.Group("/vault")
 	// Reshare vault endpoint , we only allow the vault owner to reshare the vault
 	vaultGroup.POST("/reshare", s.ReshareVault)
-	vaultGroup.GET("/get/:pluginId/:publicKeyECDSA", s.GetVault, s.VaultAuthMiddleware)     // GetTxStatus Vault Data
+	vaultGroup.GET("/get/:pluginId/:publicKeyECDSA", s.GetVault, s.VaultAuthMiddleware)     // Get Vault Data
 	vaultGroup.GET("/exist/:pluginId/:publicKeyECDSA", s.ExistVault, s.VaultAuthMiddleware) // Check if Vault exists
 
 	// Sign endpoint, plugin should authenticate themselves using the API Key issued by the Verifier
 	vaultGroup.POST("/sign", s.SignPluginMessages, s.PluginAuthMiddleware)               // Sign messages
-	vaultGroup.GET("/sign/response/:taskId", s.GetKeysignResult, s.PluginAuthMiddleware) // GetTxStatus keysign result
+	vaultGroup.GET("/sign/response/:taskId", s.GetKeysignResult, s.PluginAuthMiddleware) // Get keysign result
 
 	pluginGroup := e.Group("/plugin", s.VaultAuthMiddleware)
 	pluginGroup.POST("/policy", s.CreatePluginPolicy)
@@ -549,7 +549,7 @@ func (s *Server) RevokeToken(c echo.Context) error {
 
 // RevokeAllTokens revokes all tokens for the authenticated vault
 func (s *Server) RevokeAllTokens(c echo.Context) error {
-	// GetTxStatus public key from context (set by VaultAuthMiddleware)
+	// Get public key from context (set by VaultAuthMiddleware)
 	publicKey, ok := c.Get("vault_public_key").(string)
 	if !ok {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to get vault public key"))
@@ -566,7 +566,7 @@ func (s *Server) RevokeAllTokens(c echo.Context) error {
 
 // GetActiveTokens returns all active tokens for the authenticated vault
 func (s *Server) GetActiveTokens(c echo.Context) error {
-	// GetTxStatus public key from context (set by VaultAuthMiddleware)
+	// Get public key from context (set by VaultAuthMiddleware)
 	publicKey, ok := c.Get("vault_public_key").(string)
 	if !ok {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to get vault public key"))

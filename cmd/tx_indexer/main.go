@@ -21,14 +21,14 @@ func main() {
 		panic(fmt.Errorf("config.ReadTxIndexerConfig: %w", err))
 	}
 
-	db, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil)
-	if err != nil {
-		panic(fmt.Errorf("postgres.NewPostgresBackend: %w", err))
-	}
-
 	rpcs, err := tx_indexer.Rpcs(ctx, cfg.Rpc)
 	if err != nil {
 		panic(fmt.Errorf("tx_indexer.Rpcs: %w", err))
+	}
+
+	db, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil)
+	if err != nil {
+		panic(fmt.Errorf("postgres.NewPostgresBackend: %w", err))
 	}
 
 	worker := tx_indexer.NewWorker(

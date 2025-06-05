@@ -4,7 +4,6 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"slices"
 )
 
 type Chain int
@@ -86,9 +85,6 @@ var EVMChains = []Chain{
 	Blast,
 	CronosChain,
 	Zksync,
-}
-var EVMChainIDs = map[Chain]int{
-	Ethereum: 1,
 }
 
 var chainDerivePath = map[Chain]string{
@@ -182,15 +178,4 @@ func (c Chain) IsEdDSA() bool {
 		return true
 	}
 	return false
-}
-
-func (c Chain) EVMChainID() (int, error) {
-	if !slices.Contains(EVMChains, c) {
-		return 0, fmt.Errorf("chain %s is not an EVM chain", c.String())
-	}
-
-	if id, ok := EVMChainIDs[c]; ok {
-		return id, nil
-	}
-	return 0, fmt.Errorf("no EVMChainID for chain %s", c.String())
 }

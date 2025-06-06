@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vultisig/verifier/internal/storage"
+	"github.com/vultisig/verifier/internal/data"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"

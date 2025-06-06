@@ -122,3 +122,31 @@ jobs:
           fi
           
           echo "Migration integrity check passed!"
+      
+      - name: Check schema updates
+        run: |
+          # Dump current schema
+          PGPASSWORD=mypassword pg_dump -h localhost -U myuser -d vultisig-verifier \
+            --schema-only \
+            --no-comments \
+            --quote-all-identifiers \
+            -T public.goose_db_version \
+            -T public.goose_db_version_id_seq | sed \
+            -e '/^--.*/d' \
+            -e '/^SET /d' \
+            -e '/^[[:space:]]*$/d' \
+            -e '/^SELECT pg_catalog./d' \
+            -e '/^ALTER TABLE .* OWNER TO "[^"]*";/d' \
+            -e '/^ALTER TYPE .* OWNER TO "[^"]*";/d' \
+            -e '/^ALTER FUNCTION .* OWNER TO "[^"]*";/d' \
+            -e 's/"public"\.//' \
+            > ./current_schema.sql
+          
+          # Compare with repository schema
+          if ! diff -u ./internal/storage/postgres/schema/schema.sql ./current_schema.sql; then
+            echo "Schema has changed but schema.sql was not updated!"
+            echo "Please run 'make dump-schema' to update the schema file."
+            exit 1
+          fi
+          
+          echo "Schema is up to date!"

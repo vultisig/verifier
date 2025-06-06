@@ -134,12 +134,11 @@ jobs:
             -T public.goose_db_version_id_seq | sed \
             -e '/^--.*/d' \
             -e '/^SET /d' \
-            -e '/^[[:space:]]*$/d' \
             -e '/^SELECT pg_catalog./d' \
             -e '/^ALTER TABLE .* OWNER TO "[^"]*";/d' \
             -e '/^ALTER TYPE .* OWNER TO "[^"]*";/d' \
             -e '/^ALTER FUNCTION .* OWNER TO "[^"]*";/d' \
-            -e 's/"public"\.//' \
+            -e 's/"public"\.//' | awk '/./ { e=0 } /^$$/ { e += 1 } e <= 1' \
             > ./current_schema.sql
           
           # Compare with repository schema

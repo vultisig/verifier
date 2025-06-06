@@ -25,7 +25,7 @@ type KeysignRequest struct {
 }
 
 type KeysignMessage struct {
-	TxID         string       `json:"tx_id"` // Tx indexer uuid
+	TxIndexerID  string       `json:"tx_indexer_id"` // Tx indexer uuid
 	Message      string       `json:"message"`
 	Hash         string       `json:"hash"`
 	HashFunction HashFunction `json:"hash_function"`

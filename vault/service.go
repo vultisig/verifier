@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"plugin"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/service"
-	"plugin"
-	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/hibiken/asynq"
@@ -184,14 +185,14 @@ func (s *ManagementService) HandleKeySignDKLS(ctx context.Context, t *asynq.Task
 	}
 
 	for _, msg := range p.Messages {
-		if msg.TxID == "" {
+		if msg.TxIndexerID == "" {
 			continue // not from plugin
 		}
 
-		txID, er := uuid.Parse(msg.TxID)
+		txID, er := uuid.Parse(msg.TxIndexerID)
 		if er != nil {
-			s.logger.Errorf("uuid.Parse(reqPlugin.TxID): %v", er)
-			return fmt.Errorf("uuid.Parse(reqPlugin.TxID): %v: %w", er, asynq.SkipRetry)
+			s.logger.Errorf("uuid.Parse(reqPlugin.TxIndexerID): %v", er)
+			return fmt.Errorf("uuid.Parse(reqPlugin.TxIndexerID): %v: %w", er, asynq.SkipRetry)
 		}
 
 		er = s.txIndexerService.SetSignedAndBroadcasted(

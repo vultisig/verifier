@@ -77,7 +77,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		if err != nil {
 			return fmt.Errorf("s.txIndexerService.CreateTx(: %w", err)
 		}
-		req.Messages[i].TxID = txToTrack.ID.String()
+		req.Messages[i].TxIndexerID = txToTrack.ID.String()
 
 		transactionAllowed, _, err := eng.Evaluate(&recipe, messageChain, decodedTx)
 		if err != nil {

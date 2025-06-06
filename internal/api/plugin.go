@@ -16,6 +16,8 @@ import (
 
 	"github.com/vultisig/verifier/common"
 
+	"github.com/vultisig/verifier/common"
+
 	"github.com/vultisig/recipes/chain"
 	"github.com/vultisig/recipes/engine"
 	rtypes "github.com/vultisig/recipes/types"

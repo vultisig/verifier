@@ -1,3 +1,11 @@
+CREATE TYPE "billing_frequency" AS ENUM (
+    'monthly'
+);
+CREATE TYPE "fee_type" AS ENUM (
+    'tx',
+    'recurring',
+    'once'
+);
 CREATE TYPE "plugin_category" AS ENUM (
     'ai-agent',
     'plugin'
@@ -30,6 +38,16 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+CREATE TABLE "fees" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "type" "fee_type" NOT NULL,
+    "plugin_policy_billing_id" "uuid" NOT NULL,
+    "transaction_id" "uuid",
+    "billing_date" "date" NOT NULL,
+    "amount" bigint NOT NULL,
+    "created_at" timestamp without time zone DEFAULT "now"(),
+    "collected_at" timestamp without time zone
+);
 CREATE TABLE "plugin_apikey" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "plugin_id" "plugin_id" NOT NULL,
@@ -50,6 +68,14 @@ CREATE TABLE "plugin_policies" (
     "active" boolean DEFAULT true NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+CREATE TABLE "plugin_policy_billing" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "type" "fee_type" NOT NULL,
+    "frequency" "billing_frequency",
+    "start_date" integer DEFAULT 1 NOT NULL,
+    "plugin_policy_id" "uuid" NOT NULL,
+    CONSTRAINT "only_first_of_month" CHECK (("start_date" = 1))
 );
 CREATE TABLE "plugin_policy_sync" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
@@ -121,12 +147,16 @@ CREATE TABLE "vault_tokens" (
     "revoked_at" timestamp with time zone,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
+ALTER TABLE ONLY "fees"
+    ADD CONSTRAINT "fees_pkey" PRIMARY KEY ("id");
 ALTER TABLE ONLY "plugin_apikey"
     ADD CONSTRAINT "plugin_apikey_apikey_key" UNIQUE ("apikey");
 ALTER TABLE ONLY "plugin_apikey"
     ADD CONSTRAINT "plugin_apikey_pkey" PRIMARY KEY ("id");
 ALTER TABLE ONLY "plugin_policies"
     ADD CONSTRAINT "plugin_policies_pkey" PRIMARY KEY ("id");
+ALTER TABLE ONLY "plugin_policy_billing"
+    ADD CONSTRAINT "plugin_policy_billing_pkey" PRIMARY KEY ("id");
 ALTER TABLE ONLY "plugin_policy_sync"
     ADD CONSTRAINT "plugin_policy_sync_pkey" PRIMARY KEY ("id");
 ALTER TABLE ONLY "plugin_ratings"
@@ -157,6 +187,10 @@ CREATE INDEX "idx_reviews_plugin_id" ON "reviews" USING "btree" ("plugin_id");
 CREATE INDEX "idx_reviews_public_key" ON "reviews" USING "btree" ("public_key");
 CREATE INDEX "idx_vault_tokens_public_key" ON "vault_tokens" USING "btree" ("public_key");
 CREATE INDEX "idx_vault_tokens_token_id" ON "vault_tokens" USING "btree" ("token_id");
+ALTER TABLE ONLY "fees"
+    ADD CONSTRAINT "fk_billing" FOREIGN KEY ("plugin_policy_billing_id") REFERENCES "plugin_policy_billing"("id") ON DELETE CASCADE;
+ALTER TABLE ONLY "plugin_policy_billing"
+    ADD CONSTRAINT "fk_plugin_policy" FOREIGN KEY ("plugin_policy_id") REFERENCES "plugin_policies"("id") ON DELETE CASCADE;
 ALTER TABLE ONLY "plugin_apikey"
     ADD CONSTRAINT "plugin_apikey_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugins"("id") ON DELETE CASCADE;
 ALTER TABLE ONLY "plugin_policy_sync"

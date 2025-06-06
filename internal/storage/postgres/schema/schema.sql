@@ -30,14 +30,6 @@ CREATE TYPE "pricing_type" AS ENUM (
     'recurring',
     'per-tx'
 );
-CREATE FUNCTION "trigger_set_timestamp"() RETURNS "trigger"
-    LANGUAGE "plpgsql"
-    AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$;
 CREATE TABLE "fees" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "type" "fee_type" NOT NULL,

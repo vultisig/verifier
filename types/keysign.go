@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
+
 	"github.com/vultisig/verifier/common"
 )
 
@@ -51,6 +52,5 @@ func (r KeysignRequest) IsValid() error {
 type PluginKeysignRequest struct {
 	KeysignRequest
 	Transaction     string `json:"transactions"`
-	PolicyID        string `json:"policy_id"`
 	TransactionType string `json:"transaction_type"`
 }

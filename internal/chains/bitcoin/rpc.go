@@ -50,7 +50,7 @@ func (r *Rpc) GetTxStatus(ctx context.Context, txHash string) (types.TxOnChainSt
 
 	tx, err := r.client.GetRawTransactionVerbose(hash)
 	noConfirmations := tx != nil && tx.Confirmations == 0
-	if err != nil || noConfirmations {
+	if err != nil || tx == nil || noConfirmations {
 		return types.TxOnChainPending, nil
 	}
 	return types.TxOnChainSuccess, nil

@@ -3,10 +3,11 @@ package bitcoin
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/vultisig/verifier/internal/types"
-	"strings"
 )
 
 type Rpc struct {
@@ -47,8 +48,9 @@ func (r *Rpc) GetTxStatus(ctx context.Context, txHash string) (types.TxOnChainSt
 		return "", fmt.Errorf("chainhash.NewHashFromStr: %w", err)
 	}
 
-	tx, err := r.client.GetRawTransaction(hash)
-	if err != nil || tx == nil {
+	tx, err := r.client.GetRawTransactionVerbose(hash)
+	noConfirmations := tx != nil && tx.Confirmations == 0
+	if err != nil || noConfirmations {
 		return types.TxOnChainPending, nil
 	}
 	return types.TxOnChainSuccess, nil

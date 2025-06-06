@@ -70,7 +70,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		txToTrack, err := s.txIndexerService.CreateTx(c.Request().Context(), types.CreateTxDto{
 			PluginID:      ptypes.PluginID(req.PluginID),
 			ChainID:       keysignMessage.Chain,
-			PolicyID:      policyUUID,
+			PolicyID:      policy.ID,
 			FromPublicKey: req.PublicKey,
 			ProposedTxHex: keysignMessage.Message,
 		})

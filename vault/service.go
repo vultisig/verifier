@@ -19,8 +19,8 @@ import (
 	"github.com/vultisig/vultiserver/common"
 	"github.com/vultisig/vultiserver/contexthelper"
 
-	"github.com/vultisig/verifier/types"
 	vcommon "github.com/vultisig/verifier/common"
+	"github.com/vultisig/verifier/types"
 )
 
 const EmailVaultBackupTypeName = "key:email"

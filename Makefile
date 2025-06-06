@@ -15,4 +15,24 @@ run-server:
 # Run the worker process
 run-worker:
 	@DYLD_LIBRARY_PATH=$(DYLD_LIBRARY) VS_CONFIG_NAME=config go run cmd/worker/main.go
+
+# Dump database schema
+# Usage: make dump-schema CONFIG=config.json
+dump-schema:
+	@if [ -z "$(CONFIG)" ]; then \
+		echo "Error: CONFIG parameter is required. Usage: make dump-schema CONFIG=config.json"; \
+		exit 1; \
+	fi
+	@DSN=$$(jq -r '.database.dsn' $(CONFIG)); \
+	pg_dump "$$DSN" --schema-only \
+		--no-comments \
+		--no-owner \
+		--quote-all-identifiers \
+		-T public.goose_db_version \
+		-T public.goose_db_version_id_seq | sed \
+		-e '/^--.*/d' \
+		-e '/^SET /d' \
+		-e '/^SELECT pg_catalog./d' \
+		-e 's/"public"\.//' | awk '/./ { e=0 } /^$$/ { e += 1 } e <= 1' \
+		> ./internal/storage/postgres/schema/schema.sql
 	

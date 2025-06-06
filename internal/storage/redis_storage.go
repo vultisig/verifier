@@ -28,7 +28,6 @@ func NewRedisStorage(cfg config.RedisConfig) (*RedisStorage, error) {
 		return nil, status.Err()
 	}
 	return &RedisStorage{
-		cfg:    cfg,
 		client: client,
 	}, nil
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/vultisig/verifier/internal/tx_indexer"
 	"net/http"
 	"strings"
 	"time"
@@ -36,17 +37,18 @@ import (
 )
 
 type Server struct {
-	cfg           config.VerifierConfig
-	db            storage.DatabaseStorage
-	redis         *storage.RedisStorage
-	vaultStorage  vault.Storage
-	client        *asynq.Client
-	inspector     *asynq.Inspector
-	sdClient      *statsd.Client
-	policyService service.Policy
-	pluginService service.Plugin
-	authService   *service.AuthService
-	logger        *logrus.Logger
+	cfg              config.VerifierConfig
+	db               storage.DatabaseStorage
+	redis            *storage.RedisStorage
+	vaultStorage     vault.Storage
+	client           *asynq.Client
+	inspector        *asynq.Inspector
+	sdClient         *statsd.Client
+	policyService    service.Policy
+	pluginService    service.Plugin
+	authService      *service.AuthService
+	txIndexerService *service.TxIndexerService
+	logger           *logrus.Logger
 }
 
 // NewServer returns a new server.
@@ -77,18 +79,25 @@ func NewServer(
 
 	authService := service.NewAuthService(jwtSecret, db, logrus.WithField("service", "auth-service").Logger)
 
+	txIndexerService := service.NewTxIndexerService(
+		logger,
+		db,
+		tx_indexer.Chains(),
+	)
+
 	return &Server{
-		cfg:           cfg,
-		redis:         redis,
-		client:        client,
-		inspector:     inspector,
-		sdClient:      sdClient,
-		vaultStorage:  vaultStorage,
-		db:            db,
-		logger:        logger,
-		policyService: policyService,
-		authService:   authService,
-		pluginService: pluginService,
+		cfg:              cfg,
+		redis:            redis,
+		client:           client,
+		inspector:        inspector,
+		sdClient:         sdClient,
+		vaultStorage:     vaultStorage,
+		db:               db,
+		logger:           logger,
+		policyService:    policyService,
+		authService:      authService,
+		pluginService:    pluginService,
+		txIndexerService: txIndexerService,
 	}
 }
 

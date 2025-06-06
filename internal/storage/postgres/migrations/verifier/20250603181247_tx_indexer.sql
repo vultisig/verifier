@@ -7,12 +7,12 @@ CREATE TYPE tx_indexer_status_onchain AS ENUM ('PENDING', 'SUCCESS', 'FAIL');
 
 CREATE TABLE tx_indexer (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    plugin_id UUID NOT NULL,
+    plugin_id VARCHAR(255) NOT NULL,
     tx_hash VARCHAR(255),
     chain_id INTEGER NOT NULL,
     policy_id UUID NOT NULL,
     from_public_key VARCHAR(255) NOT NULL,
-    proposed_tx_object JSONB NOT NULL,
+    proposed_tx_hex TEXT NOT NULL,
 
     status tx_indexer_status NOT NULL DEFAULT 'PROPOSED',
     status_onchain tx_indexer_status_onchain,

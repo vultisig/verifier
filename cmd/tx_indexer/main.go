@@ -4,10 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/graceful"
-	"github.com/vultisig/verifier/internal/rpc"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/internal/tx_indexer"
 	"golang.org/x/sync/errgroup"
@@ -23,14 +21,9 @@ func main() {
 		panic(fmt.Errorf("config.ReadTxIndexerConfig: %w", err))
 	}
 
-	rpcBtc, err := rpc.NewBitcoinClient(cfg.Rpc.Bitcoin.URL)
+	rpcs, err := tx_indexer.Rpcs(ctx, cfg.Rpc)
 	if err != nil {
-		panic(fmt.Errorf("rpc.NewBitcoinClient: %w", err))
-	}
-
-	rpcEth, err := rpc.NewEvmClient(ctx, cfg.Rpc.Ethereum.URL)
-	if err != nil {
-		panic(fmt.Errorf("rpc.NewEvmClient: %w", err))
+		panic(fmt.Errorf("tx_indexer.Rpcs: %w", err))
 	}
 
 	db, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil)
@@ -45,10 +38,7 @@ func main() {
 		cfg.MarkLostAfter,
 		cfg.Concurrency,
 		db,
-		map[common.Chain]rpc.TxIndexer{
-			common.Bitcoin:  rpcBtc,
-			common.Ethereum: rpcEth,
-		},
+		rpcs,
 	)
 
 	var eg errgroup.Group

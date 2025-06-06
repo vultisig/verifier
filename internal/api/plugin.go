@@ -67,7 +67,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 			return fmt.Errorf("failed to parse transaction: %w", err)
 		}
 
-		transactionAllowed, _, err := eng.Evaluate(recipe, messageChain, decodedTx)
+		transactionAllowed, _, err := eng.Evaluate(&recipe, messageChain, decodedTx)
 		if err != nil {
 			return fmt.Errorf("failed to evaluate policy: %w", err)
 		}

@@ -9,16 +9,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
 	"github.com/microcosm-cc/bluemonday"
-	"github.com/vultisig/verifier/common"
 	"google.golang.org/protobuf/encoding/protojson"
+
+	"github.com/vultisig/verifier/common"
 
 	"github.com/vultisig/recipes/chain"
 	"github.com/vultisig/recipes/engine"
 	rtypes "github.com/vultisig/recipes/types"
+
 	"github.com/vultisig/verifier/internal/tasks"
 	"github.com/vultisig/verifier/internal/types"
 	ptypes "github.com/vultisig/verifier/types"
@@ -32,13 +33,8 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		return fmt.Errorf("fail to parse request, err: %w", err)
 	}
 
-	policyUUID, err := uuid.Parse(req.PolicyID)
-	if err != nil {
-		return fmt.Errorf("failed to parse policy ID: %w", err)
-	}
-
 	// Get policy from database
-	policy, err := s.db.GetPluginPolicy(c.Request().Context(), policyUUID)
+	policy, err := s.db.GetPluginPolicy(c.Request().Context(), req.PolicyID)
 	if err != nil {
 		return fmt.Errorf("failed to get policy from database: %w", err)
 	}
@@ -58,7 +54,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		return fmt.Errorf("failed to unmarshal recipe: %w", err)
 	}
 
-	engine := engine.NewEngine()
+	eng := engine.NewEngine()
 
 	for i, keysignMessage := range req.Messages {
 		messageChain, err := chain.GetChain(strings.ToLower(keysignMessage.Chain.String()))
@@ -83,7 +79,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		}
 		req.Messages[i].TxID = txToTrack.ID.String()
 
-		transactionAllowed, _, err := engine.Evaluate(recipe, messageChain, decodedTx)
+		transactionAllowed, _, err := eng.Evaluate(&recipe, messageChain, decodedTx)
 		if err != nil {
 			return fmt.Errorf("failed to evaluate policy: %w", err)
 		}

@@ -18,8 +18,8 @@ import (
 )
 
 type Policy interface {
-	CreatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
-	UpdatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
+	CreatePolicy(ctx context.Context, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error)
+	UpdatePolicy(ctx context.Context, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error)
 	DeletePolicy(ctx context.Context, policyID uuid.UUID, pluginID types.PluginID, signature string) error
 	GetPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (itypes.PluginPolicyPaginatedList, error)
 	GetPluginPolicy(ctx context.Context, policyID uuid.UUID) (types.PluginPolicy, error)
@@ -62,7 +62,7 @@ func (s *PolicyService) syncPolicy(syncEntity itypes.PluginPolicySync) error {
 	s.logger.WithField("task_id", ti.ID).Info("enqueued sync policy task")
 	return nil
 }
-func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error) {
+func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error) {
 	// Start transaction
 	tx, err := s.db.Pool().Begin(ctx)
 	if err != nil {
@@ -99,7 +99,7 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 	return newPolicy, nil
 }
 
-func (s *PolicyService) UpdatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error) {
+func (s *PolicyService) UpdatePolicy(ctx context.Context, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error) {
 	// start transaction
 	tx, err := s.db.Pool().Begin(ctx)
 	if err != nil {

@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 
@@ -37,6 +38,30 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (ty
 
 	if err != nil {
 		return types.PluginPolicy{}, fmt.Errorf("failed to get policy: %w", err)
+	}
+
+	query = `SELECT id, type, frequency, start_date FROM plugin_policy_billing WHERE plugin_policy_id = $1`
+	billingRows, err := p.pool.Query(ctx, query, id)
+	if err != nil {
+		return types.PluginPolicy{}, fmt.Errorf("failed to get billing info: %w", err)
+	}
+	defer billingRows.Close()
+	for billingRows.Next() {
+		var billing types.BillingPolicy
+		var freq sql.NullString
+		err := billingRows.Scan(
+			&billing.ID,
+			&billing.Type,
+			&freq,
+			&billing.StartDate,
+		)
+		if err != nil {
+			return types.PluginPolicy{}, fmt.Errorf("failed to scan billing info: %w", err)
+		}
+		if freq.Valid {
+			billing.Frequency = freq.String
+		}
+		policy.Billing = append(policy.Billing, billing)
 	}
 
 	return policy, nil
@@ -81,6 +106,31 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 		if err != nil {
 			return itypes.PluginPolicyPaginatedList{}, err
 		}
+
+		billingQuery := `SELECT id, "type", frequency, start_date FROM plugin_policy_billing WHERE plugin_policy_id = $1`
+		billingRows, err := p.pool.Query(ctx, billingQuery, policy.ID)
+		if err != nil {
+			return itypes.PluginPolicyPaginatedList{}, fmt.Errorf("failed to get billing info: %w", err)
+		}
+		for billingRows.Next() {
+			var billing types.BillingPolicy
+			var freq sql.NullString
+			err := billingRows.Scan(
+				&billing.ID,
+				&billing.Type,
+				&freq,
+				&billing.StartDate,
+			)
+			if err != nil {
+				billingRows.Close()
+				return itypes.PluginPolicyPaginatedList{}, fmt.Errorf("failed to scan billing info: %w", err)
+			}
+			if freq.Valid {
+				billing.Frequency = freq.String
+			}
+			policy.Billing = append(policy.Billing, billing)
+		}
+		billingRows.Close()
 		policies = append(policies, policy)
 	}
 
@@ -92,7 +142,7 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 	return dto, nil
 }
 
-func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {
+func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error) {
 	query := `
   	INSERT INTO plugin_policies (
       id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe
@@ -100,7 +150,7 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
     RETURNING id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe
 	`
 
-	var insertedPolicy types.PluginPolicy
+	var insertedPolicy types.PluginPolicyCreateUpdate
 	err := dbTx.QueryRow(ctx, query,
 		policy.ID,
 		policy.PublicKey,
@@ -127,7 +177,7 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 	return &insertedPolicy, nil
 }
 
-func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {
+func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error) {
 	query := `
 		UPDATE plugin_policies 
 		SET public_key = $2, 
@@ -139,7 +189,7 @@ func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		RETURNING id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe
 	`
 
-	var updatedPolicy types.PluginPolicy
+	var updatedPolicy types.PluginPolicyCreateUpdate
 	err := dbTx.QueryRow(ctx, query,
 		policy.ID,
 		policy.PublicKey,

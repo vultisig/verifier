@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/service"
+	"github.com/vultisig/verifier/vault_config"
 
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/hibiken/asynq"
@@ -36,7 +36,7 @@ type KeyGenerationTaskResult struct {
 // - Keygen -- create vault / reshare vault
 // - Keysign -- sign a message
 type ManagementService struct {
-	cfg              config.VaultConfig
+	cfg              vault_config.Config
 	logger           *logrus.Logger
 	queueClient      *asynq.Client
 	sdClient         *statsd.Client
@@ -47,7 +47,7 @@ type ManagementService struct {
 
 // NewManagementService creates a new instance of the ManagementService
 func NewManagementService(
-	cfg config.VaultConfig,
+	cfg vault_config.Config,
 	queueClient *asynq.Client,
 	sdClient *statsd.Client,
 	storage Storage,

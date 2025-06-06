@@ -26,15 +26,13 @@ dump-schema:
 	@DSN=$$(jq -r '.database.dsn' $(CONFIG)); \
 	pg_dump "$$DSN" --schema-only \
 		--no-comments \
+		--no-owner \
 		--quote-all-identifiers \
 		-T public.goose_db_version \
 		-T public.goose_db_version_id_seq | sed \
 		-e '/^--.*/d' \
 		-e '/^SET /d' \
 		-e '/^SELECT pg_catalog./d' \
-		-e '/^ALTER TABLE .* OWNER TO "[^"]*";/d' \
-		-e '/^ALTER TYPE .* OWNER TO "[^"]*";/d' \
-		-e '/^ALTER FUNCTION .* OWNER TO "[^"]*";/d' \
 		-e 's/"public"\.//' | awk '/./ { e=0 } /^$$/ { e += 1 } e <= 1' \
 		> ./internal/storage/postgres/schema/schema.sql
 	

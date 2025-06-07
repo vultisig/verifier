@@ -131,6 +131,18 @@ const RecipeSchema: React.FC<RecipeSchemaProps> = ({ pluginId, onClose }) => {
     return types.map(t => typeMap[t] || `Type ${t}`).join(', ');
   };
 
+  const getFrequencyLabel = (frequency: number) => {
+    const frequencyMap: Record<number, string> = {
+      0: "Unspecified",
+      1: "Hourly",
+      2: "Daily",
+      3: "Weekly",
+      4: "Biweekly",
+      5: "Monthly"
+    };
+    return frequencyMap[frequency] || `Frequency ${frequency}`;
+  };
+
   useEffect(() => {
     fetchSchema();
   }, [pluginId]);
@@ -264,7 +276,7 @@ const RecipeSchema: React.FC<RecipeSchemaProps> = ({ pluginId, onClose }) => {
                     <option value="">Select frequency...</option>
                     {schema.scheduling.supported_frequencies.map(freq => (
                       <option key={freq} value={freq}>
-                        {freq === 3 ? 'Daily' : freq === 4 ? 'Weekly' : freq === 5 ? 'Monthly' : `Frequency ${freq}`}
+                        {getFrequencyLabel(freq)}
                       </option>
                     ))}
                   </select>

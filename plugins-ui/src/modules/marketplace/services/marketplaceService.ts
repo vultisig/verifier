@@ -199,6 +199,19 @@ const MarketplaceService = {
       throw error;
     }
   },
+
+  /**
+   * Get recipe specification for a plugin.
+   */
+  getRecipeSpecification: async (pluginId: string): Promise<any> => {
+    try {
+      const endpoint = `${getMarketplaceUrl()}/plugins/${pluginId}/recipe-specification`;
+      return await get(endpoint);
+    } catch (error) {
+      console.error("Error getting recipe specification:", error);
+      throw error;
+    }
+  },
 };
 
 export default MarketplaceService;

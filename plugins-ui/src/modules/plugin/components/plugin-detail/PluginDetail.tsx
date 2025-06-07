@@ -10,10 +10,12 @@ import Reviews from "@/modules/review/components/reviews/Reviews";
 import { publish } from "@/utils/eventBus";
 import { ReviewProvider } from "@/modules/review/context/ReviewProvider";
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
+import RecipeSchema from "@/modules/plugin/components/recipe_schema/recipe_Schema";
 
 const PluginDetail = () => {
   const navigate = useNavigate();
   const [plugin, setPlugin] = useState<Plugin | null>(null);
+  const [showRecipeSchema, setShowRecipeSchema] = useState(false);
 
   const { pluginId } = useParams();
 
@@ -76,10 +78,23 @@ const PluginDetail = () => {
                   >
                     Install
                   </Button>
+                  <Button
+                    size="small"
+                    type="button"
+                    styleType="secondary"
+                    onClick={() => setShowRecipeSchema(true)}
+                    style={{ marginLeft: 8 }}
+                  >
+                    View Policy Schema
+                  </Button>
                   <aside>Plugin fee: 0.1% per trade</aside>
                 </section>
               </section>
             </section>
+
+            {showRecipeSchema && (
+              <RecipeSchema pluginId={plugin.id} onClose={() => setShowRecipeSchema(false)} />
+            )}
 
             <ReviewProvider pluginId={plugin.id} ratings={plugin.ratings}>
               <Reviews plugin={plugin} />

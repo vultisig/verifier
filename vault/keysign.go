@@ -41,6 +41,32 @@ func (t *DKLSTssService) GetExistingVault(vaultFileName, password string) (*vaul
 	return vault, nil
 }
 
+// OriginalOrder
+// mainly for BTC to sign the inputs in the same order it passed to sign,
+// without hashing inputs from proposedTx to get it from map[string]tss.KeysignResponse by correct map key
+func OriginalOrder(
+	req types.KeysignRequest,
+	res map[string]tss.KeysignResponse,
+) ([]tss.KeysignResponse, error) {
+	if len(req.Messages) != len(res) {
+		return nil, fmt.Errorf(
+			"number of messages (%d) does not match number of signatures (%d)",
+			len(req.Messages),
+			len(res),
+		)
+	}
+
+	var sigs []tss.KeysignResponse
+	for _, msg := range req.Messages {
+		sig, ok := res[msg.Hash]
+		if !ok {
+			return nil, fmt.Errorf("signature for message %s not found", msg.Hash)
+		}
+		sigs = append(sigs, sig)
+	}
+	return sigs, nil
+}
+
 func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[string]tss.KeysignResponse, error) {
 	result := map[string]tss.KeysignResponse{}
 	vaultFileName := common.GetVaultBackupFilename(req.PublicKey, req.PluginID)

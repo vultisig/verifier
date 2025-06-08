@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+
+	"github.com/vultisig/verifier/vault_config"
+
 	"io"
 	"os"
 	"path/filepath"
@@ -21,15 +24,8 @@ type Storage interface {
 	Exist(fileName string) (bool, error)
 }
 
-type BlockStorageConfig struct {
-	Host      string `mapstructure:"host" json:"host"`
-	Region    string `mapstructure:"region" json:"region"`
-	AccessKey string `mapstructure:"access_key" json:"access_key"`
-	SecretKey string `mapstructure:"secret" json:"secret"`
-	Bucket    string `mapstructure:"bucket" json:"bucket"`
-}
 type BlockStorageImp struct {
-	cfg      BlockStorageConfig
+	cfg      vault_config.BlockStorageConfig
 	session  *session.Session
 	s3Client *s3.S3
 	logger   *logrus.Logger
@@ -37,7 +33,7 @@ type BlockStorageImp struct {
 
 var _ Storage = (*BlockStorageImp)(nil)
 
-func NewBlockStorageImp(cfg BlockStorageConfig) (*BlockStorageImp, error) {
+func NewBlockStorageImp(cfg vault_config.BlockStorageConfig) (*BlockStorageImp, error) {
 	sess, err := session.NewSession(&aws.Config{
 		Region:           aws.String(cfg.Region),
 		Endpoint:         aws.String(cfg.Host),

@@ -6,15 +6,14 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
-
-	"github.com/vultisig/verifier/vault"
+	"github.com/vultisig/verifier/vault_config"
 )
 
 type WorkerConfig struct {
-	VaultServiceConfig vault.Config             `mapstructure:"vault_service_config" json:"vault_service_config,omitempty"`
-	Redis              RedisConfig              `mapstructure:"redis" json:"redis,omitempty"`
-	BlockStorageConfig vault.BlockStorageConfig `mapstructure:"block_storage_config" json:"block_storage_config,omitempty"`
-	Database           DatabaseConfig           `mapstructure:"database" json:"database,omitempty"`
+	VaultServiceConfig vault_config.Config             `mapstructure:"vault_service_config" json:"vault_service_config,omitempty"`
+	Redis              RedisConfig                     `mapstructure:"redis" json:"redis,omitempty"`
+	BlockStorageConfig vault_config.BlockStorageConfig `mapstructure:"block_storage_config" json:"block_storage_config,omitempty"`
+	Database           DatabaseConfig                  `mapstructure:"database" json:"database,omitempty"`
 	Plugin             struct {
 		PluginConfigs map[string]map[string]interface{} `mapstructure:"plugin_configs" json:"plugin_configs,omitempty"`
 	} `mapstructure:"plugin" json:"plugin,omitempty"`
@@ -27,11 +26,11 @@ type VerifierConfig struct {
 		Port      int64  `mapstructure:"port" json:"port,omitempty"`
 		JWTSecret string `mapstructure:"jwt_secret" json:"jwt_secret,omitempty"`
 	} `mapstructure:"server" json:"server"`
-	Database           DatabaseConfig           `mapstructure:"database" json:"database,omitempty"`
-	Redis              RedisConfig              `mapstructure:"redis" json:"redis,omitempty"`
-	BlockStorageConfig vault.BlockStorageConfig `mapstructure:"block_storage_config" json:"block_storage_config,omitempty"`
-	Datadog            DatadogConfig            `mapstructure:"datadog" json:"datadog"`
-	EncryptionSecret   string                   `mapstructure:"encryption_secret" json:"encryption_secret,omitempty"`
+	Database           DatabaseConfig                  `mapstructure:"database" json:"database,omitempty"`
+	Redis              RedisConfig                     `mapstructure:"redis" json:"redis,omitempty"`
+	BlockStorageConfig vault_config.BlockStorageConfig `mapstructure:"block_storage_config" json:"block_storage_config,omitempty"`
+	Datadog            DatadogConfig                   `mapstructure:"datadog" json:"datadog"`
+	EncryptionSecret   string                          `mapstructure:"encryption_secret" json:"encryption_secret,omitempty"`
 	Auth               struct {
 		NonceExpiryMinutes int `mapstructure:"nonce_expiry_minutes" json:"nonce_expiry_minutes,omitempty"`
 	} `mapstructure:"auth" json:"auth"`

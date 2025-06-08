@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/verifier/common"
-	"github.com/vultisig/verifier/internal/rpc"
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/types"
 	"golang.org/x/sync/errgroup"
@@ -21,7 +20,7 @@ type Worker struct {
 	iterationTimeout time.Duration
 	markLostAfter    time.Duration
 	concurrency      int
-	clients          map[common.Chain]rpc.TxIndexer
+	clients          map[common.Chain]types.TxIndexerRpc
 }
 
 func NewWorker(
@@ -31,7 +30,7 @@ func NewWorker(
 	markLostAfter time.Duration,
 	concurrency int,
 	repo storage.TxIndexerRepository,
-	clients map[common.Chain]rpc.TxIndexer,
+	clients map[common.Chain]types.TxIndexerRpc,
 ) *Worker {
 	return &Worker{
 		logger:           logger.WithField("pkg", "tx_indexer.worker").Logger,

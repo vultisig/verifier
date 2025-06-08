@@ -2,15 +2,15 @@ package main
 
 import (
 	"fmt"
-
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
-
 	"github.com/vultisig/verifier/config"
+	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/internal/syncer"
 	"github.com/vultisig/verifier/internal/tasks"
+	"github.com/vultisig/verifier/internal/tx_indexer"
 	"github.com/vultisig/verifier/vault"
 )
 
@@ -37,9 +37,6 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("failed to initialize vault storage: %v", err))
 	}
-	vaultMgmService, err := vault.NewManagementService(cfg.VaultServiceConfig,
-		client,
-		sdClient, vaultStorage)
 
 	backendDB, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil)
 	if err != nil {
@@ -58,6 +55,20 @@ func main() {
 				"scheduled_plugin_queue": 10, // new queue
 			},
 		},
+	)
+
+	txIndexerService := service.NewTxIndexerService(
+		logger,
+		backendDB,
+		tx_indexer.Chains(),
+	)
+
+	vaultMgmService, err := vault.NewManagementService(
+		cfg.VaultServiceConfig,
+		client,
+		sdClient,
+		vaultStorage,
+		txIndexerService,
 	)
 
 	mux := asynq.NewServeMux()

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vultisig/verifier/internal/storage"
+	"github.com/vultisig/verifier/internal/data"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -51,12 +51,12 @@ func (m *MockDatabaseStorage) SetOnChainStatus(ctx context.Context, id uuid.UUID
 	return args.Error(0)
 }
 
-func (m *MockDatabaseStorage) GetPendingTxs(ctx context.Context) <-chan storage.RowsStream[itypes.Tx] {
+func (m *MockDatabaseStorage) GetPendingTxs(ctx context.Context) <-chan data.RowsStream[itypes.Tx] {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil
 	}
-	return args.Get(0).(chan storage.RowsStream[itypes.Tx])
+	return args.Get(0).(chan data.RowsStream[itypes.Tx])
 }
 
 func (m *MockDatabaseStorage) GetTxByID(c context.Context, id uuid.UUID) (itypes.Tx, error) {

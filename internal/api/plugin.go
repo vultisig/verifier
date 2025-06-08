@@ -56,7 +56,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 
 	eng := engine.NewEngine()
 
-	for _, keysignMessage := range req.Messages {
+	for i, keysignMessage := range req.Messages {
 		messageChain, err := chain.GetChain(strings.ToLower(keysignMessage.Chain.String()))
 		if err != nil {
 			return fmt.Errorf("failed to get chain: %w", err)
@@ -67,6 +67,18 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 			return fmt.Errorf("failed to parse transaction: %w", err)
 		}
 
+		txToTrack, err := s.txIndexerService.CreateTx(c.Request().Context(), types.CreateTxDto{
+			PluginID:      ptypes.PluginID(req.PluginID),
+			ChainID:       keysignMessage.Chain,
+			PolicyID:      policy.ID,
+			FromPublicKey: req.PublicKey,
+			ProposedTxHex: keysignMessage.Message,
+		})
+		if err != nil {
+			return fmt.Errorf("s.txIndexerService.CreateTx(: %w", err)
+		}
+		req.Messages[i].TxIndexerID = txToTrack.ID.String()
+
 		transactionAllowed, _, err := eng.Evaluate(&recipe, messageChain, decodedTx)
 		if err != nil {
 			return fmt.Errorf("failed to evaluate policy: %w", err)
@@ -74,6 +86,10 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 
 		if !transactionAllowed {
 			return fmt.Errorf("transaction %s on %s not allowed by policy", keysignMessage.Hash, keysignMessage.Chain)
+		}
+		err = s.txIndexerService.SetStatus(c.Request().Context(), txToTrack.ID, types.TxVerified)
+		if err != nil {
+			return fmt.Errorf("tx_id=%s, failed to set transaction status to verified: %w", txToTrack.ID, err)
 		}
 	}
 

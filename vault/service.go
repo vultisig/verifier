@@ -7,6 +7,10 @@ import (
 	"plugin"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/vultisig/verifier/internal/service"
+	"github.com/vultisig/verifier/vault_config"
+
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
@@ -32,27 +36,32 @@ type KeyGenerationTaskResult struct {
 // - Keygen -- create vault / reshare vault
 // - Keysign -- sign a message
 type ManagementService struct {
-	cfg          Config
-	logger       *logrus.Logger
-	queueClient  *asynq.Client
-	sdClient     *statsd.Client
-	plugin       plugin.Plugin
-	vaultStorage Storage
+	cfg              vault_config.Config
+	logger           *logrus.Logger
+	queueClient      *asynq.Client
+	sdClient         *statsd.Client
+	plugin           plugin.Plugin
+	vaultStorage     Storage
+	txIndexerService *service.TxIndexerService
 }
 
 // NewManagementService creates a new instance of the ManagementService
-func NewManagementService(cfg Config,
+func NewManagementService(
+	cfg vault_config.Config,
 	queueClient *asynq.Client,
 	sdClient *statsd.Client,
-	storage Storage) (*ManagementService, error) {
+	storage Storage,
+	txIndexerService *service.TxIndexerService,
+) (*ManagementService, error) {
 	logger := logrus.WithField("service", "vault-management").Logger
 
 	return &ManagementService{
-		cfg:          cfg,
-		queueClient:  queueClient,
-		sdClient:     sdClient,
-		logger:       logger,
-		vaultStorage: storage,
+		cfg:              cfg,
+		queueClient:      queueClient,
+		sdClient:         sdClient,
+		logger:           logger,
+		vaultStorage:     storage,
+		txIndexerService: txIndexerService,
 	}, nil
 }
 
@@ -167,6 +176,35 @@ func (s *ManagementService) HandleKeySignDKLS(ctx context.Context, t *asynq.Task
 	if _, err := t.ResultWriter().Write(resultBytes); err != nil {
 		s.logger.Errorf("t.ResultWriter.Write failed: %v", err)
 		return fmt.Errorf("t.ResultWriter.Write failed: %v: %w", err, asynq.SkipRetry)
+	}
+
+	orderedSigs, err := OriginalOrder(p, signatures)
+	if err != nil {
+		s.logger.Errorf("OriginalOrder: %v", err)
+		return fmt.Errorf("OriginalOrder: %v: %w", err, asynq.SkipRetry)
+	}
+
+	for _, msg := range p.Messages {
+		if msg.TxIndexerID == "" {
+			continue // not from plugin
+		}
+
+		txID, er := uuid.Parse(msg.TxIndexerID)
+		if er != nil {
+			s.logger.Errorf("uuid.Parse(reqPlugin.TxIndexerID): %v", er)
+			return fmt.Errorf("uuid.Parse(reqPlugin.TxIndexerID): %v: %w", er, asynq.SkipRetry)
+		}
+
+		er = s.txIndexerService.SetSignedAndBroadcasted(
+			ctx,
+			msg.Chain,
+			txID,
+			orderedSigs,
+		)
+		if er != nil {
+			s.logger.Errorf("s.txIndexerService.SetSignedAndBroadcasted: %v", er)
+			return fmt.Errorf("s.txIndexerService.SetSignedAndBroadcasted: %v: %w", er, asynq.SkipRetry)
+		}
 	}
 
 	return nil

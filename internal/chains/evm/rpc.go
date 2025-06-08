@@ -1,4 +1,4 @@
-package rpc
+package evm
 
 import (
 	"context"
@@ -8,13 +8,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/vultisig/verifier/internal/types"
+	"time"
 )
 
-type EvmClient struct {
-	rpc *ethclient.Client
+const defaultTimeout = 30 * time.Second
+
+type Rpc struct {
+	client *ethclient.Client
 }
 
-func NewEvmClient(c context.Context, rpcURL string) (*EvmClient, error) {
+func NewRpc(c context.Context, rpcURL string) (*Rpc, error) {
 	ctx, cancel := context.WithTimeout(c, defaultTimeout)
 	defer cancel()
 
@@ -23,21 +26,21 @@ func NewEvmClient(c context.Context, rpcURL string) (*EvmClient, error) {
 		return nil, fmt.Errorf("ethclient.DialContext: %w", err)
 	}
 
-	return &EvmClient{
-		rpc: cl,
+	return &Rpc{
+		client: cl,
 	}, nil
 }
 
-func (c *EvmClient) GetTxStatus(ct context.Context, txHash string) (types.TxOnChainStatus, error) {
+func (r *Rpc) GetTxStatus(ct context.Context, txHash string) (types.TxOnChainStatus, error) {
 	ctx, cancel := context.WithTimeout(ct, defaultTimeout)
 	defer cancel()
 
-	rec, err := c.rpc.TransactionReceipt(ctx, common.HexToHash(txHash))
+	rec, err := r.client.TransactionReceipt(ctx, common.HexToHash(txHash))
 	if err != nil {
 		if errors.Is(err, ethereum.NotFound) {
 			return types.TxOnChainPending, nil
 		}
-		return "", fmt.Errorf("c.rpc.TransactionReceipt: %w", err)
+		return "", fmt.Errorf("r.client.TransactionReceipt: %w", err)
 	}
 	switch rec.Status {
 	case 0:
@@ -45,6 +48,6 @@ func (c *EvmClient) GetTxStatus(ct context.Context, txHash string) (types.TxOnCh
 	case 1:
 		return types.TxOnChainSuccess, nil
 	default:
-		return "", errors.New("c.rpc.TransactionReceipt: unknown tx receipt status by hash=" + txHash)
+		return "", errors.New("r.client.TransactionReceipt: unknown tx receipt status by hash=" + txHash)
 	}
 }

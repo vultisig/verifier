@@ -282,7 +282,11 @@ func (s *Server) ReshareVault(c echo.Context) error {
 	s.logger.Info("ReshareVault: Starting plugin server notification (async)")
 	go func() {
 		s.logger.Infof("ReshareVault: Notifying plugin server for plugin: %s", req.PluginID)
-		if err := s.notifyPluginServerReshare(c.Request().Context(), req); err != nil {
+		// Create a new background context with timeout
+		bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		if err := s.notifyPluginServerReshare(bgCtx, req); err != nil {
 			s.logger.Errorf("Failed to notify plugin server about reshare: %v", err)
 		} else {
 			s.logger.Info("ReshareVault: Successfully notified plugin server")
@@ -295,9 +299,11 @@ func (s *Server) ReshareVault(c echo.Context) error {
 
 // notifyPluginServerReshare sends the reshare request to the plugin server
 func (s *Server) notifyPluginServerReshare(ctx context.Context, req tv.ReshareRequest) error {
-	s.logger.Infof("notifyPluginServerReshare: Looking up plugin server endpoint for plugin: %s", req.PluginID)
+	s.logger.Infof("notifyPluginServerReshare: Starting function execution for plugin: %s", req.PluginID)
+	s.logger.Infof("notifyPluginServerReshare: Request details - SessionID: %s, Name: %s", req.SessionID, req.Name)
 
 	// Step 1: Look up plugin server endpoint from database
+	s.logger.Infof("notifyPluginServerReshare: Attempting to find plugin %s in database", req.PluginID)
 	plugin, err := s.db.FindPluginById(ctx, nil, tv.PluginID(req.PluginID))
 	if err != nil {
 		s.logger.Errorf("notifyPluginServerReshare: Failed to find plugin %s in database: %v", req.PluginID, err)
@@ -306,7 +312,7 @@ func (s *Server) notifyPluginServerReshare(ctx context.Context, req tv.ReshareRe
 	s.logger.Infof("notifyPluginServerReshare: Found plugin %s with server endpoint: %s", req.PluginID, plugin.ServerEndpoint)
 
 	// Step 2: Construct plugin server URL
-	pluginURL := fmt.Sprintf("%s/reshare", plugin.ServerEndpoint)
+	pluginURL := fmt.Sprintf("%s/vault/reshare", plugin.ServerEndpoint)
 	s.logger.Infof("notifyPluginServerReshare: Will POST to plugin server URL: %s", pluginURL)
 
 	// Step 3: Marshal request payload

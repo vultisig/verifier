@@ -243,7 +243,6 @@ func (s *Server) ReshareVault(c echo.Context) error {
 
 	// Store session in Redis
 	if err := s.redis.Set(c.Request().Context(), req.SessionID, req.SessionID, 5*time.Minute); err != nil {
-		s.logger.Errorf("fail to set session, err: %v", err)
 		s.logger.Errorf("ReshareVault: Failed to store session in Redis: %v", err)
 	}
 
@@ -266,6 +265,12 @@ func (s *Server) ReshareVault(c echo.Context) error {
 
 	// Notify plugin server asynchronously
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				s.logger.Errorf("ReshareVault: Panic in async plugin notification: %v", r)
+			}
+		}()
+
 		bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 

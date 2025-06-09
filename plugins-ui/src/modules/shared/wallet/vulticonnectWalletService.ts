@@ -122,7 +122,7 @@ const VulticonnectWalletService = {
 
 
   // Reshare session
-  startReshareSession: async (pluginId: any, plugin: any) => {
+  startReshareSession: async (pluginId: any) => {
     if (!window.vultisig?.ethereum) {
       publish("onToast", {
         message: "No ethereum provider found. Please install VultiConnect.",

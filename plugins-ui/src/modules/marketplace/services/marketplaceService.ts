@@ -15,6 +15,21 @@ import {
 const getPublicKey = () => localStorage.getItem("publicKey");
 const getMarketplaceUrl = () => import.meta.env.VITE_MARKETPLACE_URL;
 
+interface ReshareRequest {
+    name: string;
+    public_key: string;
+    session_id: string;
+    hex_encryption_key: string;
+    hex_chain_code: string;
+    local_party_id: string;
+    old_parties: string[];
+    email: string;
+    plugin_id: string;
+}
+
+
+
+
 const MarketplaceService = {
   /**
    * Get plugins from the API.
@@ -217,9 +232,9 @@ const MarketplaceService = {
    * Send reshare request payload to the verifier backend.
    * @param payload Decoded ReshareMessage object from VultiConnect extension
    */
-  reshareVault: async (payload: unknown): Promise<void> => {
+  reshareVault: async (payload: ReshareRequest): Promise<void> => {
     try {
-      console.log("payload", payload);
+      // console.log("payload", payload);
       const endpoint = `${getMarketplaceUrl()}/vault/reshare`;
       await post(endpoint, payload, {
         headers: {

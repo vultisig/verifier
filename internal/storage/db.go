@@ -26,6 +26,7 @@ type DatabaseStorage interface {
 	PluginPolicySyncRepository
 	VaultTokenRepository
 	TransactionRepository
+	TxIndexerRepository
 	PricingRepository
 	PluginRepository
 	TagRepository
@@ -33,6 +34,16 @@ type DatabaseStorage interface {
 	RatingRepository
 	ApiKeyRepository
 	Close() error
+}
+
+type TxIndexerRepository interface {
+	SetStatus(ctx context.Context, id uuid.UUID, status itypes.TxStatus) error
+	SetLost(ctx context.Context, id uuid.UUID) error
+	SetSignedAndBroadcasted(ctx context.Context, id uuid.UUID, txHash string) error
+	SetOnChainStatus(ctx context.Context, id uuid.UUID, status itypes.TxOnChainStatus) error
+	GetPendingTxs(ctx context.Context) <-chan RowsStream[itypes.Tx]
+	CreateTx(ctx context.Context, req itypes.CreateTxDto) (itypes.Tx, error)
+	GetTxByID(c context.Context, id uuid.UUID) (itypes.Tx, error)
 }
 
 type PolicyRepository interface {

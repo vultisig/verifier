@@ -1,14 +1,18 @@
 package api
 
 import (
+	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/vultisig/verifier/internal/tx_indexer"
+	"io"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/vultisig/verifier/internal/tx_indexer"
 
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/go-playground/validator/v10"
@@ -206,24 +210,48 @@ func (s *Server) GetDerivedPublicKey(c echo.Context) error {
 
 // ReshareVault is a handler to reshare a vault
 func (s *Server) ReshareVault(c echo.Context) error {
+	s.logger.Info("ReshareVault: Starting reshare vault request")
+
+	// Read request body
+	bodyBytes, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		s.logger.Errorf("ReshareVault: Failed to read request body: %v", err)
+		return fmt.Errorf("fail to read request body, err: %w", err)
+	}
+
+	// Restore the request body for binding
+	c.Request().Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
 	var req tv.ReshareRequest
+
+	// Parse and validate request
 	if err := c.Bind(&req); err != nil {
+		s.logger.Errorf("ReshareVault: Failed to parse request body: %v", err)
 		return fmt.Errorf("fail to parse request, err: %w", err)
 	}
+
 	if err := req.IsValid(); err != nil {
+		s.logger.Errorf("ReshareVault: Request validation failed: %v", err)
 		return fmt.Errorf("invalid request, err: %w", err)
 	}
-	buf, err := json.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("fail to marshal to json, err: %w", err)
-	}
+
+	// Check if session exists in Redis
 	result, err := s.redis.Get(c.Request().Context(), req.SessionID)
 	if err == nil && result != "" {
 		return c.NoContent(http.StatusOK)
 	}
 
+	// Store session in Redis
 	if err := s.redis.Set(c.Request().Context(), req.SessionID, req.SessionID, 5*time.Minute); err != nil {
 		s.logger.Errorf("fail to set session, err: %v", err)
+		s.logger.Errorf("ReshareVault: Failed to store session in Redis: %v", err)
+	}
+
+	// Enqueue background task
+	buf, err := json.Marshal(req)
+	if err != nil {
+		s.logger.Errorf("ReshareVault: Failed to marshal request: %v", err)
+		return fmt.Errorf("fail to marshal to json, err: %w", err)
 	}
 
 	_, err = s.client.Enqueue(asynq.NewTask(tasks.TypeReshareDKLS, buf),
@@ -232,9 +260,63 @@ func (s *Server) ReshareVault(c echo.Context) error {
 		asynq.Retention(10*time.Minute),
 		asynq.Queue(tasks.QUEUE_NAME))
 	if err != nil {
+		s.logger.Errorf("ReshareVault: Failed to enqueue task: %v", err)
 		return fmt.Errorf("fail to enqueue task, err: %w", err)
 	}
+
+	// Notify plugin server asynchronously
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		if err := s.notifyPluginServerReshare(bgCtx, req); err != nil {
+			s.logger.Errorf("ReshareVault: Failed to notify plugin server: %v", err)
+		}
+	}()
+
 	return c.NoContent(http.StatusOK)
+}
+
+// notifyPluginServerReshare sends the reshare request to the plugin server
+func (s *Server) notifyPluginServerReshare(ctx context.Context, req tv.ReshareRequest) error {
+	// Look up plugin server endpoint
+	plugin, err := s.db.FindPluginById(ctx, nil, tv.PluginID(req.PluginID))
+	if err != nil {
+		s.logger.Errorf("notifyPluginServerReshare: Failed to find plugin %s: %v", req.PluginID, err)
+		return fmt.Errorf("failed to find plugin: %w", err)
+	}
+
+	// Prepare and send request to plugin server
+	pluginURL := fmt.Sprintf("%s/vault/reshare", plugin.ServerEndpoint)
+	payload, err := json.Marshal(req)
+	if err != nil {
+		s.logger.Errorf("notifyPluginServerReshare: Failed to marshal request: %v", err)
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", pluginURL, bytes.NewBuffer(payload))
+	if err != nil {
+		s.logger.Errorf("notifyPluginServerReshare: Failed to create request: %v", err)
+		return fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 30 * time.Second}
+
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		s.logger.Errorf("notifyPluginServerReshare: Request failed: %v", err)
+		return fmt.Errorf("failed to call plugin server: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		s.logger.Errorf("notifyPluginServerReshare: Plugin server error (status %d): %s", resp.StatusCode, string(body))
+		return fmt.Errorf("plugin server returned status %d", resp.StatusCode)
+	}
+
+	return nil
 }
 
 func (s *Server) GetVault(c echo.Context) error {

@@ -213,8 +213,6 @@ func (s *Server) ReshareVault(c echo.Context) error {
 	s.logger.Info("ReshareVault: Starting reshare vault request")
 
 	var req tv.ReshareRequest
-
-	// Parse and validate request
 	if err := c.Bind(&req); err != nil {
 		s.logger.Errorf("ReshareVault: Failed to parse request body: %v", err)
 		return fmt.Errorf("fail to parse request, err: %w", err)
@@ -231,16 +229,26 @@ func (s *Server) ReshareVault(c echo.Context) error {
 		return c.NoContent(http.StatusOK)
 	}
 
+	// First, notify plugin server synchronously
+	ctx, cancel := context.WithTimeout(c.Request().Context(), 30*time.Second)
+	defer cancel()
+
+	if err := s.notifyPluginServerReshare(ctx, req); err != nil {
+		s.logger.Errorf("ReshareVault: Plugin server notification failed: %v", err)
+		return c.JSON(http.StatusServiceUnavailable, NewErrorResponse("Plugin server is currently unavailable"))
+	}
+
 	// Store session in Redis
 	if err := s.redis.Set(c.Request().Context(), req.SessionID, req.SessionID, 5*time.Minute); err != nil {
 		s.logger.Errorf("ReshareVault: Failed to store session in Redis: %v", err)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to store session"))
 	}
 
 	// Enqueue background task
 	buf, err := json.Marshal(req)
 	if err != nil {
 		s.logger.Errorf("ReshareVault: Failed to marshal request: %v", err)
-		return fmt.Errorf("fail to marshal to json, err: %w", err)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to process request"))
 	}
 
 	_, err = s.client.Enqueue(asynq.NewTask(tasks.TypeReshareDKLS, buf),
@@ -250,24 +258,8 @@ func (s *Server) ReshareVault(c echo.Context) error {
 		asynq.Queue(tasks.QUEUE_NAME))
 	if err != nil {
 		s.logger.Errorf("ReshareVault: Failed to enqueue task: %v", err)
-		return fmt.Errorf("fail to enqueue task, err: %w", err)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to queue reshare task"))
 	}
-
-	// Notify plugin server asynchronously
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				s.logger.Errorf("ReshareVault: Panic in async plugin notification: %v", r)
-			}
-		}()
-
-		bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-
-		if err := s.notifyPluginServerReshare(bgCtx, req); err != nil {
-			s.logger.Errorf("ReshareVault: Failed to notify plugin server: %v", err)
-		}
-	}()
 
 	return c.NoContent(http.StatusOK)
 }

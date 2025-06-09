@@ -11,6 +11,10 @@ interface ProviderError {
 
 const VulticonnectWalletService = {
   connectToVultiConnect: async () => {
+
+    console.log("connectToVultiConnect");
+    console.log(window.vultisig);
+
     if (!window.vultisig?.ethereum) {
       publish("onToast", {
         message: "No ethereum provider found. Please install VultiConnect.",
@@ -23,6 +27,8 @@ const VulticonnectWalletService = {
       const accounts = await window.vultisig.ethereum.request({
         method: "eth_requestAccounts",
       });
+
+      console.log("accounts", accounts);
 
       return accounts;
     } catch (error) {
@@ -85,7 +91,8 @@ const VulticonnectWalletService = {
       throw new Error("Failed to sign the message");
     }
   },
-
+  
+  // Reshare session
   startReshareSession: async (pluginId: any, plugin: any) => {
 
     console.log("pluginId", pluginId);
@@ -117,7 +124,21 @@ const VulticonnectWalletService = {
       // Decode the binary using the schema and forward to verifier backend
       const reshareMsg: any  = decodeTssPayload(payload);
       console.log("reshareMsg", reshareMsg);
-      reshareMsg.pluginId = pluginId;
+
+      // Transform the payload to match backend ReshareRequest structure
+      const backendPayload = {
+        name: reshareMsg.vaultName,
+        public_key: reshareMsg.publicKeyEcdsa,
+        session_id: reshareMsg.sessionId,
+        hex_encryption_key: reshareMsg.encryptionKeyHex,
+        hex_chain_code: reshareMsg.hexChainCode,
+        local_party_id: reshareMsg.serviceName,
+        old_parties: reshareMsg.oldParties,
+        email: "", // Not provided by extension, using empty string
+        plugin_id: pluginId // Use the pluginId parameter passed to function
+      };
+      
+      console.log("Transformed payload for backend:", backendPayload);
 
       // Transform the payload to match backend ReshareRequest structure
       const backendPayload = {
@@ -140,7 +161,7 @@ const VulticonnectWalletService = {
         publish("onToast", { message: "Failed to start reshare", type: "error" });
       }
 
-      return reshareMsg;
+      return backendPayload;
     } catch (error) {
       console.error("Failed to process reshare session", error);
       publish("onToast", {

@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/vultisig/verifier/internal/tx_indexer"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -32,6 +32,7 @@ import (
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/internal/tasks"
+	"github.com/vultisig/verifier/internal/tx_indexer"
 	"github.com/vultisig/verifier/internal/types"
 	vv "github.com/vultisig/verifier/internal/vultisig_validator"
 	tv "github.com/vultisig/verifier/types"
@@ -208,80 +209,155 @@ func (s *Server) GetDerivedPublicKey(c echo.Context) error {
 
 // ReshareVault is a handler to reshare a vault
 func (s *Server) ReshareVault(c echo.Context) error {
+	fmt.Println("\n\n\nReshareVault\n\n\n")
+	s.logger.Info("ReshareVault: Starting reshare vault request")
+
+	// Log request details for debugging
+	s.logger.Infof("ReshareVault: Request method: %s, path: %s", c.Request().Method, c.Request().URL.Path)
+	s.logger.Infof("ReshareVault: Content-Type: %s", c.Request().Header.Get("Content-Type"))
+	s.logger.Infof("ReshareVault: Content-Length: %s", c.Request().Header.Get("Content-Length"))
+
+	// Read and log raw request body for debugging
+	bodyBytes, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		s.logger.Errorf("ReshareVault: Failed to read request body: %v", err)
+		return fmt.Errorf("fail to read request body, err: %w", err)
+	}
+	s.logger.Infof("ReshareVault: Raw request body: %s", string(bodyBytes))
+
+	// Restore the request body for binding
+	c.Request().Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
 	var req tv.ReshareRequest
+
+	// Step 1: Parse the incoming request body
+	s.logger.Info("ReshareVault: Attempting to bind request body")
 	if err := c.Bind(&req); err != nil {
+		s.logger.Errorf("ReshareVault: Failed to parse request body: %v", err)
 		return fmt.Errorf("fail to parse request, err: %w", err)
 	}
+	s.logger.Infof("ReshareVault: Successfully parsed request - SessionID: %s, PluginID: %s", req.SessionID, req.PluginID)
+
+	// Step 2: Validate the request
+	s.logger.Info("ReshareVault: Validating request")
 	if err := req.IsValid(); err != nil {
+		s.logger.Errorf("ReshareVault: Request validation failed: %v", err)
 		return fmt.Errorf("invalid request, err: %w", err)
 	}
+	s.logger.Info("ReshareVault: Request validation passed")
+
+	// Step 3: Marshal request to JSON for task queue
+	s.logger.Info("ReshareVault: Marshaling request to JSON")
 	buf, err := json.Marshal(req)
 	if err != nil {
+		s.logger.Errorf("ReshareVault: Failed to marshal request to JSON: %v", err)
 		return fmt.Errorf("fail to marshal to json, err: %w", err)
 	}
+	s.logger.Infof("ReshareVault: Successfully marshaled request, JSON length: %d bytes", len(buf))
+
+	// Step 4: Check if session already exists in Redis
+	s.logger.Infof("ReshareVault: Checking Redis for existing session: %s", req.SessionID)
 	result, err := s.redis.Get(c.Request().Context(), req.SessionID)
 	if err == nil && result != "" {
+		s.logger.Infof("ReshareVault: Session %s already exists in Redis, returning OK", req.SessionID)
 		return c.NoContent(http.StatusOK)
 	}
-
-	if err := s.redis.Set(c.Request().Context(), req.SessionID, req.SessionID, 5*time.Minute); err != nil {
-		s.logger.Errorf("fail to set session, err: %v", err)
+	if err != nil {
+		s.logger.Warnf("ReshareVault: Redis GET error (expected for new sessions): %v", err)
 	}
 
+	// Step 5: Store session in Redis with 5-minute expiry
+	s.logger.Infof("ReshareVault: Setting session %s in Redis with 5-minute expiry", req.SessionID)
+	if err := s.redis.Set(c.Request().Context(), req.SessionID, req.SessionID, 5*time.Minute); err != nil {
+		s.logger.Errorf("fail to set session, err: %v", err)
+		// Note: This is a warning, not a fatal error - continue processing
+	}
+	s.logger.Info("ReshareVault: Successfully stored session in Redis")
+
+	// Step 6: Enqueue background task for reshare processing
+	s.logger.Info("ReshareVault: Enqueueing reshare task in background queue")
 	_, err = s.client.Enqueue(asynq.NewTask(tasks.TypeReshareDKLS, buf),
 		asynq.MaxRetry(-1),
 		asynq.Timeout(7*time.Minute),
 		asynq.Retention(10*time.Minute),
 		asynq.Queue(tasks.QUEUE_NAME))
 	if err != nil {
+		s.logger.Errorf("ReshareVault: Failed to enqueue background task: %v", err)
 		return fmt.Errorf("fail to enqueue task, err: %w", err)
 	}
+	s.logger.Info("ReshareVault: Successfully enqueued background task")
 
-	// Also notify the plugin server about the reshare
+	// Step 7: Notify plugin server about reshare (non-blocking)
+	s.logger.Info("ReshareVault: Starting plugin server notification (async)")
 	go func() {
+		s.logger.Infof("ReshareVault: Notifying plugin server for plugin: %s", req.PluginID)
 		if err := s.notifyPluginServerReshare(c.Request().Context(), req); err != nil {
 			s.logger.Errorf("Failed to notify plugin server about reshare: %v", err)
+		} else {
+			s.logger.Info("ReshareVault: Successfully notified plugin server")
 		}
 	}()
 
+	s.logger.Info("ReshareVault: Reshare request processed successfully, returning 200 OK")
 	return c.NoContent(http.StatusOK)
 }
 
 // notifyPluginServerReshare sends the reshare request to the plugin server
 func (s *Server) notifyPluginServerReshare(ctx context.Context, req tv.ReshareRequest) error {
-	// Look up plugin server endpoint from database
+	s.logger.Infof("notifyPluginServerReshare: Looking up plugin server endpoint for plugin: %s", req.PluginID)
+
+	// Step 1: Look up plugin server endpoint from database
 	plugin, err := s.db.FindPluginById(ctx, nil, tv.PluginID(req.PluginID))
 	if err != nil {
+		s.logger.Errorf("notifyPluginServerReshare: Failed to find plugin %s in database: %v", req.PluginID, err)
 		return fmt.Errorf("failed to find plugin: %w", err)
 	}
+	s.logger.Infof("notifyPluginServerReshare: Found plugin %s with server endpoint: %s", req.PluginID, plugin.ServerEndpoint)
 
-	// Make HTTP POST to plugin server's /reshare endpoint
+	// Step 2: Construct plugin server URL
 	pluginURL := fmt.Sprintf("%s/reshare", plugin.ServerEndpoint)
+	s.logger.Infof("notifyPluginServerReshare: Will POST to plugin server URL: %s", pluginURL)
 
+	// Step 3: Marshal request payload
+	s.logger.Info("notifyPluginServerReshare: Marshaling request payload for plugin server")
 	payload, err := json.Marshal(req)
 	if err != nil {
+		s.logger.Errorf("notifyPluginServerReshare: Failed to marshal request payload: %v", err)
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
+	s.logger.Infof("notifyPluginServerReshare: Marshaled payload, size: %d bytes", len(payload))
 
+	// Step 4: Create HTTP request
+	s.logger.Info("notifyPluginServerReshare: Creating HTTP POST request")
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", pluginURL, bytes.NewBuffer(payload))
 	if err != nil {
+		s.logger.Errorf("notifyPluginServerReshare: Failed to create HTTP request: %v", err)
 		return fmt.Errorf("failed to create HTTP request: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
+	s.logger.Info("notifyPluginServerReshare: Set Content-Type header to application/json")
 
+	// Step 5: Execute HTTP request
 	client := &http.Client{Timeout: 30 * time.Second}
+	s.logger.Infof("notifyPluginServerReshare: Sending POST request to %s with 30s timeout", pluginURL)
 	resp, err := client.Do(httpReq)
 	if err != nil {
+		s.logger.Errorf("notifyPluginServerReshare: HTTP request failed: %v", err)
 		return fmt.Errorf("failed to call plugin server: %w", err)
 	}
 	defer resp.Body.Close()
+	s.logger.Infof("notifyPluginServerReshare: Received HTTP response with status: %d", resp.StatusCode)
 
+	// Step 6: Check response status
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		// Read response body for error details
+		body, _ := io.ReadAll(resp.Body)
+		s.logger.Errorf("notifyPluginServerReshare: Plugin server returned error status %d, body: %s", resp.StatusCode, string(body))
 		return fmt.Errorf("plugin server returned status %d", resp.StatusCode)
 	}
 
-	s.logger.Infof("Successfully notified plugin server %s about reshare", pluginURL)
+	s.logger.Infof("notifyPluginServerReshare: Successfully notified plugin server %s about reshare (status: %d)", pluginURL, resp.StatusCode)
 	return nil
 }
 

@@ -206,6 +206,7 @@ const MarketplaceService = {
    */
   reshareVault: async (payload: unknown): Promise<void> => {
     try {
+      console.log("payload", payload);
       const endpoint = `${getMarketplaceUrl()}/vault/reshare`;
       await post(endpoint, payload, {
         headers: {

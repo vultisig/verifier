@@ -39,6 +39,9 @@ const Wallet = () => {
       case "ethereum": {
         try {
 
+          console.log("connectWallet");
+          console.log(VulticonnectWalletService);
+
           const accounts = await VulticonnectWalletService.connectToVultiConnect();
 
           let is_authenticated = await signMessage();

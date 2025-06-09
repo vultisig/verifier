@@ -212,16 +212,6 @@ func (s *Server) GetDerivedPublicKey(c echo.Context) error {
 func (s *Server) ReshareVault(c echo.Context) error {
 	s.logger.Info("ReshareVault: Starting reshare vault request")
 
-	// Read request body
-	bodyBytes, err := io.ReadAll(c.Request().Body)
-	if err != nil {
-		s.logger.Errorf("ReshareVault: Failed to read request body: %v", err)
-		return fmt.Errorf("fail to read request body, err: %w", err)
-	}
-
-	// Restore the request body for binding
-	c.Request().Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-
 	var req tv.ReshareRequest
 
 	// Parse and validate request

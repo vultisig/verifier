@@ -70,7 +70,7 @@ const PluginDetail = () => {
                     styleType="primary"
                     onClick={async () => {
                       try {
-                        const ok = await VulticonnectWalletService.startReshareSession();
+                        await VulticonnectWalletService.startReshareSession( pluginId );
                       } catch (err) {
                         console.error("Failed to start reshare session", err);
                       }

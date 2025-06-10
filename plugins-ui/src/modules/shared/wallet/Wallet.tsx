@@ -41,8 +41,6 @@ const Wallet = () => {
 
           const accounts = await VulticonnectWalletService.connectToVultiConnect();
 
-          console.log("accounts", accounts);
-
           let is_authenticated = await signMessage(accounts[0]);
           console.log("is_authenticated", is_authenticated);
 
@@ -105,8 +103,6 @@ const Wallet = () => {
       // 4. Generate nonce and expiry timestamp
       const nonce = ethers.hexlify(ethers.randomBytes(16));
       const expiryTime = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 minutes from now
-
-      console.log("walletAddress", walletAddress);
 
       // 5. Generate hex message for signing
       const signingMessage = JSON.stringify({

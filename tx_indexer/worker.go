@@ -67,22 +67,14 @@ func (w *Worker) start(aliveCtx context.Context) error {
 func (w *Worker) Run() error {
 	ctx, stop := context.WithCancel(context.Background())
 
-	var eg errgroup.Group
-	eg.Go(func() error {
-		err := w.start(ctx)
-		if err != nil {
-			return fmt.Errorf("w.start: %w", err)
-		}
-		return nil
-	})
-	eg.Go(func() error {
+	go func() {
 		graceful.HandleSignals(stop)
 		w.logger.Info("got exit signal, will stop after current processing step finished...")
-		return nil
-	})
-	err := eg.Wait()
+	}()
+
+	err := w.start(ctx)
 	if err != nil {
-		return fmt.Errorf("eg.Wait: %w", err)
+		return fmt.Errorf("w.start: %w", err)
 	}
 	return nil
 }

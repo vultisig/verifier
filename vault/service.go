@@ -20,6 +20,7 @@ import (
 	"github.com/vultisig/vultiserver/contexthelper"
 
 	"github.com/vultisig/verifier/types"
+	vcommon "github.com/vultisig/verifier/common"
 )
 
 const EmailVaultBackupTypeName = "key:email"
@@ -234,7 +235,7 @@ func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task
 
 	var vault *vaultType.Vault
 	// trying to get existing vault
-	vaultFileName := req.PublicKey + ".bak"
+	vaultFileName := vcommon.GetVaultBackupFilename(req.PublicKey, req.PluginID)
 	vaultContent, err := s.vaultStorage.GetVault(vaultFileName)
 	if err != nil || vaultContent == nil {
 		vault = &vaultType.Vault{

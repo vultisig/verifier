@@ -243,7 +243,7 @@ func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task
 			PublicKeyEcdsa: "",
 			PublicKeyEddsa: "",
 			HexChainCode:   req.HexChainCode,
-			LocalPartyId:   req.LocalPartyId,
+			LocalPartyId:   vcommon.GenerateLocalPartyId(s.cfg.LocalPartyId),
 			Signers:        req.OldParties,
 			LibType:        keygenType.LibType_LIB_TYPE_DKLS,
 		}

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	mathrand "math/rand/v2"
 	"strings"
 
 	"github.com/google/uuid"
@@ -267,6 +268,12 @@ func DecryptGCM(rawData []byte, hexEncryptKey string) ([]byte, error) {
 	}
 
 	return plaintext, nil
+}
+
+func GenerateLocalPartyId(partyPrefix string) string {
+	// Get a random number between 1000 and 9999
+	randomInt := mathrand.IntN(9000) + 1000
+	return fmt.Sprintf("%s-%d", partyPrefix, randomInt)
 }
 
 func GetVaultBackupFilename(publicKey, pluginId string) string {

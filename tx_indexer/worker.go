@@ -4,23 +4,24 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"github.com/vultisig/verifier/common"
-	"github.com/vultisig/verifier/internal/storage"
-	"github.com/vultisig/verifier/internal/types"
-	"golang.org/x/sync/errgroup"
 	"sync/atomic"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/vultisig/verifier/common"
+	"github.com/vultisig/verifier/tx_indexer/pkg/graceful"
+	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
+	"golang.org/x/sync/errgroup"
 )
 
 type Worker struct {
 	logger           *logrus.Logger
-	repo             storage.TxIndexerRepository
+	repo             storage.TxIndexerRepo
 	interval         time.Duration
 	iterationTimeout time.Duration
 	markLostAfter    time.Duration
 	concurrency      int
-	clients          map[common.Chain]types.TxIndexerRpc
+	clients          SupportedRpcs
 }
 
 func NewWorker(
@@ -29,8 +30,8 @@ func NewWorker(
 	iterationTimeout time.Duration,
 	markLostAfter time.Duration,
 	concurrency int,
-	repo storage.TxIndexerRepository,
-	clients map[common.Chain]types.TxIndexerRpc,
+	repo storage.TxIndexerRepo,
+	clients SupportedRpcs,
 ) *Worker {
 	return &Worker{
 		logger:           logger.WithField("pkg", "tx_indexer.worker").Logger,
@@ -43,7 +44,7 @@ func NewWorker(
 	}
 }
 
-func (w *Worker) Start(aliveCtx context.Context) error {
+func (w *Worker) start(aliveCtx context.Context) error {
 	err := w.updatePendingTxs()
 	if err != nil {
 		return fmt.Errorf("w.updatePendingTxs: %w", err)
@@ -63,7 +64,30 @@ func (w *Worker) Start(aliveCtx context.Context) error {
 	}
 }
 
-func (w *Worker) updateTxStatus(ctx context.Context, tx types.Tx) error {
+func (w *Worker) Run() error {
+	ctx, stop := context.WithCancel(context.Background())
+
+	var eg errgroup.Group
+	eg.Go(func() error {
+		err := w.start(ctx)
+		if err != nil {
+			return fmt.Errorf("w.start: %w", err)
+		}
+		return nil
+	})
+	eg.Go(func() error {
+		graceful.HandleSignals(stop)
+		w.logger.Info("got exit signal, will stop after current processing step finished...")
+		return nil
+	})
+	err := eg.Wait()
+	if err != nil {
+		return fmt.Errorf("eg.Wait: %w", err)
+	}
+	return nil
+}
+
+func (w *Worker) updateTxStatus(ctx context.Context, tx storage.Tx) error {
 	if tx.BroadcastedAt == nil {
 		return errors.New("unexpected tx.BroadcastedAt == nil, tx_id=" + tx.ID.String())
 	}

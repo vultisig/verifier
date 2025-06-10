@@ -3,16 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
+
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/verifier/config"
-	"github.com/vultisig/verifier/internal/graceful"
-	"github.com/vultisig/verifier/internal/storage/postgres"
-	"github.com/vultisig/verifier/internal/tx_indexer"
-	"golang.org/x/sync/errgroup"
+	"github.com/vultisig/verifier/tx_indexer"
+	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
 )
 
 func main() {
-	ctx, stop := context.WithCancel(context.Background())
+	ctx := context.Background()
 
 	logger := logrus.New()
 
@@ -26,9 +25,9 @@ func main() {
 		panic(fmt.Errorf("tx_indexer.Rpcs: %w", err))
 	}
 
-	db, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil)
+	txIndexerStore, err := storage.NewPostgresTxIndexStore(ctx, cfg.Database.DSN)
 	if err != nil {
-		panic(fmt.Errorf("postgres.NewPostgresBackend: %w", err))
+		panic(fmt.Errorf("storage.NewPostgresTxIndexStore: %w", err))
 	}
 
 	worker := tx_indexer.NewWorker(
@@ -37,20 +36,11 @@ func main() {
 		cfg.IterationTimeout,
 		cfg.MarkLostAfter,
 		cfg.Concurrency,
-		db,
+		txIndexerStore,
 		rpcs,
 	)
 
-	var eg errgroup.Group
-	eg.Go(func() error {
-		return worker.Start(ctx)
-	})
-	eg.Go(func() error {
-		graceful.HandleSignals(stop)
-		logger.Info("got exit signal, will stop after current processing step finished...")
-		return nil
-	})
-	err = eg.Wait()
+	err = worker.Run()
 	if err != nil {
 		panic(fmt.Errorf("failed to start worker: %w", err))
 	}

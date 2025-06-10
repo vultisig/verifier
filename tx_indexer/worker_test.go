@@ -3,20 +3,19 @@ package tx_indexer
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/config"
-	"github.com/vultisig/verifier/internal/conv"
-	"github.com/vultisig/verifier/internal/storage"
-	"github.com/vultisig/verifier/internal/storage/postgres"
-	"github.com/vultisig/verifier/internal/types"
-	"os"
-	"testing"
+	"github.com/vultisig/verifier/tx_indexer/pkg/conv"
+	"github.com/vultisig/verifier/tx_indexer/pkg/rpc"
+	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
 )
 
-func createWorker() (*Worker, context.CancelFunc, storage.TxIndexerRepository, error) {
+func createWorker() (*Worker, context.CancelFunc, storage.TxIndexerRepo, error) {
 	ctx, stop := context.WithCancel(context.Background())
 
 	logger := logrus.New()
@@ -26,12 +25,12 @@ func createWorker() (*Worker, context.CancelFunc, storage.TxIndexerRepository, e
 		return nil, stop, nil, fmt.Errorf("config.ReadTxIndexerConfig: %w", err)
 	}
 
-	db, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil)
+	db, err := storage.NewPostgresTxIndexStore(ctx, cfg.Database.DSN)
 	if err != nil {
 		return nil, stop, nil, fmt.Errorf("postgres.NewPostgresBackend: %w", err)
 	}
 
-	rpc, err := Rpcs(ctx, cfg.Rpc)
+	rpcs, err := Rpcs(ctx, cfg.Rpc)
 	if err != nil {
 		return nil, stop, nil, fmt.Errorf("rpc: %w", err)
 	}
@@ -43,17 +42,13 @@ func createWorker() (*Worker, context.CancelFunc, storage.TxIndexerRepository, e
 		cfg.MarkLostAfter,
 		cfg.Concurrency,
 		db,
-		rpc,
+		rpcs,
 	)
 
 	return worker, stop, db, nil
 }
 
 func TestWorker_positive(t *testing.T) {
-	if os.Getenv("INTEGRATION_TESTS") != "true" {
-		return
-	}
-
 	ctx := context.Background()
 
 	worker, stop, db, createErr := createWorker()
@@ -77,7 +72,7 @@ func TestWorker_positive(t *testing.T) {
 		policyID, err := uuid.NewUUID()
 		require.Nil(t, err)
 
-		txBefore, err := db.CreateTx(ctx, types.CreateTxDto{
+		txBefore, err := db.CreateTx(ctx, storage.CreateTxDto{
 			PluginID:      "vultisig-payroll-0000",
 			ChainID:       testcase.chain,
 			PolicyID:      policyID,
@@ -85,8 +80,8 @@ func TestWorker_positive(t *testing.T) {
 			ProposedTxHex: "0x1",
 		})
 		require.Nil(t, err, testcase.chain.String())
-		require.Equal(t, types.TxProposed, txBefore.Status, testcase.chain.String())
-		var nilOnChainStatus *types.TxOnChainStatus
+		require.Equal(t, storage.TxProposed, txBefore.Status, testcase.chain.String())
+		var nilOnChainStatus *rpc.TxOnChainStatus
 		require.Equal(t, nilOnChainStatus, txBefore.StatusOnChain, testcase.chain.String())
 
 		err = db.SetSignedAndBroadcasted(ctx, txBefore.ID, testcase.hash)
@@ -98,7 +93,7 @@ func TestWorker_positive(t *testing.T) {
 		txAfter, err := db.GetTxByID(ctx, txBefore.ID)
 		require.Nil(t, err, testcase.chain.String())
 
-		require.Equal(t, types.TxSigned, txAfter.Status, testcase.chain.String())
-		require.Equal(t, conv.Ptr(types.TxOnChainSuccess), txAfter.StatusOnChain, testcase.chain.String())
+		require.Equal(t, storage.TxSigned, txAfter.Status, testcase.chain.String())
+		require.Equal(t, conv.Ptr(rpc.TxOnChainSuccess), txAfter.StatusOnChain, testcase.chain.String())
 	}
 }

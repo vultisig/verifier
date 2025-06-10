@@ -76,12 +76,19 @@ func VerifyEthAddressSignature(address common.Address, messageBytes []byte, sign
 		return false, fmt.Errorf("invalid signature length: expected 65 bytes, got %d", len(signatureBytes))
 	}
 
+	sigCopy := make([]byte, 65)
+	copy(sigCopy, signatureBytes)
+
+	if sigCopy[64] >= 27 {
+		sigCopy[64] -= 27
+	}
+
 	// Create the Ethereum prefixed message hash
 	prefixedMessage := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(messageBytes), messageBytes)
 	prefixedHash := crypto.Keccak256Hash([]byte(prefixedMessage))
 
 	// Recover public key from signature
-	pubkeyBytes, err := crypto.Ecrecover(prefixedHash.Bytes(), signatureBytes)
+	pubkeyBytes, err := crypto.Ecrecover(prefixedHash.Bytes(), sigCopy)
 	if err != nil {
 		return false, fmt.Errorf("failed to recover public key: %w", err)
 	}

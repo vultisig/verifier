@@ -63,6 +63,17 @@
                     enable = true;
                   };
 
+                  languages.typescript = {
+                    enable = true;
+                  };
+
+                  languages.javascript = {
+                    enable = true;
+                    package = pkgs.nodejs_22;
+                    npm.enable = true;
+                  };
+
+
                   packages = with pkgs; [ 
                     redis
                     goose

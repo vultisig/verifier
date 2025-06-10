@@ -2,7 +2,8 @@
   "vault_service_config": {
     "relay": {
       "server": "http://localhost:8080"
-    }
+    },
+    "local_party_prefix": "verifier"
   },
   "redis": {
     "host": "localhost",

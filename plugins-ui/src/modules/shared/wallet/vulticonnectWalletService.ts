@@ -1,7 +1,7 @@
 // more on the exposed methods here: https://github.com/vultisig/vultisig-windows/blob/main/clients/extension/docs/integration-guide.md
 
-import { publish } from "@/utils/eventBus";
-import { decompressQrPayload, decodeTssPayload } from "./vultisigProtoUtils";
+import {publish} from "@/utils/eventBus";
+import {decodeTssPayload, decompressQrPayload} from "./vultisigProtoUtils";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 
 
@@ -153,7 +153,7 @@ const VulticonnectWalletService = {
         session_id: reshareMsg.sessionId,
         hex_encryption_key: reshareMsg.encryptionKeyHex,
         hex_chain_code: reshareMsg.hexChainCode,
-        local_party_id: reshareMsg.serviceName,
+        local_party_id: reshareMsg.local_party_id,
         old_parties: reshareMsg.oldParties,
         email: "", // Not provided by extension, using empty string
         plugin_id: pluginId // Use the pluginId parameter passed to function

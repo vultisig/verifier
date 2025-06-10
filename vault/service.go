@@ -179,32 +179,34 @@ func (s *ManagementService) HandleKeySignDKLS(ctx context.Context, t *asynq.Task
 		return fmt.Errorf("t.ResultWriter.Write failed: %v: %w", err, asynq.SkipRetry)
 	}
 
-	orderedSigs, err := OriginalOrder(p, signatures)
-	if err != nil {
-		s.logger.Errorf("OriginalOrder: %v", err)
-		return fmt.Errorf("OriginalOrder: %v: %w", err, asynq.SkipRetry)
-	}
-
-	for _, msg := range p.Messages {
-		if msg.TxIndexerID == "" {
-			continue // not from plugin
+	if s.txIndexerService != nil {
+		orderedSigs, err := OriginalOrder(p, signatures)
+		if err != nil {
+			s.logger.Errorf("OriginalOrder: %v", err)
+			return fmt.Errorf("OriginalOrder: %v: %w", err, asynq.SkipRetry)
 		}
 
-		txID, er := uuid.Parse(msg.TxIndexerID)
-		if er != nil {
-			s.logger.Errorf("uuid.Parse(reqPlugin.TxIndexerID): %v", er)
-			return fmt.Errorf("uuid.Parse(reqPlugin.TxIndexerID): %v: %w", er, asynq.SkipRetry)
-		}
+		for _, msg := range p.Messages {
+			if msg.TxIndexerID == "" {
+				continue // not from plugin
+			}
 
-		er = s.txIndexerService.SetSignedAndBroadcasted(
-			ctx,
-			msg.Chain,
-			txID,
-			orderedSigs,
-		)
-		if er != nil {
-			s.logger.Errorf("s.txIndexerService.SetSignedAndBroadcasted: %v", er)
-			return fmt.Errorf("s.txIndexerService.SetSignedAndBroadcasted: %v: %w", er, asynq.SkipRetry)
+			txID, er := uuid.Parse(msg.TxIndexerID)
+			if er != nil {
+				s.logger.Errorf("uuid.Parse(reqPlugin.TxIndexerID): %v", er)
+				return fmt.Errorf("uuid.Parse(reqPlugin.TxIndexerID): %v: %w", er, asynq.SkipRetry)
+			}
+
+			er = s.txIndexerService.SetSignedAndBroadcasted(
+				ctx,
+				msg.Chain,
+				txID,
+				orderedSigs,
+			)
+			if er != nil {
+				s.logger.Errorf("s.txIndexerService.SetSignedAndBroadcasted: %v", er)
+				return fmt.Errorf("s.txIndexerService.SetSignedAndBroadcasted: %v: %w", er, asynq.SkipRetry)
+			}
 		}
 	}
 

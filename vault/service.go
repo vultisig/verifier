@@ -21,6 +21,7 @@ import (
 
 	vcommon "github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/types"
+	vcommon "github.com/vultisig/verifier/common"
 )
 
 const EmailVaultBackupTypeName = "key:email"

@@ -251,6 +251,7 @@ func GetRowsStream[T any](
 			ch <- RowsStream[T]{Err: fmt.Errorf("p.pool.Query: %w", err)}
 			return
 		}
+		defer rows.Close()
 
 		for rows.Next() {
 			item, er := scanRow(rows)
@@ -260,6 +261,11 @@ func GetRowsStream[T any](
 			}
 
 			ch <- RowsStream[T]{Row: item}
+		}
+		err = rows.Err()
+		if err != nil {
+			ch <- RowsStream[T]{Err: fmt.Errorf("rows.Err: %w", err)}
+			return
 		}
 	}()
 

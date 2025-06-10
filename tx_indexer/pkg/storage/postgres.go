@@ -186,7 +186,7 @@ func (p *PostgresTxIndexStore) GetTxByID(c context.Context, id uuid.UUID) (Tx, e
 
 	tx, err := TxFromRow(rows)
 	if err != nil {
-		return Tx{}, fmt.Errorf("types.TxFromRow: %w", err)
+		return Tx{}, fmt.Errorf("TxFromRow: %w", err)
 	}
 	return tx, nil
 }

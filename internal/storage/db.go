@@ -40,10 +40,10 @@ type DatabaseStorage interface {
 type PolicyRepository interface {
 	GetPluginPolicy(ctx context.Context, id uuid.UUID) (types.PluginPolicy, error)
 	GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (itypes.PluginPolicyPaginatedList, error)
-
 	DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id uuid.UUID) error
-	InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error)
-	UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error)
+	InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error)
+	UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error)
+	GetAllFeesByPolicyId(ctx context.Context, policyId uuid.UUID) ([]types.Fee, error)
 }
 
 type PluginPolicySyncRepository interface {
@@ -83,7 +83,6 @@ type PricingRepository interface {
 type PluginRepository interface {
 	FindPlugins(ctx context.Context, filters itypes.PluginFilters, take int, skip int, sort string) (itypes.PluginsPaginatedList, error)
 	FindPluginById(ctx context.Context, dbTx pgx.Tx, id types.PluginID) (*itypes.Plugin, error)
-
 	Pool() *pgxpool.Pool
 }
 

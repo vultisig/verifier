@@ -19,7 +19,7 @@ func TestAddPluginPolicySync(t *testing.T) {
 	tx, err := db.Pool().Begin(ctx)
 	assert.NoError(t, err)
 	syncID := uuid.New()
-	policy, err := db.InsertPluginPolicyTx(ctx, tx, ptypes.PluginPolicyCreateUpdate{
+	policy, err := db.InsertPluginPolicyTx(ctx, tx, ptypes.PluginPolicy{
 		ID:            uuid.New(),
 		PluginID:      ptypes.PluginVultisigPayroll_0000,
 		PublicKey:     "publicKey",

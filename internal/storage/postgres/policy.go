@@ -144,7 +144,7 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 	return dto, nil
 }
 
-func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error) {
+func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {
 	query := `
   	INSERT INTO plugin_policies (
       id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe
@@ -152,7 +152,7 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
     RETURNING id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe
 	`
 
-	var insertedPolicy types.PluginPolicyCreateUpdate
+	var insertedPolicy types.PluginPolicy
 	tx, err := dbTx.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
@@ -231,7 +231,7 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 	return &insertedPolicy, nil
 }
 
-func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error) {
+func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {
 	query := `
 		UPDATE plugin_policies 
 		SET public_key = $2, 
@@ -243,7 +243,7 @@ func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		RETURNING id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe
 	`
 
-	var updatedPolicy types.PluginPolicyCreateUpdate
+	var updatedPolicy types.PluginPolicy
 	err := dbTx.QueryRow(ctx, query,
 		policy.ID,
 		policy.PublicKey,

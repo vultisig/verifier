@@ -41,7 +41,7 @@ const Wallet = () => {
 
           const accounts = await VulticonnectWalletService.connectToVultiConnect();
 
-          let is_authenticated = await signMessage();
+          let is_authenticated = await signMessage(accounts[0]);
           console.log("is_authenticated", is_authenticated);
 
           if (!is_authenticated) {
@@ -80,7 +80,7 @@ const Wallet = () => {
   };
 
   // sign message
-  const signMessage = async () => {
+  const signMessage = async (walletAddress: string) => {
     try {
       // 1. Get vaults from VultiConnect
       const vaults = await VulticonnectWalletService.getVaults();
@@ -89,6 +89,7 @@ const Wallet = () => {
       }
 
       // 2. Get required data from first vault
+      // TODO: Get vault details and address from selected vault, don't default to first
       const publicKey = vaults[0].publicKeyEcdsa;
       const chainCodeHex = vaults[0].hexChainCode;
 

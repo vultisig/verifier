@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/spf13/viper"
-	"github.com/vultisig/verifier/tx_indexer/pkg/config"
+	tx_indexer_config "github.com/vultisig/verifier/tx_indexer/pkg/config"
 	"github.com/vultisig/verifier/vault_config"
 )
 
@@ -102,7 +102,7 @@ func ReadVerifierConfig() (*VerifierConfig, error) {
 	return &cfg, nil
 }
 
-func ReadTxIndexerConfig() (*config.Config, error) {
+func ReadTxIndexerConfig() (*tx_indexer_config.Config, error) {
 	configName := os.Getenv("VS_TX_INDEXER_CONFIG_NAME")
 	if configName == "" {
 		configName = "config"
@@ -114,7 +114,7 @@ func ReadTxIndexerConfig() (*config.Config, error) {
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("fail to reading config file, %w", err)
 	}
-	var cfg config.Config
+	var cfg tx_indexer_config.Config
 	err := viper.Unmarshal(&cfg)
 	if err != nil {
 		return nil, fmt.Errorf("unable to decode into struct, %w", err)

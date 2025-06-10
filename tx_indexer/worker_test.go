@@ -3,6 +3,7 @@ package tx_indexer
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/google/uuid"
@@ -49,6 +50,10 @@ func createWorker() (*Worker, context.CancelFunc, storage.TxIndexerRepo, error) 
 }
 
 func TestWorker_positive(t *testing.T) {
+	if os.Getenv("INTEGRATION_TESTS") != "true" {
+		return
+	}
+
 	ctx := context.Background()
 
 	worker, stop, db, createErr := createWorker()

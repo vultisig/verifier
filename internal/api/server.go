@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"strings"
 	"time"
@@ -208,6 +209,12 @@ func (s *Server) GetDerivedPublicKey(c echo.Context) error {
 	return c.JSON(http.StatusOK, derivedPublicKey)
 }
 
+func getRandomID(prefix string) string {
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	code := rnd.Intn(9000) + 1000
+	return fmt.Sprintf("%s-%d", prefix, code)
+}
+
 // ReshareVault is a handler to reshare a vault
 func (s *Server) ReshareVault(c echo.Context) error {
 	s.logger.Info("ReshareVault: Starting reshare vault request")
@@ -232,7 +239,6 @@ func (s *Server) ReshareVault(c echo.Context) error {
 	// First, notify plugin server synchronously
 	ctx, cancel := context.WithTimeout(c.Request().Context(), 30*time.Second)
 	defer cancel()
-
 	if err := s.notifyPluginServerReshare(ctx, req); err != nil {
 		s.logger.Errorf("ReshareVault: Plugin server notification failed: %v", err)
 		return c.JSON(http.StatusServiceUnavailable, NewErrorResponse("Plugin server is currently unavailable"))
@@ -244,6 +250,7 @@ func (s *Server) ReshareVault(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("Failed to store session"))
 	}
 
+	req.LocalPartyId = getRandomID("verifier")
 	// Enqueue background task
 	buf, err := json.Marshal(req)
 	if err != nil {
@@ -275,6 +282,7 @@ func (s *Server) notifyPluginServerReshare(ctx context.Context, req tv.ReshareRe
 
 	// Prepare and send request to plugin server
 	pluginURL := fmt.Sprintf("%s/vault/reshare", plugin.ServerEndpoint)
+	req.LocalPartyId = getRandomID("plugin-" + plugin.ID.String()) // Generate a random local party ID
 	payload, err := json.Marshal(req)
 	if err != nil {
 		s.logger.Errorf("notifyPluginServerReshare: Failed to marshal request: %v", err)
@@ -295,8 +303,12 @@ func (s *Server) notifyPluginServerReshare(ctx context.Context, req tv.ReshareRe
 		s.logger.Errorf("notifyPluginServerReshare: Request failed: %v", err)
 		return fmt.Errorf("failed to call plugin server: %w", err)
 	}
-	defer resp.Body.Close()
 
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			s.logger.Errorf("notifyPluginServerReshare: Failed to close response body: %v", err)
+		}
+	}()
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
 		s.logger.Errorf("notifyPluginServerReshare: Plugin server error (status %d): %s", resp.StatusCode, string(body))

@@ -20,6 +20,7 @@ import (
 	"github.com/vultisig/vultiserver/contexthelper"
 
 	"github.com/vultisig/verifier/types"
+	vcommon "github.com/vultisig/verifier/common"
 )
 
 const EmailVaultBackupTypeName = "key:email"
@@ -178,32 +179,34 @@ func (s *ManagementService) HandleKeySignDKLS(ctx context.Context, t *asynq.Task
 		return fmt.Errorf("t.ResultWriter.Write failed: %v: %w", err, asynq.SkipRetry)
 	}
 
-	orderedSigs, err := OriginalOrder(p, signatures)
-	if err != nil {
-		s.logger.Errorf("OriginalOrder: %v", err)
-		return fmt.Errorf("OriginalOrder: %v: %w", err, asynq.SkipRetry)
-	}
-
-	for _, msg := range p.Messages {
-		if msg.TxIndexerID == "" {
-			continue // not from plugin
+	if s.txIndexerService != nil {
+		orderedSigs, err := OriginalOrder(p, signatures)
+		if err != nil {
+			s.logger.Errorf("OriginalOrder: %v", err)
+			return fmt.Errorf("OriginalOrder: %v: %w", err, asynq.SkipRetry)
 		}
 
-		txID, er := uuid.Parse(msg.TxIndexerID)
-		if er != nil {
-			s.logger.Errorf("uuid.Parse(reqPlugin.TxIndexerID): %v", er)
-			return fmt.Errorf("uuid.Parse(reqPlugin.TxIndexerID): %v: %w", er, asynq.SkipRetry)
-		}
+		for _, msg := range p.Messages {
+			if msg.TxIndexerID == "" {
+				continue // not from plugin
+			}
 
-		er = s.txIndexerService.SetSignedAndBroadcasted(
-			ctx,
-			msg.Chain,
-			txID,
-			orderedSigs,
-		)
-		if er != nil {
-			s.logger.Errorf("s.txIndexerService.SetSignedAndBroadcasted: %v", er)
-			return fmt.Errorf("s.txIndexerService.SetSignedAndBroadcasted: %v: %w", er, asynq.SkipRetry)
+			txID, er := uuid.Parse(msg.TxIndexerID)
+			if er != nil {
+				s.logger.Errorf("uuid.Parse(reqPlugin.TxIndexerID): %v", er)
+				return fmt.Errorf("uuid.Parse(reqPlugin.TxIndexerID): %v: %w", er, asynq.SkipRetry)
+			}
+
+			er = s.txIndexerService.SetSignedAndBroadcasted(
+				ctx,
+				msg.Chain,
+				txID,
+				orderedSigs,
+			)
+			if er != nil {
+				s.logger.Errorf("s.txIndexerService.SetSignedAndBroadcasted: %v", er)
+				return fmt.Errorf("s.txIndexerService.SetSignedAndBroadcasted: %v: %w", er, asynq.SkipRetry)
+			}
 		}
 	}
 
@@ -234,7 +237,7 @@ func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task
 
 	var vault *vaultType.Vault
 	// trying to get existing vault
-	vaultFileName := req.PublicKey + ".bak"
+	vaultFileName := vcommon.GetVaultBackupFilename(req.PublicKey, req.PluginID)
 	vaultContent, err := s.vaultStorage.GetVault(vaultFileName)
 	if err != nil || vaultContent == nil {
 		vault = &vaultType.Vault{
@@ -242,7 +245,7 @@ func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task
 			PublicKeyEcdsa: "",
 			PublicKeyEddsa: "",
 			HexChainCode:   req.HexChainCode,
-			LocalPartyId:   req.LocalPartyId,
+			LocalPartyId:   vcommon.GenerateLocalPartyId(s.cfg.LocalPartyPrefix),
 			Signers:        req.OldParties,
 			LibType:        keygenType.LibType_LIB_TYPE_DKLS,
 		}

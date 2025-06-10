@@ -76,7 +76,7 @@ func VerifyEthAddressSignature(address common.Address, messageBytes []byte, sign
 		return false, fmt.Errorf("invalid signature length: expected 65 bytes, got %d", len(signatureBytes))
 	}
 
-	if signatureBytes[64] == 27 || signatureBytes[64] == 28 {
+	if signatureBytes[64] >= 27 {
 		signatureBytes[64] -= 27
 	}
 

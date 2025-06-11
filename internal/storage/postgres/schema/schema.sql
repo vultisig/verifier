@@ -1,5 +1,8 @@
 
 CREATE TYPE "billing_frequency" AS ENUM (
+    'daily',
+    'weekly',
+    'biweekly',
     'monthly'
 );
 
@@ -38,37 +41,26 @@ CREATE TYPE "pricing_type" AS ENUM (
     'per-tx'
 );
 
-CREATE TYPE "tx_indexer_status" AS ENUM (
-    'PROPOSED',
-    'VERIFIED',
-    'SIGNED'
-);
-
-CREATE TYPE "tx_indexer_status_onchain" AS ENUM (
-    'PENDING',
-    'SUCCESS',
-    'FAIL'
-);
+CREATE VIEW "billing_periods" AS
+SELECT
+    NULL::"uuid" AS "plugin_policy_id",
+    NULL::boolean AS "active",
+    NULL::"uuid" AS "billing_id",
+    NULL::"billing_frequency" AS "frequency",
+    NULL::integer AS "amount",
+    NULL::bigint AS "accrual_count",
+    NULL::numeric AS "total_billed",
+    NULL::"date" AS "last_billed_date",
+    NULL::timestamp without time zone AS "next_billing_date";
 
 CREATE TABLE "fees" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "type" "fee_type" NOT NULL,
     "plugin_policy_billing_id" "uuid" NOT NULL,
     "transaction_id" "uuid",
-    "billing_date" "date" NOT NULL,
     "amount" bigint NOT NULL,
-    "created_at" timestamp without time zone DEFAULT "now"(),
+    "created_at" timestamp without time zone DEFAULT "now"() NOT NULL,
+    "charged_at" "date" DEFAULT "now"() NOT NULL,
     "collected_at" timestamp without time zone
-);
-
-CREATE TABLE "plugin_apikey" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "plugin_id" "plugin_id" NOT NULL,
-    "apikey" "text" NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "expires_at" timestamp with time zone,
-    "status" integer DEFAULT 1 NOT NULL,
-    CONSTRAINT "plugin_apikey_status_check" CHECK (("status" = ANY (ARRAY[0, 1])))
 );
 
 CREATE TABLE "plugin_policies" (
@@ -88,9 +80,35 @@ CREATE TABLE "plugin_policy_billing" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "type" "fee_type" NOT NULL,
     "frequency" "billing_frequency",
-    "start_date" integer DEFAULT 1 NOT NULL,
+    "start_date" "date" DEFAULT CURRENT_DATE NOT NULL,
+    "amount" integer,
     "plugin_policy_id" "uuid" NOT NULL,
-    CONSTRAINT "only_first_of_month" CHECK (("start_date" = 1))
+    CONSTRAINT "frequency_check" CHECK (((("type" = 'recurring'::"fee_type") AND ("frequency" IS NOT NULL)) OR (("type" = ANY (ARRAY['tx'::"public"."fee_type", 'once'::"public"."fee_type"])) AND ("frequency" IS NULL))))
+);
+
+CREATE VIEW "fees_view" AS
+ SELECT "pp"."id" AS "policy_id",
+    "ppb"."id" AS "billing_id",
+    "ppb"."type",
+    "f"."id",
+    "f"."plugin_policy_billing_id",
+    "f"."transaction_id",
+    "f"."amount",
+    "f"."created_at",
+    "f"."charged_at",
+    "f"."collected_at"
+   FROM (("plugin_policies" "pp"
+     JOIN "plugin_policy_billing" "ppb" ON (("ppb"."plugin_policy_id" = "pp"."id")))
+     JOIN "fees" "f" ON (("f"."plugin_policy_billing_id" = "ppb"."id")));
+
+CREATE TABLE "plugin_apikey" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "plugin_id" "plugin_id" NOT NULL,
+    "apikey" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "expires_at" timestamp with time zone,
+    "status" integer DEFAULT 1 NOT NULL,
+    CONSTRAINT "plugin_apikey_status_check" CHECK (("status" = ANY (ARRAY[0, 1])))
 );
 
 CREATE TABLE "plugin_policy_sync" (
@@ -160,22 +178,6 @@ CREATE TABLE "tags" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 
-CREATE TABLE "tx_indexer" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "plugin_id" character varying(255) NOT NULL,
-    "tx_hash" character varying(255),
-    "chain_id" integer NOT NULL,
-    "policy_id" "uuid" NOT NULL,
-    "from_public_key" character varying(255) NOT NULL,
-    "proposed_tx_hex" "text" NOT NULL,
-    "status" "tx_indexer_status" DEFAULT 'PROPOSED'::"public"."tx_indexer_status" NOT NULL,
-    "status_onchain" "tx_indexer_status_onchain",
-    "lost" boolean DEFAULT false NOT NULL,
-    "broadcasted_at" timestamp without time zone,
-    "created_at" timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    "updated_at" timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
-
 CREATE TABLE "vault_tokens" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "token_id" character varying(255) NOT NULL,
@@ -226,14 +228,17 @@ ALTER TABLE ONLY "tags"
 ALTER TABLE ONLY "tags"
     ADD CONSTRAINT "tags_pkey" PRIMARY KEY ("id");
 
-ALTER TABLE ONLY "tx_indexer"
-    ADD CONSTRAINT "tx_indexer_pkey" PRIMARY KEY ("id");
-
 ALTER TABLE ONLY "vault_tokens"
     ADD CONSTRAINT "vault_tokens_pkey" PRIMARY KEY ("id");
 
 ALTER TABLE ONLY "vault_tokens"
     ADD CONSTRAINT "vault_tokens_token_id_key" UNIQUE ("token_id");
+
+CREATE INDEX "idx_fees_billing_date" ON "fees" USING "btree" ("charged_at");
+
+CREATE INDEX "idx_fees_plugin_policy_billing_id" ON "fees" USING "btree" ("plugin_policy_billing_id");
+
+CREATE INDEX "idx_fees_transaction_id" ON "fees" USING "btree" ("transaction_id") WHERE ("transaction_id" IS NOT NULL);
 
 CREATE INDEX "idx_plugin_apikey_apikey" ON "plugin_apikey" USING "btree" ("apikey");
 
@@ -245,17 +250,40 @@ CREATE INDEX "idx_plugin_policies_plugin_id" ON "plugin_policies" USING "btree" 
 
 CREATE INDEX "idx_plugin_policies_public_key" ON "plugin_policies" USING "btree" ("public_key");
 
+CREATE INDEX "idx_plugin_policy_billing_id" ON "plugin_policy_billing" USING "btree" ("id");
+
 CREATE INDEX "idx_plugin_policy_sync_policy_id" ON "plugin_policy_sync" USING "btree" ("policy_id");
 
 CREATE INDEX "idx_reviews_plugin_id" ON "reviews" USING "btree" ("plugin_id");
 
 CREATE INDEX "idx_reviews_public_key" ON "reviews" USING "btree" ("public_key");
 
-CREATE INDEX "idx_tx_indexer_status_onchain_lost" ON "tx_indexer" USING "btree" ("status_onchain", "lost");
-
 CREATE INDEX "idx_vault_tokens_public_key" ON "vault_tokens" USING "btree" ("public_key");
 
 CREATE INDEX "idx_vault_tokens_token_id" ON "vault_tokens" USING "btree" ("token_id");
+
+CREATE OR REPLACE VIEW "billing_periods" AS
+ SELECT "pp"."id" AS "plugin_policy_id",
+    "pp"."active",
+    "ppb"."id" AS "billing_id",
+    "ppb"."frequency",
+    "ppb"."amount",
+    "count"("f"."id") AS "accrual_count",
+    COALESCE("sum"("f"."amount"), (0)::numeric) AS "total_billed",
+    COALESCE("max"("f"."charged_at"), "ppb"."start_date") AS "last_billed_date",
+    (COALESCE("max"("f"."charged_at"), "ppb"."start_date") +
+        CASE "ppb"."frequency"
+            WHEN 'daily'::"billing_frequency" THEN '1 day'::interval
+            WHEN 'weekly'::"billing_frequency" THEN '7 days'::interval
+            WHEN 'biweekly'::"billing_frequency" THEN '14 days'::interval
+            WHEN 'monthly'::"billing_frequency" THEN '1 mon'::interval
+            ELSE NULL::interval
+        END) AS "next_billing_date"
+   FROM (("plugin_policy_billing" "ppb"
+     JOIN "plugin_policies" "pp" ON (("ppb"."plugin_policy_id" = "pp"."id")))
+     LEFT JOIN "fees" "f" ON (("f"."plugin_policy_billing_id" = "ppb"."id")))
+  WHERE ("ppb"."type" = 'recurring'::"fee_type")
+  GROUP BY "ppb"."id", "pp"."id";
 
 ALTER TABLE ONLY "fees"
     ADD CONSTRAINT "fk_billing" FOREIGN KEY ("plugin_policy_billing_id") REFERENCES "plugin_policy_billing"("id") ON DELETE CASCADE;

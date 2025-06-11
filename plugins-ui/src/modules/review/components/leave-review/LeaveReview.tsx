@@ -6,15 +6,32 @@ import { useReviews } from "../../context/ReviewProvider";
 import StarContainer from "@/modules/shared/star-container/StartContainer";
 
 const LeaveReview = () => {
-  const { pluginId, addReview } = useReviews();
+  const { pluginId, addReview, reviewsMap } = useReviews();
 
   const [input, setInput] = useState("");
   const [rating, setRating] = useState(0);
   const [canReview, setCanReview] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
-    setCanReview(!!localStorage.getItem("authToken"));
-  }, []);
+    const authToken = localStorage.getItem("authToken");
+    const walletAddress = localStorage.getItem("walletAddress");
+    setCanReview(!!authToken);
+
+    // Check if user already has a review and pre-fill the form
+    if (authToken && walletAddress && reviewsMap?.reviews) {
+      const existingReview = reviewsMap.reviews.find(r => r.address === walletAddress);
+      if (existingReview) {
+        setInput(existingReview.comment);
+        setRating(existingReview.rating);
+        setIsUpdating(true);
+      } else {
+        setInput("");
+        setRating(0);
+        setIsUpdating(false);
+      }
+    }
+  }, [reviewsMap]);
 
   const submitReview = () => {
     if (canReview && rating && input) {
@@ -25,7 +42,7 @@ const LeaveReview = () => {
       };
 
       addReview(pluginId, review).then((reviewAdded) => {
-        if (reviewAdded) {
+        if (reviewAdded && !isUpdating) {
           setInput("");
           setRating(0);
         }
@@ -36,7 +53,7 @@ const LeaveReview = () => {
   return (
     <section className="leave-review">
       <section className="review-score">
-        <label className="label">Leave a review</label>
+        <label className="label">{isUpdating ? "Update your review" : "Leave a review"}</label>
 
         <StarContainer
           key={rating}
@@ -49,7 +66,9 @@ const LeaveReview = () => {
         className="review-textarea"
         placeholder={
           canReview
-            ? "Write your review here"
+            ? isUpdating
+              ? "Update your review here"
+              : "Write your review here"
             : "Install the plugin and sign in to leave a review"
         }
         value={input}
@@ -65,7 +84,7 @@ const LeaveReview = () => {
         onClick={submitReview}
         disabled={!canReview || !rating || !input}
       >
-        Leave a review
+        {isUpdating ? "Update review" : "Leave a review"}
       </Button>
     </section>
   );

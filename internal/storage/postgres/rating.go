@@ -88,3 +88,54 @@ func (p *PostgresBackend) UpdateRatingForPlugin(ctx context.Context, dbTx pgx.Tx
 
 	return nil
 }
+
+func (p *PostgresBackend) ChangeRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, oldRating int, newRating int) error {
+	// First, check if rating row exists, if not create it
+	var exists bool
+	checkQuery := fmt.Sprintf(`SELECT EXISTS(SELECT 1 FROM %s WHERE plugin_id = $1)`, PLUGIN_RATING_TABLE)
+	err := dbTx.QueryRow(ctx, checkQuery, pluginId).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to check if rating exists: %w", err)
+	}
+
+	if !exists {
+		err = p.CreateRatingForPlugin(ctx, dbTx, pluginId)
+		if err != nil {
+			return fmt.Errorf("failed to create rating for plugin: %w", err)
+		}
+	}
+
+	// Update both old and new rating counts without changing total count
+	ratingQuery := fmt.Sprintf(`
+	UPDATE %s
+	SET rating_%d_count = GREATEST(rating_%d_count - 1, 0),
+	    rating_%d_count = rating_%d_count + 1,
+	    avg_rating = (
+	        (GREATEST(rating_1_count - CASE WHEN %d = 1 THEN 1 ELSE 0 END, 0) * 1 + 
+	         GREATEST(rating_2_count - CASE WHEN %d = 2 THEN 1 ELSE 0 END, 0) * 2 + 
+	         GREATEST(rating_3_count - CASE WHEN %d = 3 THEN 1 ELSE 0 END, 0) * 3 + 
+	         GREATEST(rating_4_count - CASE WHEN %d = 4 THEN 1 ELSE 0 END, 0) * 4 + 
+	         GREATEST(rating_5_count - CASE WHEN %d = 5 THEN 1 ELSE 0 END, 0) * 5 +
+	         (CASE WHEN %d = 1 THEN 1 ELSE 0 END) * 1 +
+	         (CASE WHEN %d = 2 THEN 1 ELSE 0 END) * 2 +
+	         (CASE WHEN %d = 3 THEN 1 ELSE 0 END) * 3 +
+	         (CASE WHEN %d = 4 THEN 1 ELSE 0 END) * 4 +
+	         (CASE WHEN %d = 5 THEN 1 ELSE 0 END) * 5)::DECIMAL 
+	        / GREATEST(total_ratings, 1)
+	    ),
+	    updated_at = NOW()
+	WHERE plugin_id = $1`, PLUGIN_RATING_TABLE, oldRating, oldRating, newRating, newRating,
+		oldRating, oldRating, oldRating, oldRating, oldRating,
+		newRating, newRating, newRating, newRating, newRating)
+
+	ct, err := dbTx.Exec(ctx, ratingQuery, pluginId)
+	if err != nil {
+		return err
+	}
+
+	if ct.RowsAffected() == 0 {
+		return fmt.Errorf("%s row not found for plugin_id=%s", PLUGIN_RATING_TABLE, pluginId)
+	}
+
+	return nil
+}

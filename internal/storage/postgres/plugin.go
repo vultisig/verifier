@@ -296,6 +296,43 @@ func (p *PostgresBackend) FindReviews(ctx context.Context, pluginId string, skip
 	return pluginsDto, nil
 }
 
+func (p *PostgresBackend) FindReviewByUserAndPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, userAddress string) (*types.ReviewDto, error) {
+	query := fmt.Sprintf(`SELECT id, plugin_id, public_key, rating, comment, created_at FROM %s WHERE plugin_id = $1 AND public_key = $2 LIMIT 1;`, REVIEWS_TABLE)
+
+	var reviewDto types.ReviewDto
+	err := dbTx.QueryRow(ctx, query, pluginId, userAddress).Scan(
+		&reviewDto.ID,
+		&reviewDto.PluginId,
+		&reviewDto.Address,
+		&reviewDto.Rating,
+		&reviewDto.Comment,
+		&reviewDto.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // No existing review found
+		}
+		return nil, err
+	}
+
+	return &reviewDto, nil
+}
+
+func (p *PostgresBackend) UpdateReview(ctx context.Context, dbTx pgx.Tx, reviewId string, reviewDto types.ReviewCreateDto) error {
+	query := fmt.Sprintf(`UPDATE %s SET rating = $1, comment = $2, updated_at = NOW() WHERE id = $3`, REVIEWS_TABLE)
+
+	ct, err := dbTx.Exec(ctx, query, reviewDto.Rating, reviewDto.Comment, reviewId)
+	if err != nil {
+		return fmt.Errorf("failed to update review: %w", err)
+	}
+
+	if ct.RowsAffected() == 0 {
+		return fmt.Errorf("review not found with id: %s", reviewId)
+	}
+
+	return nil
+}
+
 func (p *PostgresBackend) CreateReview(ctx context.Context, dbTx pgx.Tx, reviewDto types.ReviewCreateDto, pluginId string) (string, error) {
 	// Fix: Use public_key instead of address to match the database schema
 	columns := []string{"public_key", "rating", "comment", "plugin_id", "created_at"}

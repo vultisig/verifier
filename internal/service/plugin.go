@@ -16,7 +16,7 @@ import (
 )
 
 type Plugin interface {
-	GetPluginWithRating(ctx context.Context, pluginId string) (*types.Plugin, error)
+	GetPluginWithRating(ctx context.Context, pluginId string) (*types.PluginWithRatings, error)
 	CreatePluginReviewWithRating(ctx context.Context, reviewDto types.ReviewCreateDto, pluginId string) (*types.ReviewDto, error)
 	GetPluginRecipeSpecification(ctx context.Context, pluginID string) (interface{}, error)
 }
@@ -27,10 +27,13 @@ type PluginServiceStorage interface {
 	FindRatingByPluginId(ctx context.Context, dbTx pgx.Tx, pluginId string) ([]types.PluginRatingDto, error)
 	CreateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string) error
 	UpdateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, reviewRating int) error
+	ChangeRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, oldRating int, newRating int) error
 
 	CreateReview(ctx context.Context, dbTx pgx.Tx, reviewDto types.ReviewCreateDto, pluginId string) (string, error)
+	UpdateReview(ctx context.Context, dbTx pgx.Tx, reviewId string, reviewDto types.ReviewCreateDto) error
 	FindReviews(ctx context.Context, pluginId string, take int, skip int, sort string) (types.ReviewsDto, error)
 	FindReviewById(ctx context.Context, db pgx.Tx, id string) (*types.ReviewDto, error)
+	FindReviewByUserAndPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, userAddress string) (*types.ReviewDto, error)
 
 	FindPluginById(ctx context.Context, dbTx pgx.Tx, id ptypes.PluginID) (*types.Plugin, error)
 }
@@ -52,68 +55,108 @@ func NewPluginService(db PluginServiceStorage, redis *storage.RedisStorage, logg
 	}, nil
 }
 
-func (s *PluginService) GetPluginWithRating(ctx context.Context, pluginId string) (*types.Plugin, error) {
-	var plugin *types.Plugin
+func (s *PluginService) GetPluginWithRating(ctx context.Context, pluginId string) (*types.PluginWithRatings, error) {
+	var pluginWithRatings *types.PluginWithRatings
 	err := s.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
 		var err error
 
 		// Find plugin
-		plugin, err = s.db.FindPluginById(ctx, tx, ptypes.PluginID(pluginId))
+		plugin, err := s.db.FindPluginById(ctx, tx, ptypes.PluginID(pluginId))
 		if err != nil {
 			return fmt.Errorf("failed to get plugin: %w", err)
 		}
 
 		// Find rating
-		// TODO: restore ratings with a custom type
-		// var rating []types.PluginRatingDto
-		// rating, err = s.db.FindRatingByPluginId(ctx, tx, pluginId)
-		// if err != nil {
-		// 	return fmt.Errorf("failed to get rating: %w", err)
-		// }
+		var rating []types.PluginRatingDto
+		rating, err = s.db.FindRatingByPluginId(ctx, tx, pluginId)
+		if err != nil {
+			return fmt.Errorf("failed to get rating: %w", err)
+		}
+
+		// Create response with ratings
+		pluginWithRatings = &types.PluginWithRatings{
+			Plugin:  *plugin,
+			Ratings: rating,
+		}
 
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	return plugin, nil
+	return pluginWithRatings, nil
 }
 
 func (s *PluginService) CreatePluginReviewWithRating(ctx context.Context, reviewDto types.ReviewCreateDto, pluginId string) (*types.ReviewDto, error) {
 	var review *types.ReviewDto
 	err := s.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
 		var err error
-		// Insert review
-		reviewId, err := s.db.CreateReview(ctx, tx, reviewDto, pluginId)
+		var reviewId string
+
+		// Check if user already has a review for this plugin
+		existingReview, err := s.db.FindReviewByUserAndPlugin(ctx, tx, pluginId, reviewDto.Address)
 		if err != nil {
-			return fmt.Errorf("failed to create review: %w", err)
+			s.logger.WithError(err).Errorf("PluginService.CreatePluginReviewWithRating: FindReviewByUserAndPlugin failed for plugin %s", pluginId)
+			return fmt.Errorf("failed to check existing review: %w", err)
 		}
 
-		// Update rating
-		err = s.db.UpdateRatingForPlugin(ctx, tx, pluginId, reviewDto.Rating)
-		if err != nil {
-			return fmt.Errorf("failed to update rating: %w", err)
+		if existingReview != nil {
+			// Update existing review
+			s.logger.Infof("PluginService.CreatePluginReviewWithRating: Updating existing review %s for plugin %s", existingReview.ID, pluginId)
+			err = s.db.UpdateReview(ctx, tx, existingReview.ID, reviewDto)
+			if err != nil {
+				s.logger.WithError(err).Errorf("PluginService.CreatePluginReviewWithRating: UpdateReview failed for plugin %s", pluginId)
+				return fmt.Errorf("failed to update review: %w", err)
+			}
+			reviewId = existingReview.ID
+
+			// Update rating counts (change from old rating to new rating)
+			if existingReview.Rating != reviewDto.Rating {
+				err = s.db.ChangeRatingForPlugin(ctx, tx, pluginId, existingReview.Rating, reviewDto.Rating)
+				if err != nil {
+					s.logger.WithError(err).Errorf("PluginService.CreatePluginReviewWithRating: ChangeRatingForPlugin failed for plugin %s", pluginId)
+					return fmt.Errorf("failed to change rating: %w", err)
+				}
+			}
+		} else {
+			// Create new review
+			s.logger.Infof("PluginService.CreatePluginReviewWithRating: Creating new review for plugin %s", pluginId)
+			reviewId, err = s.db.CreateReview(ctx, tx, reviewDto, pluginId)
+			if err != nil {
+				s.logger.WithError(err).Errorf("PluginService.CreatePluginReviewWithRating: CreateReview failed for plugin %s", pluginId)
+				return fmt.Errorf("failed to create review: %w", err)
+			}
+
+			// Add new rating
+			err = s.db.UpdateRatingForPlugin(ctx, tx, pluginId, reviewDto.Rating)
+			if err != nil {
+				s.logger.WithError(err).Errorf("PluginService.CreatePluginReviewWithRating: UpdateRatingForPlugin failed for plugin %s", pluginId)
+				return fmt.Errorf("failed to update rating: %w", err)
+			}
 		}
 
-		// Find review
+		// Find the final review
 		review, err = s.db.FindReviewById(ctx, tx, reviewId)
 		if err != nil {
+			s.logger.WithError(err).Errorf("PluginService.CreatePluginReviewWithRating: FindReviewById failed for review %s", reviewId)
 			return fmt.Errorf("failed to get review: %w", err)
 		}
 
-		// Find rating
+		// Find updated ratings
 		rating, err := s.db.FindRatingByPluginId(ctx, tx, pluginId)
 		if err != nil {
+			s.logger.WithError(err).Errorf("PluginService.CreatePluginReviewWithRating: FindRatingByPluginId failed for plugin %s", pluginId)
 			return fmt.Errorf("failed to get rating: %w", err)
 		}
 
 		review.Ratings = rating
-
 		return nil
 	})
 	if err != nil {
+		s.logger.WithError(err).Errorf("PluginService.CreatePluginReviewWithRating: Transaction failed for plugin %s", pluginId)
 		return nil, err
 	}
+
 	return review, nil
 }
 

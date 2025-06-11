@@ -1,13 +1,20 @@
-
 .review-icon {
     width: 24px;
     height: 24px;
     background: linear-gradient(to right, white, var(--button-tertiary-color));
     border-radius: 50%;
+    flex-shrink: 0;
   }
 
   .review-date {
-    color: var(--text-extra-light-color)
+    color: var(--text-extra-light-color);
+    font-size: 12px;
+  }
+
+  .review-address {
+    color: var(--text-light-color);
+    font-size: 13px;
+    font-weight: 500;
   }
 
   .review-info-header {
@@ -16,8 +23,25 @@
     gap: 12px;
   }
 
+  .review-user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .review-user-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
   .single-review {
     display: flex;
     flex-direction: column;
     gap: 12px;
+  }
+
+  .review-comment {
+    color: var(--text-color);
+    font-style: italic;
   }

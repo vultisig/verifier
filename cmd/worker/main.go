@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
@@ -43,6 +44,15 @@ func main() {
 		panic(fmt.Sprintf("failed to initialize database: %v", err))
 	}
 	syncService := syncer.NewPolicySyncer(backendDB, client)
+
+	policyService, err := service.NewPolicyService(
+		backendDB,
+		client,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to initialize policy service: %v", err))
+	}
+
 	srv := asynq.NewServer(
 		redisOptions,
 		asynq.Config{
@@ -77,6 +87,9 @@ func main() {
 	mux.HandleFunc(tasks.TypeKeySignDKLS, vaultMgmService.HandleKeySignDKLS)
 	mux.HandleFunc(tasks.TypeReshareDKLS, vaultMgmService.HandleReshareDKLS)
 	mux.HandleFunc(syncer.TaskKeySyncPolicy, syncService.ProcessSyncTask)
+	mux.HandleFunc(tasks.TypeOneTimeFeeRecord, policyService.HandleOneTimeFeeRecord)
+	mux.HandleFunc(tasks.TypeRecurringFeeRecord, policyService.HandleScheduledFees)
+
 	if err := syncService.Start(); err != nil {
 		panic(fmt.Sprintf("failed to start sync service: %v", err))
 	}

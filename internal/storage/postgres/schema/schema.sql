@@ -41,6 +41,18 @@ CREATE TYPE "pricing_type" AS ENUM (
     'per-tx'
 );
 
+CREATE TYPE "tx_indexer_status" AS ENUM (
+    'PROPOSED',
+    'VERIFIED',
+    'SIGNED'
+);
+
+CREATE TYPE "tx_indexer_status_onchain" AS ENUM (
+    'PENDING',
+    'SUCCESS',
+    'FAIL'
+);
+
 CREATE VIEW "billing_periods" AS
 SELECT
     NULL::"uuid" AS "plugin_policy_id",
@@ -178,6 +190,22 @@ CREATE TABLE "tags" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 
+CREATE TABLE "tx_indexer" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "plugin_id" character varying(255) NOT NULL,
+    "tx_hash" character varying(255),
+    "chain_id" integer NOT NULL,
+    "policy_id" "uuid" NOT NULL,
+    "from_public_key" character varying(255) NOT NULL,
+    "proposed_tx_hex" "text" NOT NULL,
+    "status" "tx_indexer_status" DEFAULT 'PROPOSED'::"public"."tx_indexer_status" NOT NULL,
+    "status_onchain" "tx_indexer_status_onchain",
+    "lost" boolean DEFAULT false NOT NULL,
+    "broadcasted_at" timestamp without time zone,
+    "created_at" timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "updated_at" timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
 CREATE TABLE "vault_tokens" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "token_id" character varying(255) NOT NULL,
@@ -228,6 +256,9 @@ ALTER TABLE ONLY "tags"
 ALTER TABLE ONLY "tags"
     ADD CONSTRAINT "tags_pkey" PRIMARY KEY ("id");
 
+ALTER TABLE ONLY "tx_indexer"
+    ADD CONSTRAINT "tx_indexer_pkey" PRIMARY KEY ("id");
+
 ALTER TABLE ONLY "vault_tokens"
     ADD CONSTRAINT "vault_tokens_pkey" PRIMARY KEY ("id");
 
@@ -257,6 +288,8 @@ CREATE INDEX "idx_plugin_policy_sync_policy_id" ON "plugin_policy_sync" USING "b
 CREATE INDEX "idx_reviews_plugin_id" ON "reviews" USING "btree" ("plugin_id");
 
 CREATE INDEX "idx_reviews_public_key" ON "reviews" USING "btree" ("public_key");
+
+CREATE INDEX "idx_tx_indexer_status_onchain_lost" ON "tx_indexer" USING "btree" ("status_onchain", "lost");
 
 CREATE INDEX "idx_vault_tokens_public_key" ON "vault_tokens" USING "btree" ("public_key");
 

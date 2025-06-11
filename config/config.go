@@ -10,7 +10,7 @@ import (
 )
 
 type WorkerConfig struct {
-	VaultServiceConfig vault_config.Config       `mapstructure:"vault_service_config" json:"vault_service_config,omitempty"`
+	VaultServiceConfig vault_config.Config       `mapstructure:"vault_service" json:"vault_service,omitempty"`
 	Redis              RedisConfig               `mapstructure:"redis" json:"redis,omitempty"`
 	BlockStorage       vault_config.BlockStorage `mapstructure:"block_storage" json:"block_storage,omitempty"`
 	Database           DatabaseConfig            `mapstructure:"database" json:"database,omitempty"`

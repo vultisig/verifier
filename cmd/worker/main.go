@@ -37,7 +37,7 @@ func main() {
 	}
 	logger := logrus.StandardLogger()
 	client := asynq.NewClient(redisOptions)
-	vaultStorage, err := vault.NewBlockStorageImp(cfg.BlockStorageConfig)
+	vaultStorage, err := vault.NewBlockStorageImp(cfg.BlockStorage)
 	if err != nil {
 		panic(fmt.Sprintf("failed to initialize vault storage: %v", err))
 	}

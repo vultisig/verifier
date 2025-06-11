@@ -16,11 +16,15 @@ const LeaveReview = () => {
   useEffect(() => {
     const authToken = localStorage.getItem("authToken");
     const walletAddress = localStorage.getItem("walletAddress");
-    setCanReview(!!authToken);
+    // Only allow reviewing when both token and address are present
+    setCanReview(!!authToken && !!walletAddress);
 
     // Check if user already has a review and pre-fill the form
     if (authToken && walletAddress && reviewsMap?.reviews) {
-      const existingReview = reviewsMap.reviews.find(r => r.address === walletAddress);
+      const normalized = walletAddress.toLowerCase();
+      const existingReview = reviewsMap.reviews.find(
+        r => r.address.toLowerCase() === normalized
+      );
       if (existingReview) {
         setInput(existingReview.comment);
         setRating(existingReview.rating);
@@ -35,10 +39,14 @@ const LeaveReview = () => {
 
   const submitReview = () => {
     if (canReview && rating && input) {
+      // Normalize before sending
+      const address = localStorage
+        .getItem("walletAddress")
+        ?.toLowerCase() || "";
       const review: CreateReview = {
-        address: localStorage.getItem("walletAddress") || "",
+        address,
         comment: input,
-        rating: rating,
+        rating,
       };
 
       addReview(pluginId, review).then((reviewAdded) => {

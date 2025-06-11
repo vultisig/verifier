@@ -85,9 +85,10 @@ export const ReviewProvider = ({
       setReviewsMap((prev) => {
         if (!prev) return { reviews: [newReview], total_count: 1 };
 
-        // Check if this is an update to an existing review by the same user
+        // Check if this is an update to an existing review by the same user (case-insensitive)
+        const normalizedAddress = review.address.toLowerCase();
         const existingReviewIndex = prev.reviews.findIndex(
-          r => r.address === review.address
+          r => r.address.toLowerCase() === normalizedAddress
         );
 
         let updatedReviews;
@@ -118,7 +119,7 @@ export const ReviewProvider = ({
         };
       });
 
-      const isUpdate = reviewsMap?.reviews.some(r => r.address === review.address);
+      const isUpdate = reviewsMap?.reviews.some(r => r.address.toLowerCase() === review.address.toLowerCase());
       publish("onToast", {
         message: isUpdate ? "Review updated successfully!" : "Review created successfully!",
         type: "success",

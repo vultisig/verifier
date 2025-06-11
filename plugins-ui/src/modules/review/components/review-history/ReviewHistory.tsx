@@ -22,7 +22,7 @@ const ReviewHistory = () => {
           reviewHistory.length > 0 &&
           reviewHistory.map((review) => (
             <Review
-              key={`${review.id}-${review.rating}-${review.comment}`}
+              key={`${review.id}-${review.created_at}`}
               id={review.id}
               date={review.created_at}
               rating={review.rating}

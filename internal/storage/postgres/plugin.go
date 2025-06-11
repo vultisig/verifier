@@ -297,7 +297,7 @@ func (p *PostgresBackend) FindReviews(ctx context.Context, pluginId string, skip
 }
 
 func (p *PostgresBackend) FindReviewByUserAndPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, userAddress string) (*types.ReviewDto, error) {
-	query := fmt.Sprintf(`SELECT id, plugin_id, public_key, rating, comment, created_at FROM %s WHERE plugin_id = $1 AND public_key = $2 LIMIT 1;`, REVIEWS_TABLE)
+	query := fmt.Sprintf(`SELECT id, plugin_id, public_key, rating, comment, created_at FROM %s WHERE plugin_id = $1 AND LOWER(public_key) = LOWER($2) LIMIT 1;`, REVIEWS_TABLE)
 
 	var reviewDto types.ReviewDto
 	err := dbTx.QueryRow(ctx, query, pluginId, userAddress).Scan(

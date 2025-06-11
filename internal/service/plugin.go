@@ -88,6 +88,9 @@ func (s *PluginService) GetPluginWithRating(ctx context.Context, pluginId string
 }
 
 func (s *PluginService) CreatePluginReviewWithRating(ctx context.Context, reviewDto types.ReviewCreateDto, pluginId string) (*types.ReviewDto, error) {
+	// Normalize address to lowercase to prevent case-sensitive duplicates
+	reviewDto.Address = strings.ToLower(reviewDto.Address)
+
 	var review *types.ReviewDto
 	err := s.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
 		var err error

@@ -50,22 +50,18 @@ func (p *PostgresBackend) CreateRatingForPlugin(ctx context.Context, dbTx pgx.Tx
 }
 
 func (p *PostgresBackend) UpdateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, reviewRating int) error {
-	// First, check if rating row exists, if not create it
-	var exists bool
-	checkQuery := fmt.Sprintf(`SELECT EXISTS(SELECT 1 FROM %s WHERE plugin_id = $1)`, PLUGIN_RATING_TABLE)
-	err := dbTx.QueryRow(ctx, checkQuery, pluginId).Scan(&exists)
+	// Use UPSERT to atomically create the rating row if it doesn't exist
+	upsertQuery := fmt.Sprintf(`
+		INSERT INTO %s (plugin_id, avg_rating, total_ratings, rating_1_count, rating_2_count, rating_3_count, rating_4_count, rating_5_count, updated_at)
+		VALUES ($1, 0, 0, 0, 0, 0, 0, 0, NOW())
+		ON CONFLICT (plugin_id) DO NOTHING`, PLUGIN_RATING_TABLE)
+
+	_, err := dbTx.Exec(ctx, upsertQuery, pluginId)
 	if err != nil {
-		return fmt.Errorf("failed to check if rating exists: %w", err)
+		return fmt.Errorf("failed to ensure rating row exists: %w", err)
 	}
 
-	if !exists {
-		err = p.CreateRatingForPlugin(ctx, dbTx, pluginId)
-		if err != nil {
-			return fmt.Errorf("failed to create rating for plugin: %w", err)
-		}
-	}
-
-	// Update the specific rating count and recalculate totals
+	// Now update the specific rating count and recalculate totals
 	ratingQuery := fmt.Sprintf(`
 	UPDATE %s
 	SET rating_%d_count = rating_%d_count + 1,
@@ -79,30 +75,26 @@ func (p *PostgresBackend) UpdateRatingForPlugin(ctx context.Context, dbTx pgx.Tx
 
 	ct, err := dbTx.Exec(ctx, ratingQuery, pluginId)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to update rating: %w", err)
 	}
 
 	if ct.RowsAffected() == 0 {
-		return fmt.Errorf("%s row not found for plugin_id=%s rating=%d", PLUGIN_RATING_TABLE, pluginId, reviewRating)
+		return fmt.Errorf("rating update affected 0 rows for plugin_id=%s rating=%d", pluginId, reviewRating)
 	}
 
 	return nil
 }
 
 func (p *PostgresBackend) ChangeRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, oldRating int, newRating int) error {
-	// First, check if rating row exists, if not create it
-	var exists bool
-	checkQuery := fmt.Sprintf(`SELECT EXISTS(SELECT 1 FROM %s WHERE plugin_id = $1)`, PLUGIN_RATING_TABLE)
-	err := dbTx.QueryRow(ctx, checkQuery, pluginId).Scan(&exists)
-	if err != nil {
-		return fmt.Errorf("failed to check if rating exists: %w", err)
-	}
+	// Use UPSERT to atomically create the rating row if it doesn't exist
+	upsertQuery := fmt.Sprintf(`
+		INSERT INTO %s (plugin_id, avg_rating, total_ratings, rating_1_count, rating_2_count, rating_3_count, rating_4_count, rating_5_count, updated_at)
+		VALUES ($1, 0, 0, 0, 0, 0, 0, 0, NOW())
+		ON CONFLICT (plugin_id) DO NOTHING`, PLUGIN_RATING_TABLE)
 
-	if !exists {
-		err = p.CreateRatingForPlugin(ctx, dbTx, pluginId)
-		if err != nil {
-			return fmt.Errorf("failed to create rating for plugin: %w", err)
-		}
+	_, err := dbTx.Exec(ctx, upsertQuery, pluginId)
+	if err != nil {
+		return fmt.Errorf("failed to ensure rating row exists: %w", err)
 	}
 
 	// Update both old and new rating counts without changing total count
@@ -130,11 +122,11 @@ func (p *PostgresBackend) ChangeRatingForPlugin(ctx context.Context, dbTx pgx.Tx
 
 	ct, err := dbTx.Exec(ctx, ratingQuery, pluginId)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to update rating: %w", err)
 	}
 
 	if ct.RowsAffected() == 0 {
-		return fmt.Errorf("%s row not found for plugin_id=%s", PLUGIN_RATING_TABLE, pluginId)
+		return fmt.Errorf("rating update affected 0 rows for plugin_id=%s", pluginId)
 	}
 
 	return nil

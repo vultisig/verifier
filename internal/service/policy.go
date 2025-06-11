@@ -73,6 +73,7 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
+	policy.PopulateBilling()
 	//TODO garry, do we need to validate the policy here?
 
 	// Insert policy
@@ -104,14 +105,22 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 		s.logger.WithError(err).Error("failed post sync policy to queue")
 	}
 
-	s.client.Enqueue(
-		asynq.NewTask(tasks.TypeOneTimeFeeRecord, bid),
-		asynq.MaxRetry(0),
-		asynq.Timeout(2*time.Minute),
-		asynq.Retention(5*time.Minute),
-		asynq.Queue(tasks.QUEUE_NAME),
-	)
-
+	for _, billingPolicy := range newPolicy.Billing {
+		if billingPolicy.Type == string(types.BILLING_TYPE_ONCE) {
+			bid, err := billingPolicy.ID.MarshalBinary()
+			//TODO garry. Need to handle this error properly with a rollback if needed.
+			if err != nil {
+				s.logger.WithError(err).Error("failed to marshal billing policy ID")
+			}
+			s.client.Enqueue(
+				asynq.NewTask(tasks.TypeOneTimeFeeRecord, bid),
+				asynq.MaxRetry(0),
+				asynq.Timeout(2*time.Minute),
+				asynq.Retention(5*time.Minute),
+				asynq.Queue(tasks.QUEUE_NAME),
+			)
+		}
+	}
 
 	//TODO garry, potentially we don't send this to a job but rather handle it in the same transaction. This reduces the risk of a committed
 

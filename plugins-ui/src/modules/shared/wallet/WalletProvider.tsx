@@ -50,6 +50,18 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     return !!(window.vultisig?.ethereum);
   };
 
+  // Define disconnect function early to avoid circular dependency
+  const disconnect = useCallback(() => {
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("publicKey");
+    setWalletState(prev => ({
+      ...prev,
+      isConnected: false,
+      walletAddress: null,
+      authToken: null,
+    }));
+  }, []);
+
   // Check for existing wallet connection on mount
   useEffect(() => {
     const checkExistingConnection = async () => {
@@ -83,8 +95,15 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   useEffect(() => {
     const handleAccountsChanged = (accounts: string[]) => {
       if (accounts.length === 0) {
-        // Wallet disconnected
-        disconnect();
+        // Wallet disconnected - use inline disconnect logic
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("publicKey");
+        setWalletState(prev => ({
+          ...prev,
+          isConnected: false,
+          walletAddress: null,
+          authToken: null,
+        }));
       } else if (accounts[0] !== walletState.walletAddress) {
         // Account switched
         setWalletState(prev => ({
@@ -100,7 +119,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
 
     return () => {
       if (isVultiConnectAvailable()) {
-        window.vultisig.ethereum.removeListener?.("accountsChanged", handleAccountsChanged);
+        window.vultisig.ethereum.off?.("accountsChanged", handleAccountsChanged);
       }
     };
   }, [walletState.walletAddress]);
@@ -206,17 +225,6 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         });
         break;
     }
-  }, []);
-
-  const disconnect = useCallback(() => {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("publicKey");
-    setWalletState(prev => ({
-      ...prev,
-      isConnected: false,
-      walletAddress: null,
-      authToken: null,
-    }));
   }, []);
 
   // Listen for storage changes (for auth token updates from other tabs)

@@ -72,8 +72,6 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("Invalid plugin policy"))
 	}
 
-	policy.PopulateBilling()
-
 	newPolicy, err := s.policyService.CreatePolicy(c.Request().Context(), policy)
 	if err != nil {
 		s.logger.Errorf("failed to create plugin policy: %s", err)

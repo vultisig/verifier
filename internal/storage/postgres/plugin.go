@@ -225,19 +225,29 @@ func (p *PostgresBackend) FindPlugins(
 func (p *PostgresBackend) FindReviewById(ctx context.Context, db pgx.Tx, id string) (*types.ReviewDto, error) {
 	query := fmt.Sprintf(`SELECT id, plugin_id, public_key, rating, comment, created_at FROM %s WHERE id = $1 LIMIT 1;`, REVIEWS_TABLE)
 
-	if db == nil {
-		return nil, fmt.Errorf("transaction cannot be nil")
+	var reviewDto types.ReviewDto
+	var err error
+
+	if db != nil {
+		err = db.QueryRow(ctx, query, id).Scan(
+			&reviewDto.ID,
+			&reviewDto.PluginId,
+			&reviewDto.Address,
+			&reviewDto.Rating,
+			&reviewDto.Comment,
+			&reviewDto.CreatedAt,
+		)
+	} else {
+		err = p.pool.QueryRow(ctx, query, id).Scan(
+			&reviewDto.ID,
+			&reviewDto.PluginId,
+			&reviewDto.Address,
+			&reviewDto.Rating,
+			&reviewDto.Comment,
+			&reviewDto.CreatedAt,
+		)
 	}
 
-	var reviewDto types.ReviewDto
-	err := db.QueryRow(ctx, query, id).Scan(
-		&reviewDto.ID,
-		&reviewDto.PluginId,
-		&reviewDto.Address,
-		&reviewDto.Rating,
-		&reviewDto.Comment,
-		&reviewDto.CreatedAt,
-	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("review not found")
@@ -303,19 +313,29 @@ func (p *PostgresBackend) FindReviews(ctx context.Context, pluginId string, skip
 func (p *PostgresBackend) FindReviewByUserAndPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, userAddress string) (*types.ReviewDto, error) {
 	query := fmt.Sprintf(`SELECT id, plugin_id, public_key, rating, comment, created_at FROM %s WHERE plugin_id = $1 AND LOWER(public_key) = LOWER($2) LIMIT 1;`, REVIEWS_TABLE)
 
-	if dbTx == nil {
-		return nil, fmt.Errorf("transaction cannot be nil")
+	var reviewDto types.ReviewDto
+	var err error
+
+	if dbTx != nil {
+		err = dbTx.QueryRow(ctx, query, pluginId, userAddress).Scan(
+			&reviewDto.ID,
+			&reviewDto.PluginId,
+			&reviewDto.Address,
+			&reviewDto.Rating,
+			&reviewDto.Comment,
+			&reviewDto.CreatedAt,
+		)
+	} else {
+		err = p.pool.QueryRow(ctx, query, pluginId, userAddress).Scan(
+			&reviewDto.ID,
+			&reviewDto.PluginId,
+			&reviewDto.Address,
+			&reviewDto.Rating,
+			&reviewDto.Comment,
+			&reviewDto.CreatedAt,
+		)
 	}
 
-	var reviewDto types.ReviewDto
-	err := dbTx.QueryRow(ctx, query, pluginId, userAddress).Scan(
-		&reviewDto.ID,
-		&reviewDto.PluginId,
-		&reviewDto.Address,
-		&reviewDto.Rating,
-		&reviewDto.Comment,
-		&reviewDto.CreatedAt,
-	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil // No existing review found

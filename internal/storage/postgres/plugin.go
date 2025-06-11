@@ -223,16 +223,16 @@ func (p *PostgresBackend) FindPlugins(
 }
 
 func (p *PostgresBackend) FindReviewById(ctx context.Context, db pgx.Tx, id string) (*types.ReviewDto, error) {
-	query := fmt.Sprintf(`SELECT * FROM %s WHERE id = $1 LIMIT 1;`, REVIEWS_TABLE)
+	query := fmt.Sprintf(`SELECT id, plugin_id, public_key, rating, comment, created_at FROM %s WHERE id = $1 LIMIT 1;`, REVIEWS_TABLE)
 
 	var reviewDto types.ReviewDto
 	err := db.QueryRow(ctx, query, id).Scan(
 		&reviewDto.ID,
+		&reviewDto.PluginId,
 		&reviewDto.Address,
 		&reviewDto.Rating,
 		&reviewDto.Comment,
 		&reviewDto.CreatedAt,
-		&reviewDto.PluginId,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -253,7 +253,7 @@ func (p *PostgresBackend) FindReviews(ctx context.Context, pluginId string, skip
 	orderBy, orderDirection := common.GetSortingCondition(sort, allowedSortingColumns)
 
 	query := fmt.Sprintf(`
-		SELECT *, COUNT(*) OVER() AS total_count
+		SELECT id, plugin_id, public_key, rating, comment, created_at, COUNT(*) OVER() AS total_count
 		FROM %s
 		WHERE plugin_id = $1
 		ORDER BY %s %s
@@ -274,11 +274,11 @@ func (p *PostgresBackend) FindReviews(ctx context.Context, pluginId string, skip
 
 		err := rows.Scan(
 			&review.ID,
+			&review.PluginId,
 			&review.Address,
 			&review.Rating,
 			&review.Comment,
 			&review.CreatedAt,
-			&review.PluginId,
 			&totalCount,
 		)
 		if err != nil {
@@ -297,10 +297,11 @@ func (p *PostgresBackend) FindReviews(ctx context.Context, pluginId string, skip
 }
 
 func (p *PostgresBackend) CreateReview(ctx context.Context, dbTx pgx.Tx, reviewDto types.ReviewCreateDto, pluginId string) (string, error) {
-	columns := []string{"address", "rating", "comment", "plugin_id", "created_at"}
-	argNames := []string{"@Address", "@Rating", "@Comment", "@PluginId", "@CreatedAt"}
+	// Fix: Use public_key instead of address to match the database schema
+	columns := []string{"public_key", "rating", "comment", "plugin_id", "created_at"}
+	argNames := []string{"@PublicKey", "@Rating", "@Comment", "@PluginId", "@CreatedAt"}
 	args := pgx.NamedArgs{
-		"Address":   reviewDto.Address,
+		"PublicKey": reviewDto.Address, // Map Address field to public_key column
 		"Rating":    reviewDto.Rating,
 		"Comment":   reviewDto.Comment,
 		"PluginId":  pluginId,

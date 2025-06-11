@@ -8,44 +8,38 @@ import (
 	"github.com/vultisig/verifier/internal/types"
 )
 
-const PLUGIN_RATING_TABLE = "plugin_rating"
+const PLUGIN_RATING_TABLE = "plugin_ratings"
 
 func (p *PostgresBackend) FindRatingByPluginId(ctx context.Context, dbTx pgx.Tx, pluginId string) ([]types.PluginRatingDto, error) {
 	query := fmt.Sprintf(`
-	SELECT *
+	SELECT rating_1_count, rating_2_count, rating_3_count, rating_4_count, rating_5_count
     FROM %s
     WHERE plugin_id = $1`, PLUGIN_RATING_TABLE)
 
-	rows, err := dbTx.Query(ctx, query, pluginId)
+	var rating1, rating2, rating3, rating4, rating5 int
+	err := dbTx.QueryRow(ctx, query, pluginId).Scan(&rating1, &rating2, &rating3, &rating4, &rating5)
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			// No ratings yet, return empty array
+			return []types.PluginRatingDto{}, nil
+		}
 		return nil, err
 	}
-	defer rows.Close()
 
-	var ratings []types.PluginRatingDto
-	for rows.Next() {
-		var review types.PluginRating
-		err := rows.Scan(
-			&review.PluginID,
-			&review.Rating,
-			&review.Count,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		var reviewDto types.PluginRatingDto
-		reviewDto.Rating = review.Rating
-		reviewDto.Count = review.Count
-		ratings = append(ratings, reviewDto)
+	ratings := []types.PluginRatingDto{
+		{Rating: 1, Count: rating1},
+		{Rating: 2, Count: rating2},
+		{Rating: 3, Count: rating3},
+		{Rating: 4, Count: rating4},
+		{Rating: 5, Count: rating5},
 	}
 
 	return ratings, nil
 }
 
 func (p *PostgresBackend) CreateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string) error {
-	ratingQuery := fmt.Sprintf(`INSERT INTO %s (plugin_id, rating, count)
-	      VALUES ($1, 1, 0), ($1, 2, 0), ($1, 3, 0), ($1, 4, 0), ($1, 5, 0)`, PLUGIN_RATING_TABLE)
+	ratingQuery := fmt.Sprintf(`INSERT INTO %s (plugin_id, avg_rating, total_ratings, rating_1_count, rating_2_count, rating_3_count, rating_4_count, rating_5_count)
+	      VALUES ($1, 0, 0, 0, 0, 0, 0, 0)`, PLUGIN_RATING_TABLE)
 
 	_, err := dbTx.Exec(ctx, ratingQuery, pluginId)
 	if err != nil {
@@ -56,12 +50,34 @@ func (p *PostgresBackend) CreateRatingForPlugin(ctx context.Context, dbTx pgx.Tx
 }
 
 func (p *PostgresBackend) UpdateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, reviewRating int) error {
+	// First, check if rating row exists, if not create it
+	var exists bool
+	checkQuery := fmt.Sprintf(`SELECT EXISTS(SELECT 1 FROM %s WHERE plugin_id = $1)`, PLUGIN_RATING_TABLE)
+	err := dbTx.QueryRow(ctx, checkQuery, pluginId).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to check if rating exists: %w", err)
+	}
+
+	if !exists {
+		err = p.CreateRatingForPlugin(ctx, dbTx, pluginId)
+		if err != nil {
+			return fmt.Errorf("failed to create rating for plugin: %w", err)
+		}
+	}
+
+	// Update the specific rating count and recalculate totals
 	ratingQuery := fmt.Sprintf(`
 	UPDATE %s
-	SET count = count + 1
-	WHERE plugin_id = $1 AND rating = $2`, PLUGIN_RATING_TABLE)
+	SET rating_%d_count = rating_%d_count + 1,
+	    total_ratings = total_ratings + 1,
+	    avg_rating = (
+	        (rating_1_count * 1 + rating_2_count * 2 + rating_3_count * 3 + rating_4_count * 4 + (rating_%d_count + 1) * %d)::DECIMAL 
+	        / (total_ratings + 1)
+	    ),
+	    updated_at = NOW()
+	WHERE plugin_id = $1`, PLUGIN_RATING_TABLE, reviewRating, reviewRating, reviewRating, reviewRating)
 
-	ct, err := dbTx.Exec(ctx, ratingQuery, pluginId, reviewRating)
+	ct, err := dbTx.Exec(ctx, ratingQuery, pluginId)
 	if err != nil {
 		return err
 	}

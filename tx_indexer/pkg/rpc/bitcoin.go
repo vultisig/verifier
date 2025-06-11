@@ -1,4 +1,4 @@
-package bitcoin
+package rpc
 
 import (
 	"context"
@@ -7,14 +7,13 @@ import (
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/rpcclient"
-	"github.com/vultisig/verifier/internal/types"
 )
 
-type Rpc struct {
+type Bitcoin struct {
 	client *rpcclient.Client
 }
 
-func NewRpc(rpcURL string) (*Rpc, error) {
+func NewBitcoin(rpcURL string) (*Bitcoin, error) {
 	cl, err := rpcclient.New(&rpcclient.ConnConfig{
 		Host:         strings.TrimPrefix(rpcURL, "https://"),
 		HTTPPostMode: true,
@@ -33,12 +32,12 @@ func NewRpc(rpcURL string) (*Rpc, error) {
 		return nil, fmt.Errorf("cl.GetBlockCount: %w", err)
 	}
 
-	return &Rpc{
+	return &Bitcoin{
 		client: cl,
 	}, nil
 }
 
-func (r *Rpc) GetTxStatus(ctx context.Context, txHash string) (types.TxOnChainStatus, error) {
+func (r *Bitcoin) GetTxStatus(ctx context.Context, txHash string) (TxOnChainStatus, error) {
 	if ctx.Err() != nil {
 		return "", ctx.Err()
 	}
@@ -51,7 +50,7 @@ func (r *Rpc) GetTxStatus(ctx context.Context, txHash string) (types.TxOnChainSt
 	tx, err := r.client.GetRawTransactionVerbose(hash)
 	noConfirmations := tx != nil && tx.Confirmations == 0
 	if err != nil || tx == nil || noConfirmations {
-		return types.TxOnChainPending, nil
+		return TxOnChainPending, nil
 	}
-	return types.TxOnChainSuccess, nil
+	return TxOnChainSuccess, nil
 }

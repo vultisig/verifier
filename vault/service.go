@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/vultisig/verifier/internal/service"
+	"github.com/vultisig/verifier/tx_indexer"
 	"github.com/vultisig/verifier/vault_config"
 
 	"github.com/DataDog/datadog-go/statsd"
@@ -19,8 +19,8 @@ import (
 	"github.com/vultisig/vultiserver/common"
 	"github.com/vultisig/vultiserver/contexthelper"
 
-	"github.com/vultisig/verifier/types"
 	vcommon "github.com/vultisig/verifier/common"
+	"github.com/vultisig/verifier/types"
 )
 
 const EmailVaultBackupTypeName = "key:email"
@@ -43,7 +43,7 @@ type ManagementService struct {
 	sdClient         *statsd.Client
 	plugin           plugin.Plugin
 	vaultStorage     Storage
-	txIndexerService *service.TxIndexerService
+	txIndexerService *tx_indexer.Service
 }
 
 // NewManagementService creates a new instance of the ManagementService
@@ -52,7 +52,7 @@ func NewManagementService(
 	queueClient *asynq.Client,
 	sdClient *statsd.Client,
 	storage Storage,
-	txIndexerService *service.TxIndexerService,
+	txIndexerService *tx_indexer.Service,
 ) (*ManagementService, error) {
 	logger := logrus.WithField("service", "vault-management").Logger
 

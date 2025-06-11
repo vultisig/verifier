@@ -1,21 +1,24 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/verifier/config"
-	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/internal/syncer"
 	"github.com/vultisig/verifier/internal/tasks"
-	"github.com/vultisig/verifier/internal/tx_indexer"
+	"github.com/vultisig/verifier/tx_indexer"
+	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
 	"github.com/vultisig/verifier/vault"
 )
 
 func main() {
+	ctx := context.Background()
+
 	cfg, err := config.GetConfigure()
 	if err != nil {
 		panic(err)
@@ -67,9 +70,14 @@ func main() {
 		},
 	)
 
-	txIndexerService := service.NewTxIndexerService(
+	txIndexerStore, err := storage.NewPostgresTxIndexStore(ctx, cfg.Database.DSN)
+	if err != nil {
+		panic(fmt.Sprintf("storage.NewPostgresTxIndexStore: %v", err))
+	}
+
+	txIndexerService := tx_indexer.NewService(
 		logger,
-		backendDB,
+		txIndexerStore,
 		tx_indexer.Chains(),
 	)
 

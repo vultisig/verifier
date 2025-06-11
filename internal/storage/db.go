@@ -3,8 +3,6 @@ package storage
 import (
 	"context"
 
-	"github.com/vultisig/verifier/internal/data"
-
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -28,7 +26,6 @@ type DatabaseStorage interface {
 	PluginPolicySyncRepository
 	VaultTokenRepository
 	TransactionRepository
-	TxIndexerRepository
 	PricingRepository
 	PluginRepository
 	TagRepository
@@ -53,16 +50,6 @@ type PluginPolicySyncRepository interface {
 	DeletePluginPolicySync(ctx context.Context, id uuid.UUID) error
 	GetUnFinishedPluginPolicySyncs(ctx context.Context) ([]itypes.PluginPolicySync, error)
 	UpdatePluginPolicySync(ctx context.Context, dbTx pgx.Tx, policy itypes.PluginPolicySync) error
-}
-
-type TxIndexerRepository interface {
-	SetStatus(ctx context.Context, id uuid.UUID, status itypes.TxStatus) error
-	SetLost(ctx context.Context, id uuid.UUID) error
-	SetSignedAndBroadcasted(ctx context.Context, id uuid.UUID, txHash string) error
-	SetOnChainStatus(ctx context.Context, id uuid.UUID, status itypes.TxOnChainStatus) error
-	GetPendingTxs(ctx context.Context) <-chan data.RowsStream[itypes.Tx]
-	CreateTx(ctx context.Context, req itypes.CreateTxDto) (itypes.Tx, error)
-	GetTxByID(ctx context.Context, id uuid.UUID) (itypes.Tx, error)
 }
 
 type TransactionRepository interface {

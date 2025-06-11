@@ -5,11 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vultisig/verifier/internal/data"
-
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-
 	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/types"
 
@@ -29,50 +26,6 @@ var testLogger = logrus.New()
 // MockDatabaseStorage is a mock implementation of storage.DatabaseStorage
 type MockDatabaseStorage struct {
 	mock.Mock
-}
-
-func (m *MockDatabaseStorage) SetStatus(ctx context.Context, id uuid.UUID, status itypes.TxStatus) error {
-	args := m.Called(ctx, id, status)
-	return args.Error(0)
-}
-
-func (m *MockDatabaseStorage) SetLost(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
-}
-
-func (m *MockDatabaseStorage) SetSignedAndBroadcasted(ctx context.Context, id uuid.UUID, txHash string) error {
-	args := m.Called(ctx, id, txHash)
-	return args.Error(0)
-}
-
-func (m *MockDatabaseStorage) SetOnChainStatus(ctx context.Context, id uuid.UUID, status itypes.TxOnChainStatus) error {
-	args := m.Called(ctx, id, status)
-	return args.Error(0)
-}
-
-func (m *MockDatabaseStorage) GetPendingTxs(ctx context.Context) <-chan data.RowsStream[itypes.Tx] {
-	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil
-	}
-	return args.Get(0).(chan data.RowsStream[itypes.Tx])
-}
-
-func (m *MockDatabaseStorage) GetTxByID(c context.Context, id uuid.UUID) (itypes.Tx, error) {
-	args := m.Called(c, id)
-	if args.Get(0) == nil {
-		return itypes.Tx{}, args.Error(1)
-	}
-	return args.Get(0).(itypes.Tx), args.Error(1)
-}
-
-func (m *MockDatabaseStorage) CreateTx(ctx context.Context, tx itypes.CreateTxDto) (itypes.Tx, error) {
-	args := m.Called(ctx, tx)
-	if args.Get(0) == nil {
-		return itypes.Tx{}, args.Error(1)
-	}
-	return args.Get(0).(itypes.Tx), args.Error(1)
 }
 
 func (m *MockDatabaseStorage) Pool() *pgxpool.Pool {

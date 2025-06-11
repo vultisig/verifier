@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/vultisig/verifier/internal/types"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -20,8 +20,6 @@ var _ storage.DatabaseStorage = (*PostgresBackend)(nil)
 type PostgresBackend struct {
 	pool *pgxpool.Pool
 }
-
-const defaultTimeout = 10 * time.Second
 
 type MigrationOptions struct {
 	RunSystemMigrations   bool

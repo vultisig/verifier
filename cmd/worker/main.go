@@ -41,10 +41,6 @@ func main() {
 		panic(fmt.Sprintf("failed to initialize vault storage: %v", err))
 	}
 
-	vaultMgmService, err := vault.NewManagementService(cfg.VaultServiceConfig,
-		client,
-		sdClient, vaultStorage)
-
 	backendDB, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil)
 
 	if err != nil {

@@ -13,7 +13,6 @@ CREATE TYPE fee_type AS ENUM(
     'once'
 );
 
--- Stores info about charging frequencies
 CREATE TABLE IF NOT EXISTS plugin_policy_billing(
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     type fee_type NOT NULL, -- Enum type for fee types

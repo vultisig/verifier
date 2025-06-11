@@ -11,10 +11,6 @@ import (
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/vault_config"
 
-	"github.com/google/uuid"
-	"github.com/vultisig/verifier/internal/service"
-	"github.com/vultisig/verifier/vault_config"
-
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"

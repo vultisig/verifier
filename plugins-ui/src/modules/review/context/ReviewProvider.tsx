@@ -83,9 +83,30 @@ export const ReviewProvider = ({
       setPluginRatings(newReview.ratings);
 
       setReviewsMap((prev) => {
-        if (!prev) return { reviews: [newReview], total_count: 1 }; // Handle initial case
+        if (!prev) return { reviews: [newReview], total_count: 1 };
 
-        const newTotalCount = prev.total_count + 1;
+        // Check if this is an update to an existing review by the same user (case-insensitive)
+        const normalizedAddress = review.address.toLowerCase();
+        const existingReviewIndex = prev.reviews.findIndex(
+          r => r.address.toLowerCase() === normalizedAddress
+        );
+
+        let updatedReviews;
+        let newTotalCount;
+
+        if (existingReviewIndex !== -1) {
+          // Update existing review in place
+          updatedReviews = [...prev.reviews];
+          updatedReviews[existingReviewIndex] = newReview;
+          newTotalCount = prev.total_count; // Don't change total for updates
+        } else {
+          // Add new review to the beginning
+          updatedReviews = [
+            newReview,
+            ...(prev?.reviews?.slice(0, ITEMS_PER_PAGE - 1) || []),
+          ];
+          newTotalCount = prev.total_count + 1;
+        }
 
         if (newTotalCount / ITEMS_PER_PAGE > 1) {
           setTotalPages(Math.ceil(newTotalCount / ITEMS_PER_PAGE));
@@ -93,15 +114,14 @@ export const ReviewProvider = ({
 
         return {
           ...prev,
-          reviews: [
-            newReview,
-            ...(prev?.reviews?.slice(0, ITEMS_PER_PAGE - 1) || []),
-          ], // Add new review
+          reviews: updatedReviews,
           total_count: newTotalCount,
         };
       });
+
+      const isUpdate = reviewsMap?.reviews.some(r => r.address.toLowerCase() === review.address.toLowerCase());
       publish("onToast", {
-        message: "Review created successfully!",
+        message: isUpdate ? "Review updated successfully!" : "Review created successfully!",
         type: "success",
       });
       return Promise.resolve(true);

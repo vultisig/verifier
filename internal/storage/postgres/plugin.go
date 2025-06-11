@@ -225,6 +225,10 @@ func (p *PostgresBackend) FindPlugins(
 func (p *PostgresBackend) FindReviewById(ctx context.Context, db pgx.Tx, id string) (*types.ReviewDto, error) {
 	query := fmt.Sprintf(`SELECT id, plugin_id, public_key, rating, comment, created_at FROM %s WHERE id = $1 LIMIT 1;`, REVIEWS_TABLE)
 
+	if db == nil {
+		return nil, fmt.Errorf("transaction cannot be nil")
+	}
+
 	var reviewDto types.ReviewDto
 	err := db.QueryRow(ctx, query, id).Scan(
 		&reviewDto.ID,

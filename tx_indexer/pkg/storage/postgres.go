@@ -1,15 +1,42 @@
-package postgres
+package storage
 
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/vultisig/verifier/internal/data"
-	"github.com/vultisig/verifier/internal/types"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/vultisig/verifier/tx_indexer/pkg/rpc"
 )
 
-func (p *PostgresBackend) createTx(ctx context.Context, tx types.Tx) error {
+type PostgresTxIndexStore struct {
+	pool *pgxpool.Pool
+}
+
+const defaultTimeout = 10 * time.Second
+
+func NewPostgresTxIndexStore(c context.Context, dsn string) (*PostgresTxIndexStore, error) {
+	ctx, cancel := context.WithTimeout(c, defaultTimeout)
+	defer cancel()
+
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		return nil, fmt.Errorf("pgxpool.New: %w", err)
+	}
+
+	err = pool.Ping(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("pool.Ping: %w", err)
+	}
+
+	return &PostgresTxIndexStore{
+		pool: pool,
+	}, nil
+}
+
+func (p *PostgresTxIndexStore) createTx(ctx context.Context, tx Tx) error {
 	_, err := p.pool.Exec(ctx, `INSERT INTO tx_indexer (
                         id,
                         plugin_id,
@@ -57,7 +84,7 @@ func (p *PostgresBackend) createTx(ctx context.Context, tx types.Tx) error {
 	return nil
 }
 
-func (p *PostgresBackend) SetStatus(c context.Context, id uuid.UUID, status types.TxStatus) error {
+func (p *PostgresTxIndexStore) SetStatus(c context.Context, id uuid.UUID, status TxStatus) error {
 	ctx, cancel := context.WithTimeout(c, defaultTimeout)
 	defer cancel()
 
@@ -75,7 +102,7 @@ func (p *PostgresBackend) SetStatus(c context.Context, id uuid.UUID, status type
 	return nil
 }
 
-func (p *PostgresBackend) SetLost(c context.Context, id uuid.UUID) error {
+func (p *PostgresTxIndexStore) SetLost(c context.Context, id uuid.UUID) error {
 	ctx, cancel := context.WithTimeout(c, defaultTimeout)
 	defer cancel()
 
@@ -93,7 +120,7 @@ func (p *PostgresBackend) SetLost(c context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (p *PostgresBackend) SetSignedAndBroadcasted(c context.Context, id uuid.UUID, txHash string) error {
+func (p *PostgresTxIndexStore) SetSignedAndBroadcasted(c context.Context, id uuid.UUID, txHash string) error {
 	ctx, cancel := context.WithTimeout(c, defaultTimeout)
 	defer cancel()
 
@@ -105,8 +132,8 @@ func (p *PostgresBackend) SetSignedAndBroadcasted(c context.Context, id uuid.UUI
                                    broadcasted_at = now(),
                                    updated_at = now()
                                WHERE id = $4`,
-		types.TxSigned,
-		types.TxOnChainPending,
+		TxSigned,
+		rpc.TxOnChainPending,
 		txHash,
 		id,
 	)
@@ -116,7 +143,7 @@ func (p *PostgresBackend) SetSignedAndBroadcasted(c context.Context, id uuid.UUI
 	return nil
 }
 
-func (p *PostgresBackend) SetOnChainStatus(c context.Context, id uuid.UUID, status types.TxOnChainStatus) error {
+func (p *PostgresTxIndexStore) SetOnChainStatus(c context.Context, id uuid.UUID, status rpc.TxOnChainStatus) error {
 	ctx, cancel := context.WithTimeout(c, defaultTimeout)
 	defer cancel()
 
@@ -134,47 +161,47 @@ func (p *PostgresBackend) SetOnChainStatus(c context.Context, id uuid.UUID, stat
 	return nil
 }
 
-func (p *PostgresBackend) GetPendingTxs(ctx context.Context) <-chan data.RowsStream[types.Tx] {
-	return data.GetRowsStream[types.Tx](
+func (p *PostgresTxIndexStore) GetPendingTxs(ctx context.Context) <-chan RowsStream[Tx] {
+	return GetRowsStream[Tx](
 		ctx,
 		p.pool,
-		types.TxFromRow,
+		TxFromRow,
 		`SELECT * FROM tx_indexer WHERE status_onchain = $1 AND lost = $2`,
-		types.TxOnChainPending,
+		rpc.TxOnChainPending,
 		false,
 	)
 }
 
-func (p *PostgresBackend) GetTxByID(c context.Context, id uuid.UUID) (types.Tx, error) {
+func (p *PostgresTxIndexStore) GetTxByID(c context.Context, id uuid.UUID) (Tx, error) {
 	ctx, cancel := context.WithTimeout(c, defaultTimeout)
 	defer cancel()
 
 	rows, err := p.pool.Query(ctx, `SELECT * FROM tx_indexer WHERE id = $1 LIMIT 1`, id)
 	if err != nil {
-		return types.Tx{}, fmt.Errorf("p.pool.Query: %w", err)
+		return Tx{}, fmt.Errorf("p.pool.Query: %w", err)
 	}
 	if !rows.Next() {
-		return types.Tx{}, fmt.Errorf("transaction not found")
+		return Tx{}, fmt.Errorf("transaction not found")
 	}
 
-	tx, err := types.TxFromRow(rows)
+	tx, err := TxFromRow(rows)
 	if err != nil {
-		return types.Tx{}, fmt.Errorf("types.TxFromRow: %w", err)
+		return Tx{}, fmt.Errorf("TxFromRow: %w", err)
 	}
 	return tx, nil
 }
 
-func (p *PostgresBackend) CreateTx(c context.Context, req types.CreateTxDto) (types.Tx, error) {
+func (p *PostgresTxIndexStore) CreateTx(c context.Context, req CreateTxDto) (Tx, error) {
 	ctx, cancel := context.WithTimeout(c, defaultTimeout)
 	defer cancel()
 
 	now := time.Now()
 	id, err := uuid.NewRandom()
 	if err != nil {
-		return types.Tx{}, fmt.Errorf("uuid.NewRandom: %w", err)
+		return Tx{}, fmt.Errorf("uuid.NewRandom: %w", err)
 	}
 
-	tx := types.Tx{
+	tx := Tx{
 		ID:            id,
 		PluginID:      req.PluginID,
 		TxHash:        nil,
@@ -182,7 +209,7 @@ func (p *PostgresBackend) CreateTx(c context.Context, req types.CreateTxDto) (ty
 		PolicyID:      req.PolicyID,
 		FromPublicKey: req.FromPublicKey,
 		ProposedTxHex: req.ProposedTxHex,
-		Status:        types.TxProposed,
+		Status:        TxProposed,
 		StatusOnChain: nil,
 		Lost:          false,
 		BroadcastedAt: nil,
@@ -191,7 +218,79 @@ func (p *PostgresBackend) CreateTx(c context.Context, req types.CreateTxDto) (ty
 	}
 	err = p.createTx(ctx, tx)
 	if err != nil {
-		return types.Tx{}, fmt.Errorf("p.pool.Exec: %w", err)
+		return Tx{}, fmt.Errorf("p.pool.Exec: %w", err)
+	}
+	return tx, nil
+}
+
+type RowsStream[T any] struct {
+	Row T
+	Err error
+}
+
+// GetRowsStream
+// TLDR: fetch rows from db with a non-buffered channel to control concurrency by data-consumer
+func GetRowsStream[T any](
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	scanRow func(rows pgx.Rows) (T, error),
+	sql string,
+	args ...any,
+) <-chan RowsStream[T] {
+	ch := make(chan RowsStream[T])
+
+	go func() {
+		defer close(ch)
+
+		rows, err := pool.Query(
+			ctx,
+			sql,
+			args...,
+		)
+		if err != nil {
+			ch <- RowsStream[T]{Err: fmt.Errorf("p.pool.Query: %w", err)}
+			return
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			item, er := scanRow(rows)
+			if er != nil {
+				ch <- RowsStream[T]{Err: fmt.Errorf("scanRow: %w", er)}
+				return
+			}
+
+			ch <- RowsStream[T]{Row: item}
+		}
+		err = rows.Err()
+		if err != nil {
+			ch <- RowsStream[T]{Err: fmt.Errorf("rows.Err: %w", err)}
+			return
+		}
+	}()
+
+	return ch
+}
+
+func TxFromRow(rows pgx.Rows) (Tx, error) {
+	var tx Tx
+	err := rows.Scan(
+		&tx.ID,
+		&tx.PluginID,
+		&tx.TxHash,
+		&tx.ChainID,
+		&tx.PolicyID,
+		&tx.FromPublicKey,
+		&tx.ProposedTxHex,
+		&tx.Status,
+		&tx.StatusOnChain,
+		&tx.Lost,
+		&tx.BroadcastedAt,
+		&tx.CreatedAt,
+		&tx.UpdatedAt,
+	)
+	if err != nil {
+		return Tx{}, fmt.Errorf("rows.Scan: %w", err)
 	}
 	return tx, nil
 }

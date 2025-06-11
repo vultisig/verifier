@@ -1,20 +1,25 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
+	"github.com/vultisig/verifier/tx_indexer"
 
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/api"
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/storage/postgres"
+	tx_indexer_storage "github.com/vultisig/verifier/tx_indexer/pkg/storage"
 	"github.com/vultisig/verifier/vault"
 )
 
 func main() {
+	ctx := context.Background()
+
 	cfg, err := config.ReadVerifierConfig()
 	if err != nil {
 		panic(err)
@@ -58,6 +63,17 @@ func main() {
 		logger.Fatalf("Failed to connect to database: %v", err)
 	}
 
+	txIndexerStore, err := tx_indexer_storage.NewPostgresTxIndexStore(ctx, cfg.Database.DSN)
+	if err != nil {
+		logger.Fatalf("Failed to connect to database: %v", err)
+	}
+
+	txIndexerService := tx_indexer.NewService(
+		logger,
+		txIndexerStore,
+		tx_indexer.Chains(),
+	)
+
 	server := api.NewServer(
 		*cfg,
 		db,
@@ -67,6 +83,7 @@ func main() {
 		inspector,
 		sdClient,
 		cfg.Server.JWTSecret,
+		txIndexerService,
 	)
 	if err := server.StartServer(); err != nil {
 		panic(err)

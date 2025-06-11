@@ -9,9 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/vultisig/verifier/common"
@@ -67,17 +69,21 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 			return fmt.Errorf("failed to parse transaction: %w", err)
 		}
 
-		txToTrack, err := s.txIndexerService.CreateTx(c.Request().Context(), types.CreateTxDto{
-			PluginID:      ptypes.PluginID(req.PluginID),
-			ChainID:       keysignMessage.Chain,
-			PolicyID:      policy.ID,
-			FromPublicKey: req.PublicKey,
-			ProposedTxHex: keysignMessage.Message,
-		})
-		if err != nil {
-			return fmt.Errorf("s.txIndexerService.CreateTx(: %w", err)
+		var txToTrackID uuid.UUID
+		if s.txIndexerService != nil {
+			txToTrack, err := s.txIndexerService.CreateTx(c.Request().Context(), storage.CreateTxDto{
+				PluginID:      ptypes.PluginID(req.PluginID),
+				ChainID:       keysignMessage.Chain,
+				PolicyID:      policy.ID,
+				FromPublicKey: req.PublicKey,
+				ProposedTxHex: keysignMessage.Message,
+			})
+			if err != nil {
+				return fmt.Errorf("s.txIndexerService.CreateTx(: %w", err)
+			}
+			txToTrackID = txToTrack.ID
+			req.Messages[i].TxIndexerID = txToTrack.ID.String()
 		}
-		req.Messages[i].TxIndexerID = txToTrack.ID.String()
 
 		transactionAllowed, _, err := eng.Evaluate(&recipe, messageChain, decodedTx)
 		if err != nil {
@@ -87,9 +93,11 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		if !transactionAllowed {
 			return fmt.Errorf("transaction %s on %s not allowed by policy", keysignMessage.Hash, keysignMessage.Chain)
 		}
-		err = s.txIndexerService.SetStatus(c.Request().Context(), txToTrack.ID, types.TxVerified)
-		if err != nil {
-			return fmt.Errorf("tx_id=%s, failed to set transaction status to verified: %w", txToTrack.ID, err)
+		if s.txIndexerService != nil {
+			err = s.txIndexerService.SetStatus(c.Request().Context(), txToTrackID, storage.TxVerified)
+			if err != nil {
+				return fmt.Errorf("tx_id=%s, failed to set transaction status to verified: %w", txToTrackID, err)
+			}
 		}
 	}
 

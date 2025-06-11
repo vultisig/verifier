@@ -1,44 +1,44 @@
-package service
+package tx_indexer
 
 import (
 	"context"
 	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/mobile-tss-lib/tss"
-	rtypes "github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/common"
-	"github.com/vultisig/verifier/internal/storage"
-	"github.com/vultisig/verifier/internal/types"
+	"github.com/vultisig/verifier/tx_indexer/pkg/rpc"
+	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
 )
 
-type TxIndexerService struct {
+type Service struct {
 	logger *logrus.Logger
-	repo   storage.TxIndexerRepository
-	chains map[common.Chain]rtypes.Chain
+	repo   storage.TxIndexerRepo
+	chains SupportedChains
 }
 
-func NewTxIndexerService(
+func NewService(
 	logger *logrus.Logger,
-	repo storage.TxIndexerRepository,
-	chains map[common.Chain]rtypes.Chain,
-) *TxIndexerService {
-	return &TxIndexerService{
+	repo storage.TxIndexerRepo,
+	chains SupportedChains,
+) *Service {
+	return &Service{
 		logger: logger.WithField("pkg", "service.tx_indexer").Logger,
 		repo:   repo,
 		chains: chains,
 	}
 }
 
-func (t *TxIndexerService) CreateTx(ctx context.Context, req types.CreateTxDto) (types.Tx, error) {
+func (t *Service) CreateTx(ctx context.Context, req storage.CreateTxDto) (storage.Tx, error) {
 	r, err := t.repo.CreateTx(ctx, req)
 	if err != nil {
-		return types.Tx{}, fmt.Errorf("t.repo.CreateTx: %w", err)
+		return storage.Tx{}, fmt.Errorf("t.repo.CreateTx: %w", err)
 	}
 	return r, nil
 }
 
-func (t *TxIndexerService) SetStatus(ctx context.Context, txID uuid.UUID, status types.TxStatus) error {
+func (t *Service) SetStatus(ctx context.Context, txID uuid.UUID, status storage.TxStatus) error {
 	err := t.repo.SetStatus(ctx, txID, status)
 	if err != nil {
 		return fmt.Errorf("t.repo.SetStatus: %w", err)
@@ -46,7 +46,7 @@ func (t *TxIndexerService) SetStatus(ctx context.Context, txID uuid.UUID, status
 	return nil
 }
 
-func (t *TxIndexerService) SetOnChainStatus(ctx context.Context, txID uuid.UUID, status types.TxOnChainStatus) error {
+func (t *Service) SetOnChainStatus(ctx context.Context, txID uuid.UUID, status rpc.TxOnChainStatus) error {
 	err := t.repo.SetOnChainStatus(ctx, txID, status)
 	if err != nil {
 		return fmt.Errorf("t.repo.SetOnChainStatus: %w", err)
@@ -54,7 +54,7 @@ func (t *TxIndexerService) SetOnChainStatus(ctx context.Context, txID uuid.UUID,
 	return nil
 }
 
-func (t *TxIndexerService) SetSignedAndBroadcasted(
+func (t *Service) SetSignedAndBroadcasted(
 	ctx context.Context,
 	chainID common.Chain,
 	txID uuid.UUID,

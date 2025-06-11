@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vultisig/verifier/internal/tx_indexer"
+	"github.com/vultisig/verifier/tx_indexer"
 
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/go-playground/validator/v10"
@@ -51,7 +51,7 @@ type Server struct {
 	policyService    service.Policy
 	pluginService    service.Plugin
 	authService      *service.AuthService
-	txIndexerService *service.TxIndexerService
+	txIndexerService *tx_indexer.Service
 	logger           *logrus.Logger
 }
 
@@ -65,6 +65,7 @@ func NewServer(
 	inspector *asynq.Inspector,
 	sdClient *statsd.Client,
 	jwtSecret string,
+	txIndexerService *tx_indexer.Service,
 ) *Server {
 
 	var err error
@@ -82,12 +83,6 @@ func NewServer(
 	}
 
 	authService := service.NewAuthService(jwtSecret, db, logrus.WithField("service", "auth-service").Logger)
-
-	txIndexerService := service.NewTxIndexerService(
-		logger,
-		db,
-		tx_indexer.Chains(),
-	)
 
 	return &Server{
 		cfg:              cfg,

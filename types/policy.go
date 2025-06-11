@@ -10,6 +10,14 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
+type BILLING_TYPE string
+
+const (
+	BILLING_TYPE_TX        BILLING_TYPE = "tx"
+	BILLING_TYPE_RECURRING BILLING_TYPE = "recurring"
+	BILLING_TYPE_ONCE      BILLING_TYPE = "once"
+)
+
 type Fee struct {
 	ID                    uuid.UUID  `json:"id"`
 	PluginPolicyBillingID uuid.UUID  `json:"plugin_policy_billing_id"`
@@ -21,6 +29,7 @@ type Fee struct {
 	CollectedAt           *time.Time `json:"collected_at"`
 }
 
+// TODO update internal type references
 type BillingPolicy struct {
 	ID        uuid.UUID `json:"id" validate:"required"`
 	Type      string    `json:"type" validate:"required"`   // "tx", "recurring" or "once"
@@ -35,10 +44,10 @@ type PluginPolicy struct {
 	PublicKey     string          `json:"public_key" validate:"required"`
 	PluginID      PluginID        `json:"plugin_id" validate:"required"`
 	PluginVersion string          `json:"plugin_version" validate:"required"`
-	PolicyVersion string          `json:"policy_version" validate:"required"`
+	PolicyVersion int             `json:"policy_version" validate:"required"`
 	Signature     string          `json:"signature" validate:"required"`
-	Recipe        string          `json:"recipe" validate:"required"` // base64 encoded recipe protobuf bytes
-	Billing       []BillingPolicy `json:"billing" validate:"required"`
+	Recipe        string          `json:"recipe" validate:"required"`  // base64 encoded recipe protobuf bytes
+	Billing       []BillingPolicy `json:"billing" validate:"required"` // This will be populated later
 	Active        bool            `json:"active" validate:"required"`
 }
 

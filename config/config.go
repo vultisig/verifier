@@ -10,11 +10,11 @@ import (
 )
 
 type WorkerConfig struct {
-	VaultServiceConfig vault_config.Config       `mapstructure:"vault_service" json:"vault_service,omitempty"`
-	Redis              RedisConfig               `mapstructure:"redis" json:"redis,omitempty"`
-	BlockStorage       vault_config.BlockStorage `mapstructure:"block_storage" json:"block_storage,omitempty"`
-	Database           DatabaseConfig            `mapstructure:"database" json:"database,omitempty"`
-	Plugin             struct {
+	VaultService vault_config.Config       `mapstructure:"vault_service" json:"vault_service,omitempty"`
+	Redis        RedisConfig               `mapstructure:"redis" json:"redis,omitempty"`
+	BlockStorage vault_config.BlockStorage `mapstructure:"block_storage" json:"block_storage,omitempty"`
+	Database     DatabaseConfig            `mapstructure:"database" json:"database,omitempty"`
+	Plugin       struct {
 		PluginConfigs map[string]map[string]interface{} `mapstructure:"plugin_configs" json:"plugin_configs,omitempty"`
 	} `mapstructure:"plugin" json:"plugin,omitempty"`
 	Datadog DatadogConfig `mapstructure:"datadog" json:"datadog"`
@@ -66,7 +66,7 @@ func ReadConfig(configName string) (*WorkerConfig, error) {
 	viper.AddConfigPath(".")
 	viper.AutomaticEnv()
 
-	viper.SetDefault("VaultServiceConfig.VaultsFilePath", "vaults")
+	viper.SetDefault("VaultService.VaultsFilePath", "vaults")
 
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("fail to reading config file, %w", err)

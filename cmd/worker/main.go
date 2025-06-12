@@ -73,7 +73,7 @@ func main() {
 	)
 
 	vaultMgmService, err := vault.NewManagementService(
-		cfg.VaultServiceConfig,
+		cfg.VaultService,
 		client,
 		sdClient,
 		vaultStorage,

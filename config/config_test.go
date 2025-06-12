@@ -11,8 +11,8 @@ import (
 func TestConfig(t *testing.T) {
 	t.Skip("Skipping config test")
 	cfg := WorkerConfig{}
-	cfg.VaultServiceConfig.Relay.Server = "http://localhost:8080"
-	cfg.VaultServiceConfig.QueueEmailTask = false
+	cfg.VaultService.Relay.Server = "http://localhost:8080"
+	cfg.VaultService.QueueEmailTask = false
 	cfg.Datadog.Host = "localhost"
 	cfg.Datadog.Port = "8125"
 

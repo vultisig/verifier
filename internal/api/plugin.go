@@ -250,6 +250,7 @@ func (s *Server) CreateReview(c echo.Context) error {
 	}
 
 	if err := c.Validate(&review); err != nil {
+		s.logger.WithError(err).Error("CreateReview: Request validation failed")
 		return c.JSON(http.StatusBadRequest, NewErrorResponse(err.Error()))
 	}
 
@@ -259,14 +260,13 @@ func (s *Server) CreateReview(c echo.Context) error {
 
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
-		err := fmt.Errorf("plugin id is required")
-		s.logger.Error(err)
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err.Error()))
+		s.logger.Error("CreateReview: Missing plugin ID in URL parameters")
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("plugin id is required"))
 	}
 
 	created, err := s.pluginService.CreatePluginReviewWithRating(c.Request().Context(), review, pluginID)
 	if err != nil {
-		s.logger.WithError(err).Error("Failed to create review")
+		s.logger.WithError(err).Errorf("CreateReview: Plugin service failed to create review for plugin %s", pluginID)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to create review"))
 	}
 

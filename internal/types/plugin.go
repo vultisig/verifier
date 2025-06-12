@@ -19,6 +19,12 @@ type Plugin struct {
 	UpdatedAt      time.Time      `json:"updated_at"`
 }
 
+// PluginWithRatings is used for API responses that include rating statistics
+type PluginWithRatings struct {
+	Plugin
+	Ratings []PluginRatingDto `json:"ratings,omitempty"`
+}
+
 type PluginFilters struct {
 	Term       *string    `json:"term"`
 	TagID      *uuid.UUID `json:"tag_id"`

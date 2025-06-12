@@ -1,7 +1,7 @@
 import Star from "@/assets/Star.svg?react";
 import "./StarContainer.css";
 import Button from "@/modules/core/components/ui/button/Button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const STAR_MAX_COUNT = 5;
 
@@ -17,6 +17,11 @@ const StarContainer = ({
   onChange,
 }: StarContainerProps) => {
   const [rating, setRating] = useState<number>(initialRating);
+
+  // Update rating when initialRating prop changes
+  useEffect(() => {
+    setRating(initialRating);
+  }, [initialRating]);
 
   const handleChange = (change: number) => {
     if (!disableChange && onChange) {

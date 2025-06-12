@@ -1,7 +1,13 @@
+.wallet-container {
+  position: relative;
+  display: inline-block;
+}
+
 .wallet-address-container {
   display: flex;
   align-items: center;
   gap: 10px;
+  cursor: pointer;
 }
 
 .wallet-address-pill {
@@ -17,6 +23,11 @@
   letter-spacing: 1px;
   box-shadow: 0 2px 8px 0 rgba(30,64,175,0.10);
   user-select: all;
+  transition: background 0.2s ease;
+}
+
+.wallet-address-container:hover .wallet-address-pill {
+  background: linear-gradient(90deg, #1e40af 0%, #1d4ed8 100%);
 }
 
 .wallet-copy-btn {
@@ -49,9 +60,107 @@
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s;
-  z-index: 10;
+  z-index: 10001;
 }
 .wallet-copy-btn.show-tooltip .wallet-copy-tooltip {
   opacity: 1;
   pointer-events: auto;
+}
+
+.wallet-dropdown-portal {
+  position: fixed;
+  z-index: 10000;
+}
+
+.wallet-dropdown {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+  min-width: 220px;
+  padding: 8px 0;
+  animation: dropdownFadeIn 0.15s ease-out;
+  backdrop-filter: blur(8px);
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.wallet-dropdown-section {
+  padding: 8px 0;
+}
+
+.wallet-dropdown-section h4 {
+  margin: 0 0 8px 0;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.wallet-dropdown-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  color: #1e293b;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.wallet-dropdown-link:hover {
+  background-color: #f8fafc;
+  color: #2563eb;
+}
+
+.wallet-dropdown-link svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+
+.wallet-dropdown-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 8px 0;
+}
+
+.wallet-disconnect-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  color: #dc2626;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.wallet-disconnect-btn:hover {
+  background-color: #fef2f2;
+  color: #b91c1c;
+}
+
+.wallet-disconnect-btn svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  transition: color 0.15s ease;
 }

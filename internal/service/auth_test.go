@@ -155,20 +155,28 @@ func (m *MockDatabaseStorage) DeletePluginPolicyTx(ctx context.Context, dbTx pgx
 	return args.Error(0)
 }
 
-func (m *MockDatabaseStorage) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error) {
+func (m *MockDatabaseStorage) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {
 	args := m.Called(ctx, dbTx, policy)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*types.PluginPolicyCreateUpdate), args.Error(1)
+	return args.Get(0).(*types.PluginPolicy), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error) {
+func (m *MockDatabaseStorage) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {
 	args := m.Called(ctx, dbTx, policy)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*types.PluginPolicyCreateUpdate), args.Error(1)
+	return args.Get(0).(*types.PluginPolicy), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) GetAllFeesByPolicyId(ctx context.Context, policyId uuid.UUID) ([]types.Fee, error) {
+	args := m.Called(ctx, policyId)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]types.Fee), args.Error(1)
 }
 
 func (m *MockDatabaseStorage) FindPricingById(ctx context.Context, id uuid.UUID) (*itypes.Pricing, error) {

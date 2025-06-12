@@ -146,6 +146,13 @@ func (s *Server) StartServer() error {
 	pluginGroup.GET("/policy/:policyId", s.GetPluginPolicyById)
 	pluginGroup.DELETE("/policy/:policyId", s.DeletePluginPolicyById)
 	pluginGroup.GET("/policies/:policyId/history", s.GetPluginPolicyTransactionHistory)
+	pluginGroup.GET("/policies/:policyId/fees", s.GetPluginPolicyFees)
+	
+	/* placeholder for future plugin endpoints 
+	pluginGroup.GET("/fees", func(c echo.Context) error {
+		s.client.Enqueue(asynq.NewTask(tasks.TypeRecurringFeeRecord, []byte{}, asynq.Queue(tasks.QUEUE_NAME)))
+		return c.NoContent(http.StatusOK)
+	}) */
 
 	pluginsGroup := e.Group("/plugins")
 	pluginsGroup.GET("", s.GetPlugins)

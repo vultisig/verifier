@@ -10,8 +10,8 @@ import (
 
 type Plugin interface {
 	GetRecipeSpecification() rtypes.RecipeSchema
-	ValidatePluginPolicy(policyDoc types.PluginPolicyCreateUpdate) error
-	ProposeTransactions(policy types.PluginPolicyCreateUpdate) ([]types.PluginKeysignRequest, error)
-	ValidateProposedTransactions(policy types.PluginPolicyCreateUpdate, txs []types.PluginKeysignRequest) error
-	SigningComplete(ctx context.Context, signature tss.KeysignResponse, signRequest types.PluginKeysignRequest, policy types.PluginPolicyCreateUpdate) error
+	ValidatePluginPolicy(policyDoc types.PluginPolicy) error
+	ProposeTransactions(policy types.PluginPolicy) ([]types.PluginKeysignRequest, error)
+	ValidateProposedTransactions(policy types.PluginPolicy, txs []types.PluginKeysignRequest) error
+	SigningComplete(ctx context.Context, signature tss.KeysignResponse, signRequest types.PluginKeysignRequest, policy types.PluginPolicy) error
 }

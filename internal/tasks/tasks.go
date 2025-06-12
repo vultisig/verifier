@@ -8,10 +8,12 @@ import (
 
 const QUEUE_NAME = "vultisig-verifier"
 const (
-	TypePluginTransaction = "plugin:transaction"
-	TypeKeyGenerationDKLS = "key:generationDKLS"
-	TypeKeySignDKLS       = "key:signDKLS"
-	TypeReshareDKLS       = "key:reshareDKLS"
+	TypeOneTimeFeeRecord   = "fee:oneTimeRecord"
+	TypeRecurringFeeRecord = "fee:recurringRecord"
+	TypePluginTransaction  = "plugin:transaction"
+	TypeKeyGenerationDKLS  = "key:generationDKLS"
+	TypeKeySignDKLS        = "key:signDKLS"
+	TypeReshareDKLS        = "key:reshareDKLS"
 )
 
 func GetTaskResult(inspector *asynq.Inspector, taskID string) ([]byte, error) {

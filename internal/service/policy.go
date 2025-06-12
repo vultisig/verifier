@@ -65,7 +65,7 @@ func (s *PolicyService) syncPolicy(syncEntity itypes.PluginPolicySync) error {
 	s.logger.WithField("task_id", ti.ID).Info("enqueued sync policy task")
 	return nil
 }
-func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error) {
+
 func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error) {
 	// Start transaction
 	tx, err := s.db.Pool().Begin(ctx)

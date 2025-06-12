@@ -140,7 +140,7 @@ func policyToMessageHex(policy types.PluginPolicy) ([]byte, error) {
 	fields := []string{
 		policy.Recipe,
 		policy.PublicKey,
-		string(policy.PolicyVersion),
+		fmt.Sprintf("%d", policy.PolicyVersion),
 		policy.PluginVersion,
 	}
 

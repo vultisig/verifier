@@ -49,6 +49,7 @@ func main() {
 	}
 	syncService := syncer.NewPolicySyncer(backendDB, client)
 
+	// Initialize the policy service
 	policyService, err := service.NewPolicyService(
 		backendDB,
 		client,

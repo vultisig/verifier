@@ -25,7 +25,7 @@ type Storage interface {
 }
 
 type BlockStorageImp struct {
-	cfg      vault_config.BlockStorageConfig
+	cfg      vault_config.BlockStorage
 	session  *session.Session
 	s3Client *s3.S3
 	logger   *logrus.Logger
@@ -33,7 +33,7 @@ type BlockStorageImp struct {
 
 var _ Storage = (*BlockStorageImp)(nil)
 
-func NewBlockStorageImp(cfg vault_config.BlockStorageConfig) (*BlockStorageImp, error) {
+func NewBlockStorageImp(cfg vault_config.BlockStorage) (*BlockStorageImp, error) {
 	sess, err := session.NewSession(&aws.Config{
 		Region:           aws.String(cfg.Region),
 		Endpoint:         aws.String(cfg.Host),

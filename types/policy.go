@@ -67,14 +67,9 @@ func (p *PluginPolicy) PopulateBilling() error {
 
 	p.Billing = []BillingPolicy{}
 
-	var recipe rtypes.Policy
-	policyBytes, err := base64.StdEncoding.DecodeString(p.Recipe)
+	recipe, err := p.GetRecipe()
 	if err != nil {
-		return fmt.Errorf("failed to decode policy recipe: %w", err)
-	}
-
-	if err := protojson.Unmarshal(policyBytes, &recipe); err != nil {
-		return fmt.Errorf("failed to unmarshal recipe: %w", err)
+		return fmt.Errorf("failed to get recipe: %w", err)
 	}
 
 	for _, feePolicy := range recipe.FeePolicies {

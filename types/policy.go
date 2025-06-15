@@ -51,6 +51,18 @@ type PluginPolicy struct {
 	Active        bool            `json:"active" validate:"required"`
 }
 
+func (p *PluginPolicy) GetRecipe() (rtypes.Policy, error) {
+	var recipe rtypes.Policy
+	policyBytes, err := base64.StdEncoding.DecodeString(p.Recipe)
+	if err != nil {
+		return rtypes.Policy{}, fmt.Errorf("failed to decode policy recipe: %w", err)
+	}
+	if err := protojson.Unmarshal(policyBytes, &recipe); err != nil {
+		return rtypes.Policy{}, fmt.Errorf("failed to unmarshal recipe: %w", err)
+	}
+	return recipe, nil
+}
+
 func (p *PluginPolicy) PopulateBilling() error {
 
 	p.Billing = []BillingPolicy{}

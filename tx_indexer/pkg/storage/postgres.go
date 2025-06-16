@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vultisig/verifier/tx_indexer/pkg/rpc"
+	"github.com/vultisig/verifier/types"
 )
 
 type PostgresTxIndexStore struct {
@@ -44,6 +45,7 @@ func (p *PostgresTxIndexStore) createTx(ctx context.Context, tx Tx) error {
                         chain_id,
                         policy_id,
                         from_public_key,
+                        to_public_key,
                         proposed_tx_hex,
                         status,
                         status_onchain,
@@ -64,13 +66,15 @@ func (p *PostgresTxIndexStore) createTx(ctx context.Context, tx Tx) error {
           $10,
           $11,
           $12,
-          $13
+          $13,
+          $14
 )`, tx.ID,
 		tx.PluginID,
 		tx.TxHash,
 		tx.ChainID,
 		tx.PolicyID,
 		tx.FromPublicKey,
+		tx.ToPublicKey,
 		tx.ProposedTxHex,
 		tx.Status,
 		tx.StatusOnChain,
@@ -181,7 +185,36 @@ func (p *PostgresTxIndexStore) GetTxByID(c context.Context, id uuid.UUID) (Tx, e
 		return Tx{}, fmt.Errorf("p.pool.Query: %w", err)
 	}
 	if !rows.Next() {
-		return Tx{}, fmt.Errorf("transaction not found")
+		return Tx{}, ErrNoTx
+	}
+
+	tx, err := TxFromRow(rows)
+	if err != nil {
+		return Tx{}, fmt.Errorf("TxFromRow: %w", err)
+	}
+	return tx, nil
+}
+
+func (p *PostgresTxIndexStore) GetTxInTimeRange(
+	c context.Context,
+	pluginID types.PluginID,
+	policyID uuid.UUID,
+	recipientPublicKey string,
+	from, to time.Time,
+) (Tx, error) {
+	ctx, cancel := context.WithTimeout(c, defaultTimeout)
+	defer cancel()
+
+	rows, err := p.pool.Query(ctx, `
+		SELECT * FROM tx_indexer
+		WHERE plugin_id = $1 AND policy_id = $2 AND to_public_key = $3
+		  AND created_at >= $4 AND created_at <= $5
+		LIMIT 1`, pluginID, policyID, recipientPublicKey, from, to)
+	if err != nil {
+		return Tx{}, fmt.Errorf("p.pool.Query: %w", err)
+	}
+	if !rows.Next() {
+		return Tx{}, ErrNoTx
 	}
 
 	tx, err := TxFromRow(rows)
@@ -208,6 +241,7 @@ func (p *PostgresTxIndexStore) CreateTx(c context.Context, req CreateTxDto) (Tx,
 		ChainID:       int(req.ChainID),
 		PolicyID:      req.PolicyID,
 		FromPublicKey: req.FromPublicKey,
+		ToPublicKey:   req.ToPublicKey,
 		ProposedTxHex: req.ProposedTxHex,
 		Status:        TxProposed,
 		StatusOnChain: nil,
@@ -281,6 +315,7 @@ func TxFromRow(rows pgx.Rows) (Tx, error) {
 		&tx.ChainID,
 		&tx.PolicyID,
 		&tx.FromPublicKey,
+		&tx.ToPublicKey,
 		&tx.ProposedTxHex,
 		&tx.Status,
 		&tx.StatusOnChain,

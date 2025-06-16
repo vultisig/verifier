@@ -26,6 +26,7 @@ type TxIndexerRepo interface {
 		chainID common.Chain,
 		pluginID types.PluginID,
 		policyID uuid.UUID,
+		tokenID string,
 		recipientPublicKey string,
 		from, to time.Time,
 	) <-chan RowsStream[Tx]
@@ -47,6 +48,7 @@ type Tx struct {
 	TxHash        *string              `json:"tx_hash"`
 	ChainID       int                  `json:"chain_id" validate:"required"`
 	PolicyID      uuid.UUID            `json:"policy_id" validate:"required"`
+	TokenID       string               `json:"token_id" validate:"required"`
 	FromPublicKey string               `json:"from_public_key" validate:"required"`
 	ToPublicKey   string               `json:"to_public_key" validate:"required"`
 	ProposedTxHex string               `json:"proposed_tx_hex" validate:"required"`
@@ -80,6 +82,7 @@ type CreateTxDto struct {
 	PluginID      types.PluginID
 	ChainID       common.Chain
 	PolicyID      uuid.UUID
+	TokenID       string
 	FromPublicKey string
 	ToPublicKey   string
 	ProposedTxHex string

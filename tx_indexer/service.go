@@ -45,7 +45,7 @@ func (t *Service) GetTxsInTimeRange(
 	chainID common.Chain,
 	pluginID types.PluginID,
 	policyID uuid.UUID,
-	recipientPublicKey string,
+	tokenID, recipientPublicKey string,
 	from, to time.Time,
 ) <-chan storage.RowsStream[storage.Tx] {
 	return t.repo.GetTxsInTimeRange(
@@ -53,6 +53,7 @@ func (t *Service) GetTxsInTimeRange(
 		chainID,
 		pluginID,
 		policyID,
+		tokenID,
 		recipientPublicKey,
 		from,
 		to,

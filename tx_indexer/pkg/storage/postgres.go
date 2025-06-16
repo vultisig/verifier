@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/tx_indexer/pkg/rpc"
 	"github.com/vultisig/verifier/types"
 )
@@ -44,6 +45,7 @@ func (p *PostgresTxIndexStore) createTx(ctx context.Context, tx Tx) error {
                         tx_hash,
                         chain_id,
                         policy_id,
+                        token_id,
                         from_public_key,
                         to_public_key,
                         proposed_tx_hex,
@@ -67,12 +69,14 @@ func (p *PostgresTxIndexStore) createTx(ctx context.Context, tx Tx) error {
           $11,
           $12,
           $13,
-          $14
+          $14,
+          $15
 )`, tx.ID,
 		tx.PluginID,
 		tx.TxHash,
 		tx.ChainID,
 		tx.PolicyID,
+		tx.TokenID,
 		tx.FromPublicKey,
 		tx.ToPublicKey,
 		tx.ProposedTxHex,
@@ -196,46 +200,29 @@ func (p *PostgresTxIndexStore) GetTxByID(c context.Context, id uuid.UUID) (Tx, e
 }
 
 func (p *PostgresTxIndexStore) GetTxsInTimeRange(
-	ctx context.Context,
+	c context.Context,
+	chainID common.Chain,
 	pluginID types.PluginID,
 	policyID uuid.UUID,
-	recipientPublicKey string,
+	tokenID, recipientPublicKey string,
 	from, to time.Time,
-) ([]Tx, error) {
+) <-chan RowsStream[Tx] {
 	return GetRowsStream[Tx](
-		ctx,
+		c,
 		p.pool,
 		TxFromRow,
 		`SELECT * FROM tx_indexer
-		WHERE plugin_id = $1 AND policy_id = $2 AND to_public_key = $3
-		  AND created_at >= $4 AND created_at <= $5`,
+		 WHERE chain_id = $1 AND plugin_id = $2 AND policy_id = $3 AND token_id = $4 AND to_public_key = $5
+		 AND created_at >= $6 AND created_at <= $7
+		 ORDER BY created_at DESC`,
+		chainID,
 		pluginID,
 		policyID,
+		tokenID,
 		recipientPublicKey,
 		from,
 		to,
 	)
-
-	ctx, cancel := context.WithTimeout(c, defaultTimeout)
-	defer cancel()
-
-	rows, err := p.pool.Query(
-		ctx,
-		`
-		`,
-	)
-	if err != nil {
-		return Tx{}, fmt.Errorf("p.pool.Query: %w", err)
-	}
-	if !rows.Next() {
-		return Tx{}, ErrNoTx
-	}
-
-	tx, err := TxFromRow(rows)
-	if err != nil {
-		return Tx{}, fmt.Errorf("TxFromRow: %w", err)
-	}
-	return tx, nil
 }
 
 func (p *PostgresTxIndexStore) CreateTx(c context.Context, req CreateTxDto) (Tx, error) {
@@ -254,6 +241,7 @@ func (p *PostgresTxIndexStore) CreateTx(c context.Context, req CreateTxDto) (Tx,
 		TxHash:        nil,
 		ChainID:       int(req.ChainID),
 		PolicyID:      req.PolicyID,
+		TokenID:       req.TokenID,
 		FromPublicKey: req.FromPublicKey,
 		ToPublicKey:   req.ToPublicKey,
 		ProposedTxHex: req.ProposedTxHex,

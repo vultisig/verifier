@@ -195,21 +195,35 @@ func (p *PostgresTxIndexStore) GetTxByID(c context.Context, id uuid.UUID) (Tx, e
 	return tx, nil
 }
 
-func (p *PostgresTxIndexStore) GetTxInTimeRange(
-	c context.Context,
+func (p *PostgresTxIndexStore) GetTxsInTimeRange(
+	ctx context.Context,
 	pluginID types.PluginID,
 	policyID uuid.UUID,
 	recipientPublicKey string,
 	from, to time.Time,
-) (Tx, error) {
+) ([]Tx, error) {
+	return GetRowsStream[Tx](
+		ctx,
+		p.pool,
+		TxFromRow,
+		`SELECT * FROM tx_indexer
+		WHERE plugin_id = $1 AND policy_id = $2 AND to_public_key = $3
+		  AND created_at >= $4 AND created_at <= $5`,
+		pluginID,
+		policyID,
+		recipientPublicKey,
+		from,
+		to,
+	)
+
 	ctx, cancel := context.WithTimeout(c, defaultTimeout)
 	defer cancel()
 
-	rows, err := p.pool.Query(ctx, `
-		SELECT * FROM tx_indexer
-		WHERE plugin_id = $1 AND policy_id = $2 AND to_public_key = $3
-		  AND created_at >= $4 AND created_at <= $5
-		LIMIT 1`, pluginID, policyID, recipientPublicKey, from, to)
+	rows, err := p.pool.Query(
+		ctx,
+		`
+		`,
+	)
 	if err != nil {
 		return Tx{}, fmt.Errorf("p.pool.Query: %w", err)
 	}

@@ -21,13 +21,14 @@ type TxIndexerRepo interface {
 	GetPendingTxs(ctx context.Context) <-chan RowsStream[Tx]
 	CreateTx(ctx context.Context, req CreateTxDto) (Tx, error)
 	GetTxByID(ctx context.Context, id uuid.UUID) (Tx, error)
-	GetTxInTimeRange(
+	GetTxsInTimeRange(
 		ctx context.Context,
+		chainID common.Chain,
 		pluginID types.PluginID,
 		policyID uuid.UUID,
 		recipientPublicKey string,
 		from, to time.Time,
-	) (Tx, error)
+	) <-chan RowsStream[Tx]
 }
 
 type TxStatus string

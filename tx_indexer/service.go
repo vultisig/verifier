@@ -3,6 +3,7 @@ package tx_indexer
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -10,6 +11,7 @@ import (
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/tx_indexer/pkg/rpc"
 	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
+	"github.com/vultisig/verifier/types"
 )
 
 type Service struct {
@@ -36,6 +38,25 @@ func (t *Service) CreateTx(ctx context.Context, req storage.CreateTxDto) (storag
 		return storage.Tx{}, fmt.Errorf("t.repo.CreateTx: %w", err)
 	}
 	return r, nil
+}
+
+func (t *Service) GetTxsInTimeRange(
+	ctx context.Context,
+	chainID common.Chain,
+	pluginID types.PluginID,
+	policyID uuid.UUID,
+	recipientPublicKey string,
+	from, to time.Time,
+) <-chan storage.RowsStream[storage.Tx] {
+	return t.repo.GetTxsInTimeRange(
+		ctx,
+		chainID,
+		pluginID,
+		policyID,
+		recipientPublicKey,
+		from,
+		to,
+	)
 }
 
 func (t *Service) SetStatus(ctx context.Context, txID uuid.UUID, status storage.TxStatus) error {

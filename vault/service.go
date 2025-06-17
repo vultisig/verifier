@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/vultisig/verifier/tx_indexer"
 	"github.com/vultisig/verifier/vault_config"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/sirupsen/logrus"
 	keygenType "github.com/vultisig/commondata/go/vultisig/keygen/v1"
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
-	"github.com/vultisig/vultiserver/common"
 	"github.com/vultisig/vultiserver/contexthelper"
 
 	vcommon "github.com/vultisig/verifier/common"
@@ -250,12 +250,7 @@ func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task
 			LibType:        keygenType.LibType_LIB_TYPE_DKLS,
 		}
 	} else {
-		// decrypt the vault
-		vault, err = common.DecryptVaultFromBackup(s.cfg.EncryptionSecret, vaultContent)
-		if err != nil {
-			s.logger.Errorf("fail to decrypt vault from the backup, err: %v", err)
-			return fmt.Errorf("fail to decrypt vault from the backup, err: %v: %w", err, asynq.SkipRetry)
-		}
+		return fmt.Errorf("plugin (%s) has been installed to vault (%s), err:%w", req.PluginID, req.PublicKey, asynq.SkipRetry)
 	}
 
 	service, err := NewDKLSTssService(s.cfg, s.vaultStorage, s.queueClient)

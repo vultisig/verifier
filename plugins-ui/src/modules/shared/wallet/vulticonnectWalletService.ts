@@ -4,7 +4,6 @@ import { publish } from "@/utils/eventBus";
 import { decompressQrPayload, decodeTssPayload } from "./vultisigProtoUtils";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 
-
 interface ProviderError {
   code: number;
   message: string;
@@ -87,8 +86,7 @@ const VulticonnectWalletService = {
     }
   },
 
-
-  getVaults: async () => {
+  getVault: async () => {
     if (!window.vultisig) {
       publish("onToast", {
         message: "VultiConnect extension not found. Please install it first.",
@@ -98,28 +96,27 @@ const VulticonnectWalletService = {
     }
 
     try {
-      const vaults = await window.vultisig.getVaults();
-      console.log("Retrieved vaults:", vaults);
-
-      if (!vaults || vaults.length === 0) {
+      const vault = await window.vultisig.getVault();
+      if (!vault) {
         publish("onToast", {
-          message: "No vaults found. Please create a vault in VultiConnect first.",
+          message:
+            "No vaults found. Please create a vault in VultiConnect first.",
           type: "error",
         });
         throw new Error("No vaults found");
       }
 
-      return vaults;
+      return vault;
     } catch (error) {
       console.error("Failed to get vaults:", error);
       publish("onToast", {
-        message: "Failed to get vaults. Please make sure VultiConnect is properly installed and initialized.",
+        message:
+          "Failed to get vaults. Please make sure VultiConnect is properly installed and initialized.",
         type: "error",
       });
       throw error;
     }
   },
-
 
   // Reshare session
   startReshareSession: async (pluginId: any) => {
@@ -131,7 +128,9 @@ const VulticonnectWalletService = {
       return;
     }
     try {
-      const response = await window.vultisig.plugin.request({ method: "plugin_request_reshare" });
+      const response = await window.vultisig.plugin.request({
+        method: "plugin_request_reshare",
+      });
       console.log("response", response);
       // Example response: vultisig://vultisig.com?type=NewVault&tssType=Reshare&jsonData=...
       const url = new URL(response);
@@ -144,7 +143,7 @@ const VulticonnectWalletService = {
       const payload = await decompressQrPayload(jsonData);
 
       // Decode the binary using the schema and forward to verifier backend
-      const reshareMsg: any  = decodeTssPayload(payload);
+      const reshareMsg: any = decodeTssPayload(payload);
 
       // Transform the payload to match backend ReshareRequest structure
       const backendPayload = {
@@ -156,30 +155,38 @@ const VulticonnectWalletService = {
         local_party_id: reshareMsg.serviceName,
         old_parties: reshareMsg.oldParties,
         email: "", // Not provided by extension, using empty string
-        plugin_id: pluginId // Use the pluginId parameter passed to function
+        plugin_id: pluginId, // Use the pluginId parameter passed to function
       };
 
       console.log("Transformed payload for backend:", backendPayload);
 
       try {
         await MarketplaceService.reshareVault(backendPayload);
-        publish("onToast", { message: "Reshare session started", type: "success" });
+        publish("onToast", {
+          message: "Reshare session started",
+          type: "success",
+        });
       } catch (err) {
         console.error("Failed to call reshare endpoint", err);
-        publish("onToast", { message: "Failed to start reshare", type: "error" });
+        publish("onToast", {
+          message: "Failed to start reshare",
+          type: "error",
+        });
       }
 
       return backendPayload;
     } catch (error) {
       console.error("Failed to process reshare session", error);
-      publish("onToast", {      
-        message: error instanceof Error ? error.message : "Failed to process reshare session",
+      publish("onToast", {
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to process reshare session",
         type: "error",
       });
       throw new Error("Failed to process reshare session");
     }
   },
-
 };
 
 export default VulticonnectWalletService;

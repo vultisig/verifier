@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -14,13 +13,11 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
-	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/vultisig/verifier/common"
 
 	"github.com/vultisig/recipes/chain"
 	"github.com/vultisig/recipes/engine"
-	rtypes "github.com/vultisig/recipes/types"
 
 	"github.com/vultisig/verifier/internal/tasks"
 	"github.com/vultisig/verifier/internal/types"
@@ -46,14 +43,9 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		return fmt.Errorf("policy plugin ID mismatch")
 	}
 
-	var recipe rtypes.Policy
-	policyBytes, err := base64.StdEncoding.DecodeString(policy.Recipe)
+	recipe, err := policy.GetRecipe()
 	if err != nil {
-		return fmt.Errorf("failed to decode policy recipe: %w", err)
-	}
-
-	if err := protojson.Unmarshal(policyBytes, &recipe); err != nil {
-		return fmt.Errorf("failed to unmarshal recipe: %w", err)
+		return fmt.Errorf("failed to get recipe: %w", err)
 	}
 
 	eng := engine.NewEngine()
@@ -85,7 +77,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 			req.Messages[i].TxIndexerID = txToTrack.ID.String()
 		}
 
-		transactionAllowed, _, err := eng.Evaluate(&recipe, messageChain, decodedTx)
+		transactionAllowed, _, err := eng.Evaluate(recipe, messageChain, decodedTx)
 		if err != nil {
 			return fmt.Errorf("failed to evaluate policy: %w", err)
 		}

@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
 import VulticonnectWalletService from "./vulticonnectWalletService";
 import { ethers } from "ethers";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
@@ -47,14 +53,14 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
 
   // Check if VultiConnect provider is available
   const isVultiConnectAvailable = () => {
-    return !!(window.vultisig?.ethereum);
+    return !!window.vultisig?.ethereum;
   };
 
   // Define disconnect function early to avoid circular dependency
   const disconnect = useCallback(() => {
     localStorage.removeItem("authToken");
     localStorage.removeItem("publicKey");
-    setWalletState(prev => ({
+    setWalletState((prev) => ({
       ...prev,
       isConnected: false,
       walletAddress: null,
@@ -71,9 +77,10 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       }
 
       try {
-        const accounts = await VulticonnectWalletService.getConnectedEthAccounts();
+        const accounts =
+          await VulticonnectWalletService.getConnectedEthAccounts();
         if (accounts && accounts.length > 0) {
-          setWalletState(prev => ({
+          setWalletState((prev) => ({
             ...prev,
             isConnected: true,
             walletAddress: accounts[0],
@@ -87,7 +94,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
 
     // Add a small delay to allow extension to load
     const timeoutId = setTimeout(checkExistingConnection, 100);
-    
+
     return () => clearTimeout(timeoutId);
   }, [walletState.authToken]);
 
@@ -98,7 +105,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         // Wallet disconnected - use inline disconnect logic
         localStorage.removeItem("authToken");
         localStorage.removeItem("publicKey");
-        setWalletState(prev => ({
+        setWalletState((prev) => ({
           ...prev,
           isConnected: false,
           walletAddress: null,
@@ -106,7 +113,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         }));
       } else if (accounts[0] !== walletState.walletAddress) {
         // Account switched
-        setWalletState(prev => ({
+        setWalletState((prev) => ({
           ...prev,
           walletAddress: accounts[0],
         }));
@@ -119,20 +126,23 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
 
     return () => {
       if (isVultiConnectAvailable()) {
-        window.vultisig.ethereum.off?.("accountsChanged", handleAccountsChanged);
+        window.vultisig.ethereum.off?.(
+          "accountsChanged",
+          handleAccountsChanged
+        );
       }
     };
   }, [walletState.walletAddress]);
 
   const signMessage = async (walletAddress: string): Promise<boolean> => {
     try {
-      const vaults = await VulticonnectWalletService.getVaults();
-      if (!vaults || vaults.length === 0) {
+      const vault = await VulticonnectWalletService.getVault();
+      if (!vault) {
         throw new Error("No vaults found");
       }
 
-      const publicKey = vaults[0].publicKeyEcdsa;
-      const chainCodeHex = vaults[0].hexChainCode;
+      const publicKey = vault.publicKeyEcdsa;
+      const chainCodeHex = vault.hexChainCode;
 
       if (!publicKey || !chainCodeHex) {
         throw new Error("Missing required vault data");
@@ -147,7 +157,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         message: "Sign into Vultisig App Store",
         nonce: nonce,
         expiresAt: expiryTime,
-        address: walletAddress
+        address: walletAddress,
       });
 
       const signature = await VulticonnectWalletService.signCustomMessage(
@@ -163,7 +173,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       );
 
       localStorage.setItem("authToken", token);
-      setWalletState(prev => ({
+      setWalletState((prev) => ({
         ...prev,
         authToken: token,
         isConnected: true,
@@ -178,7 +188,8 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     } catch (error) {
       console.error("Authentication failed:", error);
       publish("onToast", {
-        message: error instanceof Error ? error.message : "Authentication failed",
+        message:
+          error instanceof Error ? error.message : "Authentication failed",
         type: "error",
       });
       return false;
@@ -189,8 +200,9 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     switch (chain) {
       case "ethereum": {
         try {
-          const accounts = await VulticonnectWalletService.connectToVultiConnect();
-          
+          const accounts =
+            await VulticonnectWalletService.connectToVultiConnect();
+
           const isAuthenticated = await signMessage(accounts[0]);
           if (!isAuthenticated) {
             publish("onToast", {
@@ -201,7 +213,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
           }
 
           if (accounts.length && accounts[0]) {
-            setWalletState(prev => ({
+            setWalletState((prev) => ({
               ...prev,
               isConnected: true,
               walletAddress: accounts[0],
@@ -232,7 +244,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === "authToken") {
         const newToken = event.newValue;
-        setWalletState(prev => ({
+        setWalletState((prev) => ({
           ...prev,
           authToken: newToken,
           isConnected: !!newToken && !!prev.walletAddress,
@@ -255,4 +267,4 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       {children}
     </WalletContext.Provider>
   );
-}; 
+};

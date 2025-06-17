@@ -261,6 +261,36 @@ ALTER TABLE ONLY "tags"
 ALTER TABLE ONLY "tx_indexer"
     ADD CONSTRAINT "tx_indexer_pkey" PRIMARY KEY ("id");
 
+ALTER TABLE ONLY "vault_tokens"
+    ADD CONSTRAINT "vault_tokens_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "vault_tokens"
+    ADD CONSTRAINT "vault_tokens_token_id_key" UNIQUE ("token_id");
+
+CREATE INDEX "idx_fees_billing_date" ON "fees" USING "btree" ("charged_at");
+
+CREATE INDEX "idx_fees_plugin_policy_billing_id" ON "fees" USING "btree" ("plugin_policy_billing_id");
+
+CREATE INDEX "idx_fees_transaction_id" ON "fees" USING "btree" ("transaction_id") WHERE ("transaction_id" IS NOT NULL);
+
+CREATE INDEX "idx_plugin_apikey_apikey" ON "plugin_apikey" USING "btree" ("apikey");
+
+CREATE INDEX "idx_plugin_apikey_plugin_id" ON "plugin_apikey" USING "btree" ("plugin_id");
+
+CREATE INDEX "idx_plugin_policies_active" ON "plugin_policies" USING "btree" ("active");
+
+CREATE INDEX "idx_plugin_policies_plugin_id" ON "plugin_policies" USING "btree" ("plugin_id");
+
+CREATE INDEX "idx_plugin_policies_public_key" ON "plugin_policies" USING "btree" ("public_key");
+
+CREATE INDEX "idx_plugin_policy_billing_id" ON "plugin_policy_billing" USING "btree" ("id");
+
+CREATE INDEX "idx_plugin_policy_sync_policy_id" ON "plugin_policy_sync" USING "btree" ("policy_id");
+
+CREATE INDEX "idx_reviews_plugin_id" ON "reviews" USING "btree" ("plugin_id");
+
+CREATE INDEX "idx_reviews_public_key" ON "reviews" USING "btree" ("public_key");
+
 CREATE INDEX "idx_tx_indexer_key" ON "tx_indexer" USING "btree" ("chain_id", "plugin_id", "policy_id", "token_id", "to_public_key");
 
 CREATE INDEX "idx_tx_indexer_status_onchain_lost" ON "tx_indexer" USING "btree" ("status_onchain", "lost");

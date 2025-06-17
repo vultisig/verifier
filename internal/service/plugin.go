@@ -206,7 +206,7 @@ func (s *PluginService) GetPluginRecipeSpecification(ctx context.Context, plugin
 
 // Helper method to call plugin server
 func (s *PluginService) fetchRecipeSpecificationFromPlugin(ctx context.Context, serverEndpoint string) (interface{}, error) {
-	url := fmt.Sprintf("%s/recipe-specification", strings.TrimSuffix(serverEndpoint, "/"))
+	url := fmt.Sprintf("%s/plugin/recipe-specification", strings.TrimSuffix(serverEndpoint, "/"))
 
 	s.logger.Debugf("[fetchRecipeSpecificationFromPlugin] Calling plugin endpoint: %s\n", url)
 

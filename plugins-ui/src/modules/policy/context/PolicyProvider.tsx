@@ -231,7 +231,11 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       policy = await signPolicy(policy);
       if (policy.signature) {
-        await PolicyService.deletePolicy(serverEndpoint, policyId, policy.signature);
+        await PolicyService.deletePolicy(
+          serverEndpoint,
+          policyId,
+          policy.signature
+        );
 
         setPolicyMap((prev) => {
           const updatedPolicyMap = new Map(prev);
@@ -259,7 +263,7 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
     const chain = localStorage.getItem("chain") as string;
     if (!isSupportedChainType(chain)) {
       // fail silently
-      return policy
+      return policy;
     }
 
     let accounts = [];
@@ -271,11 +275,10 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
       throw new Error("Need to connect to wallet");
     }
 
-    const vaults = await VulticonnectWalletService.getVaults();
-    const [vault] = vaults
+    const vault = await VulticonnectWalletService.getVault();
 
     // TODO: Only Ethereum currently supported
-    const chainId = policy.policy.chain_id as string
+    const chainId = policy.policy.chain_id as string;
 
     policy.public_key_ecdsa = vault.publicKeyEcdsa;
     policy.public_key_eddsa = vault.publicKeyEddsa;
@@ -285,7 +288,7 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const excludedFromSignature = {
       signature: "",
-      progress: ""
+      progress: "",
     };
     const signPolicy = Object.assign({}, policy, excludedFromSignature);
 

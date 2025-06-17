@@ -30,6 +30,15 @@ type TxIndexerRepo interface {
 		recipientPublicKey string,
 		from, to time.Time,
 	) <-chan RowsStream[Tx]
+	GetTxInTimeRange(
+		ctx context.Context,
+		chainID common.Chain,
+		pluginID types.PluginID,
+		policyID uuid.UUID,
+		tokenID string,
+		recipientPublicKey string,
+		from, to time.Time,
+	) (Tx, error)
 }
 
 type TxStatus string

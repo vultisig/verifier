@@ -225,6 +225,46 @@ func (p *PostgresTxIndexStore) GetTxsInTimeRange(
 	)
 }
 
+func (p *PostgresTxIndexStore) GetTxInTimeRange(
+	c context.Context,
+	chainID common.Chain,
+	pluginID types.PluginID,
+	policyID uuid.UUID,
+	tokenID, recipientPublicKey string,
+	from, to time.Time,
+) (Tx, error) {
+	ctx, cancel := context.WithTimeout(c, defaultTimeout)
+	defer cancel()
+
+	rows, err := p.pool.Query(
+		ctx,
+		`SELECT * FROM tx_indexer
+		 WHERE chain_id = $1 AND plugin_id = $2 AND policy_id = $3 AND token_id = $4 AND to_public_key = $5
+		 AND created_at >= $6 AND created_at <= $7
+		 ORDER BY created_at DESC LIMIT 1`,
+		chainID,
+		pluginID,
+		policyID,
+		tokenID,
+		recipientPublicKey,
+		from,
+		to,
+	)
+	if err != nil {
+		return Tx{}, fmt.Errorf("p.pool.Query: %w", err)
+	}
+	if !rows.Next() {
+		return Tx{}, ErrNoTx
+	}
+
+	tx, err := TxFromRow(rows)
+	if err != nil {
+		return Tx{}, fmt.Errorf("TxFromRow: %w", err)
+	}
+
+	return tx, nil
+}
+
 func (p *PostgresTxIndexStore) CreateTx(c context.Context, req CreateTxDto) (Tx, error) {
 	ctx, cancel := context.WithTimeout(c, defaultTimeout)
 	defer cancel()

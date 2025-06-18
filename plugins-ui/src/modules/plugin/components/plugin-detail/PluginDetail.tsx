@@ -11,11 +11,13 @@ import { publish } from "@/utils/eventBus";
 import { ReviewProvider } from "@/modules/review/context/ReviewProvider";
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
 import RecipeSchema from "@/modules/plugin/components/recipe_schema/recipe_Schema";
+import { useWallet } from "@/modules/shared/wallet/WalletProvider";
 
 const PluginDetail = () => {
   const navigate = useNavigate();
   const [plugin, setPlugin] = useState<Plugin | null>(null);
   const [showRecipeSchema, setShowRecipeSchema] = useState(false);
+  const { isConnected, connectWallet, chain } = useWallet();
 
   const { pluginId } = useParams();
 
@@ -69,14 +71,20 @@ const PluginDetail = () => {
                     type="button"
                     styleType="primary"
                     onClick={async () => {
-                      try {
-                        await VulticonnectWalletService.startReshareSession( pluginId );
-                      } catch (err) {
-                        console.error("Failed to start reshare session", err);
+                      if (isConnected) {
+                        try {
+                          await VulticonnectWalletService.startReshareSession(
+                            pluginId
+                          );
+                        } catch (err) {
+                          console.error("Failed to start reshare session", err);
+                        }
+                      } else {
+                        connectWallet(chain);
                       }
                     }}
                   >
-                    Install
+                    {isConnected ? "Install" : "Connect"}
                   </Button>
                   <Button
                     size="small"
@@ -93,7 +101,10 @@ const PluginDetail = () => {
             </section>
 
             {showRecipeSchema && (
-              <RecipeSchema pluginId={plugin.id} onClose={() => setShowRecipeSchema(false)} />
+              <RecipeSchema
+                pluginId={plugin.id}
+                onClose={() => setShowRecipeSchema(false)}
+              />
             )}
 
             <ReviewProvider pluginId={plugin.id} ratings={plugin.ratings}>

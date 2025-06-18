@@ -196,7 +196,9 @@ CREATE TABLE "tx_indexer" (
     "tx_hash" character varying(255),
     "chain_id" integer NOT NULL,
     "policy_id" "uuid" NOT NULL,
+    "token_id" character varying(255) NOT NULL,
     "from_public_key" character varying(255) NOT NULL,
+    "to_public_key" character varying(255) NOT NULL,
     "proposed_tx_hex" "text" NOT NULL,
     "status" "tx_indexer_status" DEFAULT 'PROPOSED'::"public"."tx_indexer_status" NOT NULL,
     "status_onchain" "tx_indexer_status_onchain",
@@ -288,6 +290,8 @@ CREATE INDEX "idx_plugin_policy_sync_policy_id" ON "plugin_policy_sync" USING "b
 CREATE INDEX "idx_reviews_plugin_id" ON "reviews" USING "btree" ("plugin_id");
 
 CREATE INDEX "idx_reviews_public_key" ON "reviews" USING "btree" ("public_key");
+
+CREATE INDEX "idx_tx_indexer_key" ON "tx_indexer" USING "btree" ("chain_id", "plugin_id", "policy_id", "token_id", "to_public_key", "created_at");
 
 CREATE INDEX "idx_tx_indexer_status_onchain_lost" ON "tx_indexer" USING "btree" ("status_onchain", "lost");
 

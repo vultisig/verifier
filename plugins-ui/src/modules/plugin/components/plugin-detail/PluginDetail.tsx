@@ -58,7 +58,7 @@ const PluginDetail = () => {
           Back to All Plugins
         </Button>
 
-        {plugin && (
+        {plugin && pluginId && (
           <>
             <section className="plugin-header">
               <img src={logo} alt="" />

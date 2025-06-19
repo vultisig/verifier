@@ -148,6 +148,13 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         throw new Error("Missing required vault data");
       }
 
+      if (
+        walletState.authToken &&
+        publicKey === localStorage.getItem("publicKey")
+      ) {
+        return true;
+      }
+
       localStorage.setItem("publicKey", publicKey);
 
       const nonce = ethers.hexlify(ethers.randomBytes(16));

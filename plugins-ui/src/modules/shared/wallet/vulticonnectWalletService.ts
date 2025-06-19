@@ -4,66 +4,54 @@ import { publish } from "@/utils/eventBus";
 import { decompressQrPayload, decodeTssPayload } from "./vultisigProtoUtils";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 
-interface ProviderError {
-  code: number;
-  message: string;
-}
-
 const VulticonnectWalletService = {
-  connectToVultiConnect: async () => {
-    if (!window.vultisig?.ethereum) {
+  validateExtension: async () => {
+    if (window.vultisig) {
+      return;
+    } else {
       publish("onToast", {
         message: "No ethereum provider found. Please install VultiConnect.",
         type: "error",
       });
-      return;
-    }
 
-    try {
-      const accounts = await window.vultisig.ethereum.request({
-        method: "eth_requestAccounts",
-      });
-
-      return accounts;
-    } catch (error) {
-      const { code, message } = error as ProviderError;
-      console.error(`Connection failed - Code: ${code}, Message: ${message}`);
-      throw error;
+      throw new Error();
     }
   },
 
-  getConnectedEthAccounts: async () => {
-    if (!window.vultisig?.ethereum) {
-      publish("onToast", {
-        message: "No ethereum provider found. Please install VultiConnect.",
-        type: "error",
-      });
-      return;
-    }
+  connectToVultiConnect: async (): Promise<string> => {
+    await VulticonnectWalletService.validateExtension();
 
     try {
-      const accounts = await window.vultisig.ethereum.request({
+      const [account]: string[] = await window.vultisig.ethereum.request({
+        method: "eth_requestAccounts",
+      });
+
+      return account;
+    } catch (error) {
+      console.error(error);
+
+      throw new Error();
+    }
+  },
+
+  getConnectedEthAccounts: async (): Promise<string> => {
+    await VulticonnectWalletService.validateExtension();
+
+    try {
+      const [account]: string[] = await window.vultisig.ethereum.request({
         method: "eth_accounts",
       });
 
-      return accounts;
+      return account;
     } catch (error) {
-      const { code, message } = error as ProviderError;
-      console.error(
-        `Failed to get accounts - Code: ${code}, Message: ${message}`
-      );
-      throw error;
+      console.error(error);
+
+      throw new Error();
     }
   },
 
   signCustomMessage: async (hexMessage: string, walletAddress: string) => {
-    if (!window.vultisig?.ethereum) {
-      publish("onToast", {
-        message: "No ethereum provider found. Please install VultiConnect.",
-        type: "error",
-      });
-      return;
-    }
+    await VulticonnectWalletService.validateExtension();
 
     console.log("hexMessage", hexMessage);
     console.log("walletAddress", walletAddress);
@@ -87,46 +75,39 @@ const VulticonnectWalletService = {
   },
 
   getVault: async () => {
-    if (!window.vultisig) {
-      publish("onToast", {
-        message: "VultiConnect extension not found. Please install it first.",
-        type: "error",
-      });
-      throw new Error("VultiConnect extension not found");
-    }
+    await VulticonnectWalletService.validateExtension();
 
     try {
       const vault = await window.vultisig.getVault();
+
       if (!vault) {
         publish("onToast", {
           message:
             "No vaults found. Please create a vault in VultiConnect first.",
           type: "error",
         });
+
         throw new Error("No vaults found");
       }
 
       return vault;
     } catch (error) {
       console.error("Failed to get vaults:", error);
+
       publish("onToast", {
         message:
           "Failed to get vaults. Please make sure VultiConnect is properly installed and initialized.",
         type: "error",
       });
+
       throw error;
     }
   },
 
   // Reshare session
   startReshareSession: async (pluginId: any) => {
-    if (!window.vultisig?.ethereum) {
-      publish("onToast", {
-        message: "No ethereum provider found. Please install VultiConnect.",
-        type: "error",
-      });
-      return;
-    }
+    await VulticonnectWalletService.validateExtension();
+
     try {
       const response = await window.vultisig.plugin.request({
         method: "plugin_request_reshare",

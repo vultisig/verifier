@@ -9,7 +9,7 @@ type Config struct {
 	EncryptionSecret string `mapstructure:"encryption_secret" json:"encryption_secret,omitempty"`
 }
 
-type BlockStorageConfig struct {
+type BlockStorage struct {
 	Host      string `mapstructure:"host" json:"host"`
 	Region    string `mapstructure:"region" json:"region"`
 	AccessKey string `mapstructure:"access_key" json:"access_key"`

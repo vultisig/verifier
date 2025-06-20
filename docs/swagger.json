@@ -1,0 +1,20 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "The Verifier (trusted counterparty) API for Vultisig plugins.",
+        "title": "Vultisig Verifier API",
+        "termsOfService": "http://todo.com",
+        "contact": {
+            "name": "API Support",
+            "url": "http://todo.com",
+            "email": "todo@todo.com"
+        },
+        "license": {
+            "name": "MIT Licence",
+            "url": "https://raw.githubusercontent.com/vultisig/verifier/refs/heads/main/LICENSE"
+        },
+        "version": "1.0"
+    },
+    "host": "todo.com",
+    "paths": {}
+}

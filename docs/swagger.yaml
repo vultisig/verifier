@@ -1,0 +1,15 @@
+host: todo.com
+info:
+  contact:
+    email: todo@todo.com
+    name: API Support
+    url: http://todo.com
+  description: The Verifier (trusted counterparty) API for Vultisig plugins.
+  license:
+    name: MIT Licence
+    url: https://raw.githubusercontent.com/vultisig/verifier/refs/heads/main/LICENSE
+  termsOfService: http://todo.com
+  title: Vultisig Verifier API
+  version: "1.0"
+paths: {}
+swagger: "2.0"

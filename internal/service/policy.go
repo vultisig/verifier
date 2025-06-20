@@ -26,7 +26,6 @@ type Policy interface {
 	GetPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (itypes.PluginPolicyPaginatedList, error)
 	GetPluginPolicy(ctx context.Context, policyID uuid.UUID) (types.PluginPolicy, error)
 	GetPluginPolicyTransactionHistory(ctx context.Context, policyID string, take int, skip int) (itypes.TransactionHistoryPaginatedList, error)
-	PluginPolicyGetFeeInfo(ctx context.Context, policyID string) (itypes.FeeHistoryDto, error)
 }
 
 var _ Policy = (*PolicyService)(nil)
@@ -236,53 +235,4 @@ func (s *PolicyService) GetPluginPolicyTransactionHistory(ctx context.Context, p
 		History:    history,
 		TotalCount: int(totalCount),
 	}, nil
-}
-
-func (s *PolicyService) PluginPolicyGetFeeInfo(ctx context.Context, policyID string) (itypes.FeeHistoryDto, error) {
-	policyUUID, err := uuid.Parse(policyID)
-	history := itypes.FeeHistoryDto{}
-
-	if err != nil {
-		return history, fmt.Errorf("invalid policy_id: %s", policyID)
-	}
-
-	fees, err := s.db.GetAllFeesByPolicyId(ctx, policyUUID)
-	if err != nil {
-		return history, fmt.Errorf("failed to get fees: %w", err)
-	}
-
-	totalFeesIncurred := 0
-	feesPendingCollection := 0
-
-	ifees := make([]itypes.FeeDto, 0, len(fees))
-	for _, fee := range fees {
-		collected := true
-		if fee.CollectedAt == nil {
-			collected = false
-		}
-		collectedDt := ""
-		if collected {
-			collectedDt = fee.CollectedAt.Format(time.RFC3339)
-		}
-		ifee := itypes.FeeDto{
-			Amount:      fee.Amount,
-			Collected:   collected,
-			CollectedAt: collectedDt,
-			ChargedAt:   fee.ChargedAt.Format(time.RFC3339),
-		}
-		totalFeesIncurred += fee.Amount
-		if !collected {
-			feesPendingCollection += fee.Amount
-		}
-		ifees = append(ifees, ifee)
-	}
-
-	history = itypes.FeeHistoryDto{
-		Fees:                  ifees,
-		PolicyId:              policyUUID,
-		TotalFeesIncurred:     totalFeesIncurred,
-		FeesPendingCollection: feesPendingCollection,
-	}
-
-	return history, nil
 }

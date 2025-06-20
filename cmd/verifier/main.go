@@ -17,6 +17,19 @@ import (
 	"github.com/vultisig/verifier/vault"
 )
 
+// @title Vultisig Verifier API
+// @version 1.0
+// @description The Verifier (trusted counterparty) API for Vultisig plugins.
+// @termsOfService http://todo.com
+
+// @contact.name API Support
+// @contact.url http://todo.com
+// @contact.email todo@todo.com
+
+// @license.name MIT Licence
+// @license.url https://raw.githubusercontent.com/vultisig/verifier/refs/heads/main/LICENSE
+
+// @host todo.com
 func main() {
 	ctx := context.Background()
 

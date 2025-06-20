@@ -16,6 +16,7 @@ func (p *PostgresBackend) GetAllFeesByPolicyId(ctx context.Context, policyID uui
 		return []types.Fee{}, err
 	}
 	defer rows.Close()
+
 	for rows.Next() {
 		var fee types.Fee
 		err := rows.Scan(

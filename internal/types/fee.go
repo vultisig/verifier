@@ -3,10 +3,11 @@ package types
 import "github.com/google/uuid"
 
 type FeeDto struct {
-	Amount      int    `json:"amount" validate:"required"`
-	ChargedAt   string `json:"charged_on" validate:"required"` // "tx" or "recurring"
-	Collected   bool   `json:"collected" validate:"required"`  // true if the fee is collected, false if it's just a record
-	CollectedAt string `json:"collected_at"`                   // timestamp when the fee was collected
+	ID          uuid.UUID `json:"id" validate:"required"`
+	Amount      int       `json:"amount" validate:"required"`
+	ChargedAt   string    `json:"charged_on" validate:"required"` // "tx" or "recurring"
+	Collected   bool      `json:"collected" validate:"required"`  // true if the fee is collected, false if it's just a record
+	CollectedAt string    `json:"collected_at"`                   // timestamp when the fee was collected
 }
 
 type FeeHistoryDto struct {

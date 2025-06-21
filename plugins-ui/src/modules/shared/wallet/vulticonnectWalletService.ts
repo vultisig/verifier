@@ -130,6 +130,7 @@ const VulticonnectWalletService = {
     try {
       const response = await window.vultisig.plugin.request({
         method: "plugin_request_reshare",
+        params: [{ id: pluginId }],
       });
       console.log("response", response);
       // Example response: vultisig://vultisig.com?type=NewVault&tssType=Reshare&jsonData=...

@@ -7,7 +7,10 @@ import {
 } from "@/modules/policy/context/PolicyProvider";
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
-import { PluginProgress, PluginPoliciesMap } from "@/modules/policy/models/policy";
+import {
+  PluginProgress,
+  PluginPoliciesMap,
+} from "@/modules/policy/models/policy";
 import { useParams } from "react-router-dom";
 
 const mockPolicies: PluginPoliciesMap = {
@@ -161,10 +164,9 @@ const renderWithProvider = () => {
 describe("PolicyProvider", () => {
   beforeEach(() => {
     localStorage.setItem("chain", "ethereum");
-    vi.spyOn(
-      VulticonnectWalletService,
-      "getConnectedEthAccounts"
-    ).mockImplementation(() => Promise.resolve(["account address"]));
+    vi.spyOn(VulticonnectWalletService, "getAccount").mockImplementation(() =>
+      Promise.resolve("account address")
+    );
 
     vi.spyOn(VulticonnectWalletService, "signCustomMessage").mockImplementation(
       () => Promise.resolve("some hex signature")

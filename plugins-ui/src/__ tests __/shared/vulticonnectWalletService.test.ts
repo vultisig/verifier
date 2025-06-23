@@ -21,7 +21,7 @@ describe("VulticonnectWalletService", () => {
       vi.spyOn(window, "alert").mockImplementation(() => {});
       delete (window as any).vultisig;
 
-      await VulticonnectWalletService.connectToVultiConnect();
+      await VulticonnectWalletService.connect();
 
       expect(hoisted.mockEventBus.publish).toHaveBeenCalledWith("onToast", {
         message: "No ethereum provider found. Please install VultiConnect.",
@@ -37,7 +37,7 @@ describe("VulticonnectWalletService", () => {
         },
       };
 
-      const accounts = await VulticonnectWalletService.connectToVultiConnect();
+      const accounts = await VulticonnectWalletService.connect();
 
       expect(accounts).toEqual(mockAccounts);
     });
@@ -57,9 +57,7 @@ describe("VulticonnectWalletService", () => {
         },
       };
 
-      await expect(
-        VulticonnectWalletService.connectToVultiConnect()
-      ).rejects.toThrowError();
+      await expect(VulticonnectWalletService.connect()).rejects.toThrowError();
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         `Connection failed - Code: 401, Message: User rejected request`
@@ -72,7 +70,7 @@ describe("VulticonnectWalletService", () => {
       vi.spyOn(window, "alert").mockImplementation(() => {});
       delete (window as any).vultisig;
 
-      await VulticonnectWalletService.getConnectedEthAccounts();
+      await VulticonnectWalletService.getAccount();
 
       expect(hoisted.mockEventBus.publish).toHaveBeenCalledWith("onToast", {
         message: "No ethereum provider found. Please install VultiConnect.",
@@ -88,8 +86,7 @@ describe("VulticonnectWalletService", () => {
         },
       };
 
-      const accounts =
-        await VulticonnectWalletService.getConnectedEthAccounts();
+      const accounts = await VulticonnectWalletService.getAccount();
 
       expect(accounts).toEqual(mockAccounts);
     });
@@ -110,7 +107,7 @@ describe("VulticonnectWalletService", () => {
       };
 
       await expect(
-        VulticonnectWalletService.getConnectedEthAccounts()
+        VulticonnectWalletService.getAccount()
       ).rejects.toThrowError();
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(

@@ -36,10 +36,9 @@ describe("Wallet", () => {
   });
 
   it("should change button text to Connected when user connects to Vultisig wallet", async () => {
-    vi.spyOn(
-      VulticonnectWalletService,
-      "connectToVultiConnect"
-    ).mockImplementation(() => Promise.resolve(["account address"]));
+    vi.spyOn(VulticonnectWalletService, "connect").mockImplementation(() =>
+      Promise.resolve("account address")
+    );
 
     vi.spyOn(VulticonnectWalletService, "signCustomMessage").mockImplementation(
       () => Promise.resolve("some hex signature")
@@ -71,10 +70,9 @@ describe("Wallet", () => {
   });
 
   it("should not change button text to Connected when user is not connected to Vultisig wallet", async () => {
-    vi.spyOn(
-      VulticonnectWalletService,
-      "connectToVultiConnect"
-    ).mockImplementation(() => Promise.resolve([]));
+    vi.spyOn(VulticonnectWalletService, "connect").mockImplementation(() =>
+      Promise.resolve(undefined)
+    );
 
     vi.spyOn(VulticonnectWalletService, "signCustomMessage").mockImplementation(
       () => Promise.resolve("some hex signature")

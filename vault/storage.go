@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-
-	"github.com/vultisig/verifier/vault_config"
-
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/vultisig/verifier/vault_config"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -22,6 +21,7 @@ type Storage interface {
 	GetVault(fileName string) ([]byte, error)
 	SaveVault(fileName string, content []byte) error
 	Exist(fileName string) (bool, error)
+	DeleteFile(fileName string) error
 }
 
 type BlockStorageImp struct {
@@ -173,6 +173,13 @@ func (lvs *LocalVaultStorage) SaveVault(file string, content []byte) error {
 	}
 	if err := os.WriteFile(filePathName, content, 0o666); err != nil {
 		return fmt.Errorf("os.WriteFile failed: %s: %w", err, os.ErrPermission)
+	}
+	return nil
+}
+func (lvs *LocalVaultStorage) DeleteFile(fileName string) error {
+	filePathName := filepath.Join(lvs.cfg.VaultFilePath, fileName)
+	if err := os.Remove(filePathName); err != nil {
+		return fmt.Errorf("os.Remove failed: %s: %w", err, os.ErrPermission)
 	}
 	return nil
 }

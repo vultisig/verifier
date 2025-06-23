@@ -16,17 +16,29 @@ import { useWallet } from "@/modules/shared/wallet/WalletProvider";
 const PluginDetail = () => {
   const navigate = useNavigate();
   const [plugin, setPlugin] = useState<Plugin | null>(null);
+  const [isInstalled, setIsInstalled] = useState<boolean>(false);
   const [showRecipeSchema, setShowRecipeSchema] = useState(false);
-  const { isConnected, connectWallet, chain } = useWallet();
+  const { isConnected, connectWallet, chain, publicKey } = useWallet();
+  const { pluginId } = useParams<{ pluginId: string }>();
 
-  const { pluginId } = useParams();
+  const checkPluginInstalled = async () => {
+    if (isConnected && pluginId && publicKey) {
+      const isInstalled = await MarketplaceService.isPluginInstalled(
+        pluginId,
+        publicKey
+      );
 
-  useEffect(() => {
-    const fetchPlugin = async (): Promise<void> => {
-      if (!pluginId) return;
+      setIsInstalled(isInstalled);
+    } else {
+      setIsInstalled(false);
+    }
+  };
 
+  const fetchPlugin = async () => {
+    if (pluginId) {
       try {
         const fetchedPlugin = await MarketplaceService.getPlugin(pluginId);
+
         setPlugin(fetchedPlugin);
       } catch (error) {
         if (error instanceof Error) {
@@ -37,12 +49,16 @@ const PluginDetail = () => {
           });
         }
       }
-    };
+    }
+  };
 
+  useEffect(() => {
+    checkPluginInstalled();
+  }, [isConnected, pluginId, publicKey]);
+
+  useEffect(() => {
     fetchPlugin();
-  }, []);
-
-  console.log("plugin", plugin);
+  }, [pluginId]);
 
   return (
     <>
@@ -66,26 +82,38 @@ const PluginDetail = () => {
                 <h2 className="plugin-title">{plugin.title}</h2>
                 <p className="plugin-description">{plugin.description}</p>
                 <section className="plugin-installaion">
-                  <Button
-                    size="small"
-                    type="button"
-                    styleType="primary"
-                    onClick={async () => {
-                      if (isConnected) {
-                        try {
-                          await VulticonnectWalletService.startReshareSession(
-                            pluginId
-                          );
-                        } catch (err) {
-                          console.error("Failed to start reshare session", err);
-                        }
-                      } else {
-                        connectWallet(chain);
-                      }
-                    }}
-                  >
-                    {isConnected ? "Install" : "Connect"}
-                  </Button>
+                  {isConnected ? (
+                    isInstalled ? null : (
+                      <Button
+                        size="small"
+                        type="button"
+                        styleType="primary"
+                        onClick={async () => {
+                          try {
+                            await VulticonnectWalletService.startReshareSession(
+                              pluginId
+                            );
+                          } catch (err) {
+                            console.error(
+                              "Failed to start reshare session",
+                              err
+                            );
+                          }
+                        }}
+                      >
+                        Install
+                      </Button>
+                    )
+                  ) : (
+                    <Button
+                      size="small"
+                      type="button"
+                      styleType="primary"
+                      onClick={async () => connectWallet(chain)}
+                    >
+                      Connect
+                    </Button>
+                  )}
                   <Button
                     size="small"
                     type="button"

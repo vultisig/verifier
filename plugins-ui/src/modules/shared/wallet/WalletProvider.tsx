@@ -15,6 +15,7 @@ interface WalletState {
   walletAddress: string | null;
   authToken: string | null;
   chain: string;
+  publicKey: string | null;
 }
 
 interface WalletContextType extends WalletState {
@@ -42,6 +43,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     walletAddress: null,
     authToken: localStorage.getItem("authToken") || null,
     chain: localStorage.getItem("chain") || "ethereum",
+    publicKey: localStorage.getItem("publicKey") || null,
   });
 
   // Initialize chain in localStorage if not set
@@ -72,20 +74,21 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   useEffect(() => {
     const checkExistingConnection = async () => {
       // Only check if we have an auth token and VultiConnect is available
-      if (!walletState.authToken || !isVultiConnectAvailable()) {
-        return;
-      }
+      if (!walletState.authToken || !isVultiConnectAvailable()) return;
 
       try {
-        const accounts =
+        const vault = await VulticonnectWalletService.getVault();
+
+        if (walletState.publicKey !== vault.publicKeyEcdsa) return;
+
+        const [walletAddress] =
           await VulticonnectWalletService.getConnectedEthAccounts();
-        if (accounts && accounts.length > 0) {
-          setWalletState((prev) => ({
-            ...prev,
-            isConnected: true,
-            walletAddress: accounts[0],
-          }));
-        }
+
+        setWalletState((prevState) => ({
+          ...prevState,
+          isConnected: true,
+          walletAddress,
+        }));
       } catch (error) {
         // Silently handle error - extension may not be loaded yet or no connection exists
         console.debug("No existing wallet connection found");
@@ -155,8 +158,6 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         return true;
       }
 
-      localStorage.setItem("publicKey", publicKey);
-
       const nonce = ethers.hexlify(ethers.randomBytes(16));
       const expiryTime = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
@@ -180,10 +181,13 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       );
 
       localStorage.setItem("authToken", token);
+      localStorage.setItem("publicKey", publicKey);
+
       setWalletState((prev) => ({
         ...prev,
         authToken: token,
         isConnected: true,
+        publicKey,
       }));
 
       publish("onToast", {

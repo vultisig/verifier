@@ -10,6 +10,10 @@ import { ethers } from "ethers";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 import { publish } from "@/utils/eventBus";
 import { createToken, deleteToken, selectToken } from "@/storage/token";
+import {
+  deleteCurrentVaultId,
+  setCurrentVaultId,
+} from "@/storage/currentVaultId";
 
 interface Vault {
   hexChainCode: string;
@@ -67,7 +71,10 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   };
 
   const disconnect = () => {
-    if (vault) deleteToken(vault.publicKeyEcdsa);
+    if (vault) {
+      deleteToken(vault.publicKeyEcdsa);
+      deleteCurrentVaultId();
+    }
 
     setState(initialState);
   };
@@ -124,7 +131,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       );
 
       createToken(publicKeyEcdsa, newToken);
-
+      setCurrentVaultId(publicKeyEcdsa);
       setState((prevState) => ({
         ...prevState,
         address,

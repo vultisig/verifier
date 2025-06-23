@@ -661,7 +661,8 @@ func (s *Server) DeletePlugin(c echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "Failed to get vault public key", ""))
 	}
-	if s.notifyPluginServerDeletePlugin(c.Request().Context(), tv.PluginID(pluginID), publicKey) != nil {
+	if err := s.notifyPluginServerDeletePlugin(c.Request().Context(), tv.PluginID(pluginID), publicKey); err != nil {
+		s.logger.WithError(err).Errorf("Failed to notify plugin server for deletion of plugin %s", pluginID)
 		return c.JSON(http.StatusServiceUnavailable, NewErrorResponse(http.StatusServiceUnavailable, "Plugin server is currently unavailable", ""))
 	}
 	// remove plugin policies

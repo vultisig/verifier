@@ -18,14 +18,14 @@ const PluginDetail = () => {
   const [plugin, setPlugin] = useState<Plugin | null>(null);
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
   const [showRecipeSchema, setShowRecipeSchema] = useState(false);
-  const { isConnected, connectWallet, chain, publicKey } = useWallet();
+  const { isConnected, connect, vault } = useWallet();
   const { pluginId } = useParams<{ pluginId: string }>();
 
   const checkPluginInstalled = async () => {
-    if (isConnected && pluginId && publicKey) {
+    if (isConnected && pluginId && vault?.publicKeyEcdsa) {
       const isInstalled = await MarketplaceService.isPluginInstalled(
         pluginId,
-        publicKey
+        vault?.publicKeyEcdsa
       );
 
       setIsInstalled(isInstalled);
@@ -54,7 +54,7 @@ const PluginDetail = () => {
 
   useEffect(() => {
     checkPluginInstalled();
-  }, [isConnected, pluginId, publicKey]);
+  }, [isConnected, pluginId, vault]);
 
   useEffect(() => {
     fetchPlugin();
@@ -109,7 +109,7 @@ const PluginDetail = () => {
                       size="small"
                       type="button"
                       styleType="primary"
-                      onClick={async () => connectWallet(chain)}
+                      onClick={async () => connect()}
                     >
                       Connect
                     </Button>

@@ -14,8 +14,8 @@ type FormData = {
 
 const LeaveReview = () => {
   const { pluginId, addReview, reviewsMap } = useReviews();
-  const { isConnected, walletAddress, authToken } = useWallet();
-  
+  const { address, isConnected, token } = useWallet();
+
   const { watch, setValue, handleSubmit, reset } = useForm<FormData>({
     defaultValues: {
       comment: "",
@@ -29,14 +29,14 @@ const LeaveReview = () => {
   const rating = watch("rating");
 
   // Check if user can review based on wallet connection
-  const canReview = isConnected && !!authToken && !!walletAddress;
+  const canReview = isConnected && !!token && !!address;
 
   useEffect(() => {
     // Check if user already has a review and pre-fill the form
-    if (walletAddress && reviewsMap?.reviews) {
-      const normalized = walletAddress.toLowerCase();
+    if (address && reviewsMap?.reviews) {
+      const normalized = address.toLowerCase();
       const existingReview = reviewsMap.reviews.find(
-        r => r.address.toLowerCase() === normalized
+        (r) => r.address.toLowerCase() === normalized
       );
       if (existingReview) {
         setValue("comment", existingReview.comment);
@@ -47,13 +47,13 @@ const LeaveReview = () => {
         setIsUpdating(false);
       }
     }
-  }, [reviewsMap, walletAddress, setValue, reset]);
+  }, [reviewsMap, address, setValue, reset]);
 
   const onSubmit = (data: FormData) => {
-    if (canReview && data.rating && data.comment && walletAddress) {
+    if (canReview && data.rating && data.comment && address) {
       // Normalize before sending
       const review: CreateReview = {
-        address: walletAddress.toLowerCase(),
+        address: address.toLowerCase(),
         comment: data.comment,
         rating: data.rating,
       };
@@ -70,7 +70,9 @@ const LeaveReview = () => {
     <section className="leave-review">
       <form onSubmit={handleSubmit(onSubmit)}>
         <section className="review-score">
-          <label className="label">{isUpdating ? "Update your review" : "Leave a review"}</label>
+          <label className="label">
+            {isUpdating ? "Update your review" : "Leave a review"}
+          </label>
 
           <StarContainer
             key={rating}

@@ -109,7 +109,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       }
 
       const nonce = ethers.hexlify(ethers.randomBytes(16));
-      const expiryTime = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+      const expiryTime = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
       const signingMessage = JSON.stringify({
         message: "Sign into Vultisig App Store",

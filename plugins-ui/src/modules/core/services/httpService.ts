@@ -34,7 +34,6 @@ export const refreshAuthToken = async (oldToken: string): Promise<string> => {
 };
 
 const api = axios.create({
-  baseURL: "",
   headers: {
     "Content-Type": "application/json",
   },

@@ -20,9 +20,7 @@ const rawApi = axios.create({
 /**
  * Refreshes the token without triggering interceptors.
  */
-export const refreshAuthTokenWithoutInterceptor = async (
-  oldToken: string
-): Promise<string> => {
+export const refreshAuthToken = async (oldToken: string): Promise<string> => {
   const res = await rawApi.post(
     "/auth/refresh",
     { token: oldToken },
@@ -69,7 +67,7 @@ api.interceptors.request.use(
 
       const percentRemaining = (remainingLifetime / totalLifetime) * 100;
       if (percentRemaining < 10) {
-        const newToken = await refreshAuthTokenWithoutInterceptor(token);
+        const newToken = await refreshAuthToken(token);
         updateToken(publicKey!, newToken);
         config.headers.Authorization = `Bearer ${newToken}`;
       } else {
@@ -86,6 +84,20 @@ api.interceptors.request.use(
     return config;
   },
   (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      const publicKey = getPublicKey();
+      if (publicKey) {
+        deleteToken(publicKey);
+      }
+    }
+
+    return Promise.reject(error);
+  }
 );
 
 /**

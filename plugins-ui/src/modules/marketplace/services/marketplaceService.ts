@@ -132,31 +132,6 @@ const MarketplaceService = {
     }
   },
 
-  refreshAuthToken: async (oldToken: string): Promise<string> => {
-    try {
-      console.log("refreshing");
-
-      const endpoint = `${getMarketplaceUrl()}/auth/refresh`;
-      console.log("endpoint:", endpoint);
-
-      const response = await post(
-        endpoint,
-        { token: oldToken },
-        {
-          headers: {
-            Authorization: `Bearer ${oldToken}`,
-          },
-        }
-      );
-      console.log("response:", response);
-
-      return response.token;
-    } catch (error) {
-      console.error("Failed to refresh auth token", error);
-      throw error;
-    }
-  },
-
   /**
    * Get policies from the API.
    * @returns {Promise<Object>} A promise that resolves to the fetched policies.

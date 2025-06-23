@@ -12,7 +12,7 @@ import {
   TransactionHistory,
 } from "@/modules/policy/models/policy";
 
-const getPublicKey = () => localStorage.getItem("publicKey");
+export const getPublicKey = () => localStorage.getItem("publicKey");
 const getMarketplaceUrl = () => import.meta.env.VITE_MARKETPLACE_URL;
 
 interface ReshareRequest {
@@ -128,6 +128,31 @@ const MarketplaceService = {
       return response.token;
     } catch (error) {
       console.error("Failed to get auth token", error);
+      throw error;
+    }
+  },
+
+  refreshAuthToken: async (oldToken: string): Promise<string> => {
+    try {
+      console.log("refreshing");
+
+      const endpoint = `${getMarketplaceUrl()}/auth/refresh`;
+      console.log("endpoint:", endpoint);
+
+      const response = await post(
+        endpoint,
+        { token: oldToken },
+        {
+          headers: {
+            Authorization: `Bearer ${oldToken}`,
+          },
+        }
+      );
+      console.log("response:", response);
+
+      return response.token;
+    } catch (error) {
+      console.error("Failed to refresh auth token", error);
       throw error;
     }
   },

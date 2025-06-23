@@ -74,7 +74,7 @@ func (s *Server) VaultAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		claims, err := s.authService.ValidateToken(c.Request().Context(), tokenParts[1])
 		if err != nil {
 			s.logger.Errorf("Internal error: %v", err)
-			return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "An internal error occurred", ""))
+			return c.JSON(http.StatusUnauthorized, NewErrorResponse(http.StatusInternalServerError, "An internal error occurred", ""))
 		}
 
 		// Get requested vault's public key from URL parameter

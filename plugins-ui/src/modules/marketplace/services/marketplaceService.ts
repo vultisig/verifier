@@ -16,21 +16,36 @@ const getPublicKey = () => localStorage.getItem("publicKey");
 const getMarketplaceUrl = () => import.meta.env.VITE_MARKETPLACE_URL;
 
 interface ReshareRequest {
-    name: string;
-    public_key: string;
-    session_id: string;
-    hex_encryption_key: string;
-    hex_chain_code: string;
-    local_party_id: string;
-    old_parties: string[];
-    email: string;
-    plugin_id: string;
+  name: string;
+  public_key: string;
+  session_id: string;
+  hex_encryption_key: string;
+  hex_chain_code: string;
+  local_party_id: string;
+  old_parties: string[];
+  email: string;
+  plugin_id: string;
 }
 
-
-
-
 const MarketplaceService = {
+  /**
+   * Get plugin status by id from the API.
+   * @returns {Promise<Object>} A promise that resolves to the fetched plugin.
+   */
+  isPluginInstalled: async (id: string, key: string): Promise<boolean> => {
+    try {
+      await get(`${getMarketplaceUrl()}/vault/exist/${id}/${key}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      });
+
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
   /**
    * Get plugins from the API.
    * @returns {Promise<Object>} A promise that resolves to the fetched plugins.
@@ -108,7 +123,7 @@ const MarketplaceService = {
         message: message,
         signature: signature,
         public_key: publicKey,
-        chain_code_hex: chainCodeHex
+        chain_code_hex: chainCodeHex,
       });
       return response.token;
     } catch (error) {
@@ -246,8 +261,6 @@ const MarketplaceService = {
       throw error;
     }
   },
-
-
 };
 
 export default MarketplaceService;

@@ -623,7 +623,7 @@ func (s *Server) notifyPluginServerDeletePlugin(ctx context.Context, id tv.Plugi
 	}
 
 	// Prepare and send request to plugin server
-	pluginURL := fmt.Sprintf("%s/%s/%s", plugin.ServerEndpoint, id, publicKeyEcdsa)
+	pluginURL := fmt.Sprintf("%s/%s/%s", strings.TrimRight(plugin.ServerEndpoint, "/"), id, publicKeyEcdsa)
 	httpReq, err := http.NewRequestWithContext(ctx, "DELETE", pluginURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request: %w", err)

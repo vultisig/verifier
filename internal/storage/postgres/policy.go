@@ -386,8 +386,13 @@ func (p *PostgresBackend) UpdatePluginPolicySync(ctx context.Context, dbTx pgx.T
 }
 
 func (p *PostgresBackend) DeleteAllPolicies(ctx context.Context, dbTx pgx.Tx, pluginID types.PluginID, publicKey string) error {
+	deleteBilling := `DELETE FROM plugin_policy_billing WHERE plugin_policy_id IN (SELECT id FROM plugin_policies WHERE plugin_id = $1 AND public_key = $2)`
+	_, err := dbTx.Exec(ctx, deleteBilling, pluginID, publicKey)
+	if err != nil {
+		return fmt.Errorf("failed to delete billing info for plugin %s: %w", pluginID, err)
+	}
 	query := `DELETE FROM plugin_policies WHERE plugin_id = $1 AND public_key = $2`
-	_, err := dbTx.Exec(ctx, query, pluginID, publicKey)
+	_, err = dbTx.Exec(ctx, query, pluginID, publicKey)
 	if err != nil {
 		return fmt.Errorf("failed to delete all policies for plugin %s: %w", pluginID, err)
 	}

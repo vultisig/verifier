@@ -179,7 +179,7 @@ func (lvs *LocalVaultStorage) SaveVault(file string, content []byte) error {
 func (lvs *LocalVaultStorage) DeleteFile(fileName string) error {
 	filePathName := filepath.Join(lvs.cfg.VaultFilePath, fileName)
 	if err := os.Remove(filePathName); err != nil {
-		return fmt.Errorf("os.Remove failed: %s: %w", err, os.ErrPermission)
+		return fmt.Errorf("os.Remove failed: %w", err)
 	}
 	return nil
 }

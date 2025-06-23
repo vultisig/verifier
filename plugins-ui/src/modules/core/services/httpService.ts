@@ -2,6 +2,7 @@ import axios, { AxiosRequestConfig } from "axios";
 import { deleteToken, selectToken, updateToken } from "../../../storage/token";
 import { getPublicKey } from "../../marketplace/services/marketplaceService";
 import { jwtDecode } from "jwt-decode";
+import { getCurrentVaultId } from "@/storage/currentVaultId";
 
 type JwtPayload = {
   exp: number;
@@ -47,7 +48,7 @@ const api = axios.create({
  */
 api.interceptors.request.use(
   async (config) => {
-    const publicKey = getPublicKey();
+    const publicKey = getCurrentVaultId();
     const token = publicKey ? selectToken(publicKey) : undefined;
 
     if (!token) return config;

@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import VulticonnectWalletService from "./vulticonnectWalletService";
 import { ethers } from "ethers";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
@@ -42,7 +48,7 @@ interface WalletProviderProps {
 export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   const initialState: InitialState = {};
   const [state, setState] = useState(initialState);
-  const { vault } = state;
+  const { address, vault } = state;
 
   const connect = async () => {
     try {
@@ -66,13 +72,16 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     setState(initialState);
   };
 
-  const handleChangeWallet = async ([address]: string[]) => {
-    if (!address) {
-      disconnect();
-    } else if (address !== state.address) {
-      await signMessage(address);
-    }
-  };
+  const handleChangeWallet = useCallback(
+    async ([address]: string[]) => {
+      if (!address) {
+        disconnect();
+      } else if (address !== state.address) {
+        await signMessage(address);
+      }
+    },
+    [address]
+  );
 
   const signMessage = async (address: string) => {
     try {

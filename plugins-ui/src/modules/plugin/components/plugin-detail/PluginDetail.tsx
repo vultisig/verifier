@@ -23,12 +23,12 @@ const PluginDetail = () => {
 
   const checkPluginInstalled = async () => {
     if (isConnected && pluginId && vault?.publicKeyEcdsa) {
-      await MarketplaceService.isPluginInstalled(
+      const isInstalled = await MarketplaceService.isPluginInstalled(
         pluginId,
         vault?.publicKeyEcdsa
       );
 
-      setIsInstalled(true);
+      setIsInstalled(isInstalled);
     } else {
       setIsInstalled(false);
     }

@@ -110,7 +110,10 @@ const VulticonnectWalletService = {
         type: "error",
       });
 
-      throw new Exception(500, error as string);
+      throw new Exception(
+        500,
+        error instanceof Error ? error.message : String(error)
+      );
     }
   },
   startReshareSession: async (pluginId: any) => {

@@ -1,6 +1,5 @@
 import axios, { AxiosRequestConfig } from "axios";
 import { deleteToken, selectToken, updateToken } from "../../../storage/token";
-import { getPublicKey } from "../../marketplace/services/marketplaceService";
 import { jwtDecode } from "jwt-decode";
 import { getCurrentVaultId } from "@/storage/currentVaultId";
 
@@ -90,7 +89,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      const publicKey = getPublicKey();
+      const publicKey = getCurrentVaultId();
       if (publicKey) {
         deleteToken(publicKey);
       }

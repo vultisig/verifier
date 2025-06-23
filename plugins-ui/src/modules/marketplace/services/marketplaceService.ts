@@ -11,8 +11,8 @@ import {
   PluginPoliciesMap,
   TransactionHistory,
 } from "@/modules/policy/models/policy";
+import { getCurrentVaultId } from "@/storage/currentVaultId";
 
-export const getPublicKey = () => localStorage.getItem("publicKey");
 const getMarketplaceUrl = () => import.meta.env.VITE_MARKETPLACE_URL;
 
 interface ReshareRequest {
@@ -146,7 +146,7 @@ const MarketplaceService = {
       const newPolicy = await get(endpoint, {
         headers: {
           plugin_type: pluginType,
-          public_key: getPublicKey(),
+          public_key: getCurrentVaultId(),
           Authorization: `Bearer ${localStorage.getItem("authToken")}`,
         },
       });
@@ -175,7 +175,7 @@ const MarketplaceService = {
       const endpoint = `${getMarketplaceUrl()}/plugins/policies/${policyId}/history?skip=${skip}&take=${take}`;
       const history = await get(endpoint, {
         headers: {
-          public_key: getPublicKey(),
+          public_key: getCurrentVaultId(),
           Authorization: `Bearer ${localStorage.getItem("authToken")}`,
         },
       });

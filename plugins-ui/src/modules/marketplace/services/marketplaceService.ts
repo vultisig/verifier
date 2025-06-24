@@ -12,21 +12,8 @@ import {
   TransactionHistory,
 } from "@/modules/policy/models/policy";
 import { getCurrentVaultId } from "@/storage/currentVaultId";
-import { selectToken } from "@/storage/token";
 
 const getMarketplaceUrl = () => import.meta.env.VITE_MARKETPLACE_URL;
-
-const authHeader = () => {
-  const key = getCurrentVaultId();
-
-  if (key) {
-    const token = selectToken(key);
-
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }
-
-  return {};
-};
 
 interface ReshareRequest {
   name: string;
@@ -47,12 +34,7 @@ const MarketplaceService = {
    */
   isPluginInstalled: async (id: string, key: string): Promise<boolean> => {
     try {
-      await get(`${getMarketplaceUrl()}/vault/exist/${id}/${key}`, {
-        headers: {
-          ...authHeader(),
-        },
-      });
-
+      await get(`${getMarketplaceUrl()}/vault/exist/${id}/${key}`);
       return true;
     } catch {
       return false;
@@ -137,7 +119,6 @@ const MarketplaceService = {
         `${getMarketplaceUrl()}/plugins/policies?skip=${skip}&take=${take}`,
         {
           headers: {
-            ...authHeader(),
             plugin_type: pluginType,
             public_key: getCurrentVaultId(),
           },
@@ -168,7 +149,6 @@ const MarketplaceService = {
         `${getMarketplaceUrl()}/plugins/policies/${policyId}/history?skip=${skip}&take=${take}`,
         {
           headers: {
-            ...authHeader(),
             public_key: getCurrentVaultId(),
           },
         }
@@ -211,13 +191,7 @@ const MarketplaceService = {
     try {
       return await post(
         `${getMarketplaceUrl()}/plugins/${pluginId}/reviews`,
-        review,
-        {
-          headers: {
-            ...authHeader(),
-            "Content-Type": "application/json",
-          },
-        }
+        review
       );
     } catch (error: any) {
       console.error("Error create review:", error);
@@ -245,12 +219,7 @@ const MarketplaceService = {
    */
   reshareVault: async (payload: ReshareRequest): Promise<void> => {
     try {
-      await post(`${getMarketplaceUrl()}/vault/reshare`, payload, {
-        headers: {
-          ...authHeader(),
-          "Content-Type": "application/json",
-        },
-      });
+      await post(`${getMarketplaceUrl()}/vault/reshare`, payload);
     } catch (error) {
       console.error("Error initiating vault reshare:", error);
       throw error;

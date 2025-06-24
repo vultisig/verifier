@@ -11,20 +11,34 @@ import { publish } from "@/utils/eventBus";
 import { ReviewProvider } from "@/modules/review/context/ReviewProvider";
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
 import RecipeSchema from "@/modules/plugin/components/recipe_schema/recipe_Schema";
+import { useWallet } from "@/modules/shared/wallet/WalletProvider";
 
 const PluginDetail = () => {
   const navigate = useNavigate();
   const [plugin, setPlugin] = useState<Plugin | null>(null);
+  const [isInstalled, setIsInstalled] = useState<boolean>(false);
   const [showRecipeSchema, setShowRecipeSchema] = useState(false);
+  const { isConnected, connect, vault } = useWallet();
+  const { pluginId } = useParams<{ pluginId: string }>();
 
-  const { pluginId } = useParams();
+  const checkPluginInstalled = async () => {
+    if (isConnected && pluginId && vault?.publicKeyEcdsa) {
+      const isInstalled = await MarketplaceService.isPluginInstalled(
+        pluginId,
+        vault?.publicKeyEcdsa
+      );
 
-  useEffect(() => {
-    const fetchPlugin = async (): Promise<void> => {
-      if (!pluginId) return;
+      setIsInstalled(isInstalled);
+    } else {
+      setIsInstalled(false);
+    }
+  };
 
+  const fetchPlugin = async () => {
+    if (pluginId) {
       try {
         const fetchedPlugin = await MarketplaceService.getPlugin(pluginId);
+
         setPlugin(fetchedPlugin);
       } catch (error) {
         if (error instanceof Error) {
@@ -35,12 +49,16 @@ const PluginDetail = () => {
           });
         }
       }
-    };
+    }
+  };
 
+  useEffect(() => {
+    checkPluginInstalled();
+  }, [isConnected, pluginId, vault]);
+
+  useEffect(() => {
     fetchPlugin();
-  }, []);
-
-  console.log("plugin", plugin);
+  }, [pluginId]);
 
   return (
     <>
@@ -56,7 +74,7 @@ const PluginDetail = () => {
           Back to All Plugins
         </Button>
 
-        {plugin && (
+        {plugin && pluginId && (
           <>
             <section className="plugin-header">
               <img src={logo} alt="" />
@@ -64,20 +82,38 @@ const PluginDetail = () => {
                 <h2 className="plugin-title">{plugin.title}</h2>
                 <p className="plugin-description">{plugin.description}</p>
                 <section className="plugin-installaion">
-                  <Button
-                    size="small"
-                    type="button"
-                    styleType="primary"
-                    onClick={async () => {
-                      try {
-                        await VulticonnectWalletService.startReshareSession( pluginId );
-                      } catch (err) {
-                        console.error("Failed to start reshare session", err);
-                      }
-                    }}
-                  >
-                    Install
-                  </Button>
+                  {isConnected ? (
+                    isInstalled ? null : (
+                      <Button
+                        size="small"
+                        type="button"
+                        styleType="primary"
+                        onClick={async () => {
+                          try {
+                            await VulticonnectWalletService.startReshareSession(
+                              pluginId
+                            );
+                          } catch (err) {
+                            console.error(
+                              "Failed to start reshare session",
+                              err
+                            );
+                          }
+                        }}
+                      >
+                        Install
+                      </Button>
+                    )
+                  ) : (
+                    <Button
+                      size="small"
+                      type="button"
+                      styleType="primary"
+                      onClick={async () => connect()}
+                    >
+                      Connect
+                    </Button>
+                  )}
                   <Button
                     size="small"
                     type="button"
@@ -93,7 +129,10 @@ const PluginDetail = () => {
             </section>
 
             {showRecipeSchema && (
-              <RecipeSchema pluginId={plugin.id} onClose={() => setShowRecipeSchema(false)} />
+              <RecipeSchema
+                pluginId={plugin.id}
+                onClose={() => setShowRecipeSchema(false)}
+              />
             )}
 
             <ReviewProvider pluginId={plugin.id} ratings={plugin.ratings}>

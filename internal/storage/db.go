@@ -28,6 +28,7 @@ type DatabaseStorage interface {
 	TransactionRepository
 	PricingRepository
 	PluginRepository
+	FeeRepository
 	TagRepository
 	ReviewRepository
 	RatingRepository
@@ -38,10 +39,14 @@ type DatabaseStorage interface {
 type PolicyRepository interface {
 	GetPluginPolicy(ctx context.Context, id uuid.UUID) (types.PluginPolicy, error)
 	GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (itypes.PluginPolicyPaginatedList, error)
-
 	DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id uuid.UUID) error
-	InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error)
-	UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error)
+	InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error)
+	UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error)
+	DeleteAllPolicies(ctx context.Context, dbTx pgx.Tx, pluginID types.PluginID, publicKey string) error
+}
+
+type FeeRepository interface {
+	GetAllFeesByPolicyId(ctx context.Context, policyId uuid.UUID) ([]types.Fee, error)
 }
 
 type PluginPolicySyncRepository interface {

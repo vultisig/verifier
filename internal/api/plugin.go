@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -14,13 +13,11 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
-	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/vultisig/verifier/common"
 
 	"github.com/vultisig/recipes/chain"
 	"github.com/vultisig/recipes/engine"
-	rtypes "github.com/vultisig/recipes/types"
 
 	"github.com/vultisig/verifier/internal/tasks"
 	"github.com/vultisig/verifier/internal/types"
@@ -46,14 +43,9 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		return fmt.Errorf("policy plugin ID mismatch")
 	}
 
-	var recipe rtypes.Policy
-	policyBytes, err := base64.StdEncoding.DecodeString(policy.Recipe)
+	recipe, err := policy.GetRecipe()
 	if err != nil {
-		return fmt.Errorf("failed to decode policy recipe: %w", err)
-	}
-
-	if err := protojson.Unmarshal(policyBytes, &recipe); err != nil {
-		return fmt.Errorf("failed to unmarshal recipe: %w", err)
+		return fmt.Errorf("failed to get recipe: %w", err)
 	}
 
 	eng := engine.NewEngine()
@@ -85,7 +77,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 			req.Messages[i].TxIndexerID = txToTrack.ID.String()
 		}
 
-		transactionAllowed, _, err := eng.Evaluate(&recipe, messageChain, decodedTx)
+		transactionAllowed, _, err := eng.Evaluate(recipe, messageChain, decodedTx)
 		if err != nil {
 			return fmt.Errorf("failed to evaluate policy: %w", err)
 		}
@@ -116,7 +108,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		return fmt.Errorf("fail to marshal to json, err: %w", err)
 	}
 
-	ti, err := s.client.EnqueueContext(c.Request().Context(),
+	ti, err := s.asynqClient.EnqueueContext(c.Request().Context(),
 		asynq.NewTask(tasks.TypeKeySignDKLS, buf),
 		asynq.MaxRetry(0),
 		asynq.Timeout(2*time.Minute),
@@ -159,7 +151,7 @@ func (s *Server) GetPlugins(c echo.Context) error {
 
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get plugins")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get plugins"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "failed to get plugins", err.Error()))
 	}
 
 	return c.JSON(http.StatusOK, plugins)
@@ -169,13 +161,13 @@ func (s *Server) GetPlugin(c echo.Context) error {
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
 		s.logger.Error("plugin id is required")
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("plugin id is required"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, "plugin id is required", ""))
 	}
 
 	plugin, err := s.pluginService.GetPluginWithRating(c.Request().Context(), pluginID)
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get plugin")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get plugin"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "failed to get plugin", err.Error()))
 	}
 
 	return c.JSON(http.StatusOK, plugin)
@@ -203,7 +195,7 @@ func (s *Server) GetTags(c echo.Context) error {
 	tags, err := s.db.FindTags(c.Request().Context())
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get tags")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get tags"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "failed to get tags", err.Error()))
 	}
 	return c.JSON(http.StatusOK, tags)
 }
@@ -213,7 +205,7 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 
 	if policyID == "" {
 		err := fmt.Errorf("policy ID is required")
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err.Error()))
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, err.Error(), ""))
 	}
 
 	skip, err := strconv.Atoi(c.QueryParam("skip"))
@@ -236,7 +228,7 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 	if err != nil {
 		err = fmt.Errorf("failed to get policy history: %w", err)
 		s.logger.WithError(err).Error("Failed to get policy history")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get policy history"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "failed to get policy history", err.Error()))
 	}
 
 	return c.JSON(http.StatusOK, policyHistory)
@@ -246,12 +238,12 @@ func (s *Server) CreateReview(c echo.Context) error {
 	var review types.ReviewCreateDto
 	if err := c.Bind(&review); err != nil {
 		s.logger.WithError(err).Error("Failed to parse request")
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, "failed to parse request", err.Error()))
 	}
 
 	if err := c.Validate(&review); err != nil {
 		s.logger.WithError(err).Error("CreateReview: Request validation failed")
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err.Error()))
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, err.Error(), err.Error()))
 	}
 
 	// If allowing HTML, sanitize with bluemonday:
@@ -261,13 +253,13 @@ func (s *Server) CreateReview(c echo.Context) error {
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
 		s.logger.Error("CreateReview: Missing plugin ID in URL parameters")
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("plugin id is required"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, "plugin id is required", "plugin id is required"))
 	}
 
 	created, err := s.pluginService.CreatePluginReviewWithRating(c.Request().Context(), review, pluginID)
 	if err != nil {
 		s.logger.WithError(err).Errorf("CreateReview: Plugin service failed to create review for plugin %s", pluginID)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to create review"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "failed to create review", err.Error()))
 	}
 
 	return c.JSON(http.StatusOK, created)
@@ -278,7 +270,7 @@ func (s *Server) GetReviews(c echo.Context) error {
 	if pluginId == "" {
 		err := fmt.Errorf("plugin id is required")
 		s.logger.Error(err)
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err.Error()))
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, err.Error(), ""))
 	}
 
 	skip, err := strconv.Atoi(c.QueryParam("skip"))
@@ -301,13 +293,13 @@ func (s *Server) GetReviews(c echo.Context) error {
 
 	allowedSortFields := []string{"created_at", "rating", "updated_at"}
 	if sort != "" && !common.IsValidSortField(sort, allowedSortFields) {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid sort parameter"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, "invalid sort parameter", ""))
 	}
 
 	reviews, err := s.db.FindReviews(c.Request().Context(), pluginId, skip, take, sort)
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get reviews")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get reviews"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "failed to get reviews", ""))
 	}
 
 	return c.JSON(http.StatusOK, reviews)
@@ -317,7 +309,7 @@ func (s *Server) GetReviews(c echo.Context) error {
 func (s *Server) GetPluginRecipeSpecification(c echo.Context) error {
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("plugin id is required"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, "plugin id is required", ""))
 	}
 
 	s.logger.Debugf("[GetPluginRecipeSpecification] Getting recipe spec for pluginID=%s\n", pluginID)
@@ -325,7 +317,7 @@ func (s *Server) GetPluginRecipeSpecification(c echo.Context) error {
 	recipeSpec, err := s.pluginService.GetPluginRecipeSpecification(c.Request().Context(), pluginID)
 	if err != nil {
 		s.logger.WithError(err).Error("[GetPluginRecipeSpecification] Failed to get plugin recipe specification")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get recipe specification"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "failed to get recipe specification", ""))
 	}
 
 	s.logger.Debugf("[GetPluginRecipeSpecification] Successfully got recipe spec for plugin %s\n", pluginID)

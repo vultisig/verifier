@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,6 +21,24 @@ type TxIndexerRepo interface {
 	GetPendingTxs(ctx context.Context) <-chan RowsStream[Tx]
 	CreateTx(ctx context.Context, req CreateTxDto) (Tx, error)
 	GetTxByID(ctx context.Context, id uuid.UUID) (Tx, error)
+	GetTxsInTimeRange(
+		ctx context.Context,
+		chainID common.Chain,
+		pluginID types.PluginID,
+		policyID uuid.UUID,
+		tokenID string,
+		recipientPublicKey string,
+		from, to time.Time,
+	) <-chan RowsStream[Tx]
+	GetTxInTimeRange(
+		ctx context.Context,
+		chainID common.Chain,
+		pluginID types.PluginID,
+		policyID uuid.UUID,
+		tokenID string,
+		recipientPublicKey string,
+		from, to time.Time,
+	) (Tx, error)
 }
 
 type TxStatus string
@@ -30,13 +49,17 @@ const (
 	TxSigned   TxStatus = "SIGNED"
 )
 
+var ErrNoTx = errors.New("transaction not found")
+
 type Tx struct {
 	ID            uuid.UUID            `json:"id" validate:"required"`
 	PluginID      types.PluginID       `json:"plugin_id" validate:"required"`
 	TxHash        *string              `json:"tx_hash"`
 	ChainID       int                  `json:"chain_id" validate:"required"`
 	PolicyID      uuid.UUID            `json:"policy_id" validate:"required"`
+	TokenID       string               `json:"token_id" validate:"required"`
 	FromPublicKey string               `json:"from_public_key" validate:"required"`
+	ToPublicKey   string               `json:"to_public_key" validate:"required"`
 	ProposedTxHex string               `json:"proposed_tx_hex" validate:"required"`
 	Status        TxStatus             `json:"status" validate:"required"`
 	StatusOnChain *rpc.TxOnChainStatus `json:"status_onchain"`
@@ -68,6 +91,8 @@ type CreateTxDto struct {
 	PluginID      types.PluginID
 	ChainID       common.Chain
 	PolicyID      uuid.UUID
+	TokenID       string
 	FromPublicKey string
+	ToPublicKey   string
 	ProposedTxHex string
 }

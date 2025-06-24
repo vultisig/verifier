@@ -5,27 +5,34 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	itypes "github.com/vultisig/verifier/internal/types"
-	"github.com/vultisig/verifier/types"
-
-	"github.com/vultisig/verifier/internal/service"
-
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/vultisig/verifier/internal/service"
+	"github.com/vultisig/verifier/internal/storage"
+	itypes "github.com/vultisig/verifier/internal/types"
+	"github.com/vultisig/verifier/types"
 )
 
 const testPublicKey = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 
 var testLogger = logrus.New()
 
+var _ storage.DatabaseStorage = (*MockDatabaseStorage)(nil)
+
 // MockDatabaseStorage is a mock implementation of storage.DatabaseStorage
 type MockDatabaseStorage struct {
 	mock.Mock
+}
+
+func (m *MockDatabaseStorage) DeleteAllPolicies(ctx context.Context, dbTx pgx.Tx, pluginID types.PluginID, publicKey string) error {
+	args := m.Called(ctx, dbTx, pluginID, publicKey)
+	return args.Error(0)
 }
 
 func (m *MockDatabaseStorage) Pool() *pgxpool.Pool {
@@ -155,20 +162,28 @@ func (m *MockDatabaseStorage) DeletePluginPolicyTx(ctx context.Context, dbTx pgx
 	return args.Error(0)
 }
 
-func (m *MockDatabaseStorage) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error) {
+func (m *MockDatabaseStorage) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {
 	args := m.Called(ctx, dbTx, policy)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*types.PluginPolicyCreateUpdate), args.Error(1)
+	return args.Get(0).(*types.PluginPolicy), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error) {
+func (m *MockDatabaseStorage) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {
 	args := m.Called(ctx, dbTx, policy)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*types.PluginPolicyCreateUpdate), args.Error(1)
+	return args.Get(0).(*types.PluginPolicy), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) GetAllFeesByPolicyId(ctx context.Context, policyId uuid.UUID) ([]types.Fee, error) {
+	args := m.Called(ctx, policyId)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]types.Fee), args.Error(1)
 }
 
 func (m *MockDatabaseStorage) FindPricingById(ctx context.Context, id uuid.UUID) (*itypes.Pricing, error) {

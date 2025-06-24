@@ -64,15 +64,18 @@ func TestWorker_positive(t *testing.T) {
 		chain         common.Chain
 		hash          string
 		fromPublicKey string
+		toPublicKey   string
 	}
 	for _, testcase := range []suite{{
 		chain:         common.Bitcoin,
 		hash:          "75149b57b808eb2083bada72018c48118238427a229e75896e30ccd09646df8e",
 		fromPublicKey: "1Hk4sk6kNscQ32ZZ9eGMtM2URNbYYRXLtX",
+		toPublicKey:   "195pYUenhG2FbedE2mYDptWRHZESMbreie",
 	}, {
 		chain:         common.Ethereum,
 		hash:          "0x87a75af70c563b78598434d65dfdeca7eabd98f5f75a68281216ea40ff15648a",
 		fromPublicKey: "0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5",
+		toPublicKey:   "0xeBec795c9c8bBD61FFc14A6662944748F299cAcf",
 	}} {
 		policyID, err := uuid.NewUUID()
 		require.Nil(t, err)
@@ -82,6 +85,7 @@ func TestWorker_positive(t *testing.T) {
 			ChainID:       testcase.chain,
 			PolicyID:      policyID,
 			FromPublicKey: testcase.fromPublicKey,
+			ToPublicKey:   testcase.toPublicKey,
 			ProposedTxHex: "0x1",
 		})
 		require.Nil(t, err, testcase.chain.String())

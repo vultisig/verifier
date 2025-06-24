@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
@@ -13,17 +14,19 @@ import (
 
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/syncer"
+	"github.com/vultisig/verifier/internal/tasks"
 	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/types"
 )
 
 type Policy interface {
-	CreatePolicy(ctx context.Context, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error)
-	UpdatePolicy(ctx context.Context, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error)
+	CreatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
+	UpdatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
 	DeletePolicy(ctx context.Context, policyID uuid.UUID, pluginID types.PluginID, signature string) error
 	GetPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (itypes.PluginPolicyPaginatedList, error)
 	GetPluginPolicy(ctx context.Context, policyID uuid.UUID) (types.PluginPolicy, error)
 	GetPluginPolicyTransactionHistory(ctx context.Context, policyID string, take int, skip int) (itypes.TransactionHistoryPaginatedList, error)
+	DeleteAllPolicies(ctx context.Context, pluginID types.PluginID, publicKey string) error
 }
 
 var _ Policy = (*PolicyService)(nil)
@@ -62,20 +65,24 @@ func (s *PolicyService) syncPolicy(syncEntity itypes.PluginPolicySync) error {
 	s.logger.WithField("task_id", ti.ID).Info("enqueued sync policy task")
 	return nil
 }
-func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error) {
+func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error) {
 	// Start transaction
 	tx, err := s.db.Pool().Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer s.handleRollback(tx, ctx)
+
+	policy.PopulateBilling()
+	// TODO garry, do we need to validate the policy here?
 
 	// Insert policy
 	newPolicy, err := s.db.InsertPluginPolicyTx(ctx, tx, policy)
 	if err != nil {
+		s.handleRollback(tx, ctx)
 		return nil, fmt.Errorf("failed to insert policy: %w", err)
 	}
 
+	// TODO handle updates sync cases with billing info
 	policySync := itypes.PluginPolicySync{
 		ID:         uuid.New(),
 		PolicyID:   newPolicy.ID,
@@ -90,22 +97,44 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 	}
 
 	if err := tx.Commit(ctx); err != nil {
+		s.handleRollback(tx, ctx)
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 	if err := s.syncPolicy(policySync); err != nil {
 		s.logger.WithError(err).Error("failed post sync policy to queue")
 	}
 
+	for _, billingPolicy := range newPolicy.Billing {
+		if billingPolicy.Type == string(types.BILLING_TYPE_ONCE) {
+			bid, err := billingPolicy.ID.MarshalBinary()
+			// TODO garry. Need to handle this error properly with a rollback if needed.
+			if err != nil {
+				s.logger.WithError(err).Error("failed to marshal billing policy ID")
+			}
+			s.client.Enqueue(
+				asynq.NewTask(tasks.TypeOneTimeFeeRecord, bid),
+				asynq.MaxRetry(0),
+				asynq.Timeout(2*time.Minute),
+				asynq.Retention(5*time.Minute),
+				asynq.Queue(tasks.QUEUE_NAME),
+			)
+		}
+	}
+
+	// TODO garry, potentially we don't send this to a job but rather handle it in the same transaction. This reduces the risk of a committed
+
 	return newPolicy, nil
 }
 
-func (s *PolicyService) UpdatePolicy(ctx context.Context, policy types.PluginPolicyCreateUpdate) (*types.PluginPolicyCreateUpdate, error) {
+func (s *PolicyService) UpdatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error) {
 	// start transaction
 	tx, err := s.db.Pool().Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer s.handleRollback(tx, ctx)
+
+	// TODO garry do we need to validate the policy here?
 
 	// Update policy with tx
 	updatedPolicy, err := s.db.UpdatePluginPolicyTx(ctx, tx, policy)
@@ -207,4 +236,22 @@ func (s *PolicyService) GetPluginPolicyTransactionHistory(ctx context.Context, p
 		History:    history,
 		TotalCount: int(totalCount),
 	}, nil
+}
+func (s *PolicyService) DeleteAllPolicies(ctx context.Context, pluginID types.PluginID, publicKey string) error {
+	tx, err := s.db.Pool().Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer s.handleRollback(tx, ctx)
+
+	err = s.db.DeleteAllPolicies(ctx, tx, pluginID, publicKey)
+	if err != nil {
+		return fmt.Errorf("failed to delete all policies: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
 }

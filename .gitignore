@@ -46,3 +46,7 @@ verifier.json
 
 zz_scripts/*
 worker.json
+
+# Hot reload files
+tmp/
+.air.*.toml

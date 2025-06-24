@@ -1,18 +1,37 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import VulticonnectWalletService from "./vulticonnectWalletService";
 import { ethers } from "ethers";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 import { publish } from "@/utils/eventBus";
+import { createToken, deleteToken, selectToken } from "@/storage/token";
+import {
+  deleteCurrentVaultId,
+  setCurrentVaultId,
+} from "@/storage/currentVaultId";
 
-interface WalletState {
-  isConnected: boolean;
-  walletAddress: string | null;
-  authToken: string | null;
-  chain: string;
+interface Vault {
+  hexChainCode: string;
+  name: string;
+  publicKeyEcdsa: string;
+  publicKeyEddsa: string;
+  uid: string;
 }
 
-interface WalletContextType extends WalletState {
-  connectWallet: (chain: string) => Promise<void>;
+interface InitialState {
+  address?: string;
+  isConnected?: boolean;
+  token?: string;
+  vault?: Vault;
+}
+
+interface WalletContextType extends InitialState {
+  connect: () => Promise<void>;
   disconnect: () => void;
 }
 
@@ -31,114 +50,63 @@ interface WalletProviderProps {
 }
 
 export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
-  const [walletState, setWalletState] = useState<WalletState>({
-    isConnected: false,
-    walletAddress: null,
-    authToken: localStorage.getItem("authToken") || null,
-    chain: localStorage.getItem("chain") || "ethereum",
-  });
+  const initialState: InitialState = {};
+  const [state, setState] = useState(initialState);
+  const { address, vault } = state;
 
-  // Initialize chain in localStorage if not set
-  useEffect(() => {
-    if (!localStorage.getItem("chain")) {
-      localStorage.setItem("chain", "ethereum");
+  const connect = async () => {
+    try {
+      const address = await VulticonnectWalletService.connectToVultiConnect();
+
+      await signMessage(address);
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error("Failed to connect wallet:", error.message, error);
+        publish("onToast", {
+          message: "Wallet connection failed!",
+          type: "error",
+        });
+      }
     }
-  }, []);
-
-  // Check if VultiConnect provider is available
-  const isVultiConnectAvailable = () => {
-    return !!(window.vultisig?.ethereum);
   };
 
-  // Define disconnect function early to avoid circular dependency
-  const disconnect = useCallback(() => {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("publicKey");
-    setWalletState(prev => ({
-      ...prev,
-      isConnected: false,
-      walletAddress: null,
-      authToken: null,
-    }));
-  }, []);
-
-  // Check for existing wallet connection on mount
-  useEffect(() => {
-    const checkExistingConnection = async () => {
-      // Only check if we have an auth token and VultiConnect is available
-      if (!walletState.authToken || !isVultiConnectAvailable()) {
-        return;
-      }
-
-      try {
-        const accounts = await VulticonnectWalletService.getConnectedEthAccounts();
-        if (accounts && accounts.length > 0) {
-          setWalletState(prev => ({
-            ...prev,
-            isConnected: true,
-            walletAddress: accounts[0],
-          }));
-        }
-      } catch (error) {
-        // Silently handle error - extension may not be loaded yet or no connection exists
-        console.debug("No existing wallet connection found");
-      }
-    };
-
-    // Add a small delay to allow extension to load
-    const timeoutId = setTimeout(checkExistingConnection, 100);
-    
-    return () => clearTimeout(timeoutId);
-  }, [walletState.authToken]);
-
-  // Listen for account changes from wallet extension
-  useEffect(() => {
-    const handleAccountsChanged = (accounts: string[]) => {
-      if (accounts.length === 0) {
-        // Wallet disconnected - use inline disconnect logic
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("publicKey");
-        setWalletState(prev => ({
-          ...prev,
-          isConnected: false,
-          walletAddress: null,
-          authToken: null,
-        }));
-      } else if (accounts[0] !== walletState.walletAddress) {
-        // Account switched
-        setWalletState(prev => ({
-          ...prev,
-          walletAddress: accounts[0],
-        }));
-      }
-    };
-
-    if (isVultiConnectAvailable()) {
-      window.vultisig.ethereum.on?.("accountsChanged", handleAccountsChanged);
+  const disconnect = () => {
+    if (vault) {
+      deleteToken(vault.publicKeyEcdsa);
+      deleteCurrentVaultId();
     }
 
-    return () => {
-      if (isVultiConnectAvailable()) {
-        window.vultisig.ethereum.off?.("accountsChanged", handleAccountsChanged);
-      }
-    };
-  }, [walletState.walletAddress]);
+    setState(initialState);
+  };
 
-  const signMessage = async (walletAddress: string): Promise<boolean> => {
+  const handleChangeWallet = useCallback(
+    async ([address]: string[]) => {
+      if (!address) {
+        disconnect();
+      } else if (address !== state.address) {
+        await signMessage(address);
+      }
+    },
+    [address]
+  );
+
+  const signMessage = async (address: string) => {
     try {
-      const vaults = await VulticonnectWalletService.getVaults();
-      if (!vaults || vaults.length === 0) {
-        throw new Error("No vaults found");
+      const vault: Vault = await VulticonnectWalletService.getVault();
+      const { hexChainCode, publicKeyEcdsa } = vault;
+      const token = selectToken(publicKeyEcdsa);
+
+      if (token) {
+        setState((prevState) => ({
+          ...prevState,
+          address,
+          isConnected: true,
+          token,
+          vault,
+        }));
+
+        return true;
       }
-
-      const publicKey = vaults[0].publicKeyEcdsa;
-      const chainCodeHex = vaults[0].hexChainCode;
-
-      if (!publicKey || !chainCodeHex) {
-        throw new Error("Missing required vault data");
-      }
-
-      localStorage.setItem("publicKey", publicKey);
 
       const nonce = ethers.hexlify(ethers.randomBytes(16));
       const expiryTime = new Date(Date.now() + 15 * 60 * 1000).toISOString();
@@ -147,26 +115,29 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         message: "Sign into Vultisig App Store",
         nonce: nonce,
         expiresAt: expiryTime,
-        address: walletAddress
+        address,
       });
 
       const signature = await VulticonnectWalletService.signCustomMessage(
         signingMessage,
-        walletAddress
+        address
       );
 
-      const token = await MarketplaceService.getAuthToken(
+      const newToken = await MarketplaceService.getAuthToken(
         signingMessage,
         signature,
-        publicKey,
-        chainCodeHex
+        publicKeyEcdsa,
+        hexChainCode
       );
 
-      localStorage.setItem("authToken", token);
-      setWalletState(prev => ({
-        ...prev,
-        authToken: token,
+      createToken(publicKeyEcdsa, newToken);
+      setCurrentVaultId(publicKeyEcdsa);
+      setState((prevState) => ({
+        ...prevState,
+        address,
         isConnected: true,
+        token: newToken,
+        vault,
       }));
 
       publish("onToast", {
@@ -178,81 +149,32 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     } catch (error) {
       console.error("Authentication failed:", error);
       publish("onToast", {
-        message: error instanceof Error ? error.message : "Authentication failed",
+        message:
+          error instanceof Error ? error.message : "Authentication failed",
         type: "error",
       });
       return false;
     }
   };
 
-  const connectWallet = useCallback(async (chain: string) => {
-    switch (chain) {
-      case "ethereum": {
-        try {
-          const accounts = await VulticonnectWalletService.connectToVultiConnect();
-          
-          const isAuthenticated = await signMessage(accounts[0]);
-          if (!isAuthenticated) {
-            publish("onToast", {
-              message: "Authentication failed!",
-              type: "error",
-            });
-            return;
-          }
-
-          if (accounts.length && accounts[0]) {
-            setWalletState(prev => ({
-              ...prev,
-              isConnected: true,
-              walletAddress: accounts[0],
-            }));
-          }
-        } catch (error) {
-          if (error instanceof Error) {
-            console.error("Failed to connect wallet:", error.message, error);
-            publish("onToast", {
-              message: "Wallet connection failed!",
-              type: "error",
-            });
-          }
-        }
-        break;
-      }
-      default:
-        publish("onToast", {
-          message: `Chain ${chain} is currently not supported.`,
-          type: "error",
-        });
-        break;
-    }
-  }, []);
-
-  // Listen for storage changes (for auth token updates from other tabs)
+  // Listen for wallet changes from extension
   useEffect(() => {
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === "authToken") {
-        const newToken = event.newValue;
-        setWalletState(prev => ({
-          ...prev,
-          authToken: newToken,
-          isConnected: !!newToken && !!prev.walletAddress,
-        }));
-      }
-    };
+    window.vultisig?.ethereum?.on?.("accountsChanged", handleChangeWallet);
 
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
+    return () => {
+      window.vultisig?.ethereum?.off?.("accountsChanged", handleChangeWallet);
+    };
   }, []);
 
   return (
     <WalletContext.Provider
       value={{
-        ...walletState,
-        connectWallet,
+        ...state,
+        connect,
         disconnect,
       }}
     >
       {children}
     </WalletContext.Provider>
   );
-}; 
+};

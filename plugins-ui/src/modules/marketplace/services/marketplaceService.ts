@@ -12,8 +12,21 @@ import {
   TransactionHistory,
 } from "@/modules/policy/models/policy";
 import { getCurrentVaultId } from "@/storage/currentVaultId";
+import { selectToken } from "@/storage/token";
 
 const getMarketplaceUrl = () => import.meta.env.VITE_MARKETPLACE_URL;
+
+const authHeader = () => {
+  const key = getCurrentVaultId();
+
+  if (key) {
+    const token = selectToken(key);
+
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  return {};
+};
 
 interface ReshareRequest {
   name: string;
@@ -36,7 +49,7 @@ const MarketplaceService = {
     try {
       await get(`${getMarketplaceUrl()}/vault/exist/${id}/${key}`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          ...authHeader(),
         },
       });
 
@@ -124,9 +137,9 @@ const MarketplaceService = {
         `${getMarketplaceUrl()}/plugins/policies?skip=${skip}&take=${take}`,
         {
           headers: {
+            ...authHeader(),
             plugin_type: pluginType,
             public_key: getCurrentVaultId(),
-            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
           },
         }
       );
@@ -155,8 +168,8 @@ const MarketplaceService = {
         `${getMarketplaceUrl()}/plugins/policies/${policyId}/history?skip=${skip}&take=${take}`,
         {
           headers: {
+            ...authHeader(),
             public_key: getCurrentVaultId(),
-            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
           },
         }
       );
@@ -201,8 +214,8 @@ const MarketplaceService = {
         review,
         {
           headers: {
+            ...authHeader(),
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
           },
         }
       );
@@ -234,7 +247,7 @@ const MarketplaceService = {
     try {
       await post(`${getMarketplaceUrl()}/vault/reshare`, payload, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          ...authHeader(),
           "Content-Type": "application/json",
         },
       });

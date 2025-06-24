@@ -34,12 +34,7 @@ const MarketplaceService = {
    */
   isPluginInstalled: async (id: string, key: string): Promise<boolean> => {
     try {
-      await get(`${getMarketplaceUrl()}/vault/exist/${id}/${key}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-        },
-      });
-
+      await get(`${getMarketplaceUrl()}/vault/exist/${id}/${key}`);
       return true;
     } catch {
       return false;
@@ -126,7 +121,6 @@ const MarketplaceService = {
           headers: {
             plugin_type: pluginType,
             public_key: getCurrentVaultId(),
-            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
           },
         }
       );
@@ -156,7 +150,6 @@ const MarketplaceService = {
         {
           headers: {
             public_key: getCurrentVaultId(),
-            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
           },
         }
       );
@@ -198,13 +191,7 @@ const MarketplaceService = {
     try {
       return await post(
         `${getMarketplaceUrl()}/plugins/${pluginId}/reviews`,
-        review,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-          },
-        }
+        review
       );
     } catch (error: any) {
       console.error("Error create review:", error);
@@ -232,12 +219,7 @@ const MarketplaceService = {
    */
   reshareVault: async (payload: ReshareRequest): Promise<void> => {
     try {
-      await post(`${getMarketplaceUrl()}/vault/reshare`, payload, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-          "Content-Type": "application/json",
-        },
-      });
+      await post(`${getMarketplaceUrl()}/vault/reshare`, payload);
     } catch (error) {
       console.error("Error initiating vault reshare:", error);
       throw error;

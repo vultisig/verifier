@@ -50,25 +50,9 @@ const MarketplaceService = {
    * Get plugins from the API.
    * @returns {Promise<Object>} A promise that resolves to the fetched plugins.
    */
-  getPlugins: async (
-    term: string,
-    categoryId: string,
-    sortBy: string,
-    sortOrder: string,
-    skip: number,
-    take: number
-  ): Promise<PluginMap> => {
+  getPlugins: async (): Promise<PluginMap> => {
     try {
-      const sort = sortOrder === "DESC" ? `-${sortBy}` : sortBy;
-      const endpoint = `${getMarketplaceUrl()}/plugins`;
-
-      // const endpoint = `${getMarketplaceUrl()}/plugins?term=${encodeURIComponent(
-      //   term
-      // )}&category_id=${encodeURIComponent(
-      //   categoryId
-      // )}&sort=${encodeURIComponent(sort)}&skip=${skip}&take=${take}`;
-      const plugins = await get(endpoint);
-      return plugins;
+      return await get(`${getMarketplaceUrl()}/plugins`);
     } catch (error) {
       console.error("Error getting plugins:", error);
       throw error;
@@ -81,11 +65,7 @@ const MarketplaceService = {
    */
   getCategories: async (): Promise<Category[]> => {
     try {
-      const endpoint = `${getMarketplaceUrl()}/categories`;
-      console.log("endpoint : getCategories", endpoint);
-      const categories = await get(endpoint);
-      console.log("categories : getCategories", categories);
-      return categories;
+      return await get(`${getMarketplaceUrl()}/categories`);
     } catch (error) {
       console.error("Error getting categories:", error);
       throw error;
@@ -98,9 +78,7 @@ const MarketplaceService = {
    */
   getPlugin: async (id: string): Promise<Plugin> => {
     try {
-      const endpoint = `${getMarketplaceUrl()}/plugins/${id}`;
-      const plugin = await get(endpoint);
-      return plugin;
+      return await get(`${getMarketplaceUrl()}/plugins/${id}`);
     } catch (error) {
       console.error("Error getting plugin:", error);
       throw error;
@@ -118,14 +96,14 @@ const MarketplaceService = {
     chainCodeHex: string
   ): Promise<string> => {
     try {
-      const endpoint = `${getMarketplaceUrl()}/auth`;
-      const response = await post(endpoint, {
+      const response = await post(`${getMarketplaceUrl()}/auth`, {
         message: message,
         signature: signature,
         public_key: publicKey,
         chain_code_hex: chainCodeHex,
       });
-      return response.token;
+
+      return response?.token;
     } catch (error) {
       console.error("Failed to get auth token", error);
       throw error;
@@ -142,15 +120,16 @@ const MarketplaceService = {
     take: number
   ): Promise<PluginPoliciesMap> => {
     try {
-      const endpoint = `${getMarketplaceUrl()}/plugins/policies?skip=${skip}&take=${take}`;
-      const newPolicy = await get(endpoint, {
-        headers: {
-          plugin_type: pluginType,
-          public_key: getCurrentVaultId(),
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-        },
-      });
-      return newPolicy;
+      return await get(
+        `${getMarketplaceUrl()}/plugins/policies?skip=${skip}&take=${take}`,
+        {
+          headers: {
+            plugin_type: pluginType,
+            public_key: getCurrentVaultId(),
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+        }
+      );
     } catch (error: any) {
       if (error.message === "Unauthorized") {
         localStorage.removeItem("authToken");
@@ -172,14 +151,15 @@ const MarketplaceService = {
     take: number
   ): Promise<TransactionHistory> => {
     try {
-      const endpoint = `${getMarketplaceUrl()}/plugins/policies/${policyId}/history?skip=${skip}&take=${take}`;
-      const history = await get(endpoint, {
-        headers: {
-          public_key: getCurrentVaultId(),
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-        },
-      });
-      return history;
+      return await get(
+        `${getMarketplaceUrl()}/plugins/policies/${policyId}/history?skip=${skip}&take=${take}`,
+        {
+          headers: {
+            public_key: getCurrentVaultId(),
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+        }
+      );
     } catch (error) {
       console.error("Error getting policy history:", error);
 
@@ -198,9 +178,9 @@ const MarketplaceService = {
     sort = "-created_at"
   ): Promise<ReviewMap> => {
     try {
-      const endpoint = `${getMarketplaceUrl()}/plugins/${pluginId}/reviews?skip=${skip}&take=${take}&sort=${sort}`;
-      const reviews = await get(endpoint);
-      return reviews;
+      return await get(
+        `${getMarketplaceUrl()}/plugins/${pluginId}/reviews?skip=${skip}&take=${take}&sort=${sort}`
+      );
     } catch (error: any) {
       console.error("Error getting reviews:", error);
       throw error;
@@ -216,14 +196,16 @@ const MarketplaceService = {
     review: CreateReview
   ): Promise<Review> => {
     try {
-      const endpoint = `${getMarketplaceUrl()}/plugins/${pluginId}/reviews`;
-      const newReview = await post(endpoint, review, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-        },
-      });
-      return newReview;
+      return await post(
+        `${getMarketplaceUrl()}/plugins/${pluginId}/reviews`,
+        review,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+        }
+      );
     } catch (error: any) {
       console.error("Error create review:", error);
       throw error;
@@ -235,8 +217,9 @@ const MarketplaceService = {
    */
   getRecipeSpecification: async (pluginId: string): Promise<any> => {
     try {
-      const endpoint = `${getMarketplaceUrl()}/plugins/${pluginId}/recipe-specification`;
-      return await get(endpoint);
+      return await get(
+        `${getMarketplaceUrl()}/plugins/${pluginId}/recipe-specification`
+      );
     } catch (error) {
       console.error("Error getting recipe specification:", error);
       throw error;
@@ -249,10 +232,9 @@ const MarketplaceService = {
    */
   reshareVault: async (payload: ReshareRequest): Promise<void> => {
     try {
-      // console.log("payload", payload);
-      const endpoint = `${getMarketplaceUrl()}/vault/reshare`;
-      await post(endpoint, payload, {
+      await post(`${getMarketplaceUrl()}/vault/reshare`, payload, {
         headers: {
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
           "Content-Type": "application/json",
         },
       });

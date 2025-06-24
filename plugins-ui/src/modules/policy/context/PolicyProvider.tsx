@@ -266,12 +266,9 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
       return policy;
     }
 
-    let accounts = [];
-    if (chain === "ethereum") {
-      accounts = await VulticonnectWalletService.getConnectedEthAccounts();
-    }
+    const account = await VulticonnectWalletService.getAccount();
 
-    if (!accounts || accounts.length === 0) {
+    if (!account) {
       throw new Error("Need to connect to wallet");
     }
 
@@ -298,7 +295,7 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const signature = await VulticonnectWalletService.signCustomMessage(
       hexMessage,
-      accounts[0]
+      account
     );
 
     policy.signature = signature;
@@ -308,7 +305,7 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
     console.log("Chain code hex: ", policy.chain_code_hex);
     console.log("Derive path: ", policy.derive_path);
     console.log("Hex message: ", hexMessage);
-    console.log("Account[0]: ", accounts[0]);
+    console.log("Account: ", account);
     console.log("Signature: ", signature);
 
     return policy;

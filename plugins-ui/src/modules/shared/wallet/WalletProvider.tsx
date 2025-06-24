@@ -55,28 +55,28 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   const { address, vault } = state;
 
   const connect = async () => {
-    try {
-      const address = await VulticonnectWalletService.connectToVultiConnect();
+    const address = await VulticonnectWalletService.connect();
 
-      await signMessage(address);
-    } catch (error) {
-      if (error instanceof Error) {
-        console.error("Failed to connect wallet:", error.message, error);
-        publish("onToast", {
-          message: "Wallet connection failed!",
-          type: "error",
-        });
-      }
-    }
+    if (address) await signMessage(address);
   };
 
-  const disconnect = () => {
-    if (vault) {
-      deleteToken(vault.publicKeyEcdsa);
-      deleteCurrentVaultId();
-    }
+  const checkConnection = async () => {
+    const address = await VulticonnectWalletService.getAccount();
 
-    setState(initialState);
+    if (address) await signMessage(address);
+  };
+
+  const disconnect = async () => {
+    try {
+      await VulticonnectWalletService.disconnect();
+
+      if (vault) {
+        deleteToken(vault.publicKeyEcdsa);
+        deleteCurrentVaultId();
+      }
+
+      setState(initialState);
+    } catch {}
   };
 
   const handleChangeWallet = useCallback(
@@ -160,6 +160,8 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   // Listen for wallet changes from extension
   useEffect(() => {
     window.vultisig?.ethereum?.on?.("accountsChanged", handleChangeWallet);
+
+    setTimeout(() => checkConnection(), 100);
 
     return () => {
       window.vultisig?.ethereum?.off?.("accountsChanged", handleChangeWallet);

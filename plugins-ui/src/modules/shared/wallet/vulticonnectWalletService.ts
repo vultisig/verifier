@@ -14,7 +14,7 @@ class Exception extends Error {
 }
 
 const VulticonnectWalletService = {
-  isExtensionAvailable: async () => {
+  isAvailable: async () => {
     if (!window.vultisig) {
       publish("onToast", {
         message:
@@ -27,8 +27,8 @@ const VulticonnectWalletService = {
 
     return;
   },
-  connectToVultiConnect: async () => {
-    await VulticonnectWalletService.isExtensionAvailable();
+  connect: async () => {
+    await VulticonnectWalletService.isAvailable();
 
     try {
       const [account]: string[] = await window.vultisig.ethereum.request({
@@ -37,53 +37,55 @@ const VulticonnectWalletService = {
 
       return account;
     } catch (error) {
+      console.error(
+        `Failed to connect - ${error instanceof Error ? error.message : String(error)}`
+      );
+
+      publish("onToast", {
+        message: "Failed to connect!",
+        type: "error",
+      });
+
+      return undefined;
+    }
+  },
+  disconnect: async () => {
+    await VulticonnectWalletService.isAvailable();
+
+    try {
+      await window.vultisig.ethereum.request({
+        method: "wallet_revokePermissions",
+      });
+    } catch (error) {
       const { code, message } = error as Exception;
       console.error(`Connection failed - Code: ${code}, Message: ${message}`);
       throw error;
     }
   },
-  getConnectedEthAccounts: async () => {
-    await VulticonnectWalletService.isExtensionAvailable();
+  getAccount: async () => {
+    await VulticonnectWalletService.isAvailable();
 
     try {
-      const accounts = await window.vultisig.ethereum.request({
+      const [account]: string[] = await window.vultisig.ethereum.request({
         method: "eth_accounts",
       });
 
-      return accounts;
+      return account;
     } catch (error) {
-      const { code, message } = error as Exception;
       console.error(
-        `Failed to get accounts - Code: ${code}, Message: ${message}`
+        `Failed to get account - ${error instanceof Error ? error.message : String(error)}`
       );
-      throw error;
-    }
-  },
-  signCustomMessage: async (hexMessage: string, walletAddress: string) => {
-    await VulticonnectWalletService.isExtensionAvailable();
 
-    console.log("hexMessage", hexMessage);
-    console.log("walletAddress", walletAddress);
-
-    try {
-      const signature = await window.vultisig.ethereum.request({
-        method: "personal_sign",
-        params: [hexMessage, walletAddress],
+      publish("onToast", {
+        message: "Failed to get account!",
+        type: "error",
       });
 
-      console.log("signature", signature);
-
-      if (signature && signature.error) {
-        throw signature.error;
-      }
-      return signature;
-    } catch (error) {
-      console.error("Failed to sign the message", error);
-      throw new Error("Failed to sign the message");
+      return undefined;
     }
   },
   getVault: async () => {
-    await VulticonnectWalletService.isExtensionAvailable();
+    await VulticonnectWalletService.isAvailable();
 
     try {
       const vault = await window.vultisig.getVault();
@@ -116,8 +118,31 @@ const VulticonnectWalletService = {
       );
     }
   },
+  signCustomMessage: async (hexMessage: string, walletAddress: string) => {
+    await VulticonnectWalletService.isAvailable();
+
+    console.log("hexMessage", hexMessage);
+    console.log("walletAddress", walletAddress);
+
+    try {
+      const signature = await window.vultisig.ethereum.request({
+        method: "personal_sign",
+        params: [hexMessage, walletAddress],
+      });
+
+      console.log("signature", signature);
+
+      if (signature && signature.error) {
+        throw signature.error;
+      }
+      return signature;
+    } catch (error) {
+      console.error("Failed to sign the message", error);
+      throw new Error("Failed to sign the message");
+    }
+  },
   startReshareSession: async (pluginId: any) => {
-    await VulticonnectWalletService.isExtensionAvailable();
+    await VulticonnectWalletService.isAvailable();
 
     try {
       const response = await window.vultisig.plugin.request({

@@ -5,27 +5,34 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	itypes "github.com/vultisig/verifier/internal/types"
-	"github.com/vultisig/verifier/types"
-
-	"github.com/vultisig/verifier/internal/service"
-
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/vultisig/verifier/internal/service"
+	"github.com/vultisig/verifier/internal/storage"
+	itypes "github.com/vultisig/verifier/internal/types"
+	"github.com/vultisig/verifier/types"
 )
 
 const testPublicKey = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 
 var testLogger = logrus.New()
 
+var _ storage.DatabaseStorage = (*MockDatabaseStorage)(nil)
+
 // MockDatabaseStorage is a mock implementation of storage.DatabaseStorage
 type MockDatabaseStorage struct {
 	mock.Mock
+}
+
+func (m *MockDatabaseStorage) DeleteAllPolicies(ctx context.Context, dbTx pgx.Tx, pluginID types.PluginID, publicKey string) error {
+	args := m.Called(ctx, dbTx, pluginID, publicKey)
+	return args.Error(0)
 }
 
 func (m *MockDatabaseStorage) Pool() *pgxpool.Pool {

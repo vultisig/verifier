@@ -34,7 +34,6 @@ import (
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/internal/tasks"
-	"github.com/vultisig/verifier/internal/types"
 	vv "github.com/vultisig/verifier/internal/vultisig_validator"
 	tv "github.com/vultisig/verifier/types"
 	"github.com/vultisig/verifier/vault"
@@ -136,17 +135,18 @@ func (s *Server) StartServer() error {
 	tokenGroup.GET("", s.GetActiveTokens)
 
 	// Protected vault endpoints
-	vaultGroup := e.Group("/vault")
-	// Reshare vault endpoint , we only allow the vault owner to reshare the vault
+	vaultGroup := e.Group("/vault", s.VaultAuthMiddleware)
+	// Reshare vault endpoint, only user who already log in can request resharing
 	vaultGroup.POST("/reshare", s.ReshareVault)
-	vaultGroup.GET("/get/:pluginId/:publicKeyECDSA", s.GetVault, s.VaultAuthMiddleware)     // Get Vault Data
-	vaultGroup.GET("/exist/:pluginId/:publicKeyECDSA", s.ExistVault, s.VaultAuthMiddleware) // Check if Vault exists
+	vaultGroup.GET("/get/:pluginId/:publicKeyECDSA", s.GetVault)     // Get Vault Data
+	vaultGroup.GET("/exist/:pluginId/:publicKeyECDSA", s.ExistVault) // Check if Vault exists
 
 	// Sign endpoint, plugin should authenticate themselves using the API Key issued by the Verifier
 	vaultGroup.POST("/sign", s.SignPluginMessages, s.PluginAuthMiddleware)               // Sign messages
 	vaultGroup.GET("/sign/response/:taskId", s.GetKeysignResult, s.PluginAuthMiddleware) // Get keysign result
 
 	pluginGroup := e.Group("/plugin", s.VaultAuthMiddleware)
+	pluginGroup.DELETE("/:pluginId", s.DeletePlugin) // Delete plugin
 	pluginGroup.POST("/policy", s.CreatePluginPolicy)
 	pluginGroup.PUT("/policy", s.UpdatePluginPolicyById)
 	pluginGroup.GET("/policies", s.GetAllPluginPolicies)
@@ -154,7 +154,7 @@ func (s *Server) StartServer() error {
 	pluginGroup.DELETE("/policy/:policyId", s.DeletePluginPolicyById)
 	pluginGroup.GET("/policies/:policyId/history", s.GetPluginPolicyTransactionHistory)
 
-	//fee group. These should only be accessible by the plugin server
+	// fee group. These should only be accessible by the plugin server
 	feeGroup := e.Group("/fees")
 	feeGroup.GET("/policy/:policyId", s.GetPluginPolicyFees, s.FeeAuthMiddleware)
 	feeGroup.GET("/plugin/:pluginId", s.GetPluginFees, s.FeeAuthMiddleware)
@@ -182,10 +182,6 @@ func (s *Server) StartServer() error {
 
 	pricingsGroup := e.Group("/pricing")
 	pricingsGroup.GET("/:pricingId", s.GetPricing)
-
-	syncGroup := e.Group("/sync", s.userAuthMiddleware)
-	syncGroup.POST("/transaction", s.CreateTransaction)
-	syncGroup.PUT("/transaction", s.UpdateTransaction)
 
 	return e.Start(fmt.Sprintf(":%d", s.cfg.Server.Port))
 }
@@ -283,7 +279,6 @@ func (s *Server) notifyPluginServerReshare(ctx context.Context, req tv.ReshareRe
 	// Look up plugin server endpoint
 	plugin, err := s.db.FindPluginById(ctx, nil, tv.PluginID(req.PluginID))
 	if err != nil {
-		s.logger.Errorf("notifyPluginServerReshare: Failed to find plugin %s: %v", req.PluginID, err)
 		return fmt.Errorf("failed to find plugin: %w", err)
 	}
 
@@ -291,13 +286,11 @@ func (s *Server) notifyPluginServerReshare(ctx context.Context, req tv.ReshareRe
 	pluginURL := fmt.Sprintf("%s/vault/reshare", plugin.ServerEndpoint)
 	payload, err := json.Marshal(req)
 	if err != nil {
-		s.logger.Errorf("notifyPluginServerReshare: Failed to marshal request: %v", err)
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", pluginURL, bytes.NewBuffer(payload))
 	if err != nil {
-		s.logger.Errorf("notifyPluginServerReshare: Failed to create request: %v", err)
 		return fmt.Errorf("failed to create HTTP request: %w", err)
 	}
 
@@ -306,10 +299,13 @@ func (s *Server) notifyPluginServerReshare(ctx context.Context, req tv.ReshareRe
 
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		s.logger.Errorf("notifyPluginServerReshare: Request failed: %v", err)
 		return fmt.Errorf("failed to call plugin server: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			s.logger.Errorf("notifyPluginServerReshare: Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
@@ -396,52 +392,6 @@ func (s *Server) ExistVault(c echo.Context) error {
 	exist, err := s.vaultStorage.Exist(filePathName)
 	if err != nil || !exist {
 		return c.NoContent(http.StatusBadRequest)
-	}
-	return c.NoContent(http.StatusOK)
-}
-
-// TODO: Make those handlers require jwt auth
-func (s *Server) CreateTransaction(c echo.Context) error {
-	var reqTx types.TransactionHistory
-	if err := c.Bind(&reqTx); err != nil {
-		return c.NoContent(http.StatusBadRequest)
-	}
-
-	existingTx, _ := s.db.GetTransactionByHash(c.Request().Context(), reqTx.TxHash)
-	if existingTx != nil {
-		if existingTx.Status != types.StatusSigningFailed &&
-			existingTx.Status != types.StatusRejected {
-			return c.NoContent(http.StatusConflict)
-		}
-
-		if err := s.db.UpdateTransactionStatus(c.Request().Context(), existingTx.ID, types.StatusPending, reqTx.Metadata); err != nil {
-			s.logger.Errorf("fail to update transaction status: %v", err)
-			return c.NoContent(http.StatusInternalServerError)
-		}
-		return c.NoContent(http.StatusOK)
-	}
-
-	if _, err := s.db.CreateTransactionHistory(c.Request().Context(), reqTx); err != nil {
-		s.logger.Errorf("fail to create transaction, err: %v", err)
-		return c.NoContent(http.StatusInternalServerError)
-	}
-	return c.NoContent(http.StatusOK)
-}
-
-func (s *Server) UpdateTransaction(c echo.Context) error {
-	var reqTx types.TransactionHistory
-	if err := c.Bind(&reqTx); err != nil {
-		return c.NoContent(http.StatusBadRequest)
-	}
-
-	existingTx, _ := s.db.GetTransactionByHash(c.Request().Context(), reqTx.TxHash)
-	if existingTx == nil {
-		return c.NoContent(http.StatusNotFound)
-	}
-
-	if err := s.db.UpdateTransactionStatus(c.Request().Context(), existingTx.ID, reqTx.Status, reqTx.Metadata); err != nil {
-		s.logger.Errorf("fail to update transaction status, err: %v", err)
-		return c.NoContent(http.StatusInternalServerError)
 	}
 	return c.NoContent(http.StatusOK)
 }
@@ -662,4 +612,68 @@ func (s *Server) GetActiveTokens(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, tokens)
+}
+
+// notifyPluginServerDeletePlugin user would like to delete a plugin, we need to notify the plugin server
+func (s *Server) notifyPluginServerDeletePlugin(ctx context.Context, id tv.PluginID, publicKeyEcdsa string) error {
+	// Look up plugin server endpoint
+	plugin, err := s.db.FindPluginById(ctx, nil, id)
+	if err != nil {
+		return fmt.Errorf("failed to find plugin: %w", err)
+	}
+
+	// Prepare and send request to plugin server
+	pluginURL := fmt.Sprintf("%s/%s/%s", strings.TrimRight(plugin.ServerEndpoint, "/"), id, publicKeyEcdsa)
+	httpReq, err := http.NewRequestWithContext(ctx, "DELETE", pluginURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("failed to call plugin server: %w", err)
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			s.logger.WithError(closeErr).Errorln("Failed to close response body")
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		s.logger.Errorf("notifyPluginServerDeletePlugin: Plugin server error (status %d): %s", resp.StatusCode, string(body))
+		return fmt.Errorf("plugin server returned status %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+// DeletePlugin deletes a plugin and its associated policies and vault
+func (s *Server) DeletePlugin(c echo.Context) error {
+	pluginID := c.Param("pluginId")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, "Plugin ID is required", ""))
+	}
+	// Get public key from context (set by VaultAuthMiddleware)
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "Failed to get vault public key", ""))
+	}
+	if err := s.notifyPluginServerDeletePlugin(c.Request().Context(), tv.PluginID(pluginID), publicKey); err != nil {
+		s.logger.WithError(err).Errorf("Failed to notify plugin server for deletion of plugin %s", pluginID)
+		return c.JSON(http.StatusServiceUnavailable, NewErrorResponse(http.StatusServiceUnavailable, "Plugin server is currently unavailable", ""))
+	}
+	// remove plugin policies
+	if err := s.policyService.DeleteAllPolicies(c.Request().Context(), tv.PluginID(pluginID), publicKey); err != nil {
+		s.logger.Errorf("Failed to delete plugin policies: %v", err)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "Failed to delete plugin policies", err.Error()))
+	}
+	fileName := common.GetVaultBackupFilename(publicKey, pluginID)
+	// delete the vault
+	if err := s.vaultStorage.DeleteFile(fileName); err != nil {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "Failed to delete vault share", err.Error()))
+	}
+	return c.NoContent(http.StatusOK)
 }

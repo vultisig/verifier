@@ -5,7 +5,7 @@ type Tokens = Record<string, string>;
 
 const initialTokens: Tokens = {};
 
-export const storageKey = "tokens";
+const storageKey = "tokens";
 
 const selectTokens = () => {
   return getState(storageKey, initialTokens);

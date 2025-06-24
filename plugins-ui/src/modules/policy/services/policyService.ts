@@ -51,7 +51,9 @@ const PolicyService = {
   ) => {
     try {
       const endpoint = `${serverEndpoint}/plugin/policy/${id}`;
-      return await remove(endpoint, { signature: signature });
+      return await remove(endpoint, {
+        data: { signature: signature },
+      });
     } catch (error) {
       console.error("Error deleting policy:", error);
       throw error;

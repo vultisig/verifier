@@ -1,10 +1,4 @@
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import VulticonnectWalletService from "./vulticonnectWalletService";
 import { ethers } from "ethers";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
@@ -52,7 +46,7 @@ interface WalletProviderProps {
 export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   const initialState: InitialState = {};
   const [state, setState] = useState(initialState);
-  const { address, vault } = state;
+  const { vault } = state;
 
   const connect = async () => {
     const address = await VulticonnectWalletService.connect();
@@ -71,7 +65,14 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       await VulticonnectWalletService.disconnect();
 
       if (vault) {
+        const currentToken = selectToken(vault.publicKeyEcdsa);
+        try {
+          await MarketplaceService.deleteAuthToken(currentToken);
+        } catch (err) {
+          console.error("Failed to delete auth Token:", err);
+        }
         deleteToken(vault.publicKeyEcdsa);
+
         deleteCurrentVaultId();
       }
 
@@ -79,16 +80,13 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     } catch {}
   };
 
-  const handleChangeWallet = useCallback(
-    async ([address]: string[]) => {
-      if (!address) {
-        disconnect();
-      } else if (address !== state.address) {
-        await signMessage(address);
-      }
-    },
-    [address]
-  );
+  const handleChangeWallet = async ([address]: string[]) => {
+    if (!address) {
+      disconnect();
+    } else if (address !== state.address) {
+      await signMessage(address);
+    }
+  };
 
   const signMessage = async (address: string) => {
     try {

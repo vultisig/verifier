@@ -1,4 +1,9 @@
-import { get, post } from "@/modules/core/services/httpService";
+import {
+  get,
+  JwtPayload,
+  post,
+  remove,
+} from "@/modules/core/services/httpService";
 import { Category } from "../models/category";
 import {
   CreateReview,
@@ -12,6 +17,7 @@ import {
   TransactionHistory,
 } from "@/modules/policy/models/policy";
 import { getCurrentVaultId } from "@/storage/currentVaultId";
+import { jwtDecode } from "jwt-decode";
 
 const getMarketplaceUrl = () => import.meta.env.VITE_MARKETPLACE_URL;
 
@@ -128,6 +134,18 @@ const MarketplaceService = {
       return response.token;
     } catch (error) {
       console.error("Failed to get auth token", error);
+      throw error;
+    }
+  },
+
+  deleteAuthToken: async (token: string) => {
+    try {
+      const decoded = jwtDecode<JwtPayload>(token);
+      const endpoint = `${getMarketplaceUrl()}/auth/tokens/${decoded.token_id}`;
+      const response = await remove(endpoint);
+      return response;
+    } catch (error) {
+      console.error("Failed to remove auth token", error);
       throw error;
     }
   },

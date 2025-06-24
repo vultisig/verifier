@@ -2,8 +2,9 @@ import axios, { AxiosRequestConfig } from "axios";
 import { deleteToken, selectToken, updateToken } from "../../../storage/token";
 import { jwtDecode } from "jwt-decode";
 import { getCurrentVaultId } from "@/storage/currentVaultId";
+import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 
-type JwtPayload = {
+export type JwtPayload = {
   exp: number;
   iat: number;
   public_key: string;
@@ -60,6 +61,12 @@ api.interceptors.request.use(
       const remainingLifetime = decoded.exp - now;
 
       if (totalLifetime <= 0 || remainingLifetime <= 0) {
+        const currentToken = selectToken(publicKey);
+        try {
+          await MarketplaceService.deleteAuthToken(currentToken);
+        } catch (err) {
+          console.error("Failed to delete auth Token:", err);
+        }
         deleteToken(publicKey!);
         return config;
       }
@@ -91,6 +98,12 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       const publicKey = getCurrentVaultId();
       if (publicKey) {
+        const currentToken = selectToken(publicKey);
+        try {
+          MarketplaceService.deleteAuthToken(currentToken);
+        } catch (err) {
+          console.error("Failed to delete auth Token:", err);
+        }
         deleteToken(publicKey);
       }
     }

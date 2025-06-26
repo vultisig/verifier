@@ -3,10 +3,13 @@ import MarketplaceService from "@/modules/marketplace/services/marketplaceServic
 import Button from "@/modules/core/components/ui/button/Button";
 import "./recipe_Schema.styles.css";
 import { SchemaProps } from "@/utils/interfaces";
-import { Policy } from "@/gen/policy_pb";
+import { PolicySchema, ScheduleSchema } from "@/gen/policy_pb";
 import { ScheduleFrequency } from "@/gen/scheduling_pb";
-import { ConstraintType } from "@/gen/constraint_pb";
-import { Effect } from "@/gen/rule_pb";
+import { ConstraintSchema, ConstraintType } from "@/gen/constraint_pb";
+import { Effect, RuleSchema } from "@/gen/rule_pb";
+import { create, toBinary } from "@bufbuild/protobuf";
+import { constraintTypeName, frequencyName } from "@/utils/constants";
+import { ParameterConstraintSchema } from "@/gen/parameter_constraint_pb";
 
 interface InitialState {
   error?: string;
@@ -93,7 +96,7 @@ const RecipeSchema: React.FC<RecipeSchemaProps> = ({ pluginId, onClose }) => {
       }
     });
 
-    if (schedulingEnabled && !frequency) {
+    if (schedulingEnabled && frequency === undefined) {
       validationErrors.frequency =
         "Please select a frequency for scheduled execution";
     }
@@ -101,31 +104,6 @@ const RecipeSchema: React.FC<RecipeSchemaProps> = ({ pluginId, onClose }) => {
     setState((prevState) => ({ ...prevState, validationErrors }));
 
     return Object.keys(validationErrors).length === 0;
-  };
-
-  const getParameterTypeLabel = (types: number[]) => {
-    const typeMap: Record<number, string> = {
-      0: "unspecified",
-      1: "fixed",
-      2: "max",
-      3: "min",
-      4: "range",
-      5: "whitelist",
-      6: "max_per_period",
-    };
-    return types.map((t) => typeMap[t] || `Type ${t}`).join(", ");
-  };
-
-  const getFrequencyLabel = (frequency: number) => {
-    const frequencyMap: Record<number, string> = {
-      0: "Unspecified",
-      1: "Hourly",
-      2: "Daily",
-      3: "Weekly",
-      4: "Biweekly",
-      5: "Monthly",
-    };
-    return frequencyMap[frequency] || `Frequency ${frequency}`;
   };
 
   const handleInputChange = (paramName: string, value: string) => {
@@ -145,54 +123,67 @@ const RecipeSchema: React.FC<RecipeSchemaProps> = ({ pluginId, onClose }) => {
 
   const handleSubmit = () => {
     if (currentResource && schema && formValidation()) {
-      const policyData: Policy = {
-        $typeName: "types.Policy",
+      const parameterConstraints = currentResource.parameterCapabilities.map(
+        ({ parameterName, required }) => {
+          const constraint = create(ConstraintSchema, {
+            denominatedIn: "",
+            period: "",
+            required,
+            type: ConstraintType.FIXED,
+            value: { case: "fixedValue", value: formData[parameterName] },
+          });
+
+          const parameterConstraint = create(ParameterConstraintSchema, {
+            constraint: constraint,
+            parameterName,
+          });
+
+          return parameterConstraint;
+        }
+      );
+
+      const rule = create(RuleSchema, {
+        constraints: {},
+        description: "",
+        effect: Effect.ALLOW,
+        id: "",
+        parameterConstraints,
+        resource: currentResource.resourcePath.full,
+      });
+
+      const schedule = () => {
+        if (schedulingEnabled && frequency !== undefined) {
+          const schedule = create(ScheduleSchema, {
+            frequency,
+            interval: 0,
+            maxExecutions: 0,
+          });
+
+          return { schedule };
+        } else {
+          return {};
+        }
+      };
+
+      const jsonData = create(PolicySchema, {
         author: "",
         description: "",
         feePolicies: [],
         id: schema.pluginId,
         name: schema.pluginName,
-        rules: [
-          {
-            $typeName: "types.Rule",
-            constraints: {},
-            description: "",
-            effect: Effect.ALLOW,
-            id: "",
-            parameterConstraints: currentResource.parameterCapabilities.map(
-              ({ parameterName, required }) => ({
-                $typeName: "types.ParameterConstraint",
-                constraint: {
-                  $typeName: "types.Constraint",
-                  denominatedIn: "",
-                  period: "",
-                  required,
-                  type: ConstraintType.FIXED,
-                  value: {
-                    case: "fixedValue",
-                    value: formData[parameterName],
-                  },
-                },
-                parameterName,
-              })
-            ),
-            resource: currentResource.resourcePath.full,
-          },
-        ],
+        rules: [rule],
         scheduleVersion: schema.scheduleVersion,
-        ...(schedulingEnabled &&
-          frequency && {
-            schedule: {
-              $typeName: "types.Schedule",
-              frequency,
-              interval: 0,
-              maxExecutions: 0,
-            },
-          }),
+        ...schedule(),
         version: schema.pluginVersion,
-      };
+      });
 
-      console.log("Exported data:", policyData);
+      const binaryData = toBinary(PolicySchema, jsonData);
+
+      const base64Data = Buffer.from(binaryData).toString("base64");
+
+      console.log("jsonData:", jsonData);
+      console.log("binaryData:", binaryData);
+      console.log("base64Data:", base64Data);
       // TODO: Submit to backend or pass to parent
       //onClose();
     }
@@ -305,8 +296,7 @@ const RecipeSchema: React.FC<RecipeSchemaProps> = ({ pluginId, onClose }) => {
                       placeholder={`Enter ${param.parameterName}...`}
                     />
                     <div className="input-help">
-                      Supported types:{" "}
-                      {getParameterTypeLabel(param.supportedTypes)}
+                      {`Supported types: ${param.supportedTypes.map((t) => constraintTypeName[t]).join(", ")}`}
                     </div>
                     {validationErrors[param.parameterName] && (
                       <div className="error-message">
@@ -354,7 +344,7 @@ const RecipeSchema: React.FC<RecipeSchemaProps> = ({ pluginId, onClose }) => {
                         <option value="">Select frequency...</option>
                         {schema.scheduling.supportedFrequencies.map((freq) => (
                           <option key={freq} value={freq}>
-                            {getFrequencyLabel(freq)}
+                            {frequencyName[freq]}
                           </option>
                         ))}
                       </select>

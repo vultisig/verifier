@@ -1,3 +1,6 @@
+import { ConstraintType } from "@/gen/constraint_pb";
+import { ScheduleFrequency } from "@/gen/scheduling_pb";
+
 export interface SchemaProps {
   pluginId: string;
   pluginName: string;
@@ -9,7 +12,7 @@ export interface SchemaProps {
   scheduleVersion: number;
   scheduling: {
     supportsScheduling: boolean;
-    supportedFrequencies: number[];
+    supportedFrequencies: ScheduleFrequency[];
     maxScheduledExecutions: number;
   };
   supportedResources: {
@@ -23,8 +26,20 @@ export interface SchemaProps {
     parameterCapabilities: {
       parameterName: string;
       required: boolean;
-      supportedTypes: number[];
+      supportedTypes: ConstraintType[];
     }[];
   }[];
   version: number;
+}
+
+export interface PolicyFormProps {
+  id: string;
+  publicKey: string;
+  pluginId: string;
+  pluginVersion: string;
+  policyVersion: number;
+  signature: string;
+  recipe: string;
+  billing: string[];
+  active: boolean;
 }

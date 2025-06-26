@@ -33,13 +33,13 @@ export interface SchemaProps {
 }
 
 export interface PolicyFormProps {
-  id: string;
-  publicKey: string;
-  pluginId: string;
-  pluginVersion: string;
-  policyVersion: number;
-  signature: string;
-  recipe: string;
-  billing: string[];
   active: boolean;
+  billing: string[];
+  id: string;
+  pluginId: string;
+  pluginVersion: number;
+  policyVersion: number;
+  publicKey: string;
+  recipe: string;
+  signature: string;
 }

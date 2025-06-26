@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 import Button from "@/modules/core/components/ui/button/Button";
 import "./recipe_Schema.styles.css";
-import { SchemaProps } from "@/utils/interfaces";
+import { PolicyFormProps, SchemaProps } from "@/utils/interfaces";
 import { PolicySchema, ScheduleSchema } from "@/gen/policy_pb";
 import { ScheduleFrequency } from "@/gen/scheduling_pb";
 import { ConstraintSchema, ConstraintType } from "@/gen/constraint_pb";
@@ -10,6 +10,8 @@ import { Effect, RuleSchema } from "@/gen/rule_pb";
 import { create, toBinary } from "@bufbuild/protobuf";
 import { constraintTypeName, frequencyName } from "@/utils/constants";
 import { ParameterConstraintSchema } from "@/gen/parameter_constraint_pb";
+import { v4 as uuidv4 } from "uuid";
+import { getCurrentVaultId } from "@/storage/currentVaultId";
 
 interface InitialState {
   error?: string;
@@ -165,7 +167,7 @@ const RecipeSchema: React.FC<RecipeSchemaProps> = ({ pluginId, onClose }) => {
         }
       };
 
-      const jsonData = create(PolicySchema, {
+      const data = create(PolicySchema, {
         author: "",
         description: "",
         feePolicies: [],
@@ -177,13 +179,23 @@ const RecipeSchema: React.FC<RecipeSchemaProps> = ({ pluginId, onClose }) => {
         version: schema.pluginVersion,
       });
 
-      const binaryData = toBinary(PolicySchema, jsonData);
+      const recipe = Buffer.from(toBinary(PolicySchema, data)).toString(
+        "base64"
+      );
 
-      const base64Data = Buffer.from(binaryData).toString("base64");
+      const finalData: PolicyFormProps = {
+        active: true,
+        billing: [],
+        id: uuidv4(),
+        pluginId: schema.pluginId,
+        pluginVersion: schema.pluginVersion,
+        policyVersion: 0,
+        publicKey: getCurrentVaultId(),
+        recipe,
+        signature: "",
+      };
 
-      console.log("jsonData:", jsonData);
-      console.log("binaryData:", binaryData);
-      console.log("base64Data:", base64Data);
+      console.log("finalData:", finalData);
       // TODO: Submit to backend or pass to parent
       //onClose();
     }

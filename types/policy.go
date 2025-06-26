@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	rtypes "github.com/vultisig/recipes/types"
-	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 type BILLING_TYPE string
@@ -62,7 +62,7 @@ func (p *PluginPolicy) GetRecipe() (*rtypes.Policy, error) {
 		return nil, fmt.Errorf("failed to decode policy recipe: %w", err)
 	}
 
-	if err := protojson.Unmarshal(policyBytes, &recipe); err != nil {
+	if err := proto.Unmarshal(policyBytes, &recipe); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal recipe: %w", err)
 	}
 

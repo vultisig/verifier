@@ -64,22 +64,10 @@ const PolicyService = {
    * Get PolicySchema
    * @returns {Promise<Object>} A promise that resolves to the fetched schema.
    */
-  getPolicySchema: async (
-    serverEndpoint: string,
-    pluginType: string
-  ): Promise<any> => {
-    try {
-      const endpoint = `${serverEndpoint}/plugin/policy/schema`;
-      const newPolicy = await get(endpoint, {
-        headers: {
-          plugin_type: pluginType,
-        },
-      });
-      return newPolicy;
-    } catch (error) {
-      console.error("Error getting policy schema:", error);
-      throw error;
-    }
+  getPolicySchema: (pluginId: string, serverEndpoint: string): Promise<any> => {
+    return get(`${serverEndpoint}/plugin/policy/schema`, {
+      headers: { plugin_id: pluginId },
+    });
   },
 };
 

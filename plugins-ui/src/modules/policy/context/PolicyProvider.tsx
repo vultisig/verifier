@@ -64,9 +64,9 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const fetchPolicies = useCallback(async (): Promise<void> => {
-    if (pluginType) {
+    if (pluginId) {
       const fetchedPolicies = await MarketplaceService.getPolicies(
-        pluginType,
+        pluginId,
         currentPage > 1 ? (currentPage - 1) * POLICY_ITEMS_PER_PAGE : 0,
         POLICY_ITEMS_PER_PAGE
       );
@@ -78,7 +78,7 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
       setPoliciesTotalCount(fetchedPolicies.total_count);
       setPolicyMap(constructPolicyMap);
     }
-  }, [pluginType, currentPage]);
+  }, [pluginId, currentPage]);
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -107,8 +107,8 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
 
             try {
               const fetchedSchemas = await PolicyService.getPolicySchema(
-                fetchedPlugin.server_endpoint,
-                fetchedPlugin.type
+                fetchedPlugin.id,
+                fetchedPlugin.server_endpoint
               );
 
               setPolicySchemaMap((prev) =>

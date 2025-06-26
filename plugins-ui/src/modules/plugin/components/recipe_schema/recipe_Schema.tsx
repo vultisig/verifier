@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 import Button from "@/modules/core/components/ui/button/Button";
 import "./recipe_Schema.styles.css";
-import { PolicyFormProps, SchemaProps } from "@/utils/interfaces";
+import { PluginPolicy, RecipeSchema } from "@/utils/interfaces";
 import { PolicySchema, ScheduleSchema } from "@/gen/policy_pb";
 import { ScheduleFrequency } from "@/gen/scheduling_pb";
 import { ConstraintSchema, ConstraintType } from "@/gen/constraint_pb";
@@ -20,7 +20,7 @@ interface InitialState {
   loading: boolean;
   selectedResource: number;
   schedulingEnabled: boolean;
-  schema?: SchemaProps;
+  schema?: RecipeSchema;
   submitting?: boolean;
   validationErrors: Record<string, string>;
 }
@@ -30,7 +30,10 @@ interface RecipeSchemaProps {
   pluginId: string;
 }
 
-const RecipeSchema: React.FC<RecipeSchemaProps> = ({ pluginId, onClose }) => {
+const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({
+  pluginId,
+  onClose,
+}) => {
   const initialState: InitialState = {
     formData: {},
     loading: true,
@@ -183,7 +186,7 @@ const RecipeSchema: React.FC<RecipeSchemaProps> = ({ pluginId, onClose }) => {
         "base64"
       );
 
-      const finalData: PolicyFormProps = {
+      const finalData: PluginPolicy = {
         active: true,
         billing: [],
         id: uuidv4(),
@@ -418,4 +421,4 @@ const RecipeSchema: React.FC<RecipeSchemaProps> = ({ pluginId, onClose }) => {
   );
 };
 
-export default RecipeSchema;
+export default RecipeSchemaForm;

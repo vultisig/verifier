@@ -2,15 +2,15 @@ import PolicyForm from "../policy-form/PolicyForm";
 import { PolicyProvider } from "../../context/PolicyProvider";
 import PolicyTable from "../policy-table/PolicyTable";
 import { useEffect, useState } from "react";
+import { getCurrentVaultId } from "@/storage/currentVaultId";
+import { selectToken } from "@/storage/token";
 
 const Policy = () => {
-  const [authToken, setAuthToken] = useState(
-    localStorage.getItem("authToken") || ""
-  );
+  const [authToken, setAuthToken] = useState(selectToken(getCurrentVaultId()));
 
   useEffect(() => {
     const handleStorageChange = () => {
-      setAuthToken(localStorage.getItem("authToken") as string);
+      setAuthToken(selectToken(getCurrentVaultId()));
     };
 
     // Listen for storage changes

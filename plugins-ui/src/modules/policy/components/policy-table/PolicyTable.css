@@ -14,26 +14,21 @@
   }
 
   th {
-    text-align: left;
-    padding: 12px 16px;
     color: var(--text-light-color);
+    padding: 12px;
+    text-align: center;
 
-    &:last-child {
-      text-align: right;
+    &:first-child {
+      text-align: left;
     }
   }
 
   td {
-    padding: 12px 16px;
+    padding: 8px 12px;
+    text-align: center;
 
-    &:last-child {
-      &.empty-message-row {
-        text-align: center;
-      }
-    }
-    .expandable-row-key {
-      text-transform: capitalize;
-      font-weight: 700;
+    &:first-child {
+      text-align: left;
     }
   }
 }

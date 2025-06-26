@@ -8,7 +8,7 @@
     "host": "localhost",
     "port": "6379"
   },
-  "block_storage_config": {
+  "block_storage": {
     "host": "http://localhost:9000",
     "region": "us-east-1",
     "access_key": "minioadmin",

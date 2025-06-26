@@ -11,8 +11,8 @@ import (
 func TestConfig(t *testing.T) {
 	t.Skip("Skipping config test")
 	cfg := WorkerConfig{}
-	cfg.VaultServiceConfig.Relay.Server = "http://localhost:8080"
-	cfg.VaultServiceConfig.QueueEmailTask = false
+	cfg.VaultService.Relay.Server = "http://localhost:8080"
+	cfg.VaultService.QueueEmailTask = false
 	cfg.Datadog.Host = "localhost"
 	cfg.Datadog.Port = "8125"
 
@@ -21,11 +21,11 @@ func TestConfig(t *testing.T) {
 	cfg.Redis.DB = 0
 	cfg.Redis.Password = ""
 
-	cfg.BlockStorageConfig.Host = "http://localhost:9000"
-	cfg.BlockStorageConfig.AccessKey = "minioadmin"
-	cfg.BlockStorageConfig.SecretKey = "minioadmin"
-	cfg.BlockStorageConfig.Bucket = "vultisig-verifier"
-	cfg.BlockStorageConfig.Region = "us-east-1"
+	cfg.BlockStorage.Host = "http://localhost:9000"
+	cfg.BlockStorage.AccessKey = "minioadmin"
+	cfg.BlockStorage.SecretKey = "minioadmin"
+	cfg.BlockStorage.Bucket = "vultisig-verifier"
+	cfg.BlockStorage.Region = "us-east-1"
 
 	result, err := yaml.Marshal(&cfg)
 	assert.NoError(t, err)

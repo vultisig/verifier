@@ -26,7 +26,7 @@ const Policy = () => {
   return (
     <PolicyProvider>
       <div className="left-section">
-        <PolicyForm />
+        {/* <PolicyForm /> */}
       </div>
       <div className="right-section">
         <PolicyTable />

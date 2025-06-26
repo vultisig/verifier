@@ -275,13 +275,8 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
     const vault = await VulticonnectWalletService.getVault();
 
     // TODO: Only Ethereum currently supported
-    const chainId = policy.policy.chain_id as string;
 
-    policy.public_key_ecdsa = vault.publicKeyEcdsa;
-    policy.public_key_eddsa = vault.publicKeyEddsa;
-    policy.is_ecdsa = isEcdsaChain(chainId);
-    policy.chain_code_hex = vault.hexChainCode;
-    policy.derive_path = derivePathMap[chain];
+    policy.public_key = vault.publicKeyEcdsa;
 
     const excludedFromSignature = {
       signature: "",
@@ -300,10 +295,8 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
 
     policy.signature = signature;
 
-    console.log("Public key ecdsa: ", policy.public_key_ecdsa);
-    console.log("Public key eddsa: ", policy.public_key_eddsa);
-    console.log("Chain code hex: ", policy.chain_code_hex);
-    console.log("Derive path: ", policy.derive_path);
+    console.log("Public key ecdsa: ", policy.public_key);
+
     console.log("Hex message: ", hexMessage);
     console.log("Account: ", account);
     console.log("Signature: ", signature);

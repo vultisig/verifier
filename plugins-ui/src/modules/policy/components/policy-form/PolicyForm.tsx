@@ -20,7 +20,7 @@ type PolicyFormProps = {
 const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
   const policyId = data?.id || "";
 
-  const initialFormData = data ? data.policy : {}; // Define the initial form state
+  const initialFormData = data ? data.recipe : {}; // Define the initial form state
   const [formData, setFormData] = useState(initialFormData);
   const { addPolicy, updatePolicy, policySchemaMap, pluginType } =
     usePolicies();
@@ -161,35 +161,35 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
     });
   };
 
-  return (
-    <div className="policy-form">
-      {schema && (
-        <Form
-          key={formKey} // Forces full re-render on reset
-          idPrefix={pluginType}
-          schema={schema.form.schema}
-          uiSchema={schema.form.uiSchema}
-          validator={customValidator}
-          formData={formData}
-          onSubmit={onSubmit}
-          onChange={onChange}
-          showErrorList={false}
-          templates={{ TitleFieldTemplate }}
-          widgets={{ TokenSelector, WeiConverter, TokenSelectorArray }}
-          transformErrors={transformErrors}
-          liveValidate={!!policyId}
-          readonly={!!policyId}
-          formContext={{
-            editing: !!policyId,
-            sourceTokenId:
-              (formData.source_token_id as string) ||
-              (formData.token_id as string[])?.at(0), // sourceTokenId is needed in WeiConverter/TitleFieldTemplate and probably on most of the existing plugins to get the rigth decimal places based on token address
-            destinationTokenId: formData.destination_token_id as string, // destinationTokenId is needed in TitleFieldTemplate
-          }}
-        />
-      )}
-    </div>
-  );
+  // return (
+  //   <div className="policy-form">
+  //     {schema && (
+  //       <Form
+  //         key={formKey} // Forces full re-render on reset
+  //         idPrefix={pluginType}
+  //         schema={schema.form.schema}
+  //         uiSchema={schema.form.uiSchema}
+  //         validator={customValidator}
+  //         formData={formData}
+  //         onSubmit={onSubmit}
+  //         onChange={onChange}
+  //         showErrorList={false}
+  //         templates={{ TitleFieldTemplate }}
+  //         widgets={{ TokenSelector, WeiConverter, TokenSelectorArray }}
+  //         transformErrors={transformErrors}
+  //         liveValidate={!!policyId}
+  //         readonly={!!policyId}
+  //         formContext={{
+  //           editing: !!policyId,
+  //           sourceTokenId:
+  //             (formData.source_token_id as string) ||
+  //             (formData.token_id as string[])?.at(0), // sourceTokenId is needed in WeiConverter/TitleFieldTemplate and probably on most of the existing plugins to get the rigth decimal places based on token address
+  //           destinationTokenId: formData.destination_token_id as string, // destinationTokenId is needed in TitleFieldTemplate
+  //         }}
+  //       />
+  //     )}
+  //   </div>
+  // );
 };
 
 export default PolicyForm;

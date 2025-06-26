@@ -10,7 +10,11 @@ import { Effect, RuleSchema } from "@/gen/rule_pb";
 import { create, toBinary } from "@bufbuild/protobuf";
 import { constraintTypeName, frequencyName } from "@/utils/constants";
 import { ParameterConstraintSchema } from "@/gen/parameter_constraint_pb";
+import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
+import { getCurrentVaultId } from "@/storage/currentVaultId";
+import PolicyService from "@/modules/policy/services/policyService";
 
+import { v4 as uuidv4 } from "uuid";
 interface InitialState {
   error?: string;
   frequency?: ScheduleFrequency;
@@ -121,7 +125,7 @@ const RecipeSchema: React.FC<RecipeSchemaProps> = ({ pluginId, onClose }) => {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (currentResource && schema && formValidation()) {
       const parameterConstraints = currentResource.parameterCapabilities.map(
         ({ parameterName, required }) => {
@@ -184,8 +188,25 @@ const RecipeSchema: React.FC<RecipeSchemaProps> = ({ pluginId, onClose }) => {
       console.log("jsonData:", jsonData);
       console.log("binaryData:", binaryData);
       console.log("base64Data:", base64Data);
-      // TODO: Submit to backend or pass to parent
-      //onClose();
+      const currentVauldId = getCurrentVaultId();
+      const signature = await VulticonnectWalletService.signPolicy(
+        base64Data,
+        currentVauldId,
+        0,
+        String(schema.pluginVersion)
+      );
+
+      await PolicyService.createPolicy(import.meta.env.VITE_MARKETPLACE_URL, {
+        active: true,
+        billing: [{ amount: 1, type: "recurring", id: uuidv4() }],
+        id: uuidv4(),
+        plugin_id: schema.pluginId,
+        plugin_version: String(schema.pluginVersion),
+        policy_version: 0,
+        public_key: currentVauldId,
+        recipe: base64Data,
+        signature: signature,
+      });
     }
   };
 

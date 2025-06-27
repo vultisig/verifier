@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"math/big"
 )
 
 type Chain int
@@ -74,18 +75,6 @@ var chainToString = map[Chain]string{
 	Noble:        "Noble",
 	Tron:         "Tron",
 }
-var EVMChains = []Chain{
-	Ethereum,
-	Avalanche,
-	BscChain,
-	Base,
-	Arbitrum,
-	Optimism,
-	Polygon,
-	Blast,
-	CronosChain,
-	Zksync,
-}
 
 var chainDerivePath = map[Chain]string{
 	Bitcoin:      "m/84'/0'/0'/0/0",
@@ -118,6 +107,33 @@ var chainDerivePath = map[Chain]string{
 	Osmosis:      "m/44'/118'/0'/0/0",
 	Noble:        "m/44'/118'/0'/0/0",
 	Tron:         "m/44'/195'/0'/0/0",
+}
+
+func (c Chain) EvmID() (*big.Int, error) {
+	switch c {
+	case Ethereum:
+		return big.NewInt(1), nil
+	case Arbitrum:
+		return big.NewInt(42161), nil
+	case Avalanche:
+		return big.NewInt(43114), nil
+	case BscChain:
+		return big.NewInt(56), nil
+	case Base:
+		return big.NewInt(8453), nil
+	case Blast:
+		return big.NewInt(81457), nil
+	case CronosChain:
+		return big.NewInt(25), nil
+	case Optimism:
+		return big.NewInt(10), nil
+	case Polygon:
+		return big.NewInt(137), nil
+	case Zksync:
+		return big.NewInt(324), nil
+	default:
+		return nil, fmt.Errorf("no EVM ID for this chain: %d", c)
+	}
 }
 
 func (c Chain) String() string {

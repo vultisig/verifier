@@ -1,7 +1,7 @@
 import { ConstraintType } from "@/gen/constraint_pb";
 import { ScheduleFrequency } from "@/gen/scheduling_pb";
 
-export interface SchemaProps {
+export interface RecipeSchema {
   pluginId: string;
   pluginName: string;
   pluginVersion: number;
@@ -30,16 +30,4 @@ export interface SchemaProps {
     }[];
   }[];
   version: number;
-}
-
-export interface PolicyFormProps {
-  active: boolean;
-  billing: string[];
-  id: string;
-  pluginId: string;
-  pluginVersion: number;
-  policyVersion: number;
-  publicKey: string;
-  recipe: string;
-  signature: string;
 }

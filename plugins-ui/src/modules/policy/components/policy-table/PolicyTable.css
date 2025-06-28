@@ -1,0 +1,34 @@
+.policy-table {
+  min-width: 100%;
+  margin-top: 20px;
+  border-radius: 8px;
+  border-collapse: collapse;
+  overflow: hidden;
+
+  thead {
+    background-color: var(--background-tertiary-color);
+  }
+
+  tbody {
+    background-color: var(--background-secondary-color);
+  }
+
+  th {
+    color: var(--text-light-color);
+    padding: 12px;
+    text-align: center;
+
+    &:first-child {
+      text-align: left;
+    }
+  }
+
+  td {
+    padding: 8px 12px;
+    text-align: center;
+
+    &:first-child {
+      text-align: left;
+    }
+  }
+}

@@ -12,6 +12,7 @@ import { ReviewProvider } from "@/modules/review/context/ReviewProvider";
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
 import RecipeSchema from "@/modules/plugin/components/recipe_schema/recipe_Schema";
 import { useWallet } from "@/modules/shared/wallet/WalletProvider";
+import PolicyTable from "../policy-table/PolicyTable";
 
 const PluginDetail = () => {
   const navigate = useNavigate();
@@ -127,6 +128,8 @@ const PluginDetail = () => {
                 </section>
               </section>
             </section>
+
+            {isInstalled && <PolicyTable />}
 
             {showRecipeSchema && (
               <RecipeSchema

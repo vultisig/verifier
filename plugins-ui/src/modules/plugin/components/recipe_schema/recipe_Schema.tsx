@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 import Button from "@/modules/core/components/ui/button/Button";
 import "./recipe_Schema.styles.css";
-import { SchemaProps } from "@/utils/interfaces";
+import { RecipeSchema } from "@/utils/interfaces";
 import { PolicySchema, ScheduleSchema } from "@/gen/policy_pb";
 import { ScheduleFrequency } from "@/gen/scheduling_pb";
 import { ConstraintSchema, ConstraintType } from "@/gen/constraint_pb";
@@ -17,6 +17,7 @@ import PolicyService from "@/modules/plugin/services/policyService";
 import { v4 as uuidv4 } from "uuid";
 import { Plugin } from "../../models/plugin";
 import { publish } from "@/utils/eventBus";
+import { PluginPolicy } from "../../models/policy";
 interface InitialState {
   error?: string;
   frequency?: ScheduleFrequency;
@@ -24,7 +25,7 @@ interface InitialState {
   loading: boolean;
   selectedResource: number;
   schedulingEnabled: boolean;
-  schema?: SchemaProps;
+  schema?: RecipeSchema;
   submitting?: boolean;
   validationErrors: Record<string, string>;
 }
@@ -34,7 +35,7 @@ interface RecipeSchemaProps {
   plugin: Plugin;
 }
 
-const RecipeSchema: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
+const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
   const initialState: InitialState = {
     formData: {},
     loading: true,
@@ -195,7 +196,7 @@ const RecipeSchema: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
         String(schema.pluginVersion)
       );
 
-      await PolicyService.createPolicy(plugin.server_endpoint, {
+      const finalData: PluginPolicy = {
         active: true,
         billing: [{ amount: 1, type: "recurring", id: uuidv4() }],
         id: uuidv4(),
@@ -205,7 +206,9 @@ const RecipeSchema: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
         public_key: currentVauldId,
         recipe: base64Data,
         signature: signature,
-      });
+      };
+
+      await PolicyService.createPolicy(plugin.server_endpoint, finalData);
       publish("onToast", {
         message: "Policy created",
         type: "success",
@@ -430,4 +433,4 @@ const RecipeSchema: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
   );
 };
 
-export default RecipeSchema;
+export default RecipeSchemaForm;

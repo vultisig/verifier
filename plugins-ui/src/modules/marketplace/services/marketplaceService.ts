@@ -7,12 +7,11 @@ import {
   ReviewMap,
 } from "../models/marketplace";
 import { Plugin } from "@/modules/plugin/models/plugin";
-
 import { getCurrentVaultId } from "@/storage/currentVaultId";
-import { SchemaProps } from "@/utils/interfaces";
+import { RecipeSchema } from "@/utils/interfaces";
 import { toCamelCase } from "@/utils/functions";
 import {
-  PluginPoliciesMap,
+  PluginPolicy,
   TransactionHistory,
 } from "@/modules/plugin/models/policy";
 
@@ -88,24 +87,16 @@ const MarketplaceService = {
    * @returns {Promise<Object>} A promise that resolves to the fetched policies.
    */
   getPolicies: async (
-    pluginType: string,
+    pluginId: string,
     skip: number,
     take: number
-  ): Promise<PluginPoliciesMap> => {
+  ): Promise<{ policies: PluginPolicy[] }> => {
     return get(
-      `${getMarketplaceUrl()}/plugins/policies?skip=${skip}&take=${take}`,
+      `${getMarketplaceUrl()}/plugin/policies?skip=${skip}&take=${take}`,
       {
-        headers: { plugin_type: pluginType, public_key: getCurrentVaultId() },
+        headers: { plugin_id: pluginId, public_key: getCurrentVaultId() },
       }
-    ).catch((error) => {
-      if (error.message === "Unauthorized") {
-        localStorage.removeItem("authToken");
-        // Dispatch custom event to notify other components
-        window.dispatchEvent(new Event("storage"));
-      }
-
-      return error;
-    });
+    );
   },
 
   /**
@@ -154,7 +145,7 @@ const MarketplaceService = {
   /**
    * Get recipe specification for a plugin.
    */
-  getRecipeSpecification: async (pluginId: string): Promise<SchemaProps> => {
+  getRecipeSpecification: async (pluginId: string): Promise<RecipeSchema> => {
     return get(
       `${getMarketplaceUrl()}/plugins/${pluginId}/recipe-specification`
     ).then((schema) => toCamelCase(schema));

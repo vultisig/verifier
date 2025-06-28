@@ -12,9 +12,11 @@ import { constraintTypeName, frequencyName } from "@/utils/constants";
 import { ParameterConstraintSchema } from "@/gen/parameter_constraint_pb";
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
 import { getCurrentVaultId } from "@/storage/currentVaultId";
-import PolicyService from "@/modules/policy/services/policyService";
+import PolicyService from "@/modules/plugin/services/policyService";
 
 import { v4 as uuidv4 } from "uuid";
+import { Plugin } from "../../models/plugin";
+import { publish } from "@/utils/eventBus";
 interface InitialState {
   error?: string;
   frequency?: ScheduleFrequency;
@@ -29,10 +31,10 @@ interface InitialState {
 
 interface RecipeSchemaProps {
   onClose: () => void;
-  pluginId: string;
+  plugin: Plugin;
 }
 
-const RecipeSchema: React.FC<RecipeSchemaProps> = ({ pluginId, onClose }) => {
+const RecipeSchema: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
   const initialState: InitialState = {
     formData: {},
     loading: true,
@@ -60,7 +62,7 @@ const RecipeSchema: React.FC<RecipeSchemaProps> = ({ pluginId, onClose }) => {
       loading: true,
     }));
 
-    MarketplaceService.getRecipeSpecification(pluginId)
+    MarketplaceService.getRecipeSpecification(plugin.id)
       .then((schema) => {
         if (schema.supportedResources) {
           const [{ parameterCapabilities }] = schema.supportedResources;
@@ -185,9 +187,6 @@ const RecipeSchema: React.FC<RecipeSchemaProps> = ({ pluginId, onClose }) => {
 
       const base64Data = Buffer.from(binaryData).toString("base64");
 
-      console.log("jsonData:", jsonData);
-      console.log("binaryData:", binaryData);
-      console.log("base64Data:", base64Data);
       const currentVauldId = getCurrentVaultId();
       const signature = await VulticonnectWalletService.signPolicy(
         base64Data,
@@ -196,21 +195,25 @@ const RecipeSchema: React.FC<RecipeSchemaProps> = ({ pluginId, onClose }) => {
         String(schema.pluginVersion)
       );
 
-      await PolicyService.createPolicy(import.meta.env.VITE_MARKETPLACE_URL, {
+      await PolicyService.createPolicy(plugin.server_endpoint, {
         active: true,
         billing: [{ amount: 1, type: "recurring", id: uuidv4() }],
         id: uuidv4(),
-        plugin_id: schema.pluginId,
+        plugin_id: plugin.id,
         plugin_version: String(schema.pluginVersion),
         policy_version: 0,
         public_key: currentVauldId,
         recipe: base64Data,
         signature: signature,
       });
+      publish("onToast", {
+        message: "Policy created",
+        type: "success",
+      });
     }
   };
 
-  useEffect(() => fetchSchema(), [pluginId]);
+  useEffect(() => fetchSchema(), [plugin]);
 
   return loading ? (
     <div className="recipe-schema-popup">

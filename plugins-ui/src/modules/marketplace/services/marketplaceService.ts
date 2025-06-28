@@ -7,13 +7,14 @@ import {
   ReviewMap,
 } from "../models/marketplace";
 import { Plugin } from "@/modules/plugin/models/plugin";
-import {
-  PluginPoliciesMap,
-  TransactionHistory,
-} from "@/modules/policy/models/policy";
+
 import { getCurrentVaultId } from "@/storage/currentVaultId";
 import { SchemaProps } from "@/utils/interfaces";
 import { toCamelCase } from "@/utils/functions";
+import {
+  PluginPoliciesMap,
+  TransactionHistory,
+} from "@/modules/plugin/models/policy";
 
 const getMarketplaceUrl = () => import.meta.env.VITE_MARKETPLACE_URL;
 

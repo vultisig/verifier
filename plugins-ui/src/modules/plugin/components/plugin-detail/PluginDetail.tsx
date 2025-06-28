@@ -130,7 +130,7 @@ const PluginDetail = () => {
 
             {showRecipeSchema && (
               <RecipeSchema
-                pluginId={plugin.id}
+                plugin={plugin}
                 onClose={() => setShowRecipeSchema(false)}
               />
             )}

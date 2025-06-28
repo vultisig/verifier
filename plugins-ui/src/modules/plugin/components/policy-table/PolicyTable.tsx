@@ -1,8 +1,8 @@
 import Button from "@/modules/core/components/ui/button/Button";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
-import { PluginPolicy } from "@/utils/interfaces";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { PluginPolicy } from "../../models/policy";
 
 interface InitialState {
   data: PluginPolicy[];

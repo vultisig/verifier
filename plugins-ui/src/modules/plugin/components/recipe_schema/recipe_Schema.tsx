@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
-import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
+import MarketplaceService, {
+  getMarketplaceUrl,
+} from "@/modules/marketplace/services/marketplaceService";
 import Button from "@/modules/core/components/ui/button/Button";
 import "./recipe_Schema.styles.css";
 import { RecipeSchema } from "@/utils/interfaces";
@@ -207,8 +209,15 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
         recipe: base64Data,
         signature: signature,
       };
+      try {
+        await PolicyService.createPolicy(getMarketplaceUrl(), finalData);
+      } catch {
+        publish("onToast", {
+          message: "Failed to create new policy",
+          type: "error",
+        });
+      }
 
-      await PolicyService.createPolicy(plugin.server_endpoint, finalData);
       publish("onToast", {
         message: "Policy created",
         type: "success",

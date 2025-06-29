@@ -15,7 +15,7 @@ import {
   TransactionHistory,
 } from "@/modules/plugin/models/policy";
 
-const getMarketplaceUrl = () => import.meta.env.VITE_MARKETPLACE_URL;
+export const getMarketplaceUrl = () => import.meta.env.VITE_MARKETPLACE_URL;
 
 interface ReshareRequest {
   name: string;

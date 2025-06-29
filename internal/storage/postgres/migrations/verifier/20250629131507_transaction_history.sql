@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS transaction_history (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     metadata JSONB NOT NULL,
     error_message TEXT,
-    CONSTRAINT fk_plugin_policy FOREIGN KEY (policy_id)
+    CONSTRAINT fk_transaction_history_plugin_policy FOREIGN KEY (policy_id)
         REFERENCES plugin_policies(id) ON DELETE CASCADE
 );
 -- +goose StatementEnd

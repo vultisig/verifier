@@ -201,14 +201,14 @@ CREATE TABLE "tags" (
 );
 
 CREATE TABLE "transaction_history" (
-    "id" "uuid" NOT NULL,
+    "id" "uuid" DEFAULT gen_random_uuid() NOT NULL,
     "policy_id" "uuid" NOT NULL,
     "tx_body" "text" NOT NULL,
     "tx_hash" "text" NOT NULL,
-    "status" "text" NOT NULL,
+    "status" transaction_status NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "metadata" "jsonb" NOT NULL,
+    "metadata" "jsonb" NOT NULL DEFAULT '{}'::jsonb,
     "error_message" "text"
 );
 
@@ -354,7 +354,7 @@ ALTER TABLE ONLY "plugin_policy_billing"
     ADD CONSTRAINT "fk_plugin_policy" FOREIGN KEY ("plugin_policy_id") REFERENCES "plugin_policies"("id") ON DELETE CASCADE;
 
 ALTER TABLE ONLY "transaction_history"
-    ADD CONSTRAINT "fk_plugin_policy" FOREIGN KEY ("policy_id") REFERENCES "plugin_policies"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "fk_transaction_history_plugin_policy" FOREIGN KEY ("policy_id") REFERENCES "plugin_policies"("id") ON DELETE CASCADE;
 
 ALTER TABLE ONLY "plugin_apikey"
     ADD CONSTRAINT "plugin_apikey_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugins"("id") ON DELETE CASCADE;

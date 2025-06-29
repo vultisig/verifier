@@ -169,7 +169,7 @@ const PluginDetail = () => {
             )}
 
             <ReviewProvider pluginId={plugin.id} ratings={plugin.ratings}>
-              <Reviews plugin={plugin} />
+              <Reviews />
             </ReviewProvider>
           </>
         )}

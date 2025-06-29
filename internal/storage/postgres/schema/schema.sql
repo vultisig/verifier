@@ -41,6 +41,16 @@ CREATE TYPE "pricing_type" AS ENUM (
     'per-tx'
 );
 
+CREATE TYPE "transaction_status" AS ENUM (
+    'SIGNING_IN_PROGRESS',
+    'SIGNING_FAILED',
+    'SIGNED',
+    'BROADCAST',
+    'PENDING',
+    'MINED',
+    'REJECTED'
+);
+
 CREATE TYPE "tx_indexer_status" AS ENUM (
     'PROPOSED',
     'VERIFIED',
@@ -190,6 +200,18 @@ CREATE TABLE "tags" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 
+CREATE TABLE "transaction_history" (
+    "id" "uuid" NOT NULL,
+    "policy_id" "uuid" NOT NULL,
+    "tx_body" "text" NOT NULL,
+    "tx_hash" "text" NOT NULL,
+    "status" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "metadata" "jsonb" NOT NULL,
+    "error_message" "text"
+);
+
 CREATE TABLE "tx_indexer" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "plugin_id" character varying(255) NOT NULL,
@@ -257,6 +279,9 @@ ALTER TABLE ONLY "tags"
 
 ALTER TABLE ONLY "tags"
     ADD CONSTRAINT "tags_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "transaction_history"
+    ADD CONSTRAINT "transaction_history_pkey" PRIMARY KEY ("id");
 
 ALTER TABLE ONLY "tx_indexer"
     ADD CONSTRAINT "tx_indexer_pkey" PRIMARY KEY ("id");
@@ -327,6 +352,9 @@ ALTER TABLE ONLY "fees"
 
 ALTER TABLE ONLY "plugin_policy_billing"
     ADD CONSTRAINT "fk_plugin_policy" FOREIGN KEY ("plugin_policy_id") REFERENCES "plugin_policies"("id") ON DELETE CASCADE;
+
+ALTER TABLE ONLY "transaction_history"
+    ADD CONSTRAINT "fk_plugin_policy" FOREIGN KEY ("policy_id") REFERENCES "plugin_policies"("id") ON DELETE CASCADE;
 
 ALTER TABLE ONLY "plugin_apikey"
     ADD CONSTRAINT "plugin_apikey_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugins"("id") ON DELETE CASCADE;

@@ -35,6 +35,12 @@ const PluginDetail = () => {
     }
   };
 
+  const uninstallPlugin = () => {
+    MarketplaceService.uninstallPlugin(pluginId!)
+      .then(() => setIsInstalled(false))
+      .catch(() => {});
+  };
+
   const fetchPlugin = async () => {
     if (pluginId) {
       try {
@@ -84,7 +90,16 @@ const PluginDetail = () => {
                 <p className="plugin-description">{plugin.description}</p>
                 <section className="plugin-installaion">
                   {isConnected ? (
-                    isInstalled ? null : (
+                    isInstalled ? (
+                      <Button
+                        size="small"
+                        type="button"
+                        styleType="danger"
+                        onClick={uninstallPlugin}
+                      >
+                        Uninstall
+                      </Button>
+                    ) : (
                       <Button
                         size="small"
                         type="button"

@@ -28,7 +28,7 @@ func (s *Server) validatePluginPolicy(policy types.PluginPolicy) error {
 		return errors.New("recipe cannot be empty")
 	}
 
-	recipeBytes, err := base64.RawStdEncoding.DecodeString(policy.Recipe)
+	recipeBytes, err := base64.StdEncoding.DecodeString(policy.Recipe)
 	if err != nil {
 		return fmt.Errorf("fail to base64 decode recipe: %w", err)
 	}

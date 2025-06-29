@@ -1,4 +1,4 @@
-import { get, post } from "@/modules/core/services/httpService";
+import { get, post, remove } from "@/modules/core/services/httpService";
 import { Category } from "../models/category";
 import {
   CreateReview,
@@ -158,6 +158,9 @@ const MarketplaceService = {
   reshareVault: async (payload: ReshareRequest): Promise<void> => {
     return post(`${getMarketplaceUrl()}/vault/reshare`, payload);
   },
+
+  uninstallPlugin: (pluginId: string) =>
+    remove(`${getMarketplaceUrl()}/plugin/${pluginId}`),
 };
 
 export default MarketplaceService;

@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS transaction_history (
     policy_id UUID NOT NULL,
     tx_body TEXT NOT NULL,
     tx_hash TEXT NOT NULL,
-    status TEXT NOT NULL,
+    status transaction_status NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     metadata JSONB NOT NULL,

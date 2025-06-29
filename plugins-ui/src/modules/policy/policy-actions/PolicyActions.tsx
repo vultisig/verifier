@@ -11,10 +11,6 @@ type PolicyActionsProps = {
 };
 
 const PolicyActions = ({ policy }: PolicyActionsProps) => {
-  const handleUpdate = () => {
-    console.log("update");
-  };
-
   const handleRemove = async (policy: PluginPolicy) => {
     try {
       await PolicyService.deletePolicy(

@@ -200,18 +200,30 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
         String(schema.pluginVersion)
       );
 
-      const finalData: PluginPolicy = {
-        active: true,
-        billing: [{ amount: 1, type: "recurring", id: uuidv4() }],
-        id: uuidv4(),
-        plugin_id: plugin.id,
-        plugin_version: String(schema.pluginVersion),
-        policy_version: 0,
-        public_key: currentVauldId,
-        recipe: base64Data,
-        signature: signature,
-      };
+      const pluginPricing = await MarketplaceService.getPluginPricing(
+        plugin.pricing_id
+      );
+
       try {
+        const finalData: PluginPolicy = {
+          active: true,
+          feePolicies: [
+            {
+              start_date: new Date(Date.now()).toISOString(),
+              frequency: pluginPricing.frequency,
+              amount: pluginPricing.amount,
+              type: pluginPricing.type,
+            },
+          ],
+          id: uuidv4(),
+          plugin_id: plugin.id,
+          plugin_version: String(schema.pluginVersion),
+          policy_version: 0,
+          public_key: currentVauldId,
+          recipe: base64Data,
+          signature: signature,
+        };
+
         await PolicyService.createPolicy(getMarketplaceUrl(), finalData);
         publish("onToast", {
           message: "Policy created",

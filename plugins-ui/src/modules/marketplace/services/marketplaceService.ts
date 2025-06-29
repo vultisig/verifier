@@ -6,7 +6,7 @@ import {
   Review,
   ReviewMap,
 } from "../models/marketplace";
-import { Plugin } from "@/modules/plugin/models/plugin";
+import { Plugin, PluginPricing } from "@/modules/plugin/models/plugin";
 import { getCurrentVaultId } from "@/storage/currentVaultId";
 import { RecipeSchema } from "@/utils/interfaces";
 import { toCamelCase } from "@/utils/functions";
@@ -162,7 +162,7 @@ const MarketplaceService = {
   uninstallPlugin: (pluginId: string) =>
     remove(`${getMarketplaceUrl()}/plugin/${pluginId}`),
 
-  getPluginPricing: (pricingId: string) =>
+  getPluginPricing: (pricingId: string): Promise<PluginPricing> =>
     get(`${getMarketplaceUrl()}/pricing/${pricingId}`),
 };
 

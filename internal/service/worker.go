@@ -1,12 +1,8 @@
 package service
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"plugin"
 	"time"
 
@@ -19,7 +15,6 @@ import (
 	"github.com/vultisig/verifier/internal/syncer"
 	"github.com/vultisig/verifier/internal/tasks"
 	"github.com/vultisig/verifier/internal/types"
-	types2 "github.com/vultisig/verifier/types"
 )
 
 type WorkerService struct {
@@ -64,47 +59,6 @@ func NewWorker(cfg config.WorkerConfig,
 type KeyGenerationTaskResult struct {
 	EDDSAPublicKey string
 	ECDSAPublicKey string
-}
-
-func (s *WorkerService) initiateTxSignWithVerifier(ctx context.Context, signRequest types2.PluginKeysignRequest, metadata map[string]interface{}, newTx types.TransactionHistory, jwtToken string) error {
-	signBytes, err := json.Marshal(signRequest)
-	if err != nil {
-		s.logger.Errorf("Failed to marshal sign request: %v", err)
-		return err
-	}
-
-	signResp, err := http.Post(
-		fmt.Sprintf("http://localhost:%d/signFromPlugin", s.verifierPort),
-		"application/json",
-		bytes.NewBuffer(signBytes),
-	)
-	if err != nil {
-		metadata["error"] = err.Error()
-		newTx.Status = types.StatusSigningFailed
-		newTx.Metadata = metadata
-		if err = s.upsertAndSyncTransaction(ctx, syncer.UpdateAction, &newTx, jwtToken); err != nil {
-			s.logger.Errorf("upsertAndSyncTransaction failed: %v", err)
-		}
-		return err
-	}
-	defer signResp.Body.Close()
-
-	respBody, err := io.ReadAll(signResp.Body)
-	if err != nil {
-		s.logger.Errorf("Failed to read response: %v", err)
-		return err
-	}
-
-	if signResp.StatusCode != http.StatusOK {
-		metadata["error"] = string(respBody)
-		newTx.Status = types.StatusSigningFailed
-		newTx.Metadata = metadata
-		if err := s.upsertAndSyncTransaction(ctx, syncer.UpdateAction, &newTx, jwtToken); err != nil {
-			s.logger.Errorf("upsertAndSyncTransaction failed: %v", err)
-		}
-		return err
-	}
-	return nil
 }
 
 func (s *WorkerService) upsertAndSyncTransaction(ctx context.Context, action syncer.Action, tx *types.TransactionHistory, jwtToken string) error {

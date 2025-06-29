@@ -260,186 +260,186 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
         </div>
       </div>
     </div>
-  ) : schema ? (
-    <div className="recipe-schema-popup">
-      <div className="recipe-schema-content">
-        <button className="recipe-schema-close" onClick={onClose}>
-          ×
-        </button>
+  ) : (
+    schema && (
+      <div className="recipe-schema-popup">
+        <div className="recipe-schema-content">
+          <button className="recipe-schema-close" onClick={onClose}>
+            ×
+          </button>
 
-        <div className="recipe-schema-header">
-          <h2>Configure {schema.pluginName}</h2>
-          <div className="plugin-info">
-            <span className="plugin-version">v{schema.pluginVersion}</span>
-            <span className="plugin-id">{schema.pluginId}</span>
-          </div>
-        </div>
-
-        <div className="recipe-schema-form">
-          {/* Resource Selection */}
-          {schema.supportedResources.length > 1 && (
-            <div className="form-group">
-              <label className="form-label">Select Resource:</label>
-              <select
-                className="form-select"
-                value={selectedResource}
-                onChange={(e) =>
-                  setState((prevState) => ({
-                    ...prevState,
-                    selectedResource: Number(e.target.value),
-                  }))
-                }
-              >
-                {schema.supportedResources.map((res, i) => (
-                  <option key={i} value={i}>
-                    {res.resourcePath.full}
-                  </option>
-                ))}
-              </select>
+          <div className="recipe-schema-header">
+            <h2>Configure {schema.pluginName}</h2>
+            <div className="plugin-info">
+              <span className="plugin-version">v{schema.pluginVersion}</span>
+              <span className="plugin-id">{schema.pluginId}</span>
             </div>
-          )}
+          </div>
 
-          {currentResource ? (
-            <>
-              {/* Current Resource Info */}
-              <div className="resource-info">
-                <h3>Resource: {currentResource.resourcePath.full}</h3>
-                <div className="resource-details">
-                  <span>Chain: {currentResource.resourcePath.chainId}</span>
-                  <span>
-                    Protocol: {currentResource.resourcePath.protocolId}
-                  </span>
-                  <span>
-                    Function: {currentResource.resourcePath.functionId}
-                  </span>
+          <div className="recipe-schema-form">
+            {/* Resource Selection */}
+            {schema.supportedResources.length > 1 && (
+              <div className="form-group">
+                <label className="form-label">Select Resource:</label>
+                <select
+                  className="form-select"
+                  value={selectedResource}
+                  onChange={(e) =>
+                    setState((prevState) => ({
+                      ...prevState,
+                      selectedResource: Number(e.target.value),
+                    }))
+                  }
+                >
+                  {schema.supportedResources.map((res, i) => (
+                    <option key={i} value={i}>
+                      {res.resourcePath.full}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {currentResource && (
+              <>
+                {/* Current Resource Info */}
+                <div className="resource-info">
+                  <h3>Resource: {currentResource.resourcePath.full}</h3>
+                  <div className="resource-details">
+                    <span>Chain: {currentResource.resourcePath.chainId}</span>
+                    <span>
+                      Protocol: {currentResource.resourcePath.protocolId}
+                    </span>
+                    <span>
+                      Function: {currentResource.resourcePath.functionId}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              {/* Parameters */}
-              <div className="parameters-section">
-                <h4>Parameters</h4>
-                {currentResource.parameterCapabilities.map((param, i) => (
-                  <div key={i} className="form-group">
-                    <label className="form-label">
-                      {param.parameterName}
-                      {param.required && <span className="required">*</span>}
-                    </label>
-                    <input
-                      type="text"
-                      className={`form-input ${validationErrors[param.parameterName] ? "error" : ""}`}
-                      value={formData[param.parameterName] || ""}
-                      onChange={(e) =>
-                        handleInputChange(param.parameterName, e.target.value)
-                      }
-                      placeholder={`Enter ${param.parameterName}...`}
-                    />
-                    <div className="input-help">
-                      {`Supported types: ${param.supportedTypes.map((t) => constraintTypeName[t]).join(", ")}`}
-                    </div>
-                    {validationErrors[param.parameterName] && (
-                      <div className="error-message">
-                        {validationErrors[param.parameterName]}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {/* Scheduling */}
-              {schema.scheduling.supportsScheduling && (
-                <div className="scheduling-section">
-                  <h4>Scheduling</h4>
-                  <div className="form-group">
-                    <label className="checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={schedulingEnabled}
-                        onChange={(e) =>
-                          setState((prevState) => ({
-                            ...prevState,
-                            schedulingEnabled: e.target.checked,
-                          }))
-                        }
-                      />
-                      Enable scheduled execution
-                    </label>
-                  </div>
-
-                  {schedulingEnabled && (
-                    <div className="form-group">
+                {/* Parameters */}
+                <div className="parameters-section">
+                  <h4>Parameters</h4>
+                  {currentResource.parameterCapabilities.map((param, i) => (
+                    <div key={i} className="form-group">
                       <label className="form-label">
-                        Frequency <span className="required">*</span>
+                        {param.parameterName}
+                        {param.required && <span className="required">*</span>}
                       </label>
-                      <select
-                        className={`form-select ${validationErrors.frequency ? "error" : ""}`}
-                        value={frequency || ""}
+                      <input
+                        type="text"
+                        className={`form-input ${validationErrors[param.parameterName] ? "error" : ""}`}
+                        value={formData[param.parameterName] || ""}
                         onChange={(e) =>
-                          setState((prevState) => ({
-                            ...prevState,
-                            frequency: Number(e.target.value),
-                          }))
+                          handleInputChange(param.parameterName, e.target.value)
                         }
-                      >
-                        <option value="">Select frequency...</option>
-                        {schema.scheduling.supportedFrequencies.map((freq) => (
-                          <option key={freq} value={freq}>
-                            {frequencyName[freq]}
-                          </option>
-                        ))}
-                      </select>
+                        placeholder={`Enter ${param.parameterName}...`}
+                      />
                       <div className="input-help">
-                        Max {schema.scheduling.maxScheduledExecutions} scheduled
-                        executions
+                        {`Supported types: ${param.supportedTypes.map((t) => constraintTypeName[t]).join(", ")}`}
                       </div>
-                      {validationErrors.frequency && (
+                      {validationErrors[param.parameterName] && (
                         <div className="error-message">
-                          {validationErrors.frequency}
+                          {validationErrors[param.parameterName]}
                         </div>
                       )}
                     </div>
-                  )}
+                  ))}
                 </div>
-              )}
-              {/* Requirements Info */}
-              <div className="requirements-section">
-                <h4>Requirements</h4>
-                <div className="requirements-list">
-                  <div>
-                    Min Vultisig Version:{" "}
-                    {schema.requirements.minVultisigVersion}
+                {/* Scheduling */}
+                {schema.scheduling.supportsScheduling && (
+                  <div className="scheduling-section">
+                    <h4>Scheduling</h4>
+                    <div className="form-group">
+                      <label className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={schedulingEnabled}
+                          onChange={(e) =>
+                            setState((prevState) => ({
+                              ...prevState,
+                              schedulingEnabled: e.target.checked,
+                            }))
+                          }
+                        />
+                        Enable scheduled execution
+                      </label>
+                    </div>
+
+                    {schedulingEnabled && (
+                      <div className="form-group">
+                        <label className="form-label">
+                          Frequency <span className="required">*</span>
+                        </label>
+                        <select
+                          className={`form-select ${validationErrors.frequency ? "error" : ""}`}
+                          value={frequency || ""}
+                          onChange={(e) =>
+                            setState((prevState) => ({
+                              ...prevState,
+                              frequency: Number(e.target.value),
+                            }))
+                          }
+                        >
+                          <option value="">Select frequency...</option>
+                          {schema.scheduling.supportedFrequencies.map(
+                            (freq) => (
+                              <option key={freq} value={freq}>
+                                {frequencyName[freq]}
+                              </option>
+                            )
+                          )}
+                        </select>
+                        <div className="input-help">
+                          Max {schema.scheduling.maxScheduledExecutions}{" "}
+                          scheduled executions
+                        </div>
+                        {validationErrors.frequency && (
+                          <div className="error-message">
+                            {validationErrors.frequency}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    Supported Chains:{" "}
-                    {schema.requirements.supportedChains.join(", ")}
+                )}
+                {/* Requirements Info */}
+                <div className="requirements-section">
+                  <h4>Requirements</h4>
+                  <div className="requirements-list">
+                    <div>
+                      Min Vultisig Version:{" "}
+                      {schema.requirements.minVultisigVersion}
+                    </div>
+                    <div>
+                      Supported Chains:{" "}
+                      {schema.requirements.supportedChains.join(", ")}
+                    </div>
                   </div>
                 </div>
-              </div>
-              {/* Action Buttons */}
-              <div className="form-actions">
-                <Button
-                  size="medium"
-                  type="button"
-                  styleType="secondary"
-                  onClick={onClose}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="medium"
-                  type="button"
-                  styleType="primary"
-                  onClick={handleSubmit}
-                >
-                  Configure Plugin
-                </Button>
-              </div>
-            </>
-          ) : (
-            <></>
-          )}
+                {/* Action Buttons */}
+                <div className="form-actions">
+                  <Button
+                    size="medium"
+                    type="button"
+                    styleType="secondary"
+                    onClick={onClose}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="medium"
+                    type="button"
+                    styleType="primary"
+                    onClick={handleSubmit}
+                  >
+                    Configure Plugin
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  ) : (
-    <></>
+    )
   );
 };
 

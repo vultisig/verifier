@@ -12,7 +12,7 @@ import { ReviewProvider } from "@/modules/review/context/ReviewProvider";
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
 import RecipeSchema from "@/modules/plugin/components/recipe_schema/recipe_Schema";
 import { useWallet } from "@/modules/shared/wallet/WalletProvider";
-import PolicyTable from "../policy-table/PolicyTable";
+import PolicyTable from "../../../policy/policy-table/PolicyTable";
 
 const PluginDetail = () => {
   const navigate = useNavigate();
@@ -45,7 +45,6 @@ const PluginDetail = () => {
     if (pluginId) {
       try {
         const fetchedPlugin = await MarketplaceService.getPlugin(pluginId);
-
         setPlugin(fetchedPlugin);
       } catch (error) {
         if (error instanceof Error) {

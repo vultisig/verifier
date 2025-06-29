@@ -161,6 +161,9 @@ const MarketplaceService = {
 
   uninstallPlugin: (pluginId: string) =>
     remove(`${getMarketplaceUrl()}/plugin/${pluginId}`),
+
+  getPluginPricing: (pricingId: string) =>
+    get(`${getMarketplaceUrl()}/pricing/${pricingId}`),
 };
 
 export default MarketplaceService;

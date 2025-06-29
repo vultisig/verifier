@@ -206,8 +206,8 @@ CREATE TABLE "transaction_history" (
     "tx_body" "text" NOT NULL,
     "tx_hash" "text" NOT NULL,
     "status" "transaction_status" NOT NULL,
-    "created_at" timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    "updated_at" timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "metadata" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
     "error_message" "text"
 );

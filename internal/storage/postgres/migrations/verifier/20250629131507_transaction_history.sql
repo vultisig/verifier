@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS transaction_history (
     tx_body TEXT NOT NULL,
     tx_hash TEXT NOT NULL,
     status transaction_status NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     metadata JSONB  NOT NULL DEFAULT '{}'::jsonb,
     error_message TEXT,
     CONSTRAINT fk_transaction_history_plugin_policy FOREIGN KEY (policy_id)

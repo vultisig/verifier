@@ -85,7 +85,7 @@ func (s *Server) VaultAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			if claims.PublicKey != requestedPublicKey {
 				s.logger.Warnf("Access denied: token public key %s does not match requested vault %s",
 					claims.PublicKey, requestedPublicKey)
-				return c.JSON(http.StatusForbidden, NewErrorResponse(http.StatusForbidden, "Access denied: token not authorized for this vault", ""))
+				return c.JSON(http.StatusUnauthorized, NewErrorResponse(http.StatusForbidden, "Access denied: token not authorized for this vault", ""))
 			}
 		}
 

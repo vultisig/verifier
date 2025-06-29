@@ -211,17 +211,16 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
       };
       try {
         await PolicyService.createPolicy(getMarketplaceUrl(), finalData);
+        publish("onToast", {
+          message: "Policy created",
+          type: "success",
+        });
       } catch {
         publish("onToast", {
           message: "Failed to create new policy",
           type: "error",
         });
       }
-
-      publish("onToast", {
-        message: "Policy created",
-        type: "success",
-      });
     }
   };
 

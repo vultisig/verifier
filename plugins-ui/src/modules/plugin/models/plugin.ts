@@ -20,3 +20,13 @@ export type Plugin = {
   tags: Tag[];
   ratings: PluginRatings[];
 };
+
+export type PluginPricing = {
+  id: string;
+  type: string;
+  created_at: string;
+  updated_at: string;
+  frequency: string;
+  amount: number;
+  metric: string;
+};

@@ -205,6 +205,17 @@ const VulticonnectWalletService = {
       throw new Error("Failed to process reshare session");
     }
   },
+  signPolicy: async (
+    recipe: string,
+    publicKey: string,
+    policyVersion: number,
+    pluginVersion: string
+  ) => {
+    return await window.vultisig.plugin.request({
+      method: "plugin_create_policy",
+      params: [{ recipe, publicKey, policyVersion, pluginVersion }],
+    });
+  },
 };
 
 export default VulticonnectWalletService;

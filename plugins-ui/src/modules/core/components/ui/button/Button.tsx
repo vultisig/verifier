@@ -3,7 +3,7 @@ import "./Button.css";
 
 type ButtonProps = {
   type: "button" | "submit";
-  styleType: "primary" | "secondary" | "tertiary";
+  styleType: "danger" | "primary" | "secondary" | "tertiary";
   size: "mini" | "small" | "medium";
   children: ReactNode;
   className?: string;

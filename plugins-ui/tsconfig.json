@@ -10,6 +10,6 @@
   ],
   "compilerOptions": {
     "esModuleInterop": true,
-    "types": ["jest", "@types/node", "@testing-library/jest-dom", "vitest"],
+    "types": ["jest", "@types/node", "@testing-library/jest-dom", "vitest"]
   }
 }

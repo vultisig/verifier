@@ -20,10 +20,9 @@ const Toast = () => {
     const toast = evt.detail;
     if (!toast) return;
     setSnackbars((prev) => [...prev, toast]);
-    if (!toast.duration) return;
     setTimeout(() => {
       setSnackbars((prev) => prev.filter((t) => t !== toast));
-    }, toast.duration);
+    }, toast.duration ?? 2000);
   }, []);
 
   const handleCloseToast = (toast: Toast) => {

@@ -9,6 +9,15 @@
     transition: background-color 0.3s, color 0.3s;
 }
 
+.button.danger {
+    background-color: var(--button-danger-color);
+    color: var(--text-primary-color);
+}
+
+.button.danger:hover {
+    background-color: var(--alert-error-color);
+}
+
 .primary {
     background-color: var(--button-tertiary-color);
     color: var(--text-primary-color);

@@ -1,35 +1,16 @@
 import Button from "@/modules/core/components/ui/button/Button";
 import TrashIcon from "@/assets/Trash.svg?react";
 import { PluginPolicy } from "@/modules/plugin/models/policy";
-
-import { getMarketplaceUrl } from "@/modules/marketplace/services/marketplaceService";
-import { publish } from "@/utils/eventBus";
-import PolicyService from "../services/policyService";
+import { usePolicies } from "../context/PolicyProvider";
 
 type PolicyActionsProps = {
   policy: PluginPolicy;
 };
 
 const PolicyActions = ({ policy }: PolicyActionsProps) => {
+  const { removePolicy } = usePolicies();
   const handleRemove = async (policy: PluginPolicy) => {
-    try {
-      await PolicyService.deletePolicy(
-        getMarketplaceUrl(),
-        policy.id,
-        policy.signature
-      );
-      publish("onToast", {
-        message: "Policy removed",
-        type: "success",
-        duration: 2000,
-      });
-    } catch {
-      publish("onToast", {
-        message: "Failed to remove policy",
-        type: "error",
-        duration: 2000,
-      });
-    }
+    removePolicy(policy.id);
   };
 
   return (

@@ -7,11 +7,16 @@ import React, {
 } from "react";
 import { useParams } from "react-router-dom";
 
-import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
+import MarketplaceService, {
+  getMarketplaceUrl,
+} from "@/modules/marketplace/services/marketplaceService";
 
 import { publish } from "@/utils/eventBus";
 
 import { PluginPolicy, PolicySchema } from "@/modules/plugin/models/policy";
+import PolicyService from "../services/policyService";
+import { getCurrentVaultId } from "@/storage/currentVaultId";
+import { selectToken } from "@/storage/token";
 
 export const POLICY_ITEMS_PER_PAGE = 15;
 
@@ -21,6 +26,7 @@ export interface PolicyContextType {
   policySchemaMap: Map<string, PolicySchema>;
   policiesTotalCount: number;
   fetchPolicies: () => void;
+  removePolicy: (policyId: string) => Promise<void>;
   // addPolicy: (policy: PluginPolicy) => Promise<boolean>;
   // updatePolicy: (policy: PluginPolicy) => Promise<boolean>;
   // removePolicy: (policyId: string) => Promise<void>;
@@ -56,10 +62,45 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
   const [state, setState] = useState(initialState);
   const { currentPage, policiesTotalCount, policyMap, policySchemaMap } = state;
 
-  const fetchPolicies = useCallback(async (): Promise<void> => {
-    console.log("use policies pluginID:", pluginId);
+  const removePolicy = async (policyId: string): Promise<void> => {
+    let policy = policyMap.get(policyId);
 
-    if (pluginId) {
+    if (!policy) return;
+
+    try {
+      if (policy.signature) {
+        await PolicyService.deletePolicy(
+          getMarketplaceUrl(),
+          policyId,
+          policy.signature
+        );
+
+        setState((prev) => {
+          const updatedPolicyMap = new Map(prev.policyMap);
+          updatedPolicyMap.delete(policyId);
+
+          return { ...prev, policyMap: updatedPolicyMap };
+        });
+        publish("onToast", {
+          message: "Policy deleted successfully!",
+          type: "success",
+        });
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error("Failed to delete policy:", error);
+        publish("onToast", {
+          message: error.message,
+          type: "error",
+        });
+      }
+    }
+  };
+
+  const fetchPolicies = useCallback(async (): Promise<void> => {
+    const publicKey = getCurrentVaultId();
+    const token = publicKey ? selectToken(publicKey) : undefined;
+    if (pluginId && token) {
       const fetchedPolicies = await MarketplaceService.getPolicies(
         pluginId,
         currentPage > 1 ? (currentPage - 1) * POLICY_ITEMS_PER_PAGE : 0,
@@ -95,6 +136,7 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
         policySchemaMap,
         policiesTotalCount,
         fetchPolicies,
+        removePolicy,
       }}
     >
       {children}

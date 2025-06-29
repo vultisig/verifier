@@ -14,12 +14,13 @@ import { constraintTypeName, frequencyName } from "@/utils/constants";
 import { ParameterConstraintSchema } from "@/gen/parameter_constraint_pb";
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
 import { getCurrentVaultId } from "@/storage/currentVaultId";
-import PolicyService from "@/modules/plugin/services/policyService";
 
 import { v4 as uuidv4 } from "uuid";
 import { Plugin } from "../../models/plugin";
 import { publish } from "@/utils/eventBus";
 import { PluginPolicy } from "../../models/policy";
+import PolicyService from "@/modules/policy/services/policyService";
+import { usePolicies } from "@/modules/policy/context/PolicyProvider";
 interface InitialState {
   error?: string;
   frequency?: ScheduleFrequency;
@@ -46,6 +47,7 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
     validationErrors: {},
   };
   const [state, setState] = useState(initialState);
+  const { fetchPolicies } = usePolicies();
   const {
     error,
     frequency,
@@ -216,6 +218,8 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
           type: "success",
           duration: 2000,
         });
+        fetchPolicies();
+        onClose();
       } catch {
         publish("onToast", {
           message: "Failed to create new policy",

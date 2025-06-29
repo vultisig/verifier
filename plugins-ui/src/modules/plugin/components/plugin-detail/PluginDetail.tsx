@@ -129,15 +129,18 @@ const PluginDetail = () => {
                       Connect
                     </Button>
                   )}
-                  <Button
-                    size="small"
-                    type="button"
-                    styleType="secondary"
-                    onClick={() => setShowRecipeSchema(true)}
-                    style={{ marginLeft: 8 }}
-                  >
-                    View Policy Schema
-                  </Button>
+                  {isInstalled && (
+                    <Button
+                      size="small"
+                      type="button"
+                      styleType="secondary"
+                      onClick={() => setShowRecipeSchema(true)}
+                      style={{ marginLeft: 8 }}
+                    >
+                      View Policy Schema
+                    </Button>
+                  )}
+
                   <aside>Plugin fee: 0.1% per trade</aside>
                 </section>
               </section>
@@ -148,7 +151,10 @@ const PluginDetail = () => {
             {showRecipeSchema && (
               <RecipeSchema
                 plugin={plugin}
-                onClose={() => setShowRecipeSchema(false)}
+                onClose={() => {
+                  // TODO: Refetch Policies
+                  setShowRecipeSchema(false);
+                }}
               />
             )}
 

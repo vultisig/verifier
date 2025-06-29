@@ -1,9 +1,10 @@
 import Button from "@/modules/core/components/ui/button/Button";
 import TrashIcon from "@/assets/Trash.svg?react";
 import { PluginPolicy } from "@/modules/plugin/models/policy";
-import PolicyService from "@/modules/plugin/services/policyService";
+
 import { getMarketplaceUrl } from "@/modules/marketplace/services/marketplaceService";
 import { publish } from "@/utils/eventBus";
+import PolicyService from "../services/policyService";
 
 type PolicyActionsProps = {
   policy: PluginPolicy;

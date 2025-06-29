@@ -10,6 +10,7 @@ import { base64Decode } from "@bufbuild/protobuf/wire";
 import { fromBinary } from "@bufbuild/protobuf";
 
 import { PolicySchema } from "@/gen/policy_pb";
+import { usePolicies } from "../context/PolicyProvider";
 
 interface InitialState {
   data: PluginPolicy[];
@@ -22,7 +23,8 @@ const PolicyTable = () => {
     tableHeaders: [],
   };
   const [state, setState] = useState(initialState);
-  const { data, tableHeaders } = state;
+  const { policyMap } = usePolicies();
+  const { tableHeaders } = state;
   const { pluginId } = useParams<{ pluginId: string }>();
 
   useEffect(() => {
@@ -39,23 +41,12 @@ const PolicyTable = () => {
         });
         setState((prevState) => ({ ...prevState, tableHeaders: headers }));
       });
-
-      MarketplaceService.getPolicies(pluginId, 0, 10)
-        .then(({ policies }) => {
-          setState((prevState) => ({
-            ...prevState,
-            data: policies,
-            loading: false,
-          }));
-        })
-        .catch(() => {
-          setState((prevState) => ({ ...prevState, loading: false }));
-        });
     }
   }, [pluginId]);
 
   return (
-    data.length > 0 &&
+    policyMap &&
+    [...policyMap.values()].length > 0 &&
     tableHeaders && (
       <table className="policy-table">
         <thead>
@@ -68,7 +59,7 @@ const PolicyTable = () => {
           </tr>
         </thead>
         <tbody>
-          {data.map((policy, index) => (
+          {[...policyMap.values()].map((policy, index) => (
             <PolicyItem key={policy.id} policy={policy} index={index} />
           ))}
         </tbody>

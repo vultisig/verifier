@@ -90,7 +90,7 @@ const MarketplaceService = {
     pluginId: string,
     skip: number,
     take: number
-  ): Promise<{ policies: PluginPolicy[] }> => {
+  ): Promise<{ policies: PluginPolicy[]; total_count: number }> => {
     return get(
       `${getMarketplaceUrl()}/plugin/policies?skip=${skip}&take=${take}`,
       {

@@ -1,5 +1,5 @@
 import { post, get, put, remove } from "@/modules/core/services/httpService";
-import { PluginPolicy } from "../models/policy";
+import { PluginPolicy } from "@/modules/plugin/models/policy";
 
 const PolicyService = {
   /**

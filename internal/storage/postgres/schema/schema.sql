@@ -205,10 +205,10 @@ CREATE TABLE "transaction_history" (
     "policy_id" "uuid" NOT NULL,
     "tx_body" "text" NOT NULL,
     "tx_hash" "text" NOT NULL,
-    "status" transaction_status NOT NULL,
+    "status" "transaction_status" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "metadata" "jsonb" NOT NULL DEFAULT '{}'::jsonb,
+    "metadata" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
     "error_message" "text"
 );
 

@@ -10,14 +10,14 @@ CREATE TYPE transaction_status AS ENUM (
   'REJECTED'
 );
 CREATE TABLE IF NOT EXISTS transaction_history (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
     policy_id UUID NOT NULL,
     tx_body TEXT NOT NULL,
     tx_hash TEXT NOT NULL,
     status transaction_status NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    metadata JSONB NOT NULL,
+    metadata JSONB  NOT NULL DEFAULT '{}'::jsonb,
     error_message TEXT,
     CONSTRAINT fk_transaction_history_plugin_policy FOREIGN KEY (policy_id)
         REFERENCES plugin_policies(id) ON DELETE CASCADE

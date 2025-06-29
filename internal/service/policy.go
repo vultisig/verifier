@@ -176,10 +176,6 @@ func (s *PolicyService) DeletePolicy(ctx context.Context, policyID uuid.UUID, pl
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer s.handleRollback(tx, ctx)
-	err = s.db.DeletePluginPolicyTx(ctx, tx, policyID)
-	if err != nil {
-		return fmt.Errorf("failed to delete policy: %w", err)
-	}
 
 	syncPolicyEntity := itypes.PluginPolicySync{
 		ID:         uuid.New(),
@@ -192,6 +188,12 @@ func (s *PolicyService) DeletePolicy(ctx context.Context, policyID uuid.UUID, pl
 	}
 	if err := s.db.AddPluginPolicySync(ctx, tx, syncPolicyEntity); err != nil {
 		return fmt.Errorf("failed to add policy sync: %w", err)
+	}
+
+	// TODO: use soft delete instead of hard delete (hard delete will remove policy syncs as well)
+	err = s.db.DeletePluginPolicyTx(ctx, tx, policyID)
+	if err != nil {
+		return fmt.Errorf("failed to delete policy: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {

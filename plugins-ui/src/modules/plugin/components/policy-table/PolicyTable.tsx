@@ -7,6 +7,8 @@ import { useParams } from "react-router-dom";
 import { PluginPolicy } from "../../models/policy";
 import PolicyService from "../../services/policyService";
 import { publish } from "@/utils/eventBus";
+import "./PolicyTable.css";
+import TrashIcon from "@/assets/Trash.svg?react";
 
 interface InitialState {
   data: PluginPolicy[];
@@ -30,11 +32,13 @@ const PolicyTable = () => {
       publish("onToast", {
         message: "Policy removed",
         type: "success",
+        duration: 2000,
       });
     } catch {
       publish("onToast", {
         message: "Failed to remove policy",
         type: "error",
+        duration: 2000,
       });
     }
   };
@@ -50,7 +54,6 @@ const PolicyTable = () => {
             data: policies,
             loading: false,
           }));
-          console.log("policies", policies);
         })
         .catch(() => {
           setState((prevState) => ({ ...prevState, loading: false }));
@@ -74,13 +77,15 @@ const PolicyTable = () => {
             <td>{policy.id}</td>
             <td>
               <Button
-                children="x"
-                size="small"
-                styleType="primary"
+                ariaLabel="Delete policy"
                 type="button"
-                style={{ margin: "0 auto", padding: "0.5rem 1rem" }}
+                styleType="tertiary"
+                size="small"
+                style={{ color: "#DA2E2E", padding: "5px", margin: "0 5px" }}
                 onClick={() => handleRemovePolicy(policy)}
-              />
+              >
+                <TrashIcon width="20px" height="20px" color="#FF5C5C" />
+              </Button>
             </td>
           </tr>
         ))}

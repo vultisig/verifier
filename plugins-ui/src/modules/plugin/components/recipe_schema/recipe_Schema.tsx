@@ -214,11 +214,13 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
         publish("onToast", {
           message: "Policy created",
           type: "success",
+          duration: 2000,
         });
       } catch {
         publish("onToast", {
           message: "Failed to create new policy",
           type: "error",
+          duration: 2000,
         });
       }
     }

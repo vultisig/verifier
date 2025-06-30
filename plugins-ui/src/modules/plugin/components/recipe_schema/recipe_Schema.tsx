@@ -9,14 +9,12 @@ import { Effect, RuleSchema } from "@/gen/rule_pb";
 import { create, toBinary } from "@bufbuild/protobuf";
 import { constraintTypeName, frequencyName } from "@/utils/constants";
 import { ParameterConstraintSchema } from "@/gen/parameter_constraint_pb";
-import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
 import { getCurrentVaultId } from "@/storage/currentVaultId";
 import { RecipeSchema } from "@/gen/recipe_specification_pb";
 import { v4 as uuidv4 } from "uuid";
 import { Plugin } from "../../models/plugin";
 import { publish } from "@/utils/eventBus";
 import { PluginPolicy } from "../../models/policy";
-import PolicyService from "@/modules/policy/services/policyService";
 import { usePolicies } from "@/modules/policy/context/PolicyProvider";
 
 interface InitialState {

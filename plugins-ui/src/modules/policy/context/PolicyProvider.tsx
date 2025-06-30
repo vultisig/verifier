@@ -7,9 +7,7 @@ import React, {
 } from "react";
 import { useParams } from "react-router-dom";
 
-import MarketplaceService, {
-  getMarketplaceUrl,
-} from "@/modules/marketplace/services/marketplaceService";
+import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 
 import { publish } from "@/utils/eventBus";
 

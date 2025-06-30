@@ -192,10 +192,10 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
 
       const base64Data = Buffer.from(binaryData).toString("base64");
 
-      const currentVauldId = getCurrentVaultId();
+      const currentVaultId = getCurrentVaultId();
       const signature = await VulticonnectWalletService.signPolicy(
         base64Data,
-        currentVauldId,
+        currentVaultId,
         0,
         String(schema.pluginVersion)
       );
@@ -219,7 +219,7 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
           plugin_id: plugin.id,
           plugin_version: String(schema.pluginVersion),
           policy_version: 0,
-          public_key: currentVauldId,
+          public_key: currentVaultId,
           recipe: base64Data,
           signature: signature,
         };

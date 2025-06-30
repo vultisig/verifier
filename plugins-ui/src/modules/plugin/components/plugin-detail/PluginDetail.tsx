@@ -38,10 +38,21 @@ const PluginDetail = () => {
     }
   };
 
-  const uninstallPlugin = () => {
-    MarketplaceService.uninstallPlugin(pluginId!)
-      .then(() => setIsInstalled(false))
-      .catch(() => {});
+  const uninstallPlugin = async () => {
+    try {
+      await MarketplaceService.uninstallPlugin(pluginId!);
+      setIsInstalled(false);
+      publish("onToast", {
+        message: "Plugin uninstalled successfully",
+        type: "success",
+      });
+    } catch (error) {
+      console.error("Failed to uninstall plugin:", error);
+      publish("onToast", {
+        message: "Failed to uninstall plugin",
+        type: "error",
+      });
+    }
   };
 
   const fetchPlugin = async () => {
@@ -148,10 +159,12 @@ const PluginDetail = () => {
                     </Button>
                   )}
 
-                  <aside>
-                    Plugin fee: ${pluginPricing?.amount}{" "}
-                    {pluginPricing?.frequency}
-                  </aside>
+                  {pluginPricing && (
+                    <aside>
+                      Plugin fee: ${pluginPricing.amount || 0}{" "}
+                      {pluginPricing.frequency || ""}
+                    </aside>
+                  )}
                 </section>
               </section>
             </section>

@@ -35,8 +35,8 @@ export interface PolicyContextType {
   //   skip: number,
   //   take: number
   // ) => Promise<TransactionHistory | null>;
-  // currentPage: number;
-  // setCurrentPage: (page: number) => void;
+  currentPage: number;
+  setCurrentPage: (page: number) => void;
 }
 
 export const PolicyContext = createContext<PolicyContextType | undefined>(
@@ -61,6 +61,10 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
   const { pluginId } = useParams<{ pluginId: string }>();
   const [state, setState] = useState(initialState);
   const { currentPage, policiesTotalCount, policyMap, policySchemaMap } = state;
+
+  const setCurrentPage = (page: number) => {
+    setState((prev) => ({ ...prev, currentPage: page }));
+  };
 
   const removePolicy = async (policyId: string): Promise<void> => {
     let policy = policyMap.get(policyId);
@@ -137,6 +141,8 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
         policiesTotalCount,
         fetchPolicies,
         removePolicy,
+        currentPage,
+        setCurrentPage,
       }}
     >
       {children}

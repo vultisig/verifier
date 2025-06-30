@@ -35,13 +35,17 @@ const PolicyTable = () => {
       setState((prevState) => ({ ...prevState, loading: true }));
       MarketplaceService.getRecipeSpecification(pluginId).then((schema) => {
         let headers: string[] = [];
-        schema.supportedResources[0].parameterCapabilities.forEach((param) => {
-          // Capitalize first letter and push
-          headers.push(
-            param.parameterName.charAt(0).toUpperCase() +
-              param.parameterName.slice(1)
+        if (schema.supportedResources?.[0]?.parameterCapabilities) {
+          schema.supportedResources[0].parameterCapabilities.forEach(
+            (param) => {
+              // Capitalize first letter and push
+              headers.push(
+                param.parameterName.charAt(0).toUpperCase() +
+                  param.parameterName.slice(1)
+              );
+            }
           );
-        });
+        }
         setState((prevState) => ({ ...prevState, tableHeaders: headers }));
       });
     }

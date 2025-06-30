@@ -66,7 +66,6 @@ export type PolicySchema = {
     uiSchema: UiSchema;
     plugin_version: string;
     policy_version: string;
-    plugin_type: string;
   };
   table: {
     columns: PolicyTableColumn[];

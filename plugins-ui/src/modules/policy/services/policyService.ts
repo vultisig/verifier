@@ -1,18 +1,16 @@
 import { post, get, put, remove } from "@/modules/core/services/httpService";
+import { getMarketplaceUrl } from "@/modules/marketplace/services/marketplaceService";
 import { PluginPolicy } from "@/modules/plugin/models/policy";
-
+const baseUrl = getMarketplaceUrl();
 const PolicyService = {
   /**
    * Posts a new policy to the API.
    * @param {PluginPolicy} pluginPolicy - The policy to be created.
    * @returns {Promise<Object>} A promise that resolves to the created policy.
    */
-  createPolicy: async (
-    serverEndpoint: string,
-    pluginPolicy: PluginPolicy
-  ): Promise<PluginPolicy> => {
+  createPolicy: async (pluginPolicy: PluginPolicy): Promise<PluginPolicy> => {
     try {
-      const endpoint = `${serverEndpoint}/plugin/policy`;
+      const endpoint = `${baseUrl}/plugin/policy`;
       const newPolicy = await post(endpoint, pluginPolicy);
       return newPolicy;
     } catch (error) {
@@ -26,12 +24,9 @@ const PolicyService = {
    * @param {PluginPolicy} pluginPolicy - The policy to be created.
    * @returns {Promise<Object>} A promise that resolves to the created policy.
    */
-  updatePolicy: async (
-    serverEndpoint: string,
-    pluginPolicy: PluginPolicy
-  ): Promise<PluginPolicy> => {
+  updatePolicy: async (pluginPolicy: PluginPolicy): Promise<PluginPolicy> => {
     try {
-      const endpoint = `${serverEndpoint}/plugin/policy`;
+      const endpoint = `${baseUrl}/plugin/policy`;
       const newPolicy = await put(endpoint, pluginPolicy);
       return newPolicy;
     } catch (error) {
@@ -44,13 +39,9 @@ const PolicyService = {
    * Delete policy from the API.
    * @param {id} string - The policy to be deleted.
    */
-  deletePolicy: async (
-    serverEndpoint: string,
-    id: string,
-    signature: string
-  ) => {
+  deletePolicy: async (id: string, signature: string) => {
     try {
-      const endpoint = `${serverEndpoint}/plugin/policy/${id}`;
+      const endpoint = `${baseUrl}/plugin/policy/${id}`;
       return await remove(endpoint, {
         data: { signature: signature },
       });
@@ -64,8 +55,8 @@ const PolicyService = {
    * Get PolicySchema
    * @returns {Promise<Object>} A promise that resolves to the fetched schema.
    */
-  getPolicySchema: (pluginId: string, serverEndpoint: string): Promise<any> => {
-    return get(`${serverEndpoint}/plugin/policy/schema`, {
+  getPolicySchema: (pluginId: string): Promise<any> => {
+    return get(`${baseUrl}/plugin/policy/schema`, {
       headers: { plugin_id: pluginId },
     });
   },

@@ -33,7 +33,7 @@ export type PluginPolicy = {
   policy_version: number;
   active: boolean;
   feePolicies: FeePolicies[];
-  signature: string;
+  signature?: string;
   recipe: string;
 };
 

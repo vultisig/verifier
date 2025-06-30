@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from "react";
-import MarketplaceService, {
-  getMarketplaceUrl,
-} from "@/modules/marketplace/services/marketplaceService";
+import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 import Button from "@/modules/core/components/ui/button/Button";
 import "./recipe_Schema.styles.css";
 import { PolicySchema, ScheduleSchema } from "@/gen/policy_pb";
@@ -47,7 +45,7 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
     validationErrors: {},
   };
   const [state, setState] = useState(initialState);
-  const { fetchPolicies } = usePolicies();
+  const { fetchPolicies, addPolicy } = usePolicies();
   const {
     error,
     frequency,
@@ -193,50 +191,41 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
       const base64Data = Buffer.from(binaryData).toString("base64");
 
       const currentVaultId = getCurrentVaultId();
-      const signature = await VulticonnectWalletService.signPolicy(
-        base64Data,
-        currentVaultId,
-        0,
-        String(schema.pluginVersion)
-      );
 
       const pluginPricing = await MarketplaceService.getPluginPricing(
         plugin.pricing_id
       );
 
-      try {
-        const finalData: PluginPolicy = {
-          active: true,
-          feePolicies: [
-            {
-              start_date: new Date(Date.now()).toISOString(),
-              frequency: pluginPricing.frequency,
-              amount: pluginPricing.amount,
-              type: pluginPricing.type,
-            },
-          ],
-          id: uuidv4(),
-          plugin_id: plugin.id,
-          plugin_version: String(schema.pluginVersion),
-          policy_version: 0,
-          public_key: currentVaultId,
-          recipe: base64Data,
-          signature: signature,
-        };
+      const finalData: PluginPolicy = {
+        active: true,
+        feePolicies: [
+          {
+            start_date: new Date(Date.now()).toISOString(),
+            frequency: pluginPricing.frequency,
+            amount: pluginPricing.amount,
+            type: pluginPricing.type,
+          },
+        ],
+        id: uuidv4(),
+        plugin_id: plugin.id,
+        plugin_version: String(schema.pluginVersion),
+        policy_version: 0,
+        public_key: currentVaultId,
+        recipe: base64Data,
+      };
 
-        await PolicyService.createPolicy(getMarketplaceUrl(), finalData);
+      const addPolicyResponse = await addPolicy(finalData);
+      if (addPolicyResponse) {
         publish("onToast", {
           message: "Policy created",
           type: "success",
-          duration: 2000,
         });
         fetchPolicies();
         onClose();
-      } catch {
+      } else {
         publish("onToast", {
           message: "Failed to create new policy",
           type: "error",
-          duration: 2000,
         });
       }
     }

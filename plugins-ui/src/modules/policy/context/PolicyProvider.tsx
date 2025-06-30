@@ -17,6 +17,8 @@ import { PluginPolicy, PolicySchema } from "@/modules/plugin/models/policy";
 import PolicyService from "../services/policyService";
 import { getCurrentVaultId } from "@/storage/currentVaultId";
 import { selectToken } from "@/storage/token";
+import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
+import { policyToHexMessage } from "../services/policyToHexMessage";
 
 export const POLICY_ITEMS_PER_PAGE = 15;
 
@@ -27,7 +29,7 @@ export interface PolicyContextType {
   policiesTotalCount: number;
   fetchPolicies: () => void;
   removePolicy: (policyId: string) => Promise<void>;
-  // addPolicy: (policy: PluginPolicy) => Promise<boolean>;
+  addPolicy: (policy: PluginPolicy) => Promise<boolean>;
   // updatePolicy: (policy: PluginPolicy) => Promise<boolean>;
   // removePolicy: (policyId: string) => Promise<void>;
   // getPolicyHistory: (
@@ -66,6 +68,58 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
     setState((prev) => ({ ...prev, currentPage: page }));
   };
 
+  const addPolicy = async (policy: PluginPolicy): Promise<boolean> => {
+    try {
+      policy = await signPolicy(policy);
+      if (policy.signature) {
+        const newPolicy = await PolicyService.createPolicy(policy);
+        setState((prev) => ({
+          ...prev,
+          policyMap: new Map(prev.policyMap).set(newPolicy.id, newPolicy),
+        }));
+
+        publish("onToast", {
+          message: "Policy created successfully!",
+          type: "success",
+        });
+        return Promise.resolve(true);
+      }
+      return Promise.resolve(false);
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error("Failed to create policy:", error.message);
+        publish("onToast", {
+          message: error.message || "Failed to create policy",
+          type: "error",
+        });
+      }
+      return Promise.resolve(false);
+    }
+  };
+
+  const signPolicy = async (policy: PluginPolicy): Promise<PluginPolicy> => {
+    const account = await VulticonnectWalletService.getAccount();
+    if (!account) {
+      throw new Error("Need to connect to wallet");
+    }
+
+    const hexMessage = policyToHexMessage({
+      pluginVersion: policy.plugin_version,
+      policyVersion: policy.policy_version,
+      publicKey: getCurrentVaultId(),
+      recipe: policy.recipe,
+    });
+
+    const signature = await VulticonnectWalletService.signCustomMessage(
+      hexMessage,
+      account
+    );
+    console.log("signature:", signature);
+
+    policy.signature = signature;
+    return policy;
+  };
+
   const removePolicy = async (policyId: string): Promise<void> => {
     let policy = policyMap.get(policyId);
 
@@ -73,11 +127,7 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
 
     try {
       if (policy.signature) {
-        await PolicyService.deletePolicy(
-          getMarketplaceUrl(),
-          policyId,
-          policy.signature
-        );
+        await PolicyService.deletePolicy(policyId, policy.signature);
 
         setState((prev) => {
           const updatedPolicyMap = new Map(prev.policyMap);
@@ -139,6 +189,7 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
         policyMap,
         policySchemaMap,
         policiesTotalCount,
+        addPolicy,
         fetchPolicies,
         removePolicy,
         currentPage,

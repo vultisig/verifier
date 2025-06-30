@@ -4,7 +4,6 @@ import MarketplaceService, {
 } from "@/modules/marketplace/services/marketplaceService";
 import Button from "@/modules/core/components/ui/button/Button";
 import "./recipe_Schema.styles.css";
-import { RecipeSchema } from "@/utils/interfaces";
 import { PolicySchema, ScheduleSchema } from "@/gen/policy_pb";
 import { ScheduleFrequency } from "@/gen/scheduling_pb";
 import { ConstraintSchema, ConstraintType } from "@/gen/constraint_pb";
@@ -14,13 +13,14 @@ import { constraintTypeName, frequencyName } from "@/utils/constants";
 import { ParameterConstraintSchema } from "@/gen/parameter_constraint_pb";
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
 import { getCurrentVaultId } from "@/storage/currentVaultId";
-
+import { RecipeSchema } from "@/gen/recipe_specification_pb";
 import { v4 as uuidv4 } from "uuid";
 import { Plugin } from "../../models/plugin";
 import { publish } from "@/utils/eventBus";
 import { PluginPolicy } from "../../models/policy";
 import PolicyService from "@/modules/policy/services/policyService";
 import { usePolicies } from "@/modules/policy/context/PolicyProvider";
+
 interface InitialState {
   error?: string;
   frequency?: ScheduleFrequency;
@@ -159,7 +159,7 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
         effect: Effect.ALLOW,
         id: "",
         parameterConstraints,
-        resource: currentResource.resourcePath.full,
+        resource: currentResource.resourcePath?.full,
       });
 
       const schedule = () => {
@@ -309,7 +309,7 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
                 >
                   {schema.supportedResources.map((res, i) => (
                     <option key={i} value={i}>
-                      {res.resourcePath.full}
+                      {res.resourcePath?.full}
                     </option>
                   ))}
                 </select>
@@ -320,14 +320,14 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
               <>
                 {/* Current Resource Info */}
                 <div className="resource-info">
-                  <h3>Resource: {currentResource.resourcePath.full}</h3>
+                  <h3>Resource: {currentResource.resourcePath?.full}</h3>
                   <div className="resource-details">
-                    <span>Chain: {currentResource.resourcePath.chainId}</span>
+                    <span>Chain: {currentResource.resourcePath?.chainId}</span>
                     <span>
-                      Protocol: {currentResource.resourcePath.protocolId}
+                      Protocol: {currentResource.resourcePath?.protocolId}
                     </span>
                     <span>
-                      Function: {currentResource.resourcePath.functionId}
+                      Function: {currentResource.resourcePath?.functionId}
                     </span>
                   </div>
                 </div>
@@ -361,7 +361,7 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
                   ))}
                 </div>
                 {/* Scheduling */}
-                {schema.scheduling.supportsScheduling && (
+                {schema.scheduling?.supportsScheduling && (
                   <div className="scheduling-section">
                     <h4>Scheduling</h4>
                     <div className="form-group">
@@ -423,11 +423,11 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
                   <div className="requirements-list">
                     <div>
                       Min Vultisig Version:{" "}
-                      {schema.requirements.minVultisigVersion}
+                      {schema.requirements?.minVultisigVersion}
                     </div>
                     <div>
                       Supported Chains:{" "}
-                      {schema.requirements.supportedChains.join(", ")}
+                      {schema.requirements?.supportedChains.join(", ")}
                     </div>
                   </div>
                 </div>

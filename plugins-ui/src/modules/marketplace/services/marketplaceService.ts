@@ -8,12 +8,12 @@ import {
 } from "../models/marketplace";
 import { Plugin, PluginPricing } from "@/modules/plugin/models/plugin";
 import { getCurrentVaultId } from "@/storage/currentVaultId";
-import { RecipeSchema } from "@/utils/interfaces";
 import { toCamelCase } from "@/utils/functions";
 import {
   PluginPolicy,
   TransactionHistory,
 } from "@/modules/plugin/models/policy";
+import { RecipeSchema } from "@/gen/recipe_specification_pb";
 
 export const getMarketplaceUrl = () => import.meta.env.VITE_MARKETPLACE_URL;
 

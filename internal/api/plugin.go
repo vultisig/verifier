@@ -224,6 +224,7 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 		take = 100
 	}
 
+	//TODO: use tx_indexer service to get transaction history
 	policyHistory, err := s.policyService.GetPluginPolicyTransactionHistory(c.Request().Context(), policyID, take, skip)
 	if err != nil {
 		err = fmt.Errorf("failed to get policy history: %w", err)

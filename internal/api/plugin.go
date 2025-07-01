@@ -202,37 +202,68 @@ func (s *Server) GetTags(c echo.Context) error {
 
 func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 	policyID := c.Param("policyId")
-
 	if policyID == "" {
 		err := fmt.Errorf("policy ID is required")
 		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, err.Error(), ""))
 	}
-
-	skip, err := strconv.Atoi(c.QueryParam("skip"))
-
+	policyUUID, err := uuid.Parse(policyID)
 	if err != nil {
-		skip = 0
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(
+			http.StatusBadRequest,
+			"'policyId' invalid uuid",
+			err.Error(),
+		))
 	}
 
-	take, err := strconv.Atoi(c.QueryParam("take"))
-
-	if err != nil {
-		take = 20
+	skip := uint32(0)
+	skipParam := c.QueryParam("skip")
+	if skipParam != "" {
+		sk, er := strconv.Atoi(skipParam)
+		if er != nil {
+			return c.JSON(http.StatusBadRequest, NewErrorResponse(
+				http.StatusBadRequest,
+				"'skip' parameter is invalid",
+				er.Error(),
+			))
+		}
+		skip = uint32(sk)
 	}
 
+	take := uint32(20)
+	takeParam := c.QueryParam("take")
+	if takeParam != "" {
+		tk, er := strconv.Atoi(takeParam)
+		if er != nil {
+			return c.JSON(http.StatusBadRequest, NewErrorResponse(
+				http.StatusBadRequest,
+				"'take' parameter is invalid",
+				er.Error(),
+			))
+		}
+		take = uint32(tk)
+	}
 	if take > 100 {
-		take = 100
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(
+			http.StatusBadRequest,
+			"'take' parameter cannot be greater than 100",
+			"",
+		))
 	}
 
-	//TODO: use tx_indexer service to get transaction history
-	policyHistory, err := s.policyService.GetPluginPolicyTransactionHistory(c.Request().Context(), policyID, take, skip)
+	txs, totalCount, err := s.txIndexerService.GetByPolicyID(c.Request().Context(), policyUUID, skip, take)
 	if err != nil {
-		err = fmt.Errorf("failed to get policy history: %w", err)
-		s.logger.WithError(err).Error("Failed to get policy history")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "failed to get policy history", err.Error()))
+		s.logger.WithError(err).Errorf("s.txIndexerService.GetByPolicyID: %s", policyID)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(
+			http.StatusInternalServerError,
+			"s.txIndexerService.GetByPolicyID",
+			err.Error(),
+		))
 	}
 
-	return c.JSON(http.StatusOK, policyHistory)
+	return c.JSON(http.StatusOK, types.TransactionHistoryPaginatedList{
+		History:    txs,
+		TotalCount: totalCount,
+	})
 }
 
 func (s *Server) CreateReview(c echo.Context) error {

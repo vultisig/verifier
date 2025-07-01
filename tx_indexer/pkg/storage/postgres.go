@@ -299,9 +299,52 @@ func (p *PostgresTxIndexStore) CreateTx(c context.Context, req CreateTxDto) (Tx,
 	return tx, nil
 }
 
+func (p *PostgresTxIndexStore) GetByPolicyID(
+	c context.Context,
+	policyID uuid.UUID,
+	skip, take uint32,
+) <-chan RowsStream[Tx] {
+	return GetRowsStream[Tx](
+		c,
+		p.pool,
+		TxFromRow,
+		`SELECT * FROM tx_indexer WHERE policy_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+		policyID,
+		take,
+		skip,
+	)
+}
+
+func (p *PostgresTxIndexStore) CountByPolicyID(c context.Context, policyID uuid.UUID) (uint32, error) {
+	ctx, cancel := context.WithTimeout(c, defaultTimeout)
+	defer cancel()
+
+	var count uint32
+	err := p.pool.QueryRow(
+		ctx,
+		`SELECT COUNT(*) FROM tx_indexer WHERE policy_id = $1`,
+		policyID,
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("p.pool.QueryRow: %w", err)
+	}
+	return count, nil
+}
+
 type RowsStream[T any] struct {
 	Row T
 	Err error
+}
+
+func AllFromRowsStream[T any](ch <-chan RowsStream[T]) ([]T, error) {
+	var items []T
+	for item := range ch {
+		if item.Err != nil {
+			return nil, fmt.Errorf("item.Err: %w", item.Err)
+		}
+		items = append(items, item.Row)
+	}
+	return items, nil
 }
 
 // GetRowsStream
@@ -356,6 +399,7 @@ func TxFromRow(rows pgx.Rows) (Tx, error) {
 		&tx.TxHash,
 		&tx.ChainID,
 		&tx.PolicyID,
+		&tx.TokenID,
 		&tx.FromPublicKey,
 		&tx.ToPublicKey,
 		&tx.ProposedTxHex,

@@ -55,7 +55,7 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      BLOCK_STORAGE_CONFIG_HOST: minio
+      BLOCK_STORAGE_HOST: minio
       DATABASE_DSN: postgres://myuser:mypassword@postgres:5432/vultisig-verifier?sslmode=disable
     ports:
       - "8080:8080"

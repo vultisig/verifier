@@ -5,17 +5,21 @@ import logo from "../../../../assets/DCA-image.png"; // todo hardcoded until thi
 import "./PluginDetail.css";
 import { useEffect, useState } from "react";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
-import { Plugin } from "../../models/plugin";
+import { Plugin, PluginPricing } from "../../models/plugin";
 import Reviews from "@/modules/review/components/reviews/Reviews";
 import { publish } from "@/utils/eventBus";
 import { ReviewProvider } from "@/modules/review/context/ReviewProvider";
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
 import RecipeSchema from "@/modules/plugin/components/recipe_schema/recipe_Schema";
 import { useWallet } from "@/modules/shared/wallet/WalletProvider";
+import PolicyTable from "../../../policy/policy-table/PolicyTable";
 
 const PluginDetail = () => {
   const navigate = useNavigate();
   const [plugin, setPlugin] = useState<Plugin | null>(null);
+  const [pluginPricing, setPluginPricing] = useState<PluginPricing | null>(
+    null
+  );
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
   const [showRecipeSchema, setShowRecipeSchema] = useState(false);
   const { isConnected, connect, vault } = useWallet();
@@ -34,12 +38,32 @@ const PluginDetail = () => {
     }
   };
 
+  const uninstallPlugin = async () => {
+    try {
+      await MarketplaceService.uninstallPlugin(pluginId!);
+      setIsInstalled(false);
+      publish("onToast", {
+        message: "Plugin uninstalled successfully",
+        type: "success",
+      });
+    } catch (error) {
+      console.error("Failed to uninstall plugin:", error);
+      publish("onToast", {
+        message: "Failed to uninstall plugin",
+        type: "error",
+      });
+    }
+  };
+
   const fetchPlugin = async () => {
     if (pluginId) {
       try {
         const fetchedPlugin = await MarketplaceService.getPlugin(pluginId);
-
         setPlugin(fetchedPlugin);
+        const pluginPricing = await MarketplaceService.getPluginPricing(
+          fetchedPlugin.pricing_id
+        );
+        setPluginPricing(pluginPricing);
       } catch (error) {
         if (error instanceof Error) {
           console.error("Failed to get plugin:", error.message);
@@ -83,7 +107,16 @@ const PluginDetail = () => {
                 <p className="plugin-description">{plugin.description}</p>
                 <section className="plugin-installaion">
                   {isConnected ? (
-                    isInstalled ? null : (
+                    isInstalled ? (
+                      <Button
+                        size="small"
+                        type="button"
+                        styleType="danger"
+                        onClick={uninstallPlugin}
+                      >
+                        Uninstall
+                      </Button>
+                    ) : (
                       <Button
                         size="small"
                         type="button"
@@ -114,29 +147,42 @@ const PluginDetail = () => {
                       Connect
                     </Button>
                   )}
-                  <Button
-                    size="small"
-                    type="button"
-                    styleType="secondary"
-                    onClick={() => setShowRecipeSchema(true)}
-                    style={{ marginLeft: 8 }}
-                  >
-                    View Policy Schema
-                  </Button>
-                  <aside>Plugin fee: 0.1% per trade</aside>
+                  {isInstalled && (
+                    <Button
+                      size="small"
+                      type="button"
+                      styleType="secondary"
+                      onClick={() => setShowRecipeSchema(true)}
+                      style={{ marginLeft: 8 }}
+                    >
+                      View Policy Schema
+                    </Button>
+                  )}
+
+                  {pluginPricing && (
+                    <aside>
+                      Plugin fee: ${pluginPricing.amount || 0}{" "}
+                      {pluginPricing.frequency || ""}
+                    </aside>
+                  )}
                 </section>
               </section>
             </section>
 
+            {isInstalled && <PolicyTable />}
+
             {showRecipeSchema && (
               <RecipeSchema
-                pluginId={plugin.id}
-                onClose={() => setShowRecipeSchema(false)}
+                plugin={plugin}
+                onClose={() => {
+                  // TODO: Refetch Policies
+                  setShowRecipeSchema(false);
+                }}
               />
             )}
 
             <ReviewProvider pluginId={plugin.id} ratings={plugin.ratings}>
-              <Reviews plugin={plugin} />
+              <Reviews />
             </ReviewProvider>
           </>
         )}

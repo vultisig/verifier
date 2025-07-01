@@ -65,18 +65,17 @@ const Marketplace = () => {
   useEffect(() => {
     const fetchPlugins = async (): Promise<void> => {
       try {
-        const fetchedPlugins = await MarketplaceService.getPlugins(
-          filters.term,
-          filters.categoryId,
-          filters.sortBy,
-          filters.sortOrder,
-          currentPage > 1 ? (currentPage - 1) * ITEMS_PER_PAGE : 0,
-          ITEMS_PER_PAGE
-        );
-        console.log("fetchedPlugins");
+        const fetchedPlugins = await MarketplaceService.getPlugins();
+        console.log("here fetchedPlugins");
         console.log(fetchedPlugins);
         setPlugins(fetchedPlugins);
-        setTotalPages(Math.ceil(fetchedPlugins.total_count ? fetchedPlugins.total_count / ITEMS_PER_PAGE : 1));
+        setTotalPages(
+          Math.ceil(
+            fetchedPlugins.total_count
+              ? fetchedPlugins.total_count / ITEMS_PER_PAGE
+              : 1
+          )
+        );
 
         if (
           fetchedPlugins &&

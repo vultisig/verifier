@@ -55,7 +55,7 @@ describe("Reviews", () => {
       pluginRatings: plugin.ratings,
     });
 
-    const { rerender } = render(<Reviews plugin={plugin} />);
+    const { rerender } = render(<Reviews />);
 
     await waitFor(() => {
       expect(screen.getByText(`"Great!"`)).toBeInTheDocument();
@@ -108,7 +108,7 @@ describe("Reviews", () => {
       pluginRatings: plugin.ratings,
     });
 
-    rerender(<Reviews plugin={plugin} />);
+    rerender(<Reviews />);
 
     await waitFor(() => {
       expect(screen.getByText(`"Great!"`)).toBeInTheDocument();

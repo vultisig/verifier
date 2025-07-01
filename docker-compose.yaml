@@ -11,14 +11,16 @@ services:
       POSTGRES_DB: vultisig-verifier
     volumes:
       - pg_data:/var/lib/postgresql/data
-
+    networks:
+      - shared_network
   redis:
     image: redis:7
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
-
+    networks:
+      - shared_network
   minio:
     image: minio/minio
     ports:
@@ -30,8 +32,48 @@ services:
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"
-
+    networks:
+      - shared_network
+  verifier:
+    build:
+      context: .
+      dockerfile: Dockerfile.verifier
+      platforms:
+        - linux/amd64
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      BLOCK_STORAGE_CONFIG_HOST: minio
+      DATABASE_DSN: postgres://myuser:mypassword@postgres:5432/vultisig-verifier?sslmode=disable
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - redis
+      - minio
+    networks:
+      - shared_network
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+      platforms:
+        - linux/amd64
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      BLOCK_STORAGE_HOST: minio
+      DATABASE_DSN: postgres://myuser:mypassword@postgres:5432/vultisig-verifier?sslmode=disable
+    depends_on:
+      - postgres
+      - redis
+      - minio
+    networks:
+      - shared_network
 volumes:
   pg_data:
   redis_data:
   minio_data:
+networks:
+  shared_network:
+    external: true

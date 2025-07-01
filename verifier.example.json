@@ -1,29 +1,26 @@
 {
   "server": {
-    "host": "localhost",
+    "host": "127.0.0.1",
     "port": 8080,
-    "jwt_secret": "secret"
+    "jwt_secret": "mysecret"
+  },
+  "database": {
+    "dsn": "postgres://myuser:mypassword@localhost:5432/vultisig-verifier?sslmode=disable"
   },
   "redis": {
     "host": "localhost",
     "port": "6379"
   },
-  "block_storage": {
+  "block_storage_config": {
     "host": "http://localhost:9000",
     "region": "us-east-1",
     "access_key": "minioadmin",
     "secret": "minioadmin",
     "bucket": "vultisig-verifier"
   },
-  "database": {
-    "dsn": "postgres://myuser:mypassword@localhost:5432/vultisig-verifier?sslmode=disable"
-  },
-  "plugin": {},
+  "encryption_secret": "test123",
   "datadog": {
     "host": "localhost",
     "port": "8125"
-  },
-  "auth": {
-    "nonce_expiry_minutes": 15
   }
 }

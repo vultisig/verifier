@@ -189,8 +189,6 @@ func (p *PostgresBackend) FindPlugins(
 
 	queryTotal += ";"
 
-	fmt.Println(query)
-
 	// execute
 	rows, err := p.pool.Query(ctx, query, args...)
 	if err != nil {

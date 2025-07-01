@@ -158,7 +158,7 @@ jobs:
 
       - name: Run smoke test
         run: |
-          hurl --test ./testdata/smoke/public.hurl
+          hurl --test --variables-file ./testdata/smoke/vars.env ./testdata/smoke/public.hurl
 
       - name: Cleanup verifier
         run: |

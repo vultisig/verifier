@@ -140,7 +140,7 @@ func DecryptVaultFromBackup(password string, vaultBackupRaw []byte) (*vaultType.
 		return nil, err
 	}
 
-	vaultRaw := []byte(vaultBackup.Vault)
+	var vaultRaw []byte
 	if vaultBackup.IsEncrypted {
 		// decrypt the vault
 		vaultBytes, err := base64.StdEncoding.DecodeString(vaultBackup.Vault)

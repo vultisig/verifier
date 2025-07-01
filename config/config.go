@@ -3,8 +3,10 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/viper"
+
 	tx_indexer_config "github.com/vultisig/verifier/tx_indexer/pkg/config"
 	"github.com/vultisig/verifier/vault_config"
 )
@@ -64,6 +66,7 @@ func GetConfigure() (*WorkerConfig, error) {
 func ReadConfig(configName string) (*WorkerConfig, error) {
 	viper.SetConfigName(configName)
 	viper.AddConfigPath(".")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
 	viper.SetDefault("VaultService.VaultsFilePath", "vaults")
@@ -86,6 +89,7 @@ func ReadVerifierConfig() (*VerifierConfig, error) {
 	}
 	viper.SetConfigName(configName)
 	viper.AddConfigPath(".")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
 	// Set default values
@@ -109,6 +113,7 @@ func ReadTxIndexerConfig() (*tx_indexer_config.Config, error) {
 	}
 	viper.SetConfigName(configName)
 	viper.AddConfigPath(".")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {

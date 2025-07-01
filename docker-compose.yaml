@@ -13,6 +13,12 @@ services:
       - pg_data:/var/lib/postgresql/data
     networks:
       - shared_network
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "myuser" ]
+      interval: 1s
+      timeout: 5s
+      retries: 3
+
   redis:
     image: redis:7
     ports:
@@ -21,6 +27,12 @@ services:
       - redis_data:/data
     networks:
       - shared_network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 1s
+      timeout: 5s
+      retries: 3
+
   minio:
     image: minio/minio
     ports:
@@ -48,9 +60,12 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - postgres
-      - redis
-      - minio
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
     networks:
       - shared_network
   worker:
@@ -65,9 +80,12 @@ services:
       BLOCK_STORAGE_HOST: minio
       DATABASE_DSN: postgres://myuser:mypassword@postgres:5432/vultisig-verifier?sslmode=disable
     depends_on:
-      - postgres
-      - redis
-      - minio
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
     networks:
       - shared_network
 volumes:

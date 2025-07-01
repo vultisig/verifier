@@ -23,16 +23,15 @@ A service providing threshold signature scheme (TSS) operations for vaults. Work
 
 ### Quick Start
 ```bash
-# Docker setup
-docker-compose up -d
+# start verifier and worker in docker compose
+make up
 
-# Manual setup
-go mod tidy
-cp config.example.json config.json  # Edit as needed
-make migrate
-make build
-./bin/verifier
-# In another terminal: ./bin/worker
+# seed the postgres database with initial data
+make seed-db
+
+# run frontend marketplace locally
+make run-frontend
+
 ```
 
 ### Configuration

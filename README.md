@@ -23,6 +23,8 @@ A service providing threshold signature scheme (TSS) operations for vaults. Work
 
 ### Quick Start
 ```bash
+# create a shared network for docker containers
+docker network create shared_network
 # start verifier and worker in docker compose
 make up
 

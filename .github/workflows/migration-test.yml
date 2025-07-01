@@ -1,10 +1,10 @@
-name: Migration Test
+name: Tests
 
 on:
   push:
 
 jobs:
-  migration-test:
+  tests:
     runs-on: ubuntu-latest
  
     services:
@@ -45,6 +45,9 @@ jobs:
         run: |
           git clone https://github.com/vultisig/go-wrappers.git ../go-wrappers
 
+      - name: Install hurl
+        uses: gacts/install-hurl@v1
+
       - name: Create test config
         run: |
           cat > config.json <<EOF
@@ -81,7 +84,7 @@ jobs:
           export LD_LIBRARY_PATH=../go-wrappers/includes/linux/:$LD_LIBRARY_PATH
           go build -o verifier cmd/verifier/main.go
 
-      - name: Run verifier and check migrations
+      - name: Start verifier
         run: |
           export LD_LIBRARY_PATH=../go-wrappers/includes/linux/:$LD_LIBRARY_PATH
           export VS_CONFIG_NAME=config
@@ -147,9 +150,6 @@ jobs:
           fi
 
           echo "Schema is up to date!"
-
-      - name: Install hurl
-        uses: gacts/install-hurl@v1
 
       - name: Run smoke test
         run: |

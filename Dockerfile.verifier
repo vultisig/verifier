@@ -34,18 +34,13 @@ WORKDIR /app
 
 # Copy the built binary from the builder stage
 COPY --from=builder /app/verifier .
+COPY --from=builder /usr/local/lib/dkls /usr/local/lib/dkls
 COPY verifier.example.json config.json
-
-RUN wget https://github.com/vultisig/go-wrappers/archive/refs/heads/master.tar.gz
-RUN tar -xzf master.tar.gz && \
-    cd go-wrappers-master && \
-    mkdir -p /usr/local/lib/dkls && \
-    cp --recursive includes /usr/local/lib/dkls
 
 ENV LD_LIBRARY_PATH=/usr/local/lib/dkls/includes/linux/:$LD_LIBRARY_PATH
 
 # Expose the port the application listens on
-EXPOSE 8081
+EXPOSE 8080
 
 # Run the application
 CMD ["./verifier"]

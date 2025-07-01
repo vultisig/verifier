@@ -26,7 +26,7 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]types.Plugin, error) 
 		var plugin types.Plugin
 		var tagId *string
 		var tagName *string
-		var tagColor *string
+		var tagCreatedAt *time.Time
 
 		err := rows.Scan(
 			&plugin.ID,
@@ -39,7 +39,7 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]types.Plugin, error) 
 			&plugin.UpdatedAt,
 			&tagId,
 			&tagName,
-			&tagColor,
+			&tagCreatedAt,
 		)
 
 		if err != nil {

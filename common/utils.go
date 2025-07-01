@@ -151,6 +151,11 @@ func DecryptVaultFromBackup(password string, vaultBackupRaw []byte) (*vaultType.
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		vaultRaw, err = base64.StdEncoding.DecodeString(vaultBackup.Vault)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var vault vaultType.Vault

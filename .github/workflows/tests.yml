@@ -115,6 +115,11 @@ jobs:
           # Save PID for later cleanup
           echo $VERIFIER_PID > verifier.pid
 
+      - name: Seed database
+        run: |
+          export VS_CONFIG_NAME=config
+          go run testdata/scripts/seed_db.go
+
       - name: Check migration integrity
         run: |
           # Verify goose migrations table exists and has entries

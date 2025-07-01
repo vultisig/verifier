@@ -29,6 +29,18 @@ jsonpath "$.category_id" == "plugin"
 jsonpath "$.created_at" exists
 jsonpath "$.updated_at" exists
 
+GET http://localhost:8080/plugins/vultisig-dca-0000/reviews
+HTTP 200
+Content-Type: application/json
+[Asserts]
+jsonpath "$.reviews" exists
+jsonpath "$.reviews" count >= 1
+jsonpath "$.reviews[0].id" isString
+jsonpath "$.reviews[0].address" matches "0x[0-9a-fA-F]{40}"
+jsonpath "$.reviews[0].rating" == 5
+jsonpath "$.reviews[0].comment" == "Hello world"
+jsonpath "$.reviews[0].created_at" exists
+
 GET http://localhost:8080/categories
 HTTP 200
 Content-Type: application/json

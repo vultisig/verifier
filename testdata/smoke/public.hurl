@@ -15,3 +15,24 @@ jsonpath "$.plugins[0].pricing_id" exists
 jsonpath "$.plugins[0].category_id" exists
 jsonpath "$.plugins[0].created_at" exists
 jsonpath "$.plugins[0].updated_at" exists
+
+GET http://localhost:8080/categories
+HTTP 200
+Content-Type: application/json
+# Go adds a newline so we need to use the raw string body format
+```json
+[{"id":"ai-agent","name":"AI Agent"},{"id":"plugin","name":"Plugin"}]
+```
+
+GET http://localhost:8080/tags
+HTTP 200
+Content-Type: application/json
+[Asserts]
+jsonpath "$" exists
+jsonpath "$" count >= 2
+jsonpath "$[0].id" matches "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+jsonpath "$[0].name" == "Trading"
+jsonpath "$[0].created_at" exists
+jsonpath "$[1].id" matches "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+jsonpath "$[1].name" == "Operations"
+jsonpath "$[1].created_at" exists

@@ -46,7 +46,7 @@ jobs:
           git clone https://github.com/vultisig/go-wrappers.git ../go-wrappers
 
       - name: Install hurl
-        uses: gacts/install-hurl@v1
+        uses: gacts/install-hurl@v1.2.1
 
       - name: Create test config
         run: |

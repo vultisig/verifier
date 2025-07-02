@@ -32,5 +32,6 @@ CREATE TABLE tx_indexer (
 
 CREATE INDEX idx_tx_indexer_status_onchain_lost ON tx_indexer(status_onchain, lost);
 CREATE INDEX idx_tx_indexer_key ON tx_indexer(chain_id, plugin_id, policy_id, token_id, to_public_key, created_at);
+CREATE INDEX idx_tx_indexer_policy_id_created_at ON tx_indexer(policy_id, created_at);
 END;
 -- +goose StatementEnd

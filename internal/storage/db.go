@@ -25,7 +25,6 @@ type DatabaseStorage interface {
 	PolicyRepository
 	PluginPolicySyncRepository
 	VaultTokenRepository
-	TransactionRepository
 	PricingRepository
 	PluginRepository
 	FeeRepository
@@ -55,16 +54,6 @@ type PluginPolicySyncRepository interface {
 	DeletePluginPolicySync(ctx context.Context, id uuid.UUID) error
 	GetUnFinishedPluginPolicySyncs(ctx context.Context) ([]itypes.PluginPolicySync, error)
 	UpdatePluginPolicySync(ctx context.Context, dbTx pgx.Tx, policy itypes.PluginPolicySync) error
-}
-
-type TransactionRepository interface {
-	CountTransactions(ctx context.Context, policyID uuid.UUID, status itypes.TransactionStatus, txType string) (int64, error)
-	CreateTransactionHistoryTx(ctx context.Context, dbTx pgx.Tx, tx itypes.TransactionHistory) (uuid.UUID, error)
-	UpdateTransactionStatusTx(ctx context.Context, dbTx pgx.Tx, txID uuid.UUID, status itypes.TransactionStatus, metadata map[string]interface{}) error
-	CreateTransactionHistory(ctx context.Context, tx itypes.TransactionHistory) (uuid.UUID, error)
-	UpdateTransactionStatus(ctx context.Context, txID uuid.UUID, status itypes.TransactionStatus, metadata map[string]interface{}) error
-	GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) ([]itypes.TransactionHistory, int64, error)
-	GetTransactionByHash(ctx context.Context, txHash string) (*itypes.TransactionHistory, error)
 }
 
 type PricingRepository interface {

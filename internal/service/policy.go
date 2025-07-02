@@ -25,7 +25,6 @@ type Policy interface {
 	DeletePolicy(ctx context.Context, policyID uuid.UUID, pluginID types.PluginID, signature string) error
 	GetPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (itypes.PluginPolicyPaginatedList, error)
 	GetPluginPolicy(ctx context.Context, policyID uuid.UUID) (types.PluginPolicy, error)
-	GetPluginPolicyTransactionHistory(ctx context.Context, policyID string, take int, skip int) (itypes.TransactionHistoryPaginatedList, error)
 	DeleteAllPolicies(ctx context.Context, pluginID types.PluginID, publicKey string) error
 }
 
@@ -223,22 +222,6 @@ func (s *PolicyService) GetPluginPolicy(ctx context.Context, policyID uuid.UUID)
 	return policy, nil
 }
 
-func (s *PolicyService) GetPluginPolicyTransactionHistory(ctx context.Context, policyID string, take int, skip int) (itypes.TransactionHistoryPaginatedList, error) {
-	policyUUID, err := uuid.Parse(policyID)
-	if err != nil {
-		return itypes.TransactionHistoryPaginatedList{}, fmt.Errorf("invalid policy_id: %s", policyID)
-	}
-
-	history, totalCount, err := s.db.GetTransactionHistory(ctx, policyUUID, "SWAP", take, skip)
-	if err != nil {
-		return itypes.TransactionHistoryPaginatedList{}, fmt.Errorf("failed to get policy history: %w", err)
-	}
-
-	return itypes.TransactionHistoryPaginatedList{
-		History:    history,
-		TotalCount: int(totalCount),
-	}, nil
-}
 func (s *PolicyService) DeleteAllPolicies(ctx context.Context, pluginID types.PluginID, publicKey string) error {
 	tx, err := s.db.Pool().Begin(ctx)
 	if err != nil {

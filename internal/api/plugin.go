@@ -12,6 +12,7 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/vultisig/verifier/internal/conv"
 	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
 
 	"github.com/vultisig/verifier/common"
@@ -215,33 +216,7 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 		))
 	}
 
-	skip := uint32(0)
-	skipParam := c.QueryParam("skip")
-	if skipParam != "" {
-		sk, er := strconv.Atoi(skipParam)
-		if er != nil {
-			return c.JSON(http.StatusBadRequest, NewErrorResponse(
-				http.StatusBadRequest,
-				"'skip' parameter is invalid",
-				er.Error(),
-			))
-		}
-		skip = uint32(sk)
-	}
-
-	take := uint32(20)
-	takeParam := c.QueryParam("take")
-	if takeParam != "" {
-		tk, er := strconv.Atoi(takeParam)
-		if er != nil {
-			return c.JSON(http.StatusBadRequest, NewErrorResponse(
-				http.StatusBadRequest,
-				"'take' parameter is invalid",
-				er.Error(),
-			))
-		}
-		take = uint32(tk)
-	}
+	skip, take, err := conv.PageParamsFromCtx(c, 0, 20)
 	if take > 100 {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse(
 			http.StatusBadRequest,

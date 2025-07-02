@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:15
     ports:
-      - "5432:5432"
+      - "4432:5432"
     environment:
       POSTGRES_USER: myuser
       POSTGRES_PASSWORD: mypassword
@@ -20,7 +20,7 @@ services:
   redis:
     image: redis:7
     ports:
-      - "6379:6379"
+      - "5379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -38,13 +38,14 @@ services:
       platforms:
         - linux/amd64
     ports:
-      - "9000:9000"
-      - "9090:9090"
+      - "8000:9000"
+      - "8001:9001"
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     volumes:
       - minio_data:/data
+    command: server /data --console-address ":8001"
     networks:
       - shared_network
   verifier:

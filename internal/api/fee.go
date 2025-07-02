@@ -47,3 +47,14 @@ func (s *Server) GetPluginFees(c echo.Context) error {
 	status := http.StatusOK
 	return c.JSON(status, NewSuccessResponse(status, history))
 }
+
+func (s *Server) GetAllFees(c echo.Context) error {
+
+	history, err := s.feeService.GetAllFeeInfo(c.Request().Context())
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "failed to get fees", err.Error()))
+	}
+
+	status := http.StatusOK
+	return c.JSON(status, NewSuccessResponse(status, history))
+}

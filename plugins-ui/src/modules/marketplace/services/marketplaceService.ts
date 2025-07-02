@@ -92,10 +92,7 @@ const MarketplaceService = {
     take: number
   ): Promise<{ policies: PluginPolicy[]; total_count: number }> => {
     return get(
-      `${getMarketplaceUrl()}/plugin/policies?skip=${skip}&take=${take}`,
-      {
-        headers: { plugin_id: pluginId, public_key: getCurrentVaultId() },
-      }
+      `${getMarketplaceUrl()}/plugin/policies/${pluginId}?skip=${skip}&take=${take}`
     );
   },
 

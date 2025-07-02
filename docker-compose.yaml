@@ -32,16 +32,19 @@ services:
       retries: 3
 
   minio:
-    image: minio/minio
+    build:
+      context: .
+      dockerfile: Dockerfile.minio
+      platforms:
+        - linux/amd64
     ports:
       - "9000:9000"
-      - "9001:9001"
+      - "9090:9090"
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     volumes:
       - minio_data:/data
-    command: server /data --console-address ":9001"
     networks:
       - shared_network
   verifier:
@@ -53,7 +56,7 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      BLOCK_STORAGE_HOST: minio
+      BLOCK_STORAGE_HOST: http://minio:9000
       DATABASE_DSN: postgres://myuser:mypassword@postgres:5432/vultisig-verifier?sslmode=disable
     ports:
       - "8080:8080"
@@ -75,7 +78,7 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      BLOCK_STORAGE_HOST: minio
+      BLOCK_STORAGE_HOST: http://minio:9000
       DATABASE_DSN: postgres://myuser:mypassword@postgres:5432/vultisig-verifier?sslmode=disable
     depends_on:
       postgres:

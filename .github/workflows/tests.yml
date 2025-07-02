@@ -1,10 +1,10 @@
-name: Migration Test
+name: Tests
 
 on:
   push:
 
 jobs:
-  migration-test:
+  tests:
     runs-on: ubuntu-latest
  
     services:
@@ -45,6 +45,9 @@ jobs:
         run: |
           git clone https://github.com/vultisig/go-wrappers.git ../go-wrappers
 
+      - name: Install hurl
+        uses: gacts/install-hurl@v1.2.1
+
       - name: Create test config
         run: |
           cat > config.json <<EOF
@@ -81,7 +84,7 @@ jobs:
           export LD_LIBRARY_PATH=../go-wrappers/includes/linux/:$LD_LIBRARY_PATH
           go build -o verifier cmd/verifier/main.go
 
-      - name: Run verifier and check migrations
+      - name: Start verifier
         run: |
           export LD_LIBRARY_PATH=../go-wrappers/includes/linux/:$LD_LIBRARY_PATH
           export VS_CONFIG_NAME=config
@@ -109,8 +112,13 @@ jobs:
 
           echo "All migrations ran successfully!"
 
-          # Stop verifier
-          kill $VERIFIER_PID
+          # Save PID for later cleanup
+          echo $VERIFIER_PID > verifier.pid
+
+      - name: Seed database
+        run: |
+          export VS_CONFIG_NAME=config
+          go run testdata/scripts/seed_db.go
 
       - name: Check migration integrity
         run: |
@@ -147,3 +155,17 @@ jobs:
           fi
 
           echo "Schema is up to date!"
+
+      - name: Run smoke test
+        run: |
+          hurl --test --variables-file ./testdata/smoke/vars.env ./testdata/smoke/public.hurl
+
+      - name: Cleanup verifier
+        run: |
+          if [ -f verifier.pid ]; then
+            VERIFIER_PID=$(cat verifier.pid)
+            if kill -0 $VERIFIER_PID 2>/dev/null; then
+              kill $VERIFIER_PID
+            fi
+            rm verifier.pid
+          fi

@@ -77,6 +77,7 @@
                   packages = with pkgs; [ 
                     redis
                     goose
+                    hurl
                   ];
 
                   enterShell = ''

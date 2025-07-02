@@ -56,7 +56,7 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "Failed to get vault public key", ""))
 	}
 	if policy.PublicKey != publicKey {
-		c.JSON(http.StatusForbidden, NewErrorResponse(http.StatusForbidden, "Public key mismatch", ""))
+		return c.JSON(http.StatusForbidden, NewErrorResponse(http.StatusForbidden, "Public key mismatch", ""))
 	}
 
 	if !s.verifyPolicySignature(policy) {

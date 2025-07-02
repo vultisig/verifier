@@ -124,20 +124,14 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 }
 
 func (s *Server) GetPlugins(c echo.Context) error {
-	skip, err := strconv.Atoi(c.QueryParam("skip"))
-
+	skip, take, err := conv.PageParamsFromCtx(c, 0, 20)
 	if err != nil {
-		skip = 0
-	}
-
-	take, err := strconv.Atoi(c.QueryParam("take"))
-
-	if err != nil {
-		take = 20
-	}
-
-	if take > 100 {
-		take = 100
+		s.logger.WithError(err).Error("conv.PageParamsFromCtx")
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(
+			http.StatusBadRequest,
+			"invalid pagination parameters",
+			err.Error(),
+		))
 	}
 
 	sort := c.QueryParam("sort")
@@ -148,7 +142,7 @@ func (s *Server) GetPlugins(c echo.Context) error {
 		CategoryID: common.GetUUIDParam(c, "category_id"),
 	}
 
-	plugins, err := s.db.FindPlugins(c.Request().Context(), filters, take, skip, sort)
+	plugins, err := s.db.FindPlugins(c.Request().Context(), filters, int(take), int(skip), sort)
 
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get plugins")
@@ -217,11 +211,11 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 	}
 
 	skip, take, err := conv.PageParamsFromCtx(c, 0, 20)
-	if take > 100 {
+	if err != nil {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse(
 			http.StatusBadRequest,
-			"'take' parameter cannot be greater than 100",
-			"",
+			"invalid pagination parameters",
+			err.Error(),
 		))
 	}
 
@@ -230,7 +224,7 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 		s.logger.WithError(err).Errorf("s.txIndexerService.GetByPolicyID: %s", policyID)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse(
 			http.StatusInternalServerError,
-			"s.txIndexerService.GetByPolicyID",
+			"failed to get txs by policy ID",
 			err.Error(),
 		))
 	}

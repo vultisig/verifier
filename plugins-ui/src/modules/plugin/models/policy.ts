@@ -2,30 +2,39 @@ import { RJSFSchema, UiSchema } from "@rjsf/utils";
 import { ColumnDef } from "@tanstack/react-table";
 
 export enum PluginProgress {
-  InProgress = 'IN PROGRESS',
-  Done = 'DONE',
-};
+  InProgress = "IN PROGRESS",
+  Done = "DONE",
+}
 
 export type Policy<
   T = string | number | boolean | string[] | null | undefined,
 > = {
   [key: string]: T | Policy<T>;
 };
+export type BillingPolicy = {
+  id: string;
+  type: string;
+  frequency?: string;
+  start_date?: number;
+  amount: number;
+};
 
+export type FeePolicies = {
+  type: string;
+  start_date: string;
+  frequency: string;
+  amount: number;
+};
 export type PluginPolicy = {
   id: string;
-  public_key_ecdsa: string;
-  public_key_eddsa: string;
+  public_key: string;
   plugin_version: string;
-  policy_version: string;
-  plugin_type: string;
-  is_ecdsa: boolean;
-  chain_code_hex: string;
-  derive_path: string;
+  plugin_id: string;
+  policy_version: number;
   active: boolean;
-  progress: PluginProgress;
-  signature: string;
-  policy: Policy;
+  feePolicies: FeePolicies[];
+  signature?: string;
+  recipe: string;
 };
 
 export type PluginPoliciesMap = {
@@ -57,7 +66,6 @@ export type PolicySchema = {
     uiSchema: UiSchema;
     plugin_version: string;
     policy_version: string;
-    plugin_type: string;
   };
   table: {
     columns: PolicyTableColumn[];

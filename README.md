@@ -33,8 +33,23 @@ make seed-db
 
 # run frontend marketplace locally
 make run-frontend
-
 ```
+
+After executing above plugin backend services run locally in Docker. How to install dev version of Chrome extension from desired branch:
+
+- Clone [vultisig-windows](https://github.com/vultisig/vultisig-windows) repo and checkout to desired branch;
+- `yarn install` to install deps;
+- `yarn run build-extension` to build Chrome extension files;
+- Open Chrome and load extension there:
+  - Open `chrome://extensions/`;
+  - Click `Developer mode` toggle at top-right;
+  - Click `Load unpacked`
+  - Select `vultisig-windows/clients/extension/dist` folder;
+  - Now you'll see Vultisig Extension at the extensions list;
+
+To switch branch or update it: rebuild code and click `Reload` button near Vultisig Extension at the extensions list — Chrome would reload files from the same path;
+
+![extension.png](readme-static/extension.png)
 
 ### Configuration
 Edit `config.yaml` with appropriate settings for:

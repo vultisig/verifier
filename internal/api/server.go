@@ -157,6 +157,7 @@ func (s *Server) StartServer() error {
 	feeGroup.GET("/policy/:policyId", s.GetPluginPolicyFees, s.FeeAuthMiddleware)
 	feeGroup.GET("/plugin/:pluginId", s.GetPluginFees, s.FeeAuthMiddleware)
 	feeGroup.GET("/publickey/:publicKey", s.GetPublicKeyFees, s.FeeAuthMiddleware)
+	feeGroup.GET("/all", s.GetAllFees, s.FeeAuthMiddleware)
 
 	/* placeholder for future plugin endpoints
 	pluginGroup.GET("/fees", func(c echo.Context) error {

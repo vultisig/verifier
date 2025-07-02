@@ -62,10 +62,10 @@ CREATE VIEW billing_periods AS
     GROUP BY (ppb.id, pp.id);
 
 CREATE VIEW fees_view AS 
-    SELECT pp.id AS policy_id, ppb.id AS billing_id, ppb."type", f.* 
+    SELECT pp.id AS policy_id, pp.plugin_id AS plugin_id, ppb.id AS billing_id, pp.public_key AS public_key, ppb."type", f.* 
     FROM plugin_policies pp 
     JOIN plugin_policy_billing ppb ON ppb.plugin_policy_id = pp.id 
-    JOIN fees f ON f.plugin_policy_billing_id = ppb.id;;
+    JOIN fees f ON f.plugin_policy_billing_id = ppb.id;
 
 CREATE INDEX idx_fees_plugin_policy_billing_id ON fees(plugin_policy_billing_id);
 CREATE INDEX idx_plugin_policy_billing_id ON plugin_policy_billing(id);

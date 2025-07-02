@@ -41,7 +41,7 @@ How to install dev version of Chrome extension from desired branch:
 - `yarn install` to install deps;
 - `yarn run build-extension` to build Chrome extension files;
 - Open Chrome and load extension there:
-  - Open `chrome://extensions/`;
+  - Open `chrome://extensions`;
   - Click `Developer mode` toggle at top-right;
   - Click `Load unpacked`
   - Select `vultisig-windows/clients/extension/dist` folder;

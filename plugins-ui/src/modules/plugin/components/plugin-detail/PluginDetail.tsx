@@ -13,6 +13,7 @@ import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalle
 import RecipeSchema from "@/modules/plugin/components/recipe_schema/recipe_Schema";
 import { useWallet } from "@/modules/shared/wallet/WalletProvider";
 import PolicyTable from "../../../policy/policy-table/PolicyTable";
+import Modal from "@/modules/core/components/ui/modal/Modal";
 
 const PluginDetail = () => {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ const PluginDetail = () => {
     null
   );
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
+  const [uninstallModalOpen, setUninstallModalOpen] = useState<boolean>(false);
   const [showRecipeSchema, setShowRecipeSchema] = useState(false);
   const { isConnected, connect, vault } = useWallet();
   const { pluginId } = useParams<{ pluginId: string }>();
@@ -155,7 +157,7 @@ const PluginDetail = () => {
                         size="small"
                         type="button"
                         styleType="danger"
-                        onClick={uninstallPlugin}
+                        onClick={() => setUninstallModalOpen(true)}
                       >
                         Uninstall
                       </Button>
@@ -216,6 +218,36 @@ const PluginDetail = () => {
             <ReviewProvider pluginId={plugin.id} ratings={plugin.ratings}>
               <Reviews />
             </ReviewProvider>
+
+            <Modal
+              isOpen={uninstallModalOpen}
+              onClose={() => setUninstallModalOpen(false)}
+              variant="modal"
+            >
+              <>
+                <h4 className="">{`Are you sure you want unistall this plugin?`}</h4>
+                <div className="modal-actions">
+                  <Button
+                    ariaLabel="Delete policy"
+                    className="button secondary medium"
+                    type="button"
+                    styleType="tertiary"
+                    size="small"
+                    onClick={() => setUninstallModalOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="small"
+                    type="button"
+                    styleType="danger"
+                    onClick={uninstallPlugin}
+                  >
+                    Confirm
+                  </Button>
+                </div>
+              </>
+            </Modal>
           </>
         )}
       </div>

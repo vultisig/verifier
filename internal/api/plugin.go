@@ -223,6 +223,23 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 	if take > 100 {
 		take = 100
 	}
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "Failed to get vault public key", ""))
+	}
+	policyUUID, err := uuid.Parse(policyID)
+	if err != nil {
+		s.logger.Errorf("failed to parse policy ID: %s", err)
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, "invalid policy ID", err.Error()))
+	}
+	oldPolicy, err := s.policyService.GetPluginPolicy(c.Request().Context(), policyUUID)
+	if err != nil {
+		s.logger.Errorf("failed to get plugin policy: %s,id:%s", err, policyUUID)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "failed to get policy", err.Error()))
+	}
+	if oldPolicy.PublicKey != publicKey {
+		return c.JSON(http.StatusForbidden, NewErrorResponse(http.StatusForbidden, "public key mismatch", ""))
+	}
 
 	//TODO: use tx_indexer service to get transaction history
 	policyHistory, err := s.policyService.GetPluginPolicyTransactionHistory(c.Request().Context(), policyID, take, skip)

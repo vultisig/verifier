@@ -43,7 +43,7 @@ How to install dev version of Chrome extension from desired branch:
 - Open Chrome and load extension there:
   - Open `chrome://extensions`;
   - Click `Developer mode` toggle at top-right;
-  - Click `Load unpacked`
+  - Click `Load unpacked`;
   - Select `vultisig-windows/clients/extension/dist` folder;
   - Now you'll see Vultisig Extension at the extensions list;
 

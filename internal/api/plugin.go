@@ -12,6 +12,7 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/vultisig/verifier/internal/conv"
 	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
 
 	"github.com/vultisig/verifier/common"
@@ -123,20 +124,14 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 }
 
 func (s *Server) GetPlugins(c echo.Context) error {
-	skip, err := strconv.Atoi(c.QueryParam("skip"))
-
+	skip, take, err := conv.PageParamsFromCtx(c, 0, 20)
 	if err != nil {
-		skip = 0
-	}
-
-	take, err := strconv.Atoi(c.QueryParam("take"))
-
-	if err != nil {
-		take = 20
-	}
-
-	if take > 100 {
-		take = 100
+		s.logger.WithError(err).Error("conv.PageParamsFromCtx")
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(
+			http.StatusBadRequest,
+			"invalid pagination parameters",
+			err.Error(),
+		))
 	}
 
 	sort := c.QueryParam("sort")
@@ -147,7 +142,7 @@ func (s *Server) GetPlugins(c echo.Context) error {
 		CategoryID: common.GetUUIDParam(c, "category_id"),
 	}
 
-	plugins, err := s.db.FindPlugins(c.Request().Context(), filters, take, skip, sort)
+	plugins, err := s.db.FindPlugins(c.Request().Context(), filters, int(take), int(skip), sort)
 
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get plugins")
@@ -202,37 +197,42 @@ func (s *Server) GetTags(c echo.Context) error {
 
 func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 	policyID := c.Param("policyId")
-
 	if policyID == "" {
 		err := fmt.Errorf("policy ID is required")
 		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, err.Error(), ""))
 	}
-
-	skip, err := strconv.Atoi(c.QueryParam("skip"))
-
+	policyUUID, err := uuid.Parse(policyID)
 	if err != nil {
-		skip = 0
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(
+			http.StatusBadRequest,
+			"'policyId' invalid uuid",
+			err.Error(),
+		))
 	}
 
-	take, err := strconv.Atoi(c.QueryParam("take"))
-
+	skip, take, err := conv.PageParamsFromCtx(c, 0, 20)
 	if err != nil {
-		take = 20
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(
+			http.StatusBadRequest,
+			"invalid pagination parameters",
+			err.Error(),
+		))
 	}
 
-	if take > 100 {
-		take = 100
-	}
-
-	//TODO: use tx_indexer service to get transaction history
-	policyHistory, err := s.policyService.GetPluginPolicyTransactionHistory(c.Request().Context(), policyID, take, skip)
+	txs, totalCount, err := s.txIndexerService.GetByPolicyID(c.Request().Context(), policyUUID, skip, take)
 	if err != nil {
-		err = fmt.Errorf("failed to get policy history: %w", err)
-		s.logger.WithError(err).Error("Failed to get policy history")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "failed to get policy history", err.Error()))
+		s.logger.WithError(err).Errorf("s.txIndexerService.GetByPolicyID: %s", policyID)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(
+			http.StatusInternalServerError,
+			"failed to get txs by policy ID",
+			err.Error(),
+		))
 	}
 
-	return c.JSON(http.StatusOK, policyHistory)
+	return c.JSON(http.StatusOK, types.TransactionHistoryPaginatedList{
+		History:    txs,
+		TotalCount: totalCount,
+	})
 }
 
 func (s *Server) CreateReview(c echo.Context) error {

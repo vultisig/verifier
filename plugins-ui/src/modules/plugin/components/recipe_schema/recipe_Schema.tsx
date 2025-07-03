@@ -42,6 +42,13 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
     schedulingEnabled: false,
     validationErrors: {},
   };
+  const [startDate, setStartDate] = useState(() => {
+    const now = new Date();
+    now.setSeconds(0, 0);
+    return now.toISOString().slice(0, 16); // "yyyy-MM-ddTHH:mm"
+  });
+
+  const [useNextMonthStart, setUseNextMonthStart] = useState(false);
   const [state, setState] = useState(initialState);
   const { fetchPolicies, addPolicy } = usePolicies();
   const {
@@ -198,7 +205,7 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
         active: true,
         feePolicies: [
           {
-            start_date: new Date(Date.now()).toISOString(),
+            start_date: new Date(startDate).toISOString(),
             frequency: pluginPricing.frequency,
             amount: pluginPricing.amount,
             type: pluginPricing.type,
@@ -228,6 +235,21 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
       }
     }
   };
+
+  useEffect(() => {
+    if (useNextMonthStart) {
+      const now = new Date();
+      const firstOfNextMonth = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        1,
+        0,
+        0,
+        0
+      );
+      setStartDate(firstOfNextMonth.toISOString().slice(0, 16));
+    }
+  }, [useNextMonthStart]);
 
   useEffect(() => fetchSchema(), [plugin]);
 
@@ -347,10 +369,34 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
                     </div>
                   ))}
                 </div>
+                <h4>Scheduling</h4>
+                <div className="form-group">
+                  <label className="form-label">
+                    Start Date <span className="required">*</span>
+                  </label>
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={useNextMonthStart}
+                      onChange={(e) => setUseNextMonthStart(e.target.checked)}
+                    />
+                    Start from the beginning of next month
+                  </label>
+
+                  {!useNextMonthStart && (
+                    <input
+                      type="datetime-local"
+                      className="form-input"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      min={new Date().toISOString().slice(0, 16)}
+                    />
+                  )}
+                </div>
+
                 {/* Scheduling */}
                 {schema.scheduling?.supportsScheduling && (
                   <div className="scheduling-section">
-                    <h4>Scheduling</h4>
                     <div className="form-group">
                       <label className="checkbox-label">
                         <input

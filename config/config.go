@@ -35,6 +35,9 @@ type VerifierConfig struct {
 	EncryptionSecret string                    `mapstructure:"encryption_secret" json:"encryption_secret,omitempty"`
 	Auth             struct {
 		NonceExpiryMinutes int `mapstructure:"nonce_expiry_minutes" json:"nonce_expiry_minutes,omitempty"`
+		// could be disabled for autotests / local,
+		// pointer so it must be explicitly set to false, no value considered as enabled
+		Enabled *bool `mapstructure:"enabled" json:"enabled,omitempty"`
 	} `mapstructure:"auth" json:"auth"`
 }
 

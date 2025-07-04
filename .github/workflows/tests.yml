@@ -6,7 +6,7 @@ on:
 jobs:
   tests:
     runs-on: ubuntu-latest
- 
+
     services:
       postgres:
         image: postgres:15
@@ -36,6 +36,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # can't build&run in `services`
+      - name: Build MinIO image
+        run: |
+          docker build -f Dockerfile.minio -t vultisig-minio .
+
+      - name: Run MinIO container
+        run: |
+          docker run -d \
+            --name vultisig-minio \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            -p 9000:9000 \
+            vultisig-minio
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -52,6 +66,9 @@ jobs:
         run: |
           cat > config.json <<EOF
           {
+            "auth": {
+              "enabled": false
+            },
             "server": {
               "host": "localhost",
               "port": 8080,
@@ -71,6 +88,7 @@ jobs:
             "database": {
               "dsn": "postgres://myuser:mypassword@localhost:5432/vultisig-verifier?sslmode=disable"
             },
+            "encryption_secret": "test123",
             "plugin": {},
             "datadog": {
               "host": "localhost",
@@ -158,7 +176,7 @@ jobs:
 
       - name: Run smoke test
         run: |
-          hurl --test --variables-file ./testdata/smoke/vars.env ./testdata/smoke/public.hurl
+          hurl --very-verbose --test --variables-file ./testdata/smoke/vars.env ./testdata/smoke/public.hurl
 
       - name: Cleanup verifier
         run: |
@@ -169,3 +187,7 @@ jobs:
             fi
             rm verifier.pid
           fi
+
+      - name: Cleanup MinIO
+        run: |
+          docker rm -f vultisig-minio || true

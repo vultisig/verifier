@@ -11,9 +11,12 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vultisig/verifier/config"
-	"github.com/vultisig/verifier/vault"
 )
 
 func main() {
@@ -90,10 +93,15 @@ func main() {
 func seedS3(cfg *config.VerifierConfig) error {
 	fmt.Println("🌱 Seeding S3...")
 
-	s3, err := vault.NewBlockStorageImp(cfg.BlockStorage)
-	if err != nil {
-		return fmt.Errorf("vault.NewBlockStorageImp: %w", err)
-	}
+	// better don't use vault.NewBlockStorageImp(cfg.BlockStorage) here,
+	// because it has DKLS as dependency and it will try to load it locally
+	sess, err := session.NewSession(&aws.Config{
+		Region:           aws.String(cfg.BlockStorage.Region),
+		Endpoint:         aws.String(cfg.BlockStorage.Host),
+		Credentials:      credentials.NewStaticCredentials(cfg.BlockStorage.AccessKey, cfg.BlockStorage.SecretKey, ""),
+		S3ForcePathStyle: aws.Bool(true),
+	})
+	s3Client := s3.New(sess)
 
 	keysharesDir := path.Join("testdata", "keyshares")
 	keyshares, err := os.ReadDir(keysharesDir)
@@ -107,14 +115,19 @@ func seedS3(cfg *config.VerifierConfig) error {
 		}
 
 		filePath := path.Join(keysharesDir, file.Name())
-		b, er := os.ReadFile(filePath)
+		f, er := os.Open(filePath)
 		if er != nil {
 			panic(fmt.Errorf("os.ReadFile('%s'): %w", filePath, er))
 		}
 
 		fmt.Printf("  📄 Uploading %s...\n", filePath)
 
-		er = s3.SaveVault(file.Name(), b)
+		_, er = s3Client.PutObject(&s3.PutObjectInput{
+			Bucket: aws.String(cfg.BlockStorage.Bucket),
+			Key:    aws.String(file.Name()),
+			Body:   f,
+		})
+		_ = f.Close()
 		if er != nil {
 			return fmt.Errorf("s3.SaveVault('%s'): %w", file.Name(), er)
 		}

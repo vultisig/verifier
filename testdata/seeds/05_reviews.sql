@@ -6,4 +6,4 @@ INSERT INTO reviews (id, plugin_id, public_key, rating, comment, created_at, upd
   'Hello world',
   NOW(),
   NOW()
-);
+) ON CONFLICT (id) DO NOTHING;

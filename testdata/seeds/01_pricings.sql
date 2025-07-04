@@ -9,4 +9,5 @@ INSERT INTO pricings (id, type, frequency, amount, metric) VALUES
 ('00000000-0000-0000-0000-000000000003', 'recurring', 'monthly', 1000.00, 'fixed'),
 
 -- Weekly recurring pricing  
-('00000000-0000-0000-0000-000000000004', 'recurring', 'weekly', 250.00, 'fixed');
+('00000000-0000-0000-0000-000000000004', 'recurring', 'weekly', 250.00, 'fixed')
+ON CONFLICT (id) DO NOTHING;

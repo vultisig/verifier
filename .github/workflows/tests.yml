@@ -66,6 +66,9 @@ jobs:
         run: |
           cat > config.json <<EOF
           {
+            "auth": {
+              "enabled": false,
+            },
             "server": {
               "host": "localhost",
               "port": 8080,

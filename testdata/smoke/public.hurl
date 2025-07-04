@@ -85,7 +85,6 @@ jsonpath "$.created_at" exists
 GET http://localhost:8080/vault/get/vultisig-payroll-0000/{{vault_payroll}}
 HTTP 200
 Content-Type: application/json
-Authorization: Bearer {{token_payroll}}
 [Asserts]
 jsonpath "$.public_key_ecdsa" == "{{vault_payroll}}"
 jsonpath "$.public_key_eddsa" == "d5bf32cef8fa68139b5efaaa398ca5449dcd8b4fa610ee8cd7431c09284b4610"
@@ -94,4 +93,3 @@ jsonpath "$.hex_chain_code" == "c572b1fce3cdb451621f9f8535c95a0272bfcc2b47dda6d1
 GET http://localhost:8080/vault/exist/vultisig-payroll-0000/{{vault_payroll}}
 HTTP 200
 Content-Type: application/json
-Authorization: Bearer {{token_payroll}}

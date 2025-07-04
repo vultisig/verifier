@@ -175,7 +175,7 @@ jobs:
 
       - name: Run smoke test
         run: |
-          hurl --verbose --test --variables-file ./testdata/smoke/vars.env ./testdata/smoke/public.hurl
+          hurl --very-verbose --test --variables-file ./testdata/smoke/vars.env ./testdata/smoke/public.hurl
 
       - name: Cleanup verifier
         run: |

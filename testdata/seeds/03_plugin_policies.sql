@@ -22,4 +22,4 @@ INSERT INTO plugin_policies (id, public_key, plugin_id, plugin_version, policy_v
     'test-signature-payroll-policy-001',
     'eyJ0eXBlIjoicGF5cm9sbCIsInBhcmFtZXRlcnMiOnsicGF5X2ZyZXF1ZW5jeSI6Im1vbnRobHkiLCJlbXBsb3llZXMiOlsie1wiYWRkcmVzc1wiOlwiMHgxMjM0XCIsXCJhbW91bnRcIjpcIjUwMDBcIn0iXX19',
     true
-)
+) ON CONFLICT (id) DO NOTHING;

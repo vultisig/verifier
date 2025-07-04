@@ -3,7 +3,7 @@
     "relay": {
       "server": "https://api.vultisig.com/router"
     },
-    "local_party_prefix": "verifier-",
+    "local_party_prefix": "verifier",
     "encryption_secret": "test123"
   },
   "redis": {

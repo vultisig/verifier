@@ -32,22 +32,22 @@ jobs:
         ports:
           - 6379:6379
 
-      minio:
-        image: minio/minio:latest
-        env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
-        options: >-
-          --health-cmd "curl -f http://localhost:9000/minio/health/live"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 9000:9000
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # can't build&run in `services`
+      - name: Build MinIO image
+        run: |
+          docker build -f Dockerfile.minio -t vultisig-minio .
+
+      - name: Run MinIO container
+        run: |
+          docker run -d \
+            --name vultisig-minio \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            -p 9000:9000
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -182,3 +182,7 @@ jobs:
             fi
             rm verifier.pid
           fi
+
+      - name: Cleanup MinIO
+        run: |
+          docker rm -f minio || true

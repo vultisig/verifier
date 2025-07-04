@@ -175,7 +175,7 @@ jobs:
 
       - name: Run smoke test
         run: |
-          hurl --test --variables-file ./testdata/smoke/vars.env ./testdata/smoke/public.hurl
+          hurl --verbose --test --variables-file ./testdata/smoke/vars.env ./testdata/smoke/public.hurl
 
       - name: Cleanup verifier
         run: |
@@ -189,4 +189,4 @@ jobs:
 
       - name: Cleanup MinIO
         run: |
-          docker rm -f minio || true
+          docker rm -f vultisig-minio || true

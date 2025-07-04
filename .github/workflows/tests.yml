@@ -67,7 +67,7 @@ jobs:
           cat > config.json <<EOF
           {
             "auth": {
-              "enabled": false,
+              "enabled": false
             },
             "server": {
               "host": "localhost",

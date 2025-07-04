@@ -47,7 +47,8 @@ jobs:
             --name vultisig-minio \
             -e MINIO_ROOT_USER=minioadmin \
             -e MINIO_ROOT_PASSWORD=minioadmin \
-            -p 9000:9000
+            -p 9000:9000 \
+            vultisig-minio
 
       - name: Set up Go
         uses: actions/setup-go@v5

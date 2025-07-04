@@ -4,6 +4,7 @@
     <working_directory value="$PROJECT_DIR$" />
     <envs>
       <env name="VS_VERIFIER_CONFIG_NAME" value="verifier.example" />
+      <env name="AUTH_ENABLED" value="false" />
     </envs>
     <kind value="PACKAGE" />
     <package value="github.com/vultisig/verifier/cmd/verifier" />

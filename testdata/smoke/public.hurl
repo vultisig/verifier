@@ -82,7 +82,7 @@ jsonpath "$.amount" == 100.00
 jsonpath "$.metric" == "fixed"
 jsonpath "$.created_at" exists
 
-GET http://localhost:8080/vault/get/vultisig-payroll-0000/"{{vault_payroll}}"
+GET http://localhost:8080/vault/get/vultisig-payroll-0000/02659f817fae6c3ac300f4e375e57d2bb3ccec4e3d7cdd1032da3f5445991a4d94
 HTTP 200
 Content-Type: application/json
 [Asserts]
@@ -90,6 +90,6 @@ jsonpath "$.public_key_ecdsa" == "{{vault_payroll}}"
 jsonpath "$.public_key_eddsa" == "d5bf32cef8fa68139b5efaaa398ca5449dcd8b4fa610ee8cd7431c09284b4610"
 jsonpath "$.hex_chain_code" == "c572b1fce3cdb451621f9f8535c95a0272bfcc2b47dda6d136926658be38fe29"
 
-GET http://localhost:8080/vault/exist/vultisig-payroll-0000/"{{vault_payroll}}"
+GET http://localhost:8080/vault/exist/vultisig-payroll-0000/02659f817fae6c3ac300f4e375e57d2bb3ccec4e3d7cdd1032da3f5445991a4d94
 HTTP 200
 Content-Type: application/json

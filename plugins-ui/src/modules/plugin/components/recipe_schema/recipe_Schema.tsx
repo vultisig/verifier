@@ -45,7 +45,9 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
   const [startDate, setStartDate] = useState(() => {
     const now = new Date();
     now.setSeconds(0, 0);
-    return now.toISOString().slice(0, 16); // "yyyy-MM-ddTHH:mm"
+    const offset = now.getTimezoneOffset() * 60000;
+    const localTime = new Date(now.getTime() - offset);
+    return localTime.toISOString().slice(0, 16);
   });
 
   const [useNextMonthStart, setUseNextMonthStart] = useState(false);
@@ -114,7 +116,10 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
       validationErrors.frequency =
         "Please select a frequency for scheduled execution";
     }
-
+    // Validate start date is in the future
+    if (!useNextMonthStart && new Date(startDate) <= new Date()) {
+      validationErrors.startDate = "Start date must be in the future";
+    }
     setState((prevState) => ({ ...prevState, validationErrors }));
 
     return Object.keys(validationErrors).length === 0;
@@ -205,7 +210,7 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
         active: true,
         feePolicies: [
           {
-            start_date: new Date(startDate).toISOString(),
+            start_date: new Date(startDate + ":00").toISOString(),
             frequency: pluginPricing.frequency,
             amount: pluginPricing.amount,
             type: pluginPricing.type,

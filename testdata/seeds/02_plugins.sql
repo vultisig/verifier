@@ -24,7 +24,7 @@ INSERT INTO plugins (id, title, description, server_endpoint, pricing_id, catego
     'vultisig-fees-feee',
     'Vultisig Fee Management Plugin',
     'Fee collection and management system. Track, calculate, and distribute fees across different protocols and services.',
-    'http://fee-server:8083',
+    'http://fee-server:8080',
     '00000000-0000-0000-0000-000000000001',
     'plugin'
-);
+) ON CONFLICT (id) DO NOTHING;

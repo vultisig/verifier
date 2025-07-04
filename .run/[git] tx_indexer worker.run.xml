@@ -1,0 +1,14 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="[git] tx_indexer worker" type="GoApplicationRunConfiguration" factoryName="Go Application">
+    <module name="verifier" />
+    <working_directory value="$PROJECT_DIR$" />
+    <envs>
+      <env name="VS_TX_INDEXER_CONFIG_NAME" value="tx_indexer.example" />
+    </envs>
+    <kind value="PACKAGE" />
+    <package value="github.com/vultisig/verifier/cmd/tx_indexer" />
+    <directory value="$PROJECT_DIR$" />
+    <filePath value="$PROJECT_DIR$/cmd/tx_indexer/main.go" />
+    <method v="2" />
+  </configuration>
+</component>

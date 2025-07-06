@@ -12,10 +12,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	v1 "github.com/vultisig/commondata/go/vultisig/vault/v1"
-	"github.com/vultisig/mobile-tss-lib/tss"
 	rtypes "github.com/vultisig/recipes/types"
 	"google.golang.org/protobuf/proto"
 
+	ecommon "github.com/ethereum/go-ethereum/common"
+	"github.com/vultisig/verifier/address"
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/internal/sigutil"
 	"github.com/vultisig/verifier/types"
@@ -117,18 +118,18 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy) bool {
 		return false
 	}
 
-	derivedPublicKey, err := tss.GetDerivedPubKey(vault.PublicKeyEcdsa, vault.HexChainCode, common.Ethereum.GetDerivePath(), false)
+	ethAddress, _, _, err := address.GetAddress(vault.PublicKeyEcdsa, vault.HexChainCode, common.Ethereum)
 	if err != nil {
-		s.logger.WithError(err).Error("failed to get derived public key")
+		s.logger.WithError(err).Error("failed to get Ethereum address")
 		return false
 	}
 
-	isVerified, err := sigutil.VerifyPolicySignature(derivedPublicKey, messageBytes, signatureBytes)
+	success, err := sigutil.VerifyEthAddressSignature(ecommon.HexToAddress(ethAddress), messageBytes, signatureBytes)
 	if err != nil {
 		s.logger.Errorf("failed to verify signature: %s", err)
 		return false
 	}
-	return isVerified
+	return success
 }
 
 func policyToMessageHex(policy types.PluginPolicy) ([]byte, error) {

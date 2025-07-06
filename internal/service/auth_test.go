@@ -89,15 +89,6 @@ func (m *MockDatabaseStorage) Close() error {
 	return nil
 }
 
-// CountTransactions is a stub to satisfy the DatabaseStorage interface
-func (m *MockDatabaseStorage) CountTransactions(ctx context.Context, policyID uuid.UUID, status itypes.TransactionStatus, txType string) (int64, error) {
-	args := m.Called(ctx, policyID, status, txType)
-	if args.Get(0) == nil {
-		return 0, args.Error(1)
-	}
-	return args.Get(0).(int64), args.Error(1)
-}
-
 // CreatePricing is a stub to satisfy the DatabaseStorage interface
 func (m *MockDatabaseStorage) CreatePricing(ctx context.Context, pricingDto itypes.PricingCreateDto) (*itypes.Pricing, error) {
 	args := m.Called(ctx, pricingDto)
@@ -105,24 +96,6 @@ func (m *MockDatabaseStorage) CreatePricing(ctx context.Context, pricingDto ityp
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*itypes.Pricing), args.Error(1)
-}
-
-// CreateTransactionHistory is a stub to satisfy the DatabaseStorage interface
-func (m *MockDatabaseStorage) CreateTransactionHistory(ctx context.Context, tx itypes.TransactionHistory) (uuid.UUID, error) {
-	args := m.Called(ctx, tx)
-	if args.Get(0) == nil {
-		return uuid.Nil, args.Error(1)
-	}
-	return args.Get(0).(uuid.UUID), args.Error(1)
-}
-
-// CreateTransactionHistoryTx is a stub to satisfy the DatabaseStorage interface
-func (m *MockDatabaseStorage) CreateTransactionHistoryTx(ctx context.Context, dbTx pgx.Tx, tx itypes.TransactionHistory) (uuid.UUID, error) {
-	args := m.Called(ctx, dbTx, tx)
-	if args.Get(0) == nil {
-		return uuid.Nil, args.Error(1)
-	}
-	return args.Get(0).(uuid.UUID), args.Error(1)
 }
 
 func (m *MockDatabaseStorage) FindPluginById(ctx context.Context, tx pgx.Tx, pluginID types.PluginID) (*itypes.Plugin, error) {
@@ -199,27 +172,6 @@ func (m *MockDatabaseStorage) DeletePricingById(ctx context.Context, id uuid.UUI
 	return args.Error(0)
 }
 
-func (m *MockDatabaseStorage) UpdateTransactionStatusTx(ctx context.Context, dbTx pgx.Tx, txID uuid.UUID, status itypes.TransactionStatus, metadata map[string]interface{}) error {
-	args := m.Called(ctx, dbTx, txID, status, metadata)
-	return args.Error(0)
-}
-
-func (m *MockDatabaseStorage) GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) ([]itypes.TransactionHistory, int64, error) {
-	args := m.Called(ctx, policyID, transactionType, take, skip)
-	if args.Get(0) == nil {
-		return nil, 0, args.Error(2)
-	}
-	return args.Get(0).([]itypes.TransactionHistory), args.Get(1).(int64), args.Error(2)
-}
-
-func (m *MockDatabaseStorage) GetTransactionByHash(ctx context.Context, txHash string) (*itypes.TransactionHistory, error) {
-	args := m.Called(ctx, txHash)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*itypes.TransactionHistory), args.Error(1)
-}
-
 func (m *MockDatabaseStorage) GetPluginPolicySync(ctx context.Context, id uuid.UUID) (*itypes.PluginPolicySync, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
@@ -243,11 +195,6 @@ func (m *MockDatabaseStorage) GetUnFinishedPluginPolicySyncs(ctx context.Context
 
 func (m *MockDatabaseStorage) UpdatePluginPolicySync(ctx context.Context, dbTx pgx.Tx, policy itypes.PluginPolicySync) error {
 	args := m.Called(ctx, dbTx, policy)
-	return args.Error(0)
-}
-
-func (m *MockDatabaseStorage) UpdateTransactionStatus(ctx context.Context, txID uuid.UUID, status itypes.TransactionStatus, metadata map[string]interface{}) error {
-	args := m.Called(ctx, txID, status, metadata)
 	return args.Error(0)
 }
 

@@ -21,7 +21,6 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
 	"github.com/sirupsen/logrus"
-	"github.com/vultisig/mobile-tss-lib/tss"
 
 	ecommon "github.com/ethereum/go-ethereum/common"
 
@@ -122,7 +121,6 @@ func (s *Server) StartServer() error {
 	e.Validator = &vv.VultisigValidator{Validator: validator.New()}
 
 	e.GET("/ping", s.Ping)
-	e.GET("/getDerivedPublicKey", s.GetDerivedPublicKey)
 
 	// Auth endpoints - not requiring authentication
 	e.POST("/auth", s.Auth)
@@ -149,7 +147,7 @@ func (s *Server) StartServer() error {
 	pluginGroup.DELETE("/:pluginId", s.DeletePlugin) // Delete plugin
 	pluginGroup.POST("/policy", s.CreatePluginPolicy)
 	pluginGroup.PUT("/policy", s.UpdatePluginPolicyById)
-	pluginGroup.GET("/policies", s.GetAllPluginPolicies)
+	pluginGroup.GET("/policies/:pluginId", s.GetAllPluginPolicies)
 	pluginGroup.GET("/policy/:policyId", s.GetPluginPolicyById)
 	pluginGroup.DELETE("/policy/:policyId", s.DeletePluginPolicyById)
 	pluginGroup.GET("/policies/:policyId/history", s.GetPluginPolicyTransactionHistory)
@@ -188,34 +186,6 @@ func (s *Server) StartServer() error {
 
 func (s *Server) Ping(c echo.Context) error {
 	return c.String(http.StatusOK, "Verifier server is running")
-}
-
-// GetDerivedPublicKey is a handler to get the derived public key
-func (s *Server) GetDerivedPublicKey(c echo.Context) error {
-	publicKey := c.QueryParam("publicKey")
-	if publicKey == "" {
-		return fmt.Errorf("publicKey is required")
-	}
-	hexChainCode := c.QueryParam("hexChainCode")
-	if hexChainCode == "" {
-		return fmt.Errorf("hexChainCode is required")
-	}
-	derivePath := c.QueryParam("derivePath")
-	if derivePath == "" {
-		return fmt.Errorf("derivePath is required")
-	}
-	isEdDSA := false
-	isEdDSAstr := c.QueryParam("isEdDSA")
-	if isEdDSAstr == "true" {
-		isEdDSA = true
-	}
-
-	derivedPublicKey, err := tss.GetDerivedPubKey(publicKey, hexChainCode, derivePath, isEdDSA)
-	if err != nil {
-		return fmt.Errorf("fail to get derived public key from tss, err: %w", err)
-	}
-
-	return c.JSON(http.StatusOK, derivedPublicKey)
 }
 
 // ReshareVault is a handler to reshare a vault
@@ -623,7 +593,7 @@ func (s *Server) notifyPluginServerDeletePlugin(ctx context.Context, id tv.Plugi
 	}
 
 	// Prepare and send request to plugin server
-	pluginURL := fmt.Sprintf("%s/%s/%s", strings.TrimRight(plugin.ServerEndpoint, "/"), id, publicKeyEcdsa)
+	pluginURL := fmt.Sprintf("%s/vault/%s/%s", strings.TrimRight(plugin.ServerEndpoint, "/"), id, publicKeyEcdsa)
 	httpReq, err := http.NewRequestWithContext(ctx, "DELETE", pluginURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request: %w", err)

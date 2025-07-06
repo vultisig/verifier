@@ -1,4 +1,4 @@
-import { get, post } from "@/modules/core/services/httpService";
+import { get, post, remove } from "@/modules/core/services/httpService";
 import { Category } from "../models/category";
 import {
   CreateReview,
@@ -6,14 +6,16 @@ import {
   Review,
   ReviewMap,
 } from "../models/marketplace";
-import { Plugin } from "@/modules/plugin/models/plugin";
-import {
-  PluginPoliciesMap,
-  TransactionHistory,
-} from "@/modules/policy/models/policy";
+import { Plugin, PluginPricing } from "@/modules/plugin/models/plugin";
 import { getCurrentVaultId } from "@/storage/currentVaultId";
+import { toCamelCase } from "@/utils/functions";
+import {
+  PluginPolicy,
+  TransactionHistory,
+} from "@/modules/plugin/models/policy";
+import { RecipeSchema } from "@/gen/recipe_specification_pb";
 
-const getMarketplaceUrl = () => import.meta.env.VITE_MARKETPLACE_URL;
+export const getMarketplaceUrl = () => import.meta.env.VITE_MARKETPLACE_URL;
 
 interface ReshareRequest {
   name: string;
@@ -33,12 +35,9 @@ const MarketplaceService = {
    * @returns {Promise<Object>} A promise that resolves to the fetched plugin.
    */
   isPluginInstalled: async (id: string, key: string): Promise<boolean> => {
-    try {
-      await get(`${getMarketplaceUrl()}/vault/exist/${id}/${key}`);
-      return true;
-    } catch {
-      return false;
-    }
+    return get(`${getMarketplaceUrl()}/vault/exist/${id}/${key}`)
+      .then(() => true)
+      .catch(() => false);
   },
 
   /**
@@ -46,12 +45,7 @@ const MarketplaceService = {
    * @returns {Promise<Object>} A promise that resolves to the fetched plugins.
    */
   getPlugins: async (): Promise<PluginMap> => {
-    try {
-      return await get(`${getMarketplaceUrl()}/plugins`);
-    } catch (error) {
-      console.error("Error getting plugins:", error);
-      throw error;
-    }
+    return get(`${getMarketplaceUrl()}/plugins`);
   },
 
   /**
@@ -59,12 +53,7 @@ const MarketplaceService = {
    * @returns {Promise<Object>} A promise that resolves to the fetched categories.
    */
   getCategories: async (): Promise<Category[]> => {
-    try {
-      return await get(`${getMarketplaceUrl()}/categories`);
-    } catch (error) {
-      console.error("Error getting categories:", error);
-      throw error;
-    }
+    return get(`${getMarketplaceUrl()}/categories`);
   },
 
   /**
@@ -72,12 +61,7 @@ const MarketplaceService = {
    * @returns {Promise<Object>} A promise that resolves to the fetched plugin.
    */
   getPlugin: async (id: string): Promise<Plugin> => {
-    try {
-      return await get(`${getMarketplaceUrl()}/plugins/${id}`);
-    } catch (error) {
-      console.error("Error getting plugin:", error);
-      throw error;
-    }
+    return get(`${getMarketplaceUrl()}/plugins/${id}`);
   },
 
   /**
@@ -90,19 +74,12 @@ const MarketplaceService = {
     publicKey: string,
     chainCodeHex: string
   ): Promise<string> => {
-    try {
-      const response = await post(`${getMarketplaceUrl()}/auth`, {
-        message: message,
-        signature: signature,
-        public_key: publicKey,
-        chain_code_hex: chainCodeHex,
-      });
-
-      return response?.token;
-    } catch (error) {
-      console.error("Failed to get auth token", error);
-      throw error;
-    }
+    return post(`${getMarketplaceUrl()}/auth`, {
+      message: message,
+      signature: signature,
+      public_key: publicKey,
+      chain_code_hex: chainCodeHex,
+    }).then(({ token }) => token);
   },
 
   /**
@@ -110,29 +87,13 @@ const MarketplaceService = {
    * @returns {Promise<Object>} A promise that resolves to the fetched policies.
    */
   getPolicies: async (
-    pluginType: string,
+    pluginId: string,
     skip: number,
     take: number
-  ): Promise<PluginPoliciesMap> => {
-    try {
-      return await get(
-        `${getMarketplaceUrl()}/plugins/policies?skip=${skip}&take=${take}`,
-        {
-          headers: {
-            plugin_type: pluginType,
-            public_key: getCurrentVaultId(),
-          },
-        }
-      );
-    } catch (error: any) {
-      if (error.message === "Unauthorized") {
-        localStorage.removeItem("authToken");
-        // Dispatch custom event to notify other components
-        window.dispatchEvent(new Event("storage"));
-      }
-      console.error("Error getting policies:", error);
-      throw error;
-    }
+  ): Promise<{ policies: PluginPolicy[]; total_count: number }> => {
+    return get(
+      `${getMarketplaceUrl()}/plugin/policies/${pluginId}?skip=${skip}&take=${take}`
+    );
   },
 
   /**
@@ -144,20 +105,12 @@ const MarketplaceService = {
     skip: number,
     take: number
   ): Promise<TransactionHistory> => {
-    try {
-      return await get(
-        `${getMarketplaceUrl()}/plugins/policies/${policyId}/history?skip=${skip}&take=${take}`,
-        {
-          headers: {
-            public_key: getCurrentVaultId(),
-          },
-        }
-      );
-    } catch (error) {
-      console.error("Error getting policy history:", error);
-
-      throw error;
-    }
+    return get(
+      `${getMarketplaceUrl()}/plugins/policies/${policyId}/history?skip=${skip}&take=${take}`,
+      {
+        headers: { public_key: getCurrentVaultId() },
+      }
+    );
   },
 
   /**
@@ -170,14 +123,9 @@ const MarketplaceService = {
     take: number,
     sort = "-created_at"
   ): Promise<ReviewMap> => {
-    try {
-      return await get(
-        `${getMarketplaceUrl()}/plugins/${pluginId}/reviews?skip=${skip}&take=${take}&sort=${sort}`
-      );
-    } catch (error: any) {
-      console.error("Error getting reviews:", error);
-      throw error;
-    }
+    return get(
+      `${getMarketplaceUrl()}/plugins/${pluginId}/reviews?skip=${skip}&take=${take}&sort=${sort}`
+    );
   },
 
   /**
@@ -188,29 +136,16 @@ const MarketplaceService = {
     pluginId: string,
     review: CreateReview
   ): Promise<Review> => {
-    try {
-      return await post(
-        `${getMarketplaceUrl()}/plugins/${pluginId}/reviews`,
-        review
-      );
-    } catch (error: any) {
-      console.error("Error create review:", error);
-      throw error;
-    }
+    return post(`${getMarketplaceUrl()}/plugins/${pluginId}/reviews`, review);
   },
 
   /**
    * Get recipe specification for a plugin.
    */
-  getRecipeSpecification: async (pluginId: string): Promise<any> => {
-    try {
-      return await get(
-        `${getMarketplaceUrl()}/plugins/${pluginId}/recipe-specification`
-      );
-    } catch (error) {
-      console.error("Error getting recipe specification:", error);
-      throw error;
-    }
+  getRecipeSpecification: async (pluginId: string): Promise<RecipeSchema> => {
+    return get(
+      `${getMarketplaceUrl()}/plugins/${pluginId}/recipe-specification`
+    ).then((schema) => toCamelCase(schema));
   },
 
   /**
@@ -218,13 +153,14 @@ const MarketplaceService = {
    * @param payload Decoded ReshareMessage object from VultiConnect extension
    */
   reshareVault: async (payload: ReshareRequest): Promise<void> => {
-    try {
-      await post(`${getMarketplaceUrl()}/vault/reshare`, payload);
-    } catch (error) {
-      console.error("Error initiating vault reshare:", error);
-      throw error;
-    }
+    return post(`${getMarketplaceUrl()}/vault/reshare`, payload);
   },
+
+  uninstallPlugin: (pluginId: string) =>
+    remove(`${getMarketplaceUrl()}/plugin/${pluginId}`),
+
+  getPluginPricing: (pricingId: string): Promise<PluginPricing> =>
+    get(`${getMarketplaceUrl()}/pricing/${pricingId}`),
 };
 
 export default MarketplaceService;

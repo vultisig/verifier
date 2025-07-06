@@ -6,38 +6,35 @@ import React, {
   useState,
 } from "react";
 import { useParams } from "react-router-dom";
-import {
-  PluginPolicy,
-  PolicySchema,
-  TransactionHistory,
-} from "../models/policy";
-import PolicyService from "../services/policyService";
-import {
-  derivePathMap,
-  isSupportedChainType,
-  toHex,
-} from "@/modules/shared/wallet/wallet.utils";
-import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
-import { isEcdsaChain } from "@/modules/policy/utils/policy.util";
+
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
-import { sortObjectAlphabetically } from "../utils/policy.util";
+
 import { publish } from "@/utils/eventBus";
+
+import { PluginPolicy, PolicySchema } from "@/modules/plugin/models/policy";
+import PolicyService from "../services/policyService";
+import { getCurrentVaultId } from "@/storage/currentVaultId";
+import { selectToken } from "@/storage/token";
+import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
+import { policyToHexMessage } from "../services/policyToHexMessage";
 
 export const POLICY_ITEMS_PER_PAGE = 15;
 
 export interface PolicyContextType {
-  pluginType: string;
+  // pluginId: string;
   policyMap: Map<string, PluginPolicy>;
   policySchemaMap: Map<string, PolicySchema>;
   policiesTotalCount: number;
-  addPolicy: (policy: PluginPolicy) => Promise<boolean>;
-  updatePolicy: (policy: PluginPolicy) => Promise<boolean>;
+  fetchPolicies: () => void;
   removePolicy: (policyId: string) => Promise<void>;
-  getPolicyHistory: (
-    policyId: string,
-    skip: number,
-    take: number
-  ) => Promise<TransactionHistory | null>;
+  addPolicy: (policy: PluginPolicy) => Promise<boolean>;
+  // updatePolicy: (policy: PluginPolicy) => Promise<boolean>;
+  // removePolicy: (policyId: string) => Promise<void>;
+  // getPolicyHistory: (
+  //   policyId: string,
+  //   skip: number,
+  //   take: number
+  // ) => Promise<TransactionHistory | null>;
   currentPage: number;
   setCurrentPage: (page: number) => void;
 }
@@ -45,131 +42,40 @@ export interface PolicyContextType {
 export const PolicyContext = createContext<PolicyContextType | undefined>(
   undefined
 );
+interface InitialState {
+  currentPage: number;
+  policiesTotalCount: number;
+  policySchemaMap: Map<string, PolicySchema>;
+  policyMap: Map<string, PluginPolicy>;
+}
+const initialState: InitialState = {
+  currentPage: 0,
+  policiesTotalCount: 0,
+  policySchemaMap: new Map<string, PolicySchema>(),
+  policyMap: new Map<string, PluginPolicy>(),
+};
 
 export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [policyMap, setPolicyMap] = useState(new Map<string, PluginPolicy>());
-  const [currentPage, setCurrentPage] = useState(0);
-  const [policiesTotalCount, setPoliciesTotalCount] = useState(0);
-  const [policySchemaMap, setPolicySchemaMap] = useState(
-    new Map<string, PolicySchema>()
-  );
+  const { pluginId } = useParams<{ pluginId: string }>();
+  const [state, setState] = useState(initialState);
+  const { currentPage, policiesTotalCount, policyMap, policySchemaMap } = state;
 
-  const { pluginId } = useParams();
-  const [pluginType, setPluginType] = useState("");
-  const [serverEndpoint, setServerEndpoint] = useState("");
-  const [authToken, setAuthToken] = useState(
-    localStorage.getItem("authToken") || ""
-  );
-
-  const fetchPolicies = useCallback(async (): Promise<void> => {
-    if (pluginType) {
-      const fetchedPolicies = await MarketplaceService.getPolicies(
-        pluginType,
-        currentPage > 1 ? (currentPage - 1) * POLICY_ITEMS_PER_PAGE : 0,
-        POLICY_ITEMS_PER_PAGE
-      );
-
-      const constructPolicyMap: Map<string, PluginPolicy> = new Map(
-        fetchedPolicies?.policies?.map((p: PluginPolicy) => [p.id, p]) // Convert the array into [key, value] pairs
-      );
-
-      setPoliciesTotalCount(fetchedPolicies.total_count);
-      setPolicyMap(constructPolicyMap);
-    }
-  }, [pluginType, currentPage]);
-
-  useEffect(() => {
-    const handleStorageChange = () => {
-      setAuthToken(localStorage.getItem("authToken") || "");
-    };
-
-    // Listen for storage changes
-    window.addEventListener("storage", handleStorageChange);
-
-    const fetchPlugin = async (): Promise<void> => {
-      if (!pluginId) return;
-
-      try {
-        const fetchedPlugin = await MarketplaceService.getPlugin(pluginId);
-
-        if (fetchedPlugin) {
-          setPluginType(fetchedPlugin.type);
-          setServerEndpoint(fetchedPlugin.server_endpoint);
-
-          const fetchPolicySchema = async (
-            pluginType: string
-          ): Promise<unknown> => {
-            if (policySchemaMap.has(pluginType)) {
-              return Promise.resolve(policySchemaMap.get(pluginType));
-            }
-
-            try {
-              const fetchedSchemas = await PolicyService.getPolicySchema(
-                fetchedPlugin.server_endpoint,
-                fetchedPlugin.type
-              );
-
-              setPolicySchemaMap((prev) =>
-                new Map(prev).set(fetchedPlugin.type, fetchedSchemas)
-              );
-
-              return Promise.resolve(fetchedSchemas);
-            } catch (error) {
-              if (error instanceof Error) {
-                console.error("Failed to fetch policy schema:", error.message);
-                publish("onToast", {
-                  message: error.message || "Failed to fetch policy schema",
-                  type: "error",
-                });
-              }
-
-              return Promise.resolve(null);
-            }
-          };
-
-          fetchPolicySchema(fetchedPlugin.type);
-        }
-      } catch (error) {
-        if (error instanceof Error) {
-          console.error("Plugin not found:", error.message);
-          publish("onToast", {
-            message: "Plugin not found",
-            type: "error",
-          });
-        }
-
-        return;
-      }
-    };
-
-    fetchPlugin();
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-    };
-  }, [authToken]);
-
-  useEffect(() => {
-    fetchPolicies().catch((error: any) => {
-      console.error("Failed to get policies:", error.message);
-      publish("onToast", {
-        message: error.message || "Failed to get policies",
-        type: "error",
-      });
-    });
-  }, [fetchPolicies]);
+  const setCurrentPage = (page: number) => {
+    setState((prev) => ({ ...prev, currentPage: page }));
+  };
 
   const addPolicy = async (policy: PluginPolicy): Promise<boolean> => {
     try {
       policy = await signPolicy(policy);
       if (policy.signature) {
-        const newPolicy = await PolicyService.createPolicy(
-          serverEndpoint,
-          policy
-        );
-        setPolicyMap((prev) => new Map(prev).set(newPolicy.id, newPolicy));
+        const newPolicy = await PolicyService.createPolicy(policy);
+        setState((prev) => ({
+          ...prev,
+          policyMap: new Map(prev.policyMap).set(newPolicy.id, newPolicy),
+        }));
+
         publish("onToast", {
           message: "Policy created successfully!",
           type: "success",
@@ -189,38 +95,27 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const updatePolicy = async (policy: PluginPolicy): Promise<boolean> => {
-    try {
-      policy = await signPolicy(policy);
-
-      if (policy.signature) {
-        const updatedPolicy = await PolicyService.updatePolicy(
-          serverEndpoint,
-          policy
-        );
-
-        setPolicyMap((prev) =>
-          new Map(prev).set(updatedPolicy.id, updatedPolicy)
-        );
-        publish("onToast", {
-          message: "Policy updated successfully!",
-          type: "success",
-        });
-        return Promise.resolve(true);
-      }
-
-      return Promise.resolve(false);
-    } catch (error) {
-      if (error instanceof Error) {
-        console.error("Failed to update policy:", error.message, error);
-        publish("onToast", {
-          message: error.message || "Failed to update policy",
-          type: "error",
-        });
-      }
-
-      return Promise.resolve(false);
+  const signPolicy = async (policy: PluginPolicy): Promise<PluginPolicy> => {
+    const account = await VulticonnectWalletService.getAccount();
+    if (!account) {
+      throw new Error("Need to connect to wallet");
     }
+
+    const hexMessage = policyToHexMessage({
+      pluginVersion: policy.plugin_version,
+      policyVersion: policy.policy_version,
+      publicKey: getCurrentVaultId(),
+      recipe: policy.recipe,
+    });
+
+    const signature = await VulticonnectWalletService.signCustomMessage(
+      hexMessage,
+      account
+    );
+    console.log("signature:", signature);
+
+    policy.signature = signature;
+    return policy;
   };
 
   const removePolicy = async (policyId: string): Promise<void> => {
@@ -229,19 +124,14 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!policy) return;
 
     try {
-      policy = await signPolicy(policy);
       if (policy.signature) {
-        await PolicyService.deletePolicy(
-          serverEndpoint,
-          policyId,
-          policy.signature
-        );
+        await PolicyService.deletePolicy(policyId, policy.signature);
 
-        setPolicyMap((prev) => {
-          const updatedPolicyMap = new Map(prev);
+        setState((prev) => {
+          const updatedPolicyMap = new Map(prev.policyMap);
           updatedPolicyMap.delete(policyId);
 
-          return updatedPolicyMap;
+          return { ...prev, policyMap: updatedPolicyMap };
         });
         publish("onToast", {
           message: "Policy deleted successfully!",
@@ -259,94 +149,47 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const signPolicy = async (policy: PluginPolicy): Promise<PluginPolicy> => {
-    const chain = localStorage.getItem("chain") as string;
-    if (!isSupportedChainType(chain)) {
-      // fail silently
-      return policy;
-    }
-
-    const account = await VulticonnectWalletService.getAccount();
-
-    if (!account) {
-      throw new Error("Need to connect to wallet");
-    }
-
-    const vault = await VulticonnectWalletService.getVault();
-
-    // TODO: Only Ethereum currently supported
-    const chainId = policy.policy.chain_id as string;
-
-    policy.public_key_ecdsa = vault.publicKeyEcdsa;
-    policy.public_key_eddsa = vault.publicKeyEddsa;
-    policy.is_ecdsa = isEcdsaChain(chainId);
-    policy.chain_code_hex = vault.hexChainCode;
-    policy.derive_path = derivePathMap[chain];
-
-    const excludedFromSignature = {
-      signature: "",
-      progress: "",
-    };
-    const signPolicy = Object.assign({}, policy, excludedFromSignature);
-
-    const policyWithSortedProperties = sortObjectAlphabetically(signPolicy);
-    const serializedPolicy = JSON.stringify(policyWithSortedProperties);
-    const hexMessage = toHex(serializedPolicy);
-
-    const signature = await VulticonnectWalletService.signCustomMessage(
-      hexMessage,
-      account
-    );
-
-    policy.signature = signature;
-
-    console.log("Public key ecdsa: ", policy.public_key_ecdsa);
-    console.log("Public key eddsa: ", policy.public_key_eddsa);
-    console.log("Chain code hex: ", policy.chain_code_hex);
-    console.log("Derive path: ", policy.derive_path);
-    console.log("Hex message: ", hexMessage);
-    console.log("Account: ", account);
-    console.log("Signature: ", signature);
-
-    return policy;
-  };
-
-  const getPolicyHistory = async (
-    policyId: string,
-    skip: number,
-    take: number
-  ): Promise<TransactionHistory | null> => {
-    try {
-      const history = await MarketplaceService.getPolicyTransactionHistory(
-        policyId,
-        skip,
-        take
+  const fetchPolicies = useCallback(async (): Promise<void> => {
+    const publicKey = getCurrentVaultId();
+    const token = publicKey ? selectToken(publicKey) : undefined;
+    if (pluginId && token) {
+      const fetchedPolicies = await MarketplaceService.getPolicies(
+        pluginId,
+        currentPage > 1 ? (currentPage - 1) * POLICY_ITEMS_PER_PAGE : 0,
+        POLICY_ITEMS_PER_PAGE
       );
-      return history;
-    } catch (error) {
-      if (error instanceof Error) {
-        console.error("Failed to get policy history:", error);
-        publish("onToast", {
-          message: error.message,
-          type: "error",
-        });
-      }
 
-      return null;
+      const constructPolicyMap: Map<string, PluginPolicy> = new Map(
+        fetchedPolicies?.policies?.map((p: PluginPolicy) => [p.id, p]) // Convert the array into [key, value] pairs
+      );
+
+      setState((prev) => ({
+        ...prev,
+        policiesTotalCount: fetchedPolicies.total_count,
+        policyMap: constructPolicyMap,
+      }));
     }
-  };
+  }, [pluginId, currentPage]);
+
+  useEffect(() => {
+    fetchPolicies().catch((error: any) => {
+      console.error("Failed to get policies:", error.message);
+      publish("onToast", {
+        message: error.message || "Failed to get policies",
+        type: "error",
+      });
+    });
+  }, [fetchPolicies]);
 
   return (
     <PolicyContext.Provider
       value={{
-        pluginType,
         policyMap,
         policySchemaMap,
         policiesTotalCount,
         addPolicy,
-        updatePolicy,
+        fetchPolicies,
         removePolicy,
-        getPolicyHistory,
         currentPage,
         setCurrentPage,
       }}

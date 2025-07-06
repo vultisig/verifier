@@ -28,7 +28,7 @@ func (s *Server) validatePluginPolicy(policy types.PluginPolicy) error {
 		return errors.New("recipe cannot be empty")
 	}
 
-	recipeBytes, err := base64.RawStdEncoding.DecodeString(policy.Recipe)
+	recipeBytes, err := base64.StdEncoding.DecodeString(policy.Recipe)
 	if err != nil {
 		return fmt.Errorf("fail to base64 decode recipe: %w", err)
 	}
@@ -230,14 +230,13 @@ func (s *Server) GetPluginPolicyById(c echo.Context) error {
 }
 
 func (s *Server) GetAllPluginPolicies(c echo.Context) error {
-	publicKey := c.Request().Header.Get("public_key")
-	if publicKey == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, "failed to get policies", ""))
-	}
-
-	pluginID := c.Request().Header.Get("plugin_id")
+	pluginID := c.Param("pluginId")
 	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, "failed to get policies", ""))
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, "Plugin ID is required", ""))
+	}
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "Failed to get vault public key", ""))
 	}
 
 	skip, err := strconv.Atoi(c.QueryParam("skip"))

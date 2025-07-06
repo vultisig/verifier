@@ -1,45 +1,10 @@
 package types
 
 import (
-	"time"
-
-	"github.com/google/uuid"
-)
-
-type TransactionStatus string
-
-const (
-	StatusSigningInProgress TransactionStatus = "SIGNING_IN_PROGRESS"
-	StatusSigningFailed     TransactionStatus = "SIGNING_FAILED"
-	StatusSigned            TransactionStatus = "SIGNED"
-	StatusBroadcast         TransactionStatus = "BROADCAST"
-	StatusPending           TransactionStatus = "PENDING"
-	StatusMined             TransactionStatus = "MINED"
-	StatusRejected          TransactionStatus = "REJECTED"
+	tx_indexer_storage "github.com/vultisig/verifier/tx_indexer/pkg/storage"
 )
 
 type TransactionHistoryPaginatedList struct {
-	History    []TransactionHistory `json:"history"`
-	TotalCount int                  `json:"total_count"`
-}
-
-type TransactionHistory struct {
-	ID           uuid.UUID              `json:"id"`
-	PolicyID     uuid.UUID              `json:"policy_id"`
-	TxBody       string                 `json:"tx_body"`
-	TxHash       string                 `json:"tx_hash"`
-	Status       TransactionStatus      `json:"status"`
-	CreatedAt    time.Time              `json:"created_at"`
-	UpdatedAt    time.Time              `json:"updated_at"`
-	Metadata     map[string]interface{} `json:"metadata"`
-	ErrorMessage *string                `json:"error_message,omitempty"`
-}
-
-type SignedTransaction struct {
-	PolicyID    string
-	TxHash      string
-	RawTx       string
-	Signature   string
-	Metadata    map[string]any
-	BroadcastAt *time.Time
+	History    []tx_indexer_storage.Tx `json:"history"`
+	TotalCount uint32                  `json:"total_count"`
 }

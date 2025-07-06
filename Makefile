@@ -7,6 +7,11 @@ up:
 down:
 	@docker compose down
 
+seed-db:
+	VS_VERIFIER_CONFIG_NAME=verifier.example go run testdata/scripts/seed_db.go
+
+run-frontend:
+	@cd plugins-ui && npm install && VITE_MARKETPLACE_URL=http://localhost:8080 npm run dev
 # Run the verifier server
 run-server:
 	@DYLD_LIBRARY_PATH=$(DYLD_LIBRARY) VS_CONFIG_NAME=config go run cmd/verifier/main.go

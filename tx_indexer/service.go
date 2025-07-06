@@ -12,6 +12,7 @@ import (
 	"github.com/vultisig/verifier/tx_indexer/pkg/rpc"
 	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
 	"github.com/vultisig/verifier/types"
+	"golang.org/x/sync/errgroup"
 )
 
 type Service struct {
@@ -126,4 +127,40 @@ func (t *Service) SetSignedAndBroadcasted(
 		return fmt.Errorf("t.repo.SetSignedAndBroadcasted: %w", err)
 	}
 	return nil
+}
+
+func (t *Service) GetByPolicyID(
+	c context.Context,
+	policyID uuid.UUID,
+	skip, take uint32,
+) ([]storage.Tx, uint32, error) {
+	var (
+		txs        []storage.Tx
+		totalCount uint32
+	)
+
+	eg, ctx := errgroup.WithContext(c)
+	eg.Go(func() error {
+		ch := t.repo.GetByPolicyID(ctx, policyID, skip, take)
+		r, err := storage.AllFromRowsStream(ch)
+		if err != nil {
+			return fmt.Errorf("storage.AllFromRowsStream: %w", err)
+		}
+		txs = r
+		return nil
+	})
+	eg.Go(func() error {
+		r, err := t.repo.CountByPolicyID(ctx, policyID)
+		if err != nil {
+			return fmt.Errorf("t.repo.CountByPolicyID: %w", err)
+		}
+		totalCount = r
+		return nil
+	})
+	err := eg.Wait()
+	if err != nil {
+		return nil, 0, fmt.Errorf("eg.Wait: %w", err)
+	}
+
+	return txs, totalCount, nil
 }

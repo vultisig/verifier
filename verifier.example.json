@@ -1,8 +1,14 @@
 {
+  "auth": {
+    "enabled": true
+  },
   "server": {
-    "host": "localhost",
+    "host": "127.0.0.1",
     "port": 8080,
-    "jwt_secret": "secret"
+    "jwt_secret": "mysecret"
+  },
+  "database": {
+    "dsn": "postgres://myuser:mypassword@localhost:5432/vultisig-verifier?sslmode=disable"
   },
   "redis": {
     "host": "localhost",
@@ -15,15 +21,9 @@
     "secret": "minioadmin",
     "bucket": "vultisig-verifier"
   },
-  "database": {
-    "dsn": "postgres://myuser:mypassword@localhost:5432/vultisig-verifier?sslmode=disable"
-  },
-  "plugin": {},
+  "encryption_secret": "test123",
   "datadog": {
     "host": "localhost",
     "port": "8125"
-  },
-  "auth": {
-    "nonce_expiry_minutes": 15
   }
 }

@@ -23,17 +23,43 @@ A service providing threshold signature scheme (TSS) operations for vaults. Work
 
 ### Quick Start
 ```bash
-# Docker setup
-docker-compose up -d
+# create a shared network for docker containers
+docker network create shared_network
+# start verifier and worker in docker compose
+make up
 
-# Manual setup
-go mod tidy
-cp config.example.json config.json  # Edit as needed
-make migrate
-make build
-./bin/verifier
-# In another terminal: ./bin/worker
+# seed the postgres database with initial data
+make seed-db
+
+# run frontend marketplace locally
+make run-frontend
 ```
+
+To debug Docker containers in GoLand with breakpoints, [refer to this article](https://www.jetbrains.com/help/go/attach-to-running-go-processes-with-debugger.html).
+
+For convenient usage of debug breakpoints in GoLand, you can start only infra/db with Docker, and backend services outside Docker. Configs shared in `.run` directory, all envs already configured correctly. It will run:
+- Verifier Server (don't forget to set `http://localhost:8081` instead of `http://payroll-server:8080` in `plugins` table);
+- Verifier Worker;
+- Tx Indexer Worker;
+- Plugins Frontend;
+
+![goland-run.png](readme-static/goland-run.png)
+
+How to install dev version of Chrome extension from desired branch:
+
+- Clone [vultisig-windows](https://github.com/vultisig/vultisig-windows) repo and checkout to desired branch;
+- `yarn install` to install deps;
+- `yarn run build-extension` to build Chrome extension files;
+- Open Chrome and load extension there:
+  - Open `chrome://extensions`;
+  - Click `Developer mode` toggle at top-right;
+  - Click `Load unpacked`;
+  - Select `vultisig-windows/clients/extension/dist` folder;
+  - Now you'll see Vultisig Extension at the extensions list;
+
+To switch branch or update it: rebuild code and click `Reload` button near Vultisig Extension at the extensions list — Chrome would reload files from the same path;
+
+![extension.png](readme-static/extension.png)
 
 ### Configuration
 Edit `config.yaml` with appropriate settings for:

@@ -51,6 +51,13 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 	if policy.ID.String() == "" {
 		policy.ID = uuid.New()
 	}
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "Failed to get vault public key", ""))
+	}
+	if policy.PublicKey != publicKey {
+		return c.JSON(http.StatusForbidden, NewErrorResponse(http.StatusForbidden, "Public key mismatch", ""))
+	}
 
 	if !s.verifyPolicySignature(policy) {
 		s.logger.Error("invalid policy signature")
@@ -150,6 +157,21 @@ func (s *Server) UpdatePluginPolicyById(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, "failed to parse request", err.Error()))
 	}
 
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "Failed to get vault public key", ""))
+	}
+
+	oldPolicy, err := s.policyService.GetPluginPolicy(c.Request().Context(), policy.ID)
+	if err != nil {
+		s.logger.Errorf("failed to get plugin policy: %s,id:%s", err, policy.ID)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "failed to get policy", err.Error()))
+	}
+
+	if oldPolicy.PublicKey != publicKey || policy.PublicKey != publicKey {
+		return c.JSON(http.StatusForbidden, NewErrorResponse(http.StatusForbidden, "Public key mismatch", ""))
+	}
+
 	if !s.verifyPolicySignature(policy) {
 		s.logger.Error("invalid policy signature")
 		return c.JSON(http.StatusForbidden, NewErrorResponse(http.StatusForbidden, "Invalid policy signature", ""))
@@ -178,6 +200,10 @@ func (s *Server) DeletePluginPolicyById(c echo.Context) error {
 		s.logger.WithError(err).Error("Failed to parse request")
 		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, "failed to parse request", err.Error()))
 	}
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "Failed to get vault public key", ""))
+	}
 
 	policyID := c.Param("policyId")
 	if policyID == "" {
@@ -193,6 +219,10 @@ func (s *Server) DeletePluginPolicyById(c echo.Context) error {
 	if err != nil {
 		s.logger.Errorf("failed to get plugin policy: %s", err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "fail to delete policy", err.Error()))
+	}
+
+	if policy.PublicKey != publicKey {
+		return c.JSON(http.StatusForbidden, NewErrorResponse(http.StatusForbidden, "Public key mismatch", ""))
 	}
 
 	// This is because we have different signature stored in the database.
@@ -216,6 +246,10 @@ func (s *Server) GetPluginPolicyById(c echo.Context) error {
 	if policyID == "" {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, "Invalid policy ID", ""))
 	}
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "Failed to get vault public key", ""))
+	}
 	policyUUID, err := uuid.Parse(policyID)
 	if err != nil {
 		s.logger.Errorf("failed to parse policy ID: %s", err)
@@ -225,6 +259,9 @@ func (s *Server) GetPluginPolicyById(c echo.Context) error {
 	if err != nil {
 		s.logger.Errorf("failed to get plugin policy: %s,id:%s", err, policyUUID)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "failed to get policy", err.Error()))
+	}
+	if policy.PublicKey != publicKey {
+		return c.JSON(http.StatusForbidden, NewErrorResponse(http.StatusForbidden, "Public key mismatch", ""))
 	}
 	return c.JSON(http.StatusOK, policy)
 }

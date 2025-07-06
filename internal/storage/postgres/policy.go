@@ -271,15 +271,6 @@ func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 }
 
 func (p *PostgresBackend) DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id uuid.UUID) error {
-	//TODO: Delete tx from tx_indexer after deleting the policy
-	/*_, err := dbTx.Exec(ctx, `
-	DELETE FROM transaction_history
-	WHERE policy_id = $1
-	`, id)
-	if err != nil {
-		return fmt.Errorf("failed to delete transaction history: %w", err)
-	}*/
-
 	_, err := dbTx.Exec(ctx, `
 	DELETE FROM plugin_policies
 	WHERE id = $1

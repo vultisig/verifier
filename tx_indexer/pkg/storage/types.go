@@ -39,6 +39,8 @@ type TxIndexerRepo interface {
 		recipientPublicKey string,
 		from, to time.Time,
 	) (Tx, error)
+	GetByPolicyID(ctx context.Context, policyID uuid.UUID, skip, take uint32) <-chan RowsStream[Tx]
+	CountByPolicyID(ctx context.Context, policyID uuid.UUID) (uint32, error)
 }
 
 type TxStatus string

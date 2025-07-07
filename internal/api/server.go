@@ -187,7 +187,7 @@ func (s *Server) ReshareVault(c echo.Context) error {
 	var req tv.ReshareRequest
 	if err := c.Bind(&req); err != nil {
 		s.logger.WithError(err).Error("ReshareVault: Failed to parse request body")
-		return fmt.Errorf("fail to parse request, err: %w", err)
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Failed to parse request body"))
 	}
 
 	if err := req.IsValid(); err != nil {

@@ -97,7 +97,6 @@ func main() {
 	mux.HandleFunc(tasks.TypeKeySignDKLS, vaultMgmService.HandleKeySignDKLS)
 	mux.HandleFunc(tasks.TypeReshareDKLS, vaultMgmService.HandleReshareDKLS)
 	mux.HandleFunc(syncer.TaskKeySyncPolicy, syncService.ProcessSyncTask)
-	mux.HandleFunc(tasks.TypeOneTimeFeeRecord, policyService.HandleOneTimeFeeRecord)
 	mux.HandleFunc(tasks.TypeRecurringFeeRecord, policyService.HandleScheduledFees)
 
 	if err := syncService.Start(); err != nil {

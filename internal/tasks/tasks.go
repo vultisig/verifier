@@ -8,7 +8,6 @@ import (
 
 const QUEUE_NAME = "vultisig-verifier"
 const (
-	TypeOneTimeFeeRecord   = "fee:oneTimeRecord"
 	TypeRecurringFeeRecord = "fee:recurringRecord"
 	TypePluginTransaction  = "plugin:transaction"
 	TypeKeyGenerationDKLS  = "key:generationDKLS"

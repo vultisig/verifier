@@ -100,7 +100,9 @@ CREATE TABLE "plugin_policy_billing" (
 
 CREATE VIEW "fees_view" AS
  SELECT "pp"."id" AS "policy_id",
+    "pp"."plugin_id",
     "ppb"."id" AS "billing_id",
+    "pp"."public_key",
     "ppb"."type",
     "f"."id",
     "f"."plugin_policy_billing_id",
@@ -292,8 +294,6 @@ CREATE INDEX "idx_reviews_plugin_id" ON "reviews" USING "btree" ("plugin_id");
 CREATE INDEX "idx_reviews_public_key" ON "reviews" USING "btree" ("public_key");
 
 CREATE INDEX "idx_tx_indexer_key" ON "tx_indexer" USING "btree" ("chain_id", "plugin_id", "policy_id", "token_id", "to_public_key", "created_at");
-
-CREATE INDEX "idx_tx_indexer_policy_id_created_at" ON "tx_indexer" USING "btree" ("policy_id", "created_at");
 
 CREATE INDEX "idx_tx_indexer_status_onchain_lost" ON "tx_indexer" USING "btree" ("status_onchain", "lost");
 

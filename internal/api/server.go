@@ -192,7 +192,7 @@ func (s *Server) ReshareVault(c echo.Context) error {
 
 	if err := req.IsValid(); err != nil {
 		s.logger.WithError(err).Error("ReshareVault: Request validation failed")
-		return fmt.Errorf("invalid request, err: %w", err)
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Request validation failed"))
 	}
 
 	// Check if session exists in Redis

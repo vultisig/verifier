@@ -102,7 +102,7 @@ func (s *Server) PluginAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		tokenStr := items[1]
 		apiKey, err := s.db.GetAPIKey(c.Request().Context(), tokenStr)
 		if err != nil {
-			s.logger.WithError(err).Errorf("fail to get API key")
+			s.logger.WithError(err).Error("fail to get API key")
 			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to validate API key"))
 		}
 		if apiKey.Status == 0 {

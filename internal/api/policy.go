@@ -20,7 +20,7 @@ import (
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/internal/sigutil"
 	"github.com/vultisig/verifier/types"
-	ptypes "github.com/vultisig/verifier/types"
+	vtypes "github.com/vultisig/verifier/types"
 )
 
 // Parses the base64 wrapped protobuf encoded recipe and validates it (TODO)
@@ -80,9 +80,7 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 }
 
 func (s *Server) getVault(publicKeyECDSA, pluginId string) (*v1.Vault, error) {
-	if len(s.cfg.EncryptionSecret) == 0 {
-		return nil, fmt.Errorf("no encryption secret")
-	}
+
 	fileName := common.GetVaultBackupFilename(publicKeyECDSA, pluginId)
 	vaultContent, err := s.vaultStorage.GetVault(fileName)
 	if err != nil {
@@ -293,7 +291,7 @@ func (s *Server) GetAllPluginPolicies(c echo.Context) error {
 		take = 100
 	}
 
-	policies, err := s.policyService.GetPluginPolicies(c.Request().Context(), publicKey, ptypes.PluginID(pluginID), take, skip)
+	policies, err := s.policyService.GetPluginPolicies(c.Request().Context(), publicKey, vtypes.PluginID(pluginID), take, skip)
 	if err != nil {
 		s.logger.WithError(err).Error(fmt.Sprintf("Failed to get policies for public_key: %s", publicKey))
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, fmt.Sprintf("failed to get policies for public_key: %s", publicKey), err.Error()))

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/verifier/internal/storage"
@@ -13,8 +12,6 @@ import (
 )
 
 type Fees interface {
-	PluginPolicyGetFeeInfo(ctx context.Context, policyID string) (itypes.FeeHistoryDto, error)
-	PluginGetFeeInfo(ctx context.Context, pluginID string) (itypes.FeeHistoryDto, error)
 	PublicKeyGetFeeInfo(ctx context.Context, publicKey string) (itypes.FeeHistoryDto, error)
 }
 
@@ -38,15 +35,10 @@ func NewFeeService(db storage.DatabaseStorage,
 	}, nil
 }
 
-func (s *FeeService) PluginPolicyGetFeeInfo(ctx context.Context, policyID string) (itypes.FeeHistoryDto, error) {
+func (s *FeeService) PublicKeyGetFeeInfo(ctx context.Context, publicKey string) (itypes.FeeHistoryDto, error) {
 	history := itypes.FeeHistoryDto{}
 
-	policyUUID, err := uuid.Parse(policyID)
-	if err != nil {
-		return history, fmt.Errorf("invalid policy_id: %s", policyID)
-	}
-
-	fees, err := s.db.GetAllFeesByPolicyId(ctx, policyUUID)
+	fees, err := s.db.GetFeesByPublicKey(ctx, publicKey, true)
 	if err != nil {
 		return history, fmt.Errorf("failed to get fees: %w", err)
 	}
@@ -66,6 +58,9 @@ func (s *FeeService) PluginPolicyGetFeeInfo(ctx context.Context, policyID string
 		}
 		ifee := itypes.FeeDto{
 			ID:          fee.ID,
+			PublicKey:   fee.PublicKey,
+			PolicyId:    fee.PolicyID,
+			PluginId:    fee.PluginID.String(),
 			Amount:      fee.Amount,
 			Collected:   collected,
 			CollectedAt: collectedDt,
@@ -80,18 +75,9 @@ func (s *FeeService) PluginPolicyGetFeeInfo(ctx context.Context, policyID string
 
 	history = itypes.FeeHistoryDto{
 		Fees:                  ifees,
-		PolicyId:              policyUUID,
 		TotalFeesIncurred:     totalFeesIncurred,
 		FeesPendingCollection: feesPendingCollection,
 	}
 
 	return history, nil
-}
-
-func (s *FeeService) PluginGetFeeInfo(ctx context.Context, pluginID string) (itypes.FeeHistoryDto, error) {
-	return itypes.FeeHistoryDto{}, nil
-}
-
-func (s *FeeService) PublicKeyGetFeeInfo(ctx context.Context, publicKey string) (itypes.FeeHistoryDto, error) {
-	return itypes.FeeHistoryDto{}, nil
 }

@@ -46,6 +46,8 @@ type PolicyRepository interface {
 
 type FeeRepository interface {
 	GetAllFeesByPolicyId(ctx context.Context, policyId uuid.UUID) ([]types.Fee, error)
+	GetFeesByPublicKey(ctx context.Context, publicKey string, includeCollected bool) ([]types.Fee, error)
+	GetAllFeesByPublicKey(ctx context.Context, includeCollected bool) ([]types.Fee, error)
 }
 
 type PluginPolicySyncRepository interface {

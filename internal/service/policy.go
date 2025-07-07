@@ -23,8 +23,8 @@ type Policy interface {
 	CreatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
 	UpdatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
 	DeletePolicy(ctx context.Context, policyID uuid.UUID, pluginID types.PluginID, signature string) error
-	GetPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (itypes.PluginPolicyPaginatedList, error)
-	GetPluginPolicy(ctx context.Context, policyID uuid.UUID) (types.PluginPolicy, error)
+	GetPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (*itypes.PluginPolicyPaginatedList, error)
+	GetPluginPolicy(ctx context.Context, policyID uuid.UUID) (*types.PluginPolicy, error)
 	DeleteAllPolicies(ctx context.Context, pluginID types.PluginID, publicKey string) error
 }
 
@@ -206,18 +206,18 @@ func (s *PolicyService) DeletePolicy(ctx context.Context, policyID uuid.UUID, pl
 	return nil
 }
 
-func (s *PolicyService) GetPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (itypes.PluginPolicyPaginatedList, error) {
+func (s *PolicyService) GetPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (*itypes.PluginPolicyPaginatedList, error) {
 	policies, err := s.db.GetAllPluginPolicies(ctx, publicKey, pluginID, take, skip)
 	if err != nil {
-		return itypes.PluginPolicyPaginatedList{}, fmt.Errorf("failed to get policies: %w", err)
+		return nil, fmt.Errorf("failed to get policies: %w", err)
 	}
 	return policies, nil
 }
 
-func (s *PolicyService) GetPluginPolicy(ctx context.Context, policyID uuid.UUID) (types.PluginPolicy, error) {
+func (s *PolicyService) GetPluginPolicy(ctx context.Context, policyID uuid.UUID) (*types.PluginPolicy, error) {
 	policy, err := s.db.GetPluginPolicy(ctx, policyID)
 	if err != nil {
-		return types.PluginPolicy{}, fmt.Errorf("failed to get policy: %w", err)
+		return nil, fmt.Errorf("failed to get policy: %w", err)
 	}
 	return policy, nil
 }

@@ -106,28 +106,28 @@ func (m *MockDatabaseStorage) FindPluginById(ctx context.Context, tx pgx.Tx, plu
 	return args.Get(0).(*itypes.Plugin), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) FindPlugins(ctx context.Context, filters itypes.PluginFilters, take int, skip int, sort string) (itypes.PluginsPaginatedList, error) {
+func (m *MockDatabaseStorage) FindPlugins(ctx context.Context, filters itypes.PluginFilters, take int, skip int, sort string) (*itypes.PluginsPaginatedList, error) {
 	args := m.Called(ctx, filters, take, skip, sort)
 	if args.Get(0) == nil {
-		return itypes.PluginsPaginatedList{}, args.Error(1)
+		return nil, args.Error(1)
 	}
-	return args.Get(0).(itypes.PluginsPaginatedList), args.Error(1)
+	return args.Get(0).(*itypes.PluginsPaginatedList), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetPluginPolicy(ctx context.Context, id uuid.UUID) (types.PluginPolicy, error) {
+func (m *MockDatabaseStorage) GetPluginPolicy(ctx context.Context, id uuid.UUID) (*types.PluginPolicy, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
-		return types.PluginPolicy{}, args.Error(1)
+		return nil, args.Error(1)
 	}
-	return args.Get(0).(types.PluginPolicy), args.Error(1)
+	return args.Get(0).(*types.PluginPolicy), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (itypes.PluginPolicyPaginatedList, error) {
+func (m *MockDatabaseStorage) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (*itypes.PluginPolicyPaginatedList, error) {
 	args := m.Called(ctx, publicKey, pluginID, take, skip)
 	if args.Get(0) == nil {
-		return itypes.PluginPolicyPaginatedList{}, args.Error(1)
+		return nil, args.Error(1)
 	}
-	return args.Get(0).(itypes.PluginPolicyPaginatedList), args.Error(1)
+	return args.Get(0).(*itypes.PluginPolicyPaginatedList), args.Error(1)
 }
 
 func (m *MockDatabaseStorage) DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id uuid.UUID) error {

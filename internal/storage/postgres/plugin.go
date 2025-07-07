@@ -91,9 +91,9 @@ func (p *PostgresBackend) FindPlugins(
 	take int,
 	skip int,
 	sort string,
-) (types.PluginsPaginatedList, error) {
+) (*types.PluginsPaginatedList, error) {
 	if p.pool == nil {
-		return types.PluginsPaginatedList{}, fmt.Errorf("database pool is nil")
+		return nil, fmt.Errorf("database pool is nil")
 	}
 
 	allowedSortingColumns := map[string]bool{"updated_at": true, "created_at": true, "title": true}
@@ -192,12 +192,12 @@ func (p *PostgresBackend) FindPlugins(
 	// execute
 	rows, err := p.pool.Query(ctx, query, args...)
 	if err != nil {
-		return types.PluginsPaginatedList{}, err
+		return nil, err
 	}
 
 	plugins, err := p.collectPlugins(rows)
 	if err != nil {
-		return types.PluginsPaginatedList{}, err
+		return nil, err
 	}
 
 	// execute total results count
@@ -206,12 +206,12 @@ func (p *PostgresBackend) FindPlugins(
 	if err != nil {
 		// exactly 1 row expected, if no results return empty list
 		if errors.Is(err, pgx.ErrNoRows) {
-			return types.PluginsPaginatedList{
+			return &types.PluginsPaginatedList{
 				Plugins:    plugins,
 				TotalCount: 0,
 			}, nil
 		}
-		return types.PluginsPaginatedList{}, err
+		return nil, err
 	}
 
 	pluginsList := types.PluginsPaginatedList{
@@ -219,7 +219,7 @@ func (p *PostgresBackend) FindPlugins(
 		TotalCount: totalCount,
 	}
 
-	return pluginsList, nil
+	return &pluginsList, nil
 }
 
 func (p *PostgresBackend) FindReviewById(ctx context.Context, db pgx.Tx, id string) (*types.ReviewDto, error) {

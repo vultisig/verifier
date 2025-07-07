@@ -154,16 +154,7 @@ func (s *Server) StartServer() error {
 
 	// fee group. These should only be accessible by the plugin server
 	feeGroup := e.Group("/fees")
-	feeGroup.GET("/policy/:policyId", s.GetPluginPolicyFees, s.FeeAuthMiddleware)
-	feeGroup.GET("/plugin/:pluginId", s.GetPluginFees, s.FeeAuthMiddleware)
-	feeGroup.GET("/publickey/:publicKey", s.GetPublicKeyFees, s.FeeAuthMiddleware)
-	feeGroup.GET("/all", s.GetAllFees, s.FeeAuthMiddleware)
-
-	/* placeholder for future plugin endpoints
-	pluginGroup.GET("/fees", func(c echo.Context) error {
-		s.client.Enqueue(asynq.NewTask(tasks.TypeRecurringFeeRecord, []byte{}, asynq.Queue(tasks.QUEUE_NAME)))
-		return c.NoContent(http.StatusOK)
-	}) */
+	feeGroup.GET("/publickey/:publicKey", s.GetPublicKeyFees)
 
 	pluginsGroup := e.Group("/plugins")
 	pluginsGroup.GET("", s.GetPlugins)

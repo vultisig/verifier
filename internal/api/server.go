@@ -401,10 +401,10 @@ func (s *Server) Auth(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Invalid public key format"))
 	}
 
-	// extract the public key from the signature , make sure it match the eth public key
+	// extract the public key from the signature, make sure it matches the eth public key
 	success, err := sigutil.VerifyEthAddressSignature(ecommon.HexToAddress(ethAddress), []byte(req.Message), sigBytes)
 	if err != nil {
-		s.logger.WithError(err).Errorf("signature verification failed")
+		s.logger.WithError(err).Error("signature verification failed")
 		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("Signature verification failed"))
 	}
 

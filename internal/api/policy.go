@@ -60,10 +60,10 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, NewErrorResponse(http.StatusForbidden, "Public key mismatch", ""))
 	}
 
-	// if !s.verifyPolicySignature(policy) {
-	// 	s.logger.Error("invalid policy signature")
-	// 	return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, "Invalid policy signature", ""))
-	// }
+	if !s.verifyPolicySignature(policy) {
+		s.logger.Error("invalid policy signature")
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, "Invalid policy signature", ""))
+	}
 
 	if err := s.validatePluginPolicy(policy); err != nil {
 		s.logger.WithError(err).Error("failed to validate plugin policy")

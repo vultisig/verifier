@@ -100,7 +100,9 @@ CREATE TABLE "plugin_policy_billing" (
 
 CREATE VIEW "fees_view" AS
  SELECT "pp"."id" AS "policy_id",
+    "pp"."plugin_id",
     "ppb"."id" AS "billing_id",
+    "pp"."public_key",
     "ppb"."type",
     "f"."id",
     "f"."plugin_policy_billing_id",

@@ -10,6 +10,7 @@ services:
       - ./common:/app/common
       - ./config:/app/config
       - ./plugin:/app/plugin
+      - ./types:/app/types
       - ./testdata:/app/testdata
       - ./go.mod:/app/go.mod
       - ./go.sum:/app/go.sum
@@ -26,6 +27,7 @@ services:
       - ./common:/app/common
       - ./config:/app/config
       - ./plugin:/app/plugin
+      - ./types:/app/types
       - ./testdata:/app/testdata
       - ./go.mod:/app/go.mod
       - ./go.sum:/app/go.sum

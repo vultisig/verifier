@@ -14,7 +14,7 @@ type FeeDto struct {
 }
 
 type FeeHistoryDto struct {
-	// PolicyId              uuid.UUID `json:"policy_id" validate:"required"`
+	PublicKey             string   `json:"public_key" validate:"required"`
 	Fees                  []FeeDto `json:"fees" validate:"required"`
 	TotalFeesIncurred     int      `json:"total_fees_incurred" validate:"required"`     // Total fees incurred in the smallest unit, e.g., "1000000" for 0.01 VULTI
 	FeesPendingCollection int      `json:"fees_pending_collection" validate:"required"` // Total fees pending collection in the smallest unit, e.g., "1000000" for 0.01 VULTI

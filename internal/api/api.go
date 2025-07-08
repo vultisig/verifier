@@ -5,7 +5,7 @@ import "time"
 type APIResponse[T any] struct {
 	Data      T             `json:"data,omitempty"`
 	Error     ErrorResponse `json:"error"`
-	Status    int           `json:"status"`
+	Status    int           `json:"status,omitempty"`
 	Timestamp string        `json:"timestamp"`
 	Version   string        `json:"version"`
 }
@@ -15,15 +15,13 @@ type ErrorResponse struct {
 	DetailedResponse string `json:"details,omitempty"`
 }
 
-func NewErrorResponse(code int, message string, details string) APIResponse[interface{}] {
+func NewErrorResponseWithMessage(message string) APIResponse[interface{}] {
 	return APIResponse[interface{}]{
-		Status: code,
 		Error: ErrorResponse{
-			Message:          message,
-			DetailedResponse: details,
+			Message: message,
 		},
 		Timestamp: time.Now().Format(time.RFC3339),
-		Version:   "1.0.0", //TODO get proper API versioning
+		Version:   "1.0.0",
 	}
 }
 
@@ -32,7 +30,6 @@ func NewSuccessResponse[T any](code int, data T) APIResponse[T] {
 		Status:    code,
 		Data:      data,
 		Timestamp: time.Now().Format(time.RFC3339),
-		Version:   "1.0.0", //TODO get proper API versioning
-
+		Version:   "1.0.0",
 	}
 }

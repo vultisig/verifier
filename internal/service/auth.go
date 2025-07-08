@@ -169,7 +169,7 @@ func (a *AuthService) RevokeToken(ctx context.Context, vaultKey, tokenID string)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrTokenNotFound
 		}
-		a.logger.WithError(err).Errorf("Failed to get token")
+		a.logger.WithError(err).Error("Failed to get token")
 		return ErrGetToken
 	}
 

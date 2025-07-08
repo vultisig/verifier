@@ -15,7 +15,7 @@ import (
 
 func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (*types.PluginPolicy, error) {
 	if p.pool == nil {
-		return nil, fmt.Errorf("database pool is nil")
+		return nil, errors.New("database pool is nil")
 	}
 
 	var policy types.PluginPolicy

@@ -281,14 +281,14 @@ func (s *Server) notifyPluginServerReshare(ctx context.Context, req tv.ReshareRe
 func (s *Server) GetVault(c echo.Context) error {
 	publicKeyECDSA := c.Param("publicKeyECDSA")
 	if publicKeyECDSA == "" {
-		return fmt.Errorf("public key is required")
+		return errors.New("public key is required")
 	}
 	if !s.isValidHash(publicKeyECDSA) {
 		return c.NoContent(http.StatusBadRequest)
 	}
 	pluginId := c.Param("pluginId")
 	if pluginId == "" {
-		return fmt.Errorf("plugin id is required")
+		return errors.New("plugin id is required")
 	}
 	filePathName := common.GetVaultBackupFilename(publicKeyECDSA, pluginId)
 	content, err := s.vaultStorage.GetVault(filePathName)
@@ -340,14 +340,14 @@ func (s *Server) isValidHash(hash string) bool {
 func (s *Server) ExistVault(c echo.Context) error {
 	publicKeyECDSA := c.Param("publicKeyECDSA")
 	if publicKeyECDSA == "" {
-		return fmt.Errorf("public key is required")
+		return errors.New("public key is required")
 	}
 	if !s.isValidHash(publicKeyECDSA) {
 		return c.NoContent(http.StatusBadRequest)
 	}
 	pluginId := c.Param("pluginId")
 	if pluginId == "" {
-		return fmt.Errorf("plugin id is required")
+		return errors.New("plugin id is required")
 	}
 
 	filePathName := common.GetVaultBackupFilename(publicKeyECDSA, pluginId)

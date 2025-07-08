@@ -25,6 +25,19 @@ func NewErrorResponseWithMessage(message string) APIResponse[interface{}] {
 	}
 }
 
+//
+// func NewErrorResponse(code int, message string, details string) APIResponse[interface{}] {
+// 	return APIResponse[interface{}]{
+// 		Status: code,
+// 		Error: ErrorResponse{
+// 			Message:          message,
+// 			DetailedResponse: details,
+// 		},
+// 		Timestamp: time.Now().Format(time.RFC3339),
+// 		Version:   "1.0.0",
+// 	}
+// }
+
 func NewSuccessResponse[T any](code int, data T) APIResponse[T] {
 	return APIResponse[T]{
 		Status:    code,

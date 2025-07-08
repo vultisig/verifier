@@ -65,7 +65,7 @@ func (s *Server) VaultAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		// Validate token and get claims
 		claims, err := s.authService.ValidateToken(c.Request().Context(), tokenParts[1])
 		if err != nil {
-			s.logger.Errorf("Internal error: %v", err)
+			s.logger.WithError(err).Error("Internal error")
 			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("An internal error occurred"))
 		}
 

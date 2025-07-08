@@ -7,12 +7,13 @@ import (
 
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
+
 	"github.com/vultisig/verifier/internal/storage"
 	itypes "github.com/vultisig/verifier/internal/types"
 )
 
 type Fees interface {
-	PublicKeyGetFeeInfo(ctx context.Context, publicKey string) (itypes.FeeHistoryDto, error)
+	PublicKeyGetFeeInfo(ctx context.Context, publicKey string) (*itypes.FeeHistoryDto, error)
 }
 
 var _ Fees = (*FeeService)(nil)
@@ -35,12 +36,11 @@ func NewFeeService(db storage.DatabaseStorage,
 	}, nil
 }
 
-func (s *FeeService) PublicKeyGetFeeInfo(ctx context.Context, publicKey string) (itypes.FeeHistoryDto, error) {
-	history := itypes.FeeHistoryDto{}
+func (s *FeeService) PublicKeyGetFeeInfo(ctx context.Context, publicKey string) (*itypes.FeeHistoryDto, error) {
 
 	fees, err := s.db.GetFeesByPublicKey(ctx, publicKey, true)
 	if err != nil {
-		return history, fmt.Errorf("failed to get fees: %w", err)
+		return nil, fmt.Errorf("failed to get fees: %w", err)
 	}
 
 	totalFeesIncurred := 0
@@ -73,11 +73,9 @@ func (s *FeeService) PublicKeyGetFeeInfo(ctx context.Context, publicKey string) 
 		ifees = append(ifees, ifee)
 	}
 
-	history = itypes.FeeHistoryDto{
+	return &itypes.FeeHistoryDto{
 		Fees:                  ifees,
 		TotalFeesIncurred:     totalFeesIncurred,
 		FeesPendingCollection: feesPendingCollection,
-	}
-
-	return history, nil
+	}, nil
 }

@@ -13,9 +13,9 @@ import (
 	"github.com/vultisig/verifier/types"
 )
 
-func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (types.PluginPolicy, error) {
+func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (*types.PluginPolicy, error) {
 	if p.pool == nil {
-		return types.PluginPolicy{}, fmt.Errorf("database pool is nil")
+		return nil, errors.New("database pool is nil")
 	}
 
 	var policy types.PluginPolicy
@@ -37,13 +37,13 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (ty
 	)
 
 	if err != nil {
-		return types.PluginPolicy{}, fmt.Errorf("failed to get policy: %w", err)
+		return nil, fmt.Errorf("failed to get policy: %w", err)
 	}
 
 	query = `SELECT id, type, frequency, start_date, amount FROM plugin_policy_billing WHERE plugin_policy_id = $1`
 	billingRows, err := p.pool.Query(ctx, query, id)
 	if err != nil {
-		return types.PluginPolicy{}, fmt.Errorf("failed to get billing info: %w", err)
+		return nil, fmt.Errorf("failed to get billing info: %w", err)
 	}
 	defer billingRows.Close()
 	for billingRows.Next() {
@@ -57,7 +57,7 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (ty
 			&billing.Amount,
 		)
 		if err != nil {
-			return types.PluginPolicy{}, fmt.Errorf("failed to scan billing info: %w", err)
+			return nil, fmt.Errorf("failed to scan billing info: %w", err)
 		}
 		if freq.Valid {
 			billing.Frequency = freq.String
@@ -65,12 +65,12 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (ty
 		policy.Billing = append(policy.Billing, billing)
 	}
 
-	return policy, nil
+	return &policy, nil
 }
 
-func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (itypes.PluginPolicyPaginatedList, error) {
+func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (*itypes.PluginPolicyPaginatedList, error) {
 	if p.pool == nil {
-		return itypes.PluginPolicyPaginatedList{}, fmt.Errorf("database pool is nil")
+		return nil, fmt.Errorf("database pool is nil")
 	}
 
 	query := `
@@ -85,7 +85,7 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 	rows, err := p.pool.Query(ctx, query, publicKey, pluginID, take, skip)
 
 	if err != nil {
-		return itypes.PluginPolicyPaginatedList{}, err
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -105,13 +105,13 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 			&totalCount,
 		)
 		if err != nil {
-			return itypes.PluginPolicyPaginatedList{}, err
+			return nil, err
 		}
 
 		billingQuery := `SELECT id, "type", frequency, start_date, amount FROM plugin_policy_billing WHERE plugin_policy_id = $1`
 		billingRows, err := p.pool.Query(ctx, billingQuery, policy.ID)
 		if err != nil {
-			return itypes.PluginPolicyPaginatedList{}, fmt.Errorf("failed to get billing info: %w", err)
+			return nil, fmt.Errorf("failed to get billing info: %w", err)
 		}
 		for billingRows.Next() {
 			var billing types.BillingPolicy
@@ -125,7 +125,7 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 			)
 			if err != nil {
 				billingRows.Close()
-				return itypes.PluginPolicyPaginatedList{}, fmt.Errorf("failed to scan billing info: %w", err)
+				return nil, fmt.Errorf("failed to scan billing info: %w", err)
 			}
 			if freq.Valid {
 				billing.Frequency = freq.String
@@ -141,7 +141,7 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 		TotalCount: totalCount,
 	}
 
-	return dto, nil
+	return &dto, nil
 }
 
 func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {

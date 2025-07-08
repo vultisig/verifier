@@ -1,7 +1,7 @@
 package vault
 
 import (
-	"fmt"
+	"errors"
 
 	session "github.com/vultisig/go-wrappers/go-dkls/sessions"
 	eddsaSession "github.com/vultisig/go-wrappers/go-schnorr/sessions"
@@ -256,19 +256,19 @@ func (w *MPCWrapperImp) KeyshareKeyID(share Handle) ([]byte, error) {
 }
 func (w *MPCWrapperImp) KeyshareDeriveChildPublicKey(share Handle, derivationPathStr []byte) ([]byte, error) {
 	if w.isEdDSA {
-		return nil, fmt.Errorf("Not implemented")
+		return nil, errors.New("Not implemented")
 	}
 	return session.DklsKeyshareDeriveChildPublicKey(session.Handle(share), derivationPathStr)
 }
 func (w *MPCWrapperImp) KeyshareToRefreshBytes(share Handle) ([]byte, error) {
 	if w.isEdDSA {
-		return nil, fmt.Errorf("Not implemented")
+		return nil, errors.New("Not implemented")
 	}
 	return session.DklsKeyshareToRefreshBytes(session.Handle(share))
 }
 func (w *MPCWrapperImp) RefreshShareFromBytes(buf []byte) (Handle, error) {
 	if w.isEdDSA {
-		return Handle(0), fmt.Errorf("Not implemented")
+		return Handle(0), errors.New("Not implemented")
 	}
 	h, err := session.DklsRefreshShareFromBytes(buf)
 	return Handle(h), err
@@ -276,7 +276,7 @@ func (w *MPCWrapperImp) RefreshShareFromBytes(buf []byte) (Handle, error) {
 
 func (w *MPCWrapperImp) RefreshShareToBytes(share Handle) ([]byte, error) {
 	if w.isEdDSA {
-		return nil, fmt.Errorf("Not implemented")
+		return nil, errors.New("Not implemented")
 	}
 	return session.DklsRefreshShareToBytes(session.Handle(share))
 }
@@ -303,7 +303,7 @@ func (w *MPCWrapperImp) DecodeSessionID(setup []byte) ([]byte, error) {
 	if w.isEdDSA {
 		return eddsaSession.SchnorrDecodeSessionID(setup)
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 func (w *MPCWrapperImp) DecodeMessage(setup []byte) ([]byte, error) {
 	if w.isEdDSA {

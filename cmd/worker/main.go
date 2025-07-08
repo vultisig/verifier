@@ -105,7 +105,7 @@ func main() {
 	}
 	defer func() {
 		if err := syncService.Stop(); err != nil {
-			logger.Errorf("failed to stop sync service: %v", err)
+			logger.WithError(err).Error("failed to stop sync service")
 		}
 	}()
 	if err := srv.Run(mux); err != nil {

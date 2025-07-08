@@ -99,7 +99,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	}
 
 	if err := s.redis.Set(c.Request().Context(), req.SessionID, req.SessionID, 30*time.Minute); err != nil {
-		s.logger.Errorf("fail to set session, err: %v", err)
+		s.logger.WithError(err).Error("fail to set session")
 	}
 
 	buf, err := json.Marshal(req)

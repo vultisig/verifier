@@ -281,14 +281,14 @@ func (s *Server) notifyPluginServerReshare(ctx context.Context, req tv.ReshareRe
 func (s *Server) GetVault(c echo.Context) error {
 	publicKeyECDSA := c.Param("publicKeyECDSA")
 	if publicKeyECDSA == "" {
-		return fmt.Errorf("public key is required")
+		return errors.New("public key is required")
 	}
 	if !s.isValidHash(publicKeyECDSA) {
 		return c.NoContent(http.StatusBadRequest)
 	}
 	pluginId := c.Param("pluginId")
 	if pluginId == "" {
-		return fmt.Errorf("plugin id is required")
+		return errors.New("plugin id is required")
 	}
 	filePathName := common.GetVaultBackupFilename(publicKeyECDSA, pluginId)
 	content, err := s.vaultStorage.GetVault(filePathName)
@@ -340,14 +340,14 @@ func (s *Server) isValidHash(hash string) bool {
 func (s *Server) ExistVault(c echo.Context) error {
 	publicKeyECDSA := c.Param("publicKeyECDSA")
 	if publicKeyECDSA == "" {
-		return fmt.Errorf("public key is required")
+		return errors.New("public key is required")
 	}
 	if !s.isValidHash(publicKeyECDSA) {
 		return c.NoContent(http.StatusBadRequest)
 	}
 	pluginId := c.Param("pluginId")
 	if pluginId == "" {
-		return fmt.Errorf("plugin id is required")
+		return errors.New("plugin id is required")
 	}
 
 	filePathName := common.GetVaultBackupFilename(publicKeyECDSA, pluginId)
@@ -520,7 +520,7 @@ func (s *Server) RevokeToken(c echo.Context) error {
 
 	err := s.authService.RevokeToken(c.Request().Context(), vaultKey, tokenID)
 	if err != nil {
-		s.logger.Errorf("Failed to revoke token: %v", err)
+		s.logger.WithError(err).Error("Failed to revoke token")
 		switch {
 		case errors.Is(err, service.ErrTokenNotFound):
 			return c.JSON(http.StatusNotFound, NewErrorResponseWithMessage("Token not found"))
@@ -605,7 +605,7 @@ func (s *Server) notifyPluginServerDeletePlugin(ctx context.Context, id tv.Plugi
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
-		s.logger.Errorf("notifyPluginServerDeletePlugin: Plugin server error (status %d): %s", resp.StatusCode, string(body))
+		s.logger.WithError(fmt.Errorf("status %d: %s", resp.StatusCode, string(body))).Error("notifyPluginServerDeletePlugin: Plugin server error")
 		return fmt.Errorf("plugin server returned status %d", resp.StatusCode)
 	}
 

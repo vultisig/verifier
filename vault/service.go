@@ -68,13 +68,13 @@ func NewManagementService(
 
 func (s *ManagementService) incCounter(name string, tags []string) {
 	if err := s.sdClient.Count(name, 1, tags, 1); err != nil {
-		s.logger.Errorf("fail to count metric, err: %v", err)
+		s.logger.WithError(err).Error("fail to count metric")
 	}
 }
 
 func (s *ManagementService) measureTime(name string, start time.Time, tags []string) {
 	if err := s.sdClient.Timing(name, time.Since(start), tags, 1); err != nil {
-		s.logger.Errorf("fail to measure time metric, err: %v", err)
+		s.logger.WithError(err).Error("fail to measure time metric")
 	}
 }
 
@@ -106,7 +106,7 @@ func (s *ManagementService) HandleKeyGenerationDKLS(ctx context.Context, t *asyn
 	keyECDSA, keyEDDSA, err := dklsService.ProcessDKLSKeygen(req)
 	if err != nil {
 		_ = s.sdClient.Count("worker.vault.create.dkls.error", 1, nil, 1)
-		s.logger.Errorf("keygen.JoinKeyGeneration failed: %v", err)
+		s.logger.WithError(err).Error("keygen.JoinKeyGeneration failed")
 		return fmt.Errorf("keygen.JoinKeyGeneration failed: %v: %w", err, asynq.SkipRetry)
 	}
 
@@ -122,12 +122,12 @@ func (s *ManagementService) HandleKeyGenerationDKLS(ctx context.Context, t *asyn
 
 	resultBytes, err := json.Marshal(result)
 	if err != nil {
-		s.logger.Errorf("json.Marshal failed: %v", err)
+		s.logger.WithError(err).Error("json.Marshal failed")
 		return fmt.Errorf("json.Marshal failed: %v: %w", err, asynq.SkipRetry)
 	}
 
 	if _, err := t.ResultWriter().Write(resultBytes); err != nil {
-		s.logger.Errorf("t.ResultWriter.Write failed: %v", err)
+		s.logger.WithError(err).Error("t.ResultWriter.Write failed")
 		return fmt.Errorf("t.ResultWriter.Write failed: %v: %w", err, asynq.SkipRetry)
 	}
 
@@ -140,7 +140,7 @@ func (s *ManagementService) HandleKeySignDKLS(ctx context.Context, t *asynq.Task
 	}
 	var p types.KeysignRequest
 	if err := json.Unmarshal(t.Payload(), &p); err != nil {
-		s.logger.Errorf("json.Unmarshal failed: %v", err)
+		s.logger.WithError(err).Error("json.Unmarshal failed")
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
 	}
 	defer s.measureTime("worker.vault.sign.latency", time.Now(), []string{})
@@ -160,7 +160,7 @@ func (s *ManagementService) HandleKeySignDKLS(ctx context.Context, t *asynq.Task
 
 	signatures, err := dklsService.ProcessDKLSKeysign(p)
 	if err != nil {
-		s.logger.Errorf("join keysign failed: %v", err)
+		s.logger.WithError(err).Error("join keysign failed")
 		return fmt.Errorf("join keysign failed: %v: %w", err, asynq.SkipRetry)
 	}
 
@@ -170,19 +170,19 @@ func (s *ManagementService) HandleKeySignDKLS(ctx context.Context, t *asynq.Task
 
 	resultBytes, err := json.Marshal(signatures)
 	if err != nil {
-		s.logger.Errorf("json.Marshal failed: %v", err)
+		s.logger.WithError(err).Error("json.Marshal failed")
 		return fmt.Errorf("json.Marshal failed: %v: %w", err, asynq.SkipRetry)
 	}
 
 	if _, err := t.ResultWriter().Write(resultBytes); err != nil {
-		s.logger.Errorf("t.ResultWriter.Write failed: %v", err)
+		s.logger.WithError(err).Error("t.ResultWriter.Write failed")
 		return fmt.Errorf("t.ResultWriter.Write failed: %v: %w", err, asynq.SkipRetry)
 	}
 
 	if s.txIndexerService != nil {
 		orderedSigs, err := OriginalOrder(p, signatures)
 		if err != nil {
-			s.logger.Errorf("OriginalOrder: %v", err)
+			s.logger.WithError(err).Error("OriginalOrder")
 			return fmt.Errorf("OriginalOrder: %v: %w", err, asynq.SkipRetry)
 		}
 
@@ -193,7 +193,7 @@ func (s *ManagementService) HandleKeySignDKLS(ctx context.Context, t *asynq.Task
 
 			txID, er := uuid.Parse(msg.TxIndexerID)
 			if er != nil {
-				s.logger.Errorf("uuid.Parse(reqPlugin.TxIndexerID): %v", er)
+				s.logger.WithError(er).Error("uuid.Parse(reqPlugin.TxIndexerID)")
 				return fmt.Errorf("uuid.Parse(reqPlugin.TxIndexerID): %v: %w", er, asynq.SkipRetry)
 			}
 
@@ -204,7 +204,7 @@ func (s *ManagementService) HandleKeySignDKLS(ctx context.Context, t *asynq.Task
 				orderedSigs,
 			)
 			if er != nil {
-				s.logger.Errorf("s.txIndexerService.SetSignedAndBroadcasted: %v", er)
+				s.logger.WithError(er).Error("s.txIndexerService.SetSignedAndBroadcasted")
 				return fmt.Errorf("s.txIndexerService.SetSignedAndBroadcasted: %v: %w", er, asynq.SkipRetry)
 			}
 		}
@@ -219,7 +219,7 @@ func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task
 	}
 	var req types.ReshareRequest
 	if err := json.Unmarshal(t.Payload(), &req); err != nil {
-		s.logger.Errorf("json.Unmarshal failed: %v", err)
+		s.logger.WithError(err).Error("json.Unmarshal failed")
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
 	}
 
@@ -255,12 +255,12 @@ func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task
 
 	service, err := NewDKLSTssService(s.cfg, s.vaultStorage, s.queueClient)
 	if err != nil {
-		s.logger.Errorf("NewDKLSTssService failed: %v", err)
+		s.logger.WithError(err).Error("NewDKLSTssService failed")
 		return fmt.Errorf("NewDKLSTssService failed: %v: %w", err, asynq.SkipRetry)
 	}
 
 	if err := service.ProcessReshare(vault, req.SessionID, req.HexEncryptionKey, req.Email, req.PluginID); err != nil {
-		s.logger.Errorf("reshare failed: %v", err)
+		s.logger.WithError(err).Error("reshare failed")
 		return fmt.Errorf("reshare failed: %v: %w", err, asynq.SkipRetry)
 	}
 

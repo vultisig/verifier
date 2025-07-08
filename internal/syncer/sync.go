@@ -84,7 +84,7 @@ func (s *Syncer) processFailedTasks() {
 		case <-time.After(30 * time.Minute):
 			syncTasks, err := s.storage.GetUnFinishedPluginPolicySyncs(context.Background())
 			if err != nil {
-				s.logger.Errorf("failed to get unfinished plugin policy syncs: %v", err)
+				s.logger.WithError(err).Error("failed to get unfinished plugin policy syncs")
 				continue
 			}
 			for _, syncTask := range syncTasks {

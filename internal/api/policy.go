@@ -225,7 +225,7 @@ func (s *Server) DeletePluginPolicyById(c echo.Context) error {
 	// This is because we have different signature stored in the database.
 	policy.Signature = reqBody.Signature
 
-	if !s.verifyPolicySignature(policy) {
+	if !s.verifyPolicySignature(*policy) {
 		s.logger.Error("invalid policy signature")
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Invalid policy signature"))
 	}

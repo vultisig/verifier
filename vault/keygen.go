@@ -7,12 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
-	"github.com/vultisig/verifier/vault_config"
-
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/vultisig/verifier/vault_config"
 
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
@@ -154,11 +153,11 @@ func (t *DKLSTssService) BackupVault(vaultName, localPartyId, email, pluginId st
 
 func (t *DKLSTssService) SaveVaultToStorage(vault *vaultType.Vault, email, pluginId string) error {
 	if len(t.cfg.EncryptionSecret) == 0 {
-		return fmt.Errorf("encryption secret is empty")
+		return errors.New("encryption secret is empty")
 	}
 
 	if len(pluginId) == 0 {
-		return fmt.Errorf("failed to save vault to storage,plugin id is empty")
+		return errors.New("failed to save vault to storage,plugin id is empty")
 	}
 
 	vaultData, err := proto.Marshal(vault)
@@ -228,7 +227,7 @@ func (t *DKLSTssService) keygenWithRetry(sessionID string,
 			return publicKey, chainCode, nil
 		}
 	}
-	return "", "", fmt.Errorf("fail to keygen after max retry")
+	return "", "", errors.New("fail to keygen after max retry")
 }
 
 func (t *DKLSTssService) keygen(sessionID string,

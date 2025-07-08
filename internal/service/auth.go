@@ -5,12 +5,12 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
+
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/types"
 )
@@ -47,12 +47,7 @@ func NewAuthService(secret string, db storage.DatabaseStorage, logger *logrus.Lo
 	return &AuthService{
 		JWTSecret: []byte(secret),
 		db:        db,
-		logger: func() *logrus.Logger {
-			if logger != nil {
-				return logger
-			}
-			return logrus.New()
-		}(),
+		logger:    logger.WithField("service", "auth").Logger,
 	}
 }
 
@@ -144,8 +139,7 @@ func (a *AuthService) ValidateToken(ctx context.Context, tokenStr string) (*Clai
 	// Update last used timestamp
 	err = a.db.UpdateVaultTokenLastUsed(ctx, claims.TokenID)
 	if err != nil {
-		// Log error but don't fail the request
-		// TODO: Add proper logging
+		a.logger.WithError(err).Error("failed to update token last used")
 	}
 
 	return claims, nil
@@ -175,8 +169,8 @@ func (a *AuthService) RevokeToken(ctx context.Context, vaultKey, tokenID string)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrTokenNotFound
 		}
-		a.logger.Errorf("Failed to get token: %v", err)
-		return fmt.Errorf("%w", ErrGetToken)
+		a.logger.WithError(err).Errorf("Failed to get token")
+		return ErrGetToken
 	}
 
 	if tok == nil {
@@ -188,8 +182,8 @@ func (a *AuthService) RevokeToken(ctx context.Context, vaultKey, tokenID string)
 	}
 
 	if err := a.db.RevokeVaultToken(ctx, tokenID); err != nil {
-		a.logger.Errorf("Failed to revoke token: %v", err)
-		return fmt.Errorf("%w", ErrRevokeToken)
+		a.logger.WithError(err).Error("Failed to revoke token")
+		return ErrRevokeToken
 	}
 
 	return nil

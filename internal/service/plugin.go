@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
+
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/types"
 	ptypes "github.com/vultisig/verifier/types"

@@ -10,16 +10,16 @@ import (
 func (s *Server) GetPricing(c echo.Context) error {
 	pricingID := c.Param("pricingId")
 	if pricingID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, "invalid pricing id", "pricing id cannot be null"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid pricing id"))
 	}
 	uPricingID, err := uuid.Parse(pricingID)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(http.StatusBadRequest, "invalid pricing id", err.Error()))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid pricing id"))
 	}
 	pricing, err := s.db.FindPricingById(c.Request().Context(), uPricingID)
 	if err != nil {
-		s.logger.Errorf("error finding pricing %s: %v", pricingID, err)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "failed to get pricing", err.Error()))
+		s.logger.WithError(err).Errorf("error finding pricing %s", pricingID)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get pricing"))
 	}
 
 	return c.JSON(http.StatusOK, pricing)

@@ -12,7 +12,7 @@ func (s *Server) GetPublicKeyFees(c echo.Context) error {
 	history, err := s.feeService.PublicKeyGetFeeInfo(c.Request().Context(), publicKey)
 	if err != nil {
 		s.logger.WithError(err).Errorf("Failed to get fees for public key: %s", publicKey)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse(http.StatusInternalServerError, "failed to get fees", err.Error()))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get fees"))
 	}
 
 	status := http.StatusOK

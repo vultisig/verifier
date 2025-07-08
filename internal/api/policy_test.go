@@ -7,8 +7,9 @@ import (
 
 	"github.com/google/uuid"
 	rtypes "github.com/vultisig/recipes/types"
-	"github.com/vultisig/verifier/types"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/vultisig/verifier/types"
 )
 
 func TestValidatePluginPolicy_Success(t *testing.T) {

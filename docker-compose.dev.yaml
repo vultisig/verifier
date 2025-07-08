@@ -1,0 +1,35 @@
+services:
+  verifier:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev.verifier
+    volumes:
+      - ./cmd:/app/cmd
+      - ./internal:/app/internal
+      - ./address:/app/address
+      - ./common:/app/common
+      - ./config:/app/config
+      - ./plugin:/app/plugin
+      - ./types:/app/types
+      - ./testdata:/app/testdata
+      - ./go.mod:/app/go.mod
+      - ./go.sum:/app/go.sum
+      - ./verifier.example.json:/app/config.json
+      - ./tmp/verifier:/app/tmp
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev.worker
+    volumes:
+      - ./cmd:/app/cmd
+      - ./internal:/app/internal
+      - ./address:/app/address
+      - ./common:/app/common
+      - ./config:/app/config
+      - ./plugin:/app/plugin
+      - ./types:/app/types
+      - ./testdata:/app/testdata
+      - ./go.mod:/app/go.mod
+      - ./go.sum:/app/go.sum
+      - ./worker.example.json:/app/config.json
+      - ./tmp/worker:/app/tmp

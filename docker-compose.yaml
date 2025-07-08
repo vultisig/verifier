@@ -12,8 +12,8 @@ services:
     networks:
       - shared_network
     healthcheck:
-      test: [ "CMD", "pg_isready", "-U", "myuser" ]
-      interval: 1s
+      test: [ "CMD", "pg_isready", "-d", "vultisig-verifier", "-U", "myuser" ]
+      interval: 10s
       timeout: 5s
       retries: 3
 
@@ -27,7 +27,7 @@ services:
       - shared_network
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
-      interval: 1s
+      interval: 10s
       timeout: 5s
       retries: 3
 

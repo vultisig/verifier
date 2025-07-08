@@ -85,21 +85,19 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 	for _, billingPolicy := range newPolicy.Billing {
 		if billingPolicy.Type == string(types.BILLING_TYPE_ONCE) {
 			// Create fee record for one-time billing
-			var feeID uuid.UUID
-			var feeAmount int
-			err = tx.QueryRow(ctx,
-				`INSERT INTO fees (plugin_policy_billing_id, amount) VALUES ($1, $2) RETURNING id, amount`,
-				billingPolicy.ID, billingPolicy.Amount,
-			).Scan(&feeID, &feeAmount)
+			fee, err := s.db.InsertFee(ctx, tx, types.Fee{
+				PluginPolicyBillingID: billingPolicy.ID,
+				Amount:                billingPolicy.Amount,
+			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to insert one-time fee record for billing policy %s: %w", billingPolicy.ID, err)
+				return nil, fmt.Errorf("failed to insert fee for billing policy %s: %w", billingPolicy.ID, err)
 			}
 
 			s.logger.WithFields(logrus.Fields{
 				"plugin_policy_id":         newPolicy.ID,
 				"plugin_policy_billing_id": billingPolicy.ID,
-				"fee_id":                   feeID,
-				"amount":                   feeAmount,
+				"fee_id":                   fee.ID,
+				"amount":                   fee.Amount,
 			}).Info("Inserted one-time fee record")
 		}
 	}

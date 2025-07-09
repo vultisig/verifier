@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/syncer"
-	"github.com/vultisig/verifier/internal/tasks"
 	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/types"
 )
@@ -70,15 +68,38 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
+	defer s.handleRollback(tx, ctx)
 
-	policy.PopulateBilling()
-	// TODO garry, do we need to validate the policy here?
+	// Populate billing information
+	if err := policy.PopulateBilling(); err != nil {
+		return nil, fmt.Errorf("failed to populate billing: %w", err)
+	}
 
 	// Insert policy
 	newPolicy, err := s.db.InsertPluginPolicyTx(ctx, tx, policy)
 	if err != nil {
-		s.handleRollback(tx, ctx)
 		return nil, fmt.Errorf("failed to insert policy: %w", err)
+	}
+
+	// Create one-time fee records within the transaction
+	for _, billingPolicy := range newPolicy.Billing {
+		if billingPolicy.Type == string(types.BILLING_TYPE_ONCE) {
+			// Create fee record for one-time billing
+			fee, err := s.db.InsertFee(ctx, tx, types.Fee{
+				PluginPolicyBillingID: billingPolicy.ID,
+				Amount:                billingPolicy.Amount,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to insert fee for billing policy %s: %w", billingPolicy.ID, err)
+			}
+
+			s.logger.WithFields(logrus.Fields{
+				"plugin_policy_id":         newPolicy.ID,
+				"plugin_policy_billing_id": billingPolicy.ID,
+				"fee_id":                   fee.ID,
+				"amount":                   fee.Amount,
+			}).Info("Inserted one-time fee record")
+		}
 	}
 
 	// TODO handle updates sync cases with billing info
@@ -96,31 +117,15 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		s.handleRollback(tx, ctx)
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
+
+	// Sync policy after successful commit
 	if err := s.syncPolicy(policySync); err != nil {
-		s.logger.WithError(err).Error("failed post sync policy to queue")
+		s.logger.WithError(err).Error("failed to enqueue sync policy task")
+		// Note: We don't return error here as the policy was successfully created
+		// The sync can be retried later through the failed task processor
 	}
-
-	for _, billingPolicy := range newPolicy.Billing {
-		if billingPolicy.Type == string(types.BILLING_TYPE_ONCE) {
-			bid, err := billingPolicy.ID.MarshalBinary()
-			// TODO garry. Need to handle this error properly with a rollback if needed.
-			if err != nil {
-				s.logger.WithError(err).Error("failed to marshal billing policy ID")
-			}
-			s.client.Enqueue(
-				asynq.NewTask(tasks.TypeOneTimeFeeRecord, bid),
-				asynq.MaxRetry(0),
-				asynq.Timeout(2*time.Minute),
-				asynq.Retention(5*time.Minute),
-				asynq.Queue(tasks.QUEUE_NAME),
-			)
-		}
-	}
-
-	// TODO garry, potentially we don't send this to a job but rather handle it in the same transaction. This reduces the risk of a committed
 
 	return newPolicy, nil
 }
@@ -132,8 +137,6 @@ func (s *PolicyService) UpdatePolicy(ctx context.Context, policy types.PluginPol
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer s.handleRollback(tx, ctx)
-
-	// TODO garry do we need to validate the policy here?
 
 	// Update policy with tx
 	updatedPolicy, err := s.db.UpdatePluginPolicyTx(ctx, tx, policy)
@@ -157,8 +160,12 @@ func (s *PolicyService) UpdatePolicy(ctx context.Context, policy types.PluginPol
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
+
+	// Sync policy after successful commit
 	if err := s.syncPolicy(syncPolicyEntity); err != nil {
-		s.logger.WithError(err).Error("failed post sync policy to queue")
+		s.logger.WithError(err).Error("failed to enqueue sync policy task")
+		// Note: We don't return error here as the policy was successfully updated
+		// The sync can be retried later through the failed task processor
 	}
 	return updatedPolicy, nil
 }
@@ -199,8 +206,11 @@ func (s *PolicyService) DeletePolicy(ctx context.Context, policyID uuid.UUID, pl
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
+	// Sync policy after successful commit
 	if err := s.syncPolicy(syncPolicyEntity); err != nil {
-		s.logger.WithError(err).Error("failed post sync policy to queue")
+		s.logger.WithError(err).Error("failed to enqueue sync policy task")
+		// Note: We don't return error here as the policy was successfully deleted
+		// The sync can be retried later through the failed task processor
 	}
 
 	return nil

@@ -63,7 +63,15 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   const checkConnection = async () => {
     const address = await VulticonnectWalletService.getAccount();
 
-    if (address) await signMessage(address);
+    if (address) {
+      try {
+        await signMessage(address);
+      } catch {
+        deleteCurrentVaultId()
+      }
+    } else {
+      deleteCurrentVaultId()
+    }
   };
 
   const disconnect = async () => {
@@ -104,7 +112,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
           token,
           vault,
         }));
-
+        setCurrentVaultId(publicKeyEcdsa);
         return true;
       }
 

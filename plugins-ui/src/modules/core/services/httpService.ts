@@ -50,8 +50,9 @@ api.interceptors.request.use(
     const publicKey = getCurrentVaultId();
     const token = publicKey ? selectToken(publicKey) : undefined;
 
-    if (!token) return config;
-
+    if (!token) {
+      return ({ ...config, headers: config.headers.setAuthorization(null) })
+    }
     try {
       const decoded = jwtDecode<JwtPayload>(token);
       const now = Math.floor(Date.now() / 1000);

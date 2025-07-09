@@ -69,31 +69,6 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Invalid plugin policy"))
 	}
 
-	// TODO: @webpiratt: mock required fields until @ehsanst fixing UI
-	//str, err := base64.StdEncoding.DecodeString(policy.Recipe)
-	//if err != nil {
-	//	panic(err)
-	//}
-	//var r rtypes.Policy
-	//err = proto.Unmarshal(str, &r)
-	//if err != nil {
-	//	panic(err)
-	//}
-	//r.Schedule.StartTime = timestamppb.Now()
-	//r.Schedule.Interval = 1
-	//for i, rule := range r.Rules {
-	//	for j, constraint := range rule.ParameterConstraints {
-	//		if constraint.ParameterName == "amount" {
-	//			r.Rules[i].ParameterConstraints[j].Constraint.DenominatedIn = "wei"
-	//		}
-	//	}
-	//}
-	//b, err := proto.Marshal(&r)
-	//if err != nil {
-	//	panic(err)
-	//}
-	//policy.Recipe = base64.StdEncoding.EncodeToString(b)
-
 	newPolicy, err := s.policyService.CreatePolicy(c.Request().Context(), policy)
 	if err != nil {
 		s.logger.WithError(err).Errorf("failed to create plugin policy")

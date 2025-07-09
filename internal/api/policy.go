@@ -9,19 +9,17 @@ import (
 	"strconv"
 	"strings"
 
+	ecommon "github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	v1 "github.com/vultisig/commondata/go/vultisig/vault/v1"
 	rtypes "github.com/vultisig/recipes/types"
-	"google.golang.org/protobuf/proto"
-
-	ecommon "github.com/ethereum/go-ethereum/common"
-
 	"github.com/vultisig/verifier/address"
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/internal/sigutil"
 	"github.com/vultisig/verifier/types"
 	vtypes "github.com/vultisig/verifier/types"
+	"google.golang.org/protobuf/proto"
 )
 
 // Parses the base64 wrapped protobuf encoded recipe and validates it (TODO)
@@ -70,6 +68,31 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 		s.logger.WithError(err).Error("failed to validate plugin policy")
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Invalid plugin policy"))
 	}
+
+	// TODO: @webpiratt: mock required fields until @ehsanst fixing UI
+	//str, err := base64.StdEncoding.DecodeString(policy.Recipe)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//var r rtypes.Policy
+	//err = proto.Unmarshal(str, &r)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//r.Schedule.StartTime = timestamppb.Now()
+	//r.Schedule.Interval = 1
+	//for i, rule := range r.Rules {
+	//	for j, constraint := range rule.ParameterConstraints {
+	//		if constraint.ParameterName == "amount" {
+	//			r.Rules[i].ParameterConstraints[j].Constraint.DenominatedIn = "wei"
+	//		}
+	//	}
+	//}
+	//b, err := proto.Marshal(&r)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//policy.Recipe = base64.StdEncoding.EncodeToString(b)
 
 	newPolicy, err := s.policyService.CreatePolicy(c.Request().Context(), policy)
 	if err != nil {

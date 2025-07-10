@@ -16,6 +16,7 @@ import { Plugin } from "../../models/plugin";
 import { publish } from "@/utils/eventBus";
 import { PluginPolicy } from "../../models/policy";
 import { usePolicies } from "@/modules/policy/context/PolicyProvider";
+import { toProtoTimestamp } from "@/utils/functions";
 
 interface InitialState {
   error?: string;
@@ -145,7 +146,10 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
       const parameterConstraints = currentResource.parameterCapabilities.map(
         ({ parameterName, required }) => {
           const constraint = create(ConstraintSchema, {
-            denominatedIn: "",
+            denominatedIn:
+              currentResource.resourcePath?.chainId.toLowerCase() === "ethereum"
+                ? "wei"
+                : "",
             period: "",
             required,
             type: ConstraintType.FIXED,
@@ -171,17 +175,13 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
       });
 
       const schedule = () => {
-        if (schedulingEnabled && frequency !== undefined) {
-          const schedule = create(ScheduleSchema, {
-            frequency,
-            interval: 0,
-            maxExecutions: 0,
-          });
-
-          return { schedule };
-        } else {
-          return {};
-        }
+        const schedule = create(ScheduleSchema, {
+          frequency,
+          interval: 0,
+          maxExecutions: 0,
+          startTime: toProtoTimestamp(new Date(startDate + ":00")),
+        });
+        return { schedule };
       };
 
       const jsonData = create(PolicySchema, {

@@ -62,6 +62,65 @@ func (s *PolicyService) syncPolicy(syncEntity itypes.PluginPolicySync) error {
 	s.logger.WithField("task_id", ti.ID).Info("enqueued sync policy task")
 	return nil
 }
+
+// This loops through the billing policies and checks if the pricing is valid for the billing policy.
+func compareBillingPricing(pricing *itypes.Pricing, billing *types.BillingPolicy) bool {
+	if pricing == nil && billing == nil {
+		return true
+	}
+	if pricing == nil || billing == nil {
+		return false
+	}
+	sameType := string(pricing.Type) == billing.Type
+	sameFrequency := true
+	if pricing.Type == itypes.PricingTypeRecurring && pricing.Frequency != nil {
+		sameFrequency = string(*pricing.Frequency) == billing.Frequency
+	}
+	sameAmount := pricing.Amount == billing.Amount
+	//metrics to be added later for support. For now the only pricing db entry supported in fixed.
+
+	return sameType && sameFrequency && sameAmount
+}
+
+func (s *PolicyService) validateBillingInformation(ctx context.Context, policy types.PluginPolicy) error {
+	tx, err := s.db.Pool().Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer s.handleRollback(tx, ctx)
+
+	pluginData, err := s.db.FindPluginById(ctx, tx, policy.PluginID)
+	if err != nil {
+		return fmt.Errorf("failed to find plugin: %w", err)
+	}
+
+	policy.ParseBillingFromRecipe()
+	if len(policy.Billing) != len(pluginData.Pricing) {
+		return fmt.Errorf("billing policies count (%d) does not match plugin pricing count (%d)", len(policy.Billing), len(pluginData.Pricing))
+	}
+
+	// For each billing policy, check for a matching pricing entry
+	usedPricing := make([]bool, len(pluginData.Pricing))
+	for i, billing := range policy.Billing {
+		found := false
+		for j, pricing := range pluginData.Pricing {
+			if usedPricing[j] {
+				continue
+			}
+			if compareBillingPricing(&pricing, &billing) {
+				usedPricing[j] = true
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("no matching plugin pricing found for billing policy at index %d", i)
+		}
+	}
+
+	return nil
+}
+
 func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error) {
 	// Start transaction
 	tx, err := s.db.Pool().Begin(ctx)
@@ -71,8 +130,13 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 	defer s.handleRollback(tx, ctx)
 
 	// Populate billing information
-	if err := policy.PopulateBilling(); err != nil {
+	if err := policy.ParseBillingFromRecipe(); err != nil {
 		return nil, fmt.Errorf("failed to populate billing: %w", err)
+	}
+
+	// Compare and contrast the billing information (signed by user) with the pricing information (defined in the pricings table and connected to the plugin definition)
+	if err := s.validateBillingInformation(ctx, policy); err != nil {
+		return nil, fmt.Errorf("failed to validate billing information: %w", err)
 	}
 
 	// Insert policy

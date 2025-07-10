@@ -40,6 +40,10 @@ func (s *Server) validatePluginPolicy(policy types.PluginPolicy) error {
 		return fmt.Errorf("fail to unmarshal recipe: %w", err)
 	}
 
+	if err := policy.ParseBillingFromRecipe(); err != nil {
+		return fmt.Errorf("failed to parse billing from recipe: %w", err)
+	}
+
 	// TODO: validate the recipe
 	return nil
 }

@@ -1,15 +1,6 @@
 
-CREATE TYPE "billing_frequency" AS ENUM (
-    'daily',
-    'weekly',
-    'biweekly',
-    'monthly'
-);
-
-CREATE TYPE "fee_type" AS ENUM (
-    'tx',
-    'recurring',
-    'once'
+CREATE TYPE "billing_asset" AS ENUM (
+    'usdc'
 );
 
 CREATE TYPE "plugin_category" AS ENUM (
@@ -23,20 +14,23 @@ CREATE TYPE "plugin_id" AS ENUM (
     'vultisig-fees-feee'
 );
 
+CREATE TYPE "pricing_asset" AS ENUM (
+    'usdc'
+);
+
 CREATE TYPE "pricing_frequency" AS ENUM (
-    'annual',
-    'monthly',
-    'weekly'
+    'daily',
+    'weekly',
+    'biweekly',
+    'monthly'
 );
 
 CREATE TYPE "pricing_metric" AS ENUM (
-    'fixed',
-    'percentage'
+    'fixed'
 );
 
 CREATE TYPE "pricing_type" AS ENUM (
-    'free',
-    'single',
+    'once',
     'recurring',
     'per-tx'
 );
@@ -58,8 +52,8 @@ SELECT
     NULL::"uuid" AS "plugin_policy_id",
     NULL::boolean AS "active",
     NULL::"uuid" AS "billing_id",
-    NULL::"billing_frequency" AS "frequency",
-    NULL::integer AS "amount",
+    NULL::"pricing_frequency" AS "frequency",
+    NULL::numeric(10,2) AS "amount",
     NULL::bigint AS "accrual_count",
     NULL::numeric AS "total_billed",
     NULL::"date" AS "last_billed_date",
@@ -90,12 +84,13 @@ CREATE TABLE "plugin_policies" (
 
 CREATE TABLE "plugin_policy_billing" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "type" "fee_type" NOT NULL,
-    "frequency" "billing_frequency",
+    "type" "pricing_type" NOT NULL,
+    "frequency" "pricing_frequency",
     "start_date" "date" DEFAULT CURRENT_DATE NOT NULL,
-    "amount" integer,
+    "amount" numeric(10,2) NOT NULL,
+    "asset" "pricing_asset" NOT NULL,
     "plugin_policy_id" "uuid" NOT NULL,
-    CONSTRAINT "frequency_check" CHECK (((("type" = 'recurring'::"fee_type") AND ("frequency" IS NOT NULL)) OR (("type" = ANY (ARRAY['tx'::"public"."fee_type", 'once'::"public"."fee_type"])) AND ("frequency" IS NULL))))
+    CONSTRAINT "frequency_check" CHECK (((("type" = 'recurring'::"pricing_type") AND ("frequency" IS NOT NULL)) OR (("type" = ANY (ARRAY['per-tx'::"public"."pricing_type", 'once'::"public"."pricing_type"])) AND ("frequency" IS NULL))))
 );
 
 CREATE VIEW "fees_view" AS
@@ -159,7 +154,6 @@ CREATE TABLE "plugins" (
     "title" character varying(255) NOT NULL,
     "description" "text" DEFAULT ''::"text" NOT NULL,
     "server_endpoint" "text" NOT NULL,
-    "pricing_id" "uuid",
     "category" "plugin_category" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
@@ -169,10 +163,13 @@ CREATE TABLE "pricings" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "type" "pricing_type" NOT NULL,
     "frequency" "pricing_frequency",
-    "amount" numeric(10,2) NOT NULL,
+    "amount" bigint NOT NULL,
+    "asset" "pricing_asset" NOT NULL,
     "metric" "pricing_metric" NOT NULL,
+    "plugin_id" "plugin_id" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "frequency_check" CHECK (((("type" = 'recurring'::"pricing_type") AND ("frequency" IS NOT NULL)) OR (("type" = ANY (ARRAY['per-tx'::"public"."pricing_type", 'once'::"public"."pricing_type"])) AND ("frequency" IS NULL))))
 );
 
 CREATE TABLE "reviews" (
@@ -314,16 +311,16 @@ CREATE OR REPLACE VIEW "billing_periods" AS
     COALESCE("max"("f"."charged_at"), "ppb"."start_date") AS "last_billed_date",
     (COALESCE("max"("f"."charged_at"), "ppb"."start_date") +
         CASE "ppb"."frequency"
-            WHEN 'daily'::"billing_frequency" THEN '1 day'::interval
-            WHEN 'weekly'::"billing_frequency" THEN '7 days'::interval
-            WHEN 'biweekly'::"billing_frequency" THEN '14 days'::interval
-            WHEN 'monthly'::"billing_frequency" THEN '1 mon'::interval
+            WHEN 'daily'::"pricing_frequency" THEN '1 day'::interval
+            WHEN 'weekly'::"pricing_frequency" THEN '7 days'::interval
+            WHEN 'biweekly'::"pricing_frequency" THEN '14 days'::interval
+            WHEN 'monthly'::"pricing_frequency" THEN '1 mon'::interval
             ELSE NULL::interval
         END) AS "next_billing_date"
    FROM (("plugin_policy_billing" "ppb"
      JOIN "plugin_policies" "pp" ON (("ppb"."plugin_policy_id" = "pp"."id")))
      LEFT JOIN "fees" "f" ON (("f"."plugin_policy_billing_id" = "ppb"."id")))
-  WHERE ("ppb"."type" = 'recurring'::"fee_type")
+  WHERE ("ppb"."type" = 'recurring'::"pricing_type")
   GROUP BY "ppb"."id", "pp"."id";
 
 ALTER TABLE ONLY "fees"
@@ -350,8 +347,8 @@ ALTER TABLE ONLY "plugin_tags"
 ALTER TABLE ONLY "plugin_tags"
     ADD CONSTRAINT "plugin_tags_tag_id_fkey" FOREIGN KEY ("tag_id") REFERENCES "tags"("id") ON DELETE CASCADE;
 
-ALTER TABLE ONLY "plugins"
-    ADD CONSTRAINT "plugins_pricing_id_fkey" FOREIGN KEY ("pricing_id") REFERENCES "pricings"("id");
+ALTER TABLE ONLY "pricings"
+    ADD CONSTRAINT "pricings_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugins"("id") ON DELETE CASCADE;
 
 ALTER TABLE ONLY "reviews"
     ADD CONSTRAINT "reviews_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugins"("id") ON DELETE CASCADE;

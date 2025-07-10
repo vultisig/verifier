@@ -15,10 +15,10 @@ export type Plugin = {
   description: string;
   metadata: {};
   server_endpoint: string;
-  pricing_id: string;
   category_id: string;
   tags: Tag[];
   ratings: PluginRatings[];
+    pricing: PluginPricing[];
 };
 
 export type PluginPricing = {

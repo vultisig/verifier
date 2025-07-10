@@ -98,6 +98,14 @@ func (m *MockDatabaseStorage) CreatePricing(ctx context.Context, pricingDto ityp
 	return args.Get(0).(*itypes.Pricing), args.Error(1)
 }
 
+func (m *MockDatabaseStorage) GetPricingByPluginId(ctx context.Context, pluginID types.PluginID) ([]itypes.Pricing, error) {
+	args := m.Called(ctx, pluginID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]itypes.Pricing), args.Error(1)
+}
+
 func (m *MockDatabaseStorage) FindPluginById(ctx context.Context, tx pgx.Tx, pluginID types.PluginID) (*itypes.Plugin, error) {
 	args := m.Called(ctx, tx, pluginID)
 	if args.Get(0) == nil {

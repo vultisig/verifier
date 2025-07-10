@@ -51,3 +51,12 @@ export const toSnakeCase = (obj: any): any => {
 
   return obj;
 };
+
+export const toProtoTimestamp = (
+  date: Date
+): { seconds: bigint; nanos: number } => {
+  const millis = date.getTime();
+  const seconds = BigInt(Math.floor(millis / 1000));
+  const nanos = (millis % 1000) * 1_000_000;
+  return { seconds, nanos };
+};

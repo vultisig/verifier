@@ -18,9 +18,6 @@ import Modal from "@/modules/core/components/ui/modal/Modal";
 const PluginDetail = () => {
   const navigate = useNavigate();
   const [plugin, setPlugin] = useState<Plugin | null>(null);
-  const [pluginPricing, setPluginPricing] = useState<PluginPricing | null>(
-    null
-  );
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
   const [uninstallModalOpen, setUninstallModalOpen] = useState<boolean>(false);
   const [showRecipeSchema, setShowRecipeSchema] = useState(false);
@@ -62,10 +59,6 @@ const PluginDetail = () => {
       try {
         const fetchedPlugin = await MarketplaceService.getPlugin(pluginId);
         setPlugin(fetchedPlugin);
-        const pluginPricing = await MarketplaceService.getPluginPricing(
-          fetchedPlugin.pricing_id
-        );
-        setPluginPricing(pluginPricing);
       } catch (error) {
         if (error instanceof Error) {
           console.error("Failed to get plugin:", error.message);
@@ -77,6 +70,22 @@ const PluginDetail = () => {
       }
     }
   };
+
+    const pricingText = (pricing?: PluginPricing) => {
+        if (!pricing) {
+            return "This plugin is free";
+        }
+        switch (pricing.type) {
+            case "once":
+                return `\$${pricing.amount / 1e6} one off installation fee`;
+            case "recurring":
+                return `\$${pricing.amount / 1e6} ${pricing.frequency} recurring fee`;
+            case "per-tx":
+                return `\$${pricing.amount / 1e6} per transaction fee`;
+            default:
+                return "Unknown pricing type";
+        }
+    };
 
   useEffect(() => {
     checkPluginInstalled();
@@ -192,13 +201,14 @@ const PluginDetail = () => {
                       View Policy Schema
                     </Button>
                   )}
-
-                  {pluginPricing && (
-                    <aside>
-                      Plugin fee: ${pluginPricing.amount || 0}{" "}
-                      {pluginPricing.frequency || ""}
-                    </aside>
-                  )}
+                                    <div className="pricingInfo">
+                                        {(!plugin?.pricing || plugin.pricing.length === 0) && (
+                                            <aside>This plugin is free</aside>
+                                        )}
+                                        {plugin?.pricing?.map((price: PluginPricing) => (
+                                            <div>{pricingText(price)}</div>
+                                        ))}
+                                    </div>
                 </section>
               </section>
             </section>

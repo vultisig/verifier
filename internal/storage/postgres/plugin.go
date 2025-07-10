@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/vultisig/verifier/common"
@@ -18,35 +19,113 @@ const PLUGINS_TABLE = "plugins"
 const PLUGIN_TAGS_TABLE = "plugin_tags"
 const REVIEWS_TABLE = "reviews"
 
+// This is needed as the plugins table is left joined with the pricings table, and when a plugin is free (i.e zero related pricing records) it tries to scan null into a non nullable struct
+type nullablePricing struct {
+	ID        *uuid.UUID
+	Type      *string
+	Frequency *string
+	Amount    *uint64
+	Asset     *string
+	Metric    *string
+	PluginID  *string
+	CreatedAt *time.Time
+	UpdatedAt *time.Time
+}
+
 func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]types.Plugin, error) {
 	defer rows.Close()
 
-	var plugins []types.Plugin
+	// Use a map to group plugins by ID and collect their pricing records
+	pluginMap := make(map[ptypes.PluginID]*types.Plugin)
+
 	for rows.Next() {
 		var plugin types.Plugin
 		var tagId *string
 		var tagName *string
 		var tagCreatedAt *time.Time
 
+		nullablePricing := &nullablePricing{}
+
 		err := rows.Scan(
 			&plugin.ID,
 			&plugin.Title,
 			&plugin.Description,
 			&plugin.ServerEndpoint,
-			&plugin.PricingID,
 			&plugin.Category,
 			&plugin.CreatedAt,
 			&plugin.UpdatedAt,
 			&tagId,
 			&tagName,
 			&tagCreatedAt,
+			&nullablePricing.ID,
+			&nullablePricing.Type,
+			&nullablePricing.Frequency,
+			&nullablePricing.Amount,
+			&nullablePricing.Asset,
+			&nullablePricing.Metric,
+			&nullablePricing.PluginID,
+			&nullablePricing.CreatedAt,
+			&nullablePricing.UpdatedAt,
 		)
 
 		if err != nil {
-			return plugins, err
+			return nil, err
 		}
 
-		plugins = append(plugins, plugin)
+		// Check if we've seen this plugin before
+		if existingPlugin, exists := pluginMap[plugin.ID]; exists {
+			// Plugin already exists, just add the pricing record if it's valid
+			if nullablePricing.ID != nil {
+				var frequency *types.PricingFrequency
+				if nullablePricing.Frequency != nil {
+					freq := types.PricingFrequency(*nullablePricing.Frequency)
+					frequency = &freq
+				}
+
+				pricing := types.Pricing{
+					ID:        *nullablePricing.ID,
+					Type:      types.PricingType(*nullablePricing.Type),
+					Frequency: frequency,
+					Amount:    *nullablePricing.Amount,
+					Asset:     types.PricingAsset(*nullablePricing.Asset),
+					Metric:    types.PricingMetric(*nullablePricing.Metric),
+					PluginID:  ptypes.PluginID(*nullablePricing.PluginID),
+					CreatedAt: *nullablePricing.CreatedAt,
+					UpdatedAt: *nullablePricing.UpdatedAt,
+				}
+				existingPlugin.Pricing = append(existingPlugin.Pricing, pricing)
+			}
+		} else {
+			// New plugin, initialize the pricing slice
+			plugin.Pricing = make([]types.Pricing, 0)
+			if nullablePricing.ID != nil {
+				var frequency *types.PricingFrequency
+				if nullablePricing.Frequency != nil {
+					freq := types.PricingFrequency(*nullablePricing.Frequency)
+					frequency = &freq
+				}
+
+				pricing := types.Pricing{
+					ID:        *nullablePricing.ID,
+					Type:      types.PricingType(*nullablePricing.Type),
+					Frequency: frequency,
+					Amount:    *nullablePricing.Amount,
+					Asset:     types.PricingAsset(*nullablePricing.Asset),
+					Metric:    types.PricingMetric(*nullablePricing.Metric),
+					PluginID:  ptypes.PluginID(*nullablePricing.PluginID),
+					CreatedAt: *nullablePricing.CreatedAt,
+					UpdatedAt: *nullablePricing.UpdatedAt,
+				}
+				plugin.Pricing = append(plugin.Pricing, pricing)
+			}
+			pluginMap[plugin.ID] = &plugin
+		}
+	}
+
+	// Convert map back to slice
+	plugins := make([]types.Plugin, 0, len(pluginMap))
+	for _, plugin := range pluginMap {
+		plugins = append(plugins, *plugin)
 	}
 
 	return plugins, nil
@@ -54,10 +133,11 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]types.Plugin, error) 
 
 func (p *PostgresBackend) FindPluginById(ctx context.Context, dbTx pgx.Tx, id ptypes.PluginID) (*types.Plugin, error) {
 	query := fmt.Sprintf(
-		`SELECT p.*, t.*
+		`SELECT p.*, t.*, pr.*
 		FROM %s p
 		LEFT JOIN plugin_tags pt ON p.id = pt.plugin_id
 		LEFT JOIN tags t ON pt.tag_id = t.id
+		LEFT JOIN pricings pr ON p.id = pr.plugin_id
 		WHERE p.id = $1;`,
 		PLUGINS_TABLE,
 	)
@@ -102,11 +182,12 @@ func (p *PostgresBackend) FindPlugins(
 	joinQuery := fmt.Sprintf(`
 		FROM %s p
 		LEFT JOIN plugin_tags pt ON p.id = pt.plugin_id
-		LEFT JOIN tags t ON pt.tag_id = t.id`,
+		LEFT JOIN tags t ON pt.tag_id = t.id
+		LEFT JOIN pricings pr ON p.id = pr.plugin_id`,
 		PLUGINS_TABLE,
 	)
 
-	query := `SELECT p.*, t.*` + joinQuery
+	query := `SELECT p.*, t.*, pr.*` + joinQuery
 	queryTotal := `SELECT COUNT(DISTINCT p.id) as total_count` + joinQuery
 
 	var args []any

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -9,13 +10,13 @@ import (
 	"strconv"
 	"strings"
 
+	ecommon "github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	v1 "github.com/vultisig/commondata/go/vultisig/vault/v1"
+	"github.com/vultisig/recipes/engine"
 	rtypes "github.com/vultisig/recipes/types"
 	"google.golang.org/protobuf/proto"
-
-	ecommon "github.com/ethereum/go-ethereum/common"
 
 	"github.com/vultisig/verifier/address"
 	"github.com/vultisig/verifier/common"
@@ -24,8 +25,7 @@ import (
 	vtypes "github.com/vultisig/verifier/types"
 )
 
-// Parses the base64 wrapped protobuf encoded recipe and validates it (TODO)
-func (s *Server) validatePluginPolicy(policy types.PluginPolicy) error {
+func (s *Server) validatePluginPolicy(ctx context.Context, policy types.PluginPolicy) error {
 	if len(policy.Recipe) == 0 {
 		return errors.New("recipe cannot be empty")
 	}
@@ -35,12 +35,21 @@ func (s *Server) validatePluginPolicy(policy types.PluginPolicy) error {
 		return fmt.Errorf("fail to base64 decode recipe: %w", err)
 	}
 
-	var recipe rtypes.Policy
-	if err := proto.Unmarshal(recipeBytes, &recipe); err != nil {
+	recipe := &rtypes.Policy{}
+	err = proto.Unmarshal(recipeBytes, recipe)
+	if err != nil {
 		return fmt.Errorf("fail to unmarshal recipe: %w", err)
 	}
 
-	// TODO: validate the recipe
+	spec, err := s.pluginService.GetPluginRecipeSpecification(ctx, policy.PluginID.String())
+	if err != nil {
+		return fmt.Errorf("failed to get plugin recipe specification: %w", err)
+	}
+
+	err = engine.NewEngine().ValidatePolicyWithSchema(recipe, spec)
+	if err != nil {
+		return fmt.Errorf("failed to validate plugin policy: %w", err)
+	}
 	return nil
 }
 
@@ -66,7 +75,7 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Invalid policy signature"))
 	}
 
-	if err := s.validatePluginPolicy(policy); err != nil {
+	if err := s.validatePluginPolicy(c.Request().Context(), policy); err != nil {
 		s.logger.WithError(err).Error("failed to validate plugin policy")
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Invalid plugin policy"))
 	}
@@ -175,7 +184,7 @@ func (s *Server) UpdatePluginPolicyById(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("Invalid policy signature"))
 	}
 
-	if err := s.validatePluginPolicy(policy); err != nil {
+	if err := s.validatePluginPolicy(c.Request().Context(), policy); err != nil {
 		s.logger.WithError(err).Error("failed to validate plugin policy")
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Invalid plugin policy"))
 	}

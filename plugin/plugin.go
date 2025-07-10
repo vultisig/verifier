@@ -9,7 +9,7 @@ import (
 )
 
 type Plugin interface {
-	GetRecipeSpecification() rtypes.RecipeSchema
+	GetRecipeSpecification() *rtypes.RecipeSchema
 	ValidatePluginPolicy(policyDoc types.PluginPolicy) error
 	ProposeTransactions(policy types.PluginPolicy) ([]types.PluginKeysignRequest, error)
 	ValidateProposedTransactions(policy types.PluginPolicy, txs []types.PluginKeysignRequest) error

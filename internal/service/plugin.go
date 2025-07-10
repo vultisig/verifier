@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
+	rtypes "github.com/vultisig/recipes/types"
 
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/types"
@@ -19,7 +20,7 @@ import (
 type Plugin interface {
 	GetPluginWithRating(ctx context.Context, pluginId string) (*types.PluginWithRatings, error)
 	CreatePluginReviewWithRating(ctx context.Context, reviewDto types.ReviewCreateDto, pluginId string) (*types.ReviewDto, error)
-	GetPluginRecipeSpecification(ctx context.Context, pluginID string) (interface{}, error)
+	GetPluginRecipeSpecification(ctx context.Context, pluginID string) (*rtypes.RecipeSchema, error)
 }
 
 type PluginServiceStorage interface {
@@ -165,15 +166,15 @@ func (s *PluginService) CreatePluginReviewWithRating(ctx context.Context, review
 }
 
 // GetPluginRecipeSpecification fetches recipe specification from plugin server with caching
-func (s *PluginService) GetPluginRecipeSpecification(ctx context.Context, pluginID string) (interface{}, error) {
+func (s *PluginService) GetPluginRecipeSpecification(ctx context.Context, pluginID string) (*rtypes.RecipeSchema, error) {
 	// Check cache first
 	cacheKey := fmt.Sprintf("recipe_spec:%s", pluginID)
 
 	if s.redis != nil {
 		cached, err := s.redis.Get(ctx, cacheKey)
 		if err == nil && cached != "" {
-			var cachedSpec interface{}
-			if err := json.Unmarshal([]byte(cached), &cachedSpec); err == nil {
+			cachedSpec := &rtypes.RecipeSchema{}
+			if err := json.Unmarshal([]byte(cached), cachedSpec); err == nil {
 				s.logger.Debugf("[GetPluginRecipeSpecification] Cache hit for plugin %s\n", pluginID)
 				return cachedSpec, nil
 			}
@@ -206,7 +207,7 @@ func (s *PluginService) GetPluginRecipeSpecification(ctx context.Context, plugin
 }
 
 // Helper method to call plugin server
-func (s *PluginService) fetchRecipeSpecificationFromPlugin(ctx context.Context, serverEndpoint string) (interface{}, error) {
+func (s *PluginService) fetchRecipeSpecificationFromPlugin(ctx context.Context, serverEndpoint string) (*rtypes.RecipeSchema, error) {
 	url := fmt.Sprintf("%s/plugin/recipe-specification", strings.TrimSuffix(serverEndpoint, "/"))
 
 	s.logger.Debugf("[fetchRecipeSpecificationFromPlugin] Calling plugin endpoint: %s\n", url)
@@ -227,8 +228,8 @@ func (s *PluginService) fetchRecipeSpecificationFromPlugin(ctx context.Context, 
 		return nil, fmt.Errorf("plugin endpoint returned status %d", resp.StatusCode)
 	}
 
-	var recipeSpec interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&recipeSpec); err != nil {
+	recipeSpec := &rtypes.RecipeSchema{}
+	if err := json.NewDecoder(resp.Body).Decode(recipeSpec); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 

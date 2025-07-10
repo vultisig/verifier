@@ -177,8 +177,8 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
       const schedule = () => {
         const schedule = create(ScheduleSchema, {
           frequency,
-          interval: 0,
-          maxExecutions: 0,
+          interval: 1,
+          maxExecutions: -1,
           startTime: toProtoTimestamp(new Date(startDate + ":00")),
         });
         return { schedule };

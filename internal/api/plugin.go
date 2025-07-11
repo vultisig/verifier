@@ -5,16 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
 	"github.com/microcosm-cc/bluemonday"
-	"github.com/vultisig/recipes/chain"
-	"github.com/vultisig/recipes/engine"
-
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/internal/conv"
 	"github.com/vultisig/verifier/internal/tasks"
@@ -42,23 +38,10 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		return fmt.Errorf("policy plugin ID mismatch")
 	}
 
-	recipe, err := policy.GetRecipe()
-	if err != nil {
-		return fmt.Errorf("failed to get recipe: %w", err)
-	}
-
-	eng := engine.NewEngine()
-
 	for i, keysignMessage := range req.Messages {
-		messageChain, err := chain.GetChain(strings.ToLower(keysignMessage.Chain.String()))
-		if err != nil {
-			return fmt.Errorf("failed to get chain: %w", err)
-		}
-
-		decodedTx, err := messageChain.ParseTransaction(keysignMessage.Message)
-		if err != nil {
-			return fmt.Errorf("failed to parse transaction: %w", err)
-		}
+		// TODO: Unpack calldata and verify tx against the policy (same recipient, amount, etc.).
+		//  Current engine.Evaluate needs to be reworked — simplified and reimplemented to be universal
+		//  for all plugins / supported args without hardcoding or edge-cases + covered with unit-tests.
 
 		var txToTrackID uuid.UUID
 		if s.txIndexerService != nil {
@@ -76,14 +59,6 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 			req.Messages[i].TxIndexerID = txToTrack.ID.String()
 		}
 
-		transactionAllowed, _, err := eng.Evaluate(recipe, messageChain, decodedTx)
-		if err != nil {
-			return fmt.Errorf("failed to evaluate policy: %w", err)
-		}
-
-		if !transactionAllowed {
-			return fmt.Errorf("transaction %s on %s not allowed by policy", keysignMessage.Hash, keysignMessage.Chain)
-		}
 		if s.txIndexerService != nil {
 			err = s.txIndexerService.SetStatus(c.Request().Context(), txToTrackID, storage.TxVerified)
 			if err != nil {

@@ -165,22 +165,8 @@ func (s *PluginService) CreatePluginReviewWithRating(ctx context.Context, review
 	return review, nil
 }
 
-// GetPluginRecipeSpecification fetches recipe specification from plugin server with caching
+// GetPluginRecipeSpecification fetches recipe specification from plugin server
 func (s *PluginService) GetPluginRecipeSpecification(ctx context.Context, pluginID string) (*rtypes.RecipeSchema, error) {
-	// Check cache first
-	cacheKey := fmt.Sprintf("recipe_spec:%s", pluginID)
-
-	if s.redis != nil {
-		cached, err := s.redis.Get(ctx, cacheKey)
-		if err == nil && cached != "" {
-			cachedSpec := &rtypes.RecipeSchema{}
-			if err := json.Unmarshal([]byte(cached), cachedSpec); err == nil {
-				s.logger.Debugf("[GetPluginRecipeSpecification] Cache hit for plugin %s\n", pluginID)
-				return cachedSpec, nil
-			}
-		}
-	}
-
 	// Get plugin from database to get server endpoint
 	plugin, err := s.db.FindPluginById(ctx, nil, ptypes.PluginID(pluginID))
 	if err != nil {
@@ -192,17 +178,6 @@ func (s *PluginService) GetPluginRecipeSpecification(ctx context.Context, plugin
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch recipe specification from plugin: %w", err)
 	}
-
-	// Cache the result for 2 hours
-	if s.redis != nil {
-		specBytes, _ := json.Marshal(recipeSpec)
-		_ = s.redis.Set(ctx, cacheKey, string(specBytes), 2*time.Hour)
-		if err := s.redis.Set(ctx, cacheKey, string(specBytes), 2*time.Hour); err != nil {
-			s.logger.WithError(err).Warnf("Failed to cache recipe spec for plugin %s", pluginID)
-		}
-		s.logger.Debugf("[GetPluginRecipeSpecification] Cached recipe spec for plugin %s\n", pluginID)
-	}
-
 	return recipeSpec, nil
 }
 

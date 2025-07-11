@@ -140,8 +140,9 @@ func (s *Server) StartServer() error {
 	vaultGroup.GET("/exist/:pluginId/:publicKeyECDSA", s.ExistVault) // Check if Vault exists
 
 	// Sign endpoint, plugin should authenticate themselves using the API Key issued by the Verifier
-	vaultGroup.POST("/sign", s.SignPluginMessages, s.PluginAuthMiddleware)               // Sign messages
-	vaultGroup.GET("/sign/response/:taskId", s.GetKeysignResult, s.PluginAuthMiddleware) // Get keysign result
+	pluginSigner := e.Group("/plugin-signer", s.PluginAuthMiddleware)
+	pluginSigner.POST("/sign", s.SignPluginMessages)               // Sign messages
+	pluginSigner.GET("/sign/response/:taskId", s.GetKeysignResult) // Get keysign result
 
 	pluginGroup := e.Group("/plugin", s.VaultAuthMiddleware)
 	pluginGroup.DELETE("/:pluginId", s.DeletePlugin) // Delete plugin

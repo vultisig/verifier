@@ -11,8 +11,8 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/vultisig/verifier/common"
-	"github.com/vultisig/verifier/internal/types"
-	ptypes "github.com/vultisig/verifier/types"
+	itypes "github.com/vultisig/verifier/internal/types"
+	"github.com/vultisig/verifier/types"
 )
 
 const PLUGINS_TABLE = "plugins"
@@ -32,14 +32,40 @@ type nullablePricing struct {
 	UpdatedAt *time.Time
 }
 
-func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]types.Plugin, error) {
+func convertNullablePricing(np *nullablePricing) *types.Pricing {
+	if np.ID == nil || np.Type == nil || np.Amount == nil ||
+		np.Asset == nil || np.Metric == nil || np.PluginID == nil ||
+		np.CreatedAt == nil || np.UpdatedAt == nil {
+		return nil
+	}
+
+	var frequency *types.PricingFrequency
+	if np.Frequency != nil {
+		freq := types.PricingFrequency(*np.Frequency)
+		frequency = &freq
+	}
+
+	return &types.Pricing{
+		ID:        *np.ID,
+		Type:      types.PricingType(*np.Type),
+		Frequency: frequency,
+		Amount:    *np.Amount,
+		Asset:     types.PricingAsset(*np.Asset),
+		Metric:    types.PricingMetric(*np.Metric),
+		PluginID:  types.PluginID(*np.PluginID),
+		CreatedAt: *np.CreatedAt,
+		UpdatedAt: *np.UpdatedAt,
+	}
+}
+
+func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error) {
 	defer rows.Close()
 
 	// Use a map to group plugins by ID and collect their pricing records
-	pluginMap := make(map[ptypes.PluginID]*types.Plugin)
+	pluginMap := make(map[types.PluginID]*itypes.Plugin)
 
 	for rows.Next() {
-		var plugin types.Plugin
+		var plugin itypes.Plugin
 		var tagId *string
 		var tagName *string
 		var tagCreatedAt *time.Time
@@ -76,54 +102,24 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]types.Plugin, error) 
 		if existingPlugin, exists := pluginMap[plugin.ID]; exists {
 			// Plugin already exists, just add the pricing record if it's valid
 			if nullablePricing.ID != nil {
-				var frequency *types.PricingFrequency
-				if nullablePricing.Frequency != nil {
-					freq := types.PricingFrequency(*nullablePricing.Frequency)
-					frequency = &freq
+				if pricing := convertNullablePricing(nullablePricing); pricing != nil {
+					existingPlugin.Pricing = append(existingPlugin.Pricing, *pricing)
 				}
-
-				pricing := types.Pricing{
-					ID:        *nullablePricing.ID,
-					Type:      types.PricingType(*nullablePricing.Type),
-					Frequency: frequency,
-					Amount:    *nullablePricing.Amount,
-					Asset:     types.PricingAsset(*nullablePricing.Asset),
-					Metric:    types.PricingMetric(*nullablePricing.Metric),
-					PluginID:  ptypes.PluginID(*nullablePricing.PluginID),
-					CreatedAt: *nullablePricing.CreatedAt,
-					UpdatedAt: *nullablePricing.UpdatedAt,
-				}
-				existingPlugin.Pricing = append(existingPlugin.Pricing, pricing)
 			}
 		} else {
 			// New plugin, initialize the pricing slice
 			plugin.Pricing = make([]types.Pricing, 0)
 			if nullablePricing.ID != nil {
-				var frequency *types.PricingFrequency
-				if nullablePricing.Frequency != nil {
-					freq := types.PricingFrequency(*nullablePricing.Frequency)
-					frequency = &freq
+				if pricing := convertNullablePricing(nullablePricing); pricing != nil {
+					plugin.Pricing = append(plugin.Pricing, *pricing)
 				}
-
-				pricing := types.Pricing{
-					ID:        *nullablePricing.ID,
-					Type:      types.PricingType(*nullablePricing.Type),
-					Frequency: frequency,
-					Amount:    *nullablePricing.Amount,
-					Asset:     types.PricingAsset(*nullablePricing.Asset),
-					Metric:    types.PricingMetric(*nullablePricing.Metric),
-					PluginID:  ptypes.PluginID(*nullablePricing.PluginID),
-					CreatedAt: *nullablePricing.CreatedAt,
-					UpdatedAt: *nullablePricing.UpdatedAt,
-				}
-				plugin.Pricing = append(plugin.Pricing, pricing)
 			}
 			pluginMap[plugin.ID] = &plugin
 		}
 	}
 
 	// Convert map back to slice
-	plugins := make([]types.Plugin, 0, len(pluginMap))
+	plugins := make([]itypes.Plugin, 0, len(pluginMap))
 	for _, plugin := range pluginMap {
 		plugins = append(plugins, *plugin)
 	}
@@ -131,7 +127,7 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]types.Plugin, error) 
 	return plugins, nil
 }
 
-func (p *PostgresBackend) FindPluginById(ctx context.Context, dbTx pgx.Tx, id ptypes.PluginID) (*types.Plugin, error) {
+func (p *PostgresBackend) FindPluginById(ctx context.Context, dbTx pgx.Tx, id types.PluginID) (*itypes.Plugin, error) {
 	query := fmt.Sprintf(
 		`SELECT p.*, t.*, pr.*
 		FROM %s p
@@ -167,11 +163,11 @@ func (p *PostgresBackend) FindPluginById(ctx context.Context, dbTx pgx.Tx, id pt
 
 func (p *PostgresBackend) FindPlugins(
 	ctx context.Context,
-	filters types.PluginFilters,
+	filters itypes.PluginFilters,
 	take int,
 	skip int,
 	sort string,
-) (*types.PluginsPaginatedList, error) {
+) (*itypes.PluginsPaginatedList, error) {
 	if p.pool == nil {
 		return nil, fmt.Errorf("database pool is nil")
 	}
@@ -287,7 +283,7 @@ func (p *PostgresBackend) FindPlugins(
 	if err != nil {
 		// exactly 1 row expected, if no results return empty list
 		if errors.Is(err, pgx.ErrNoRows) {
-			return &types.PluginsPaginatedList{
+			return &itypes.PluginsPaginatedList{
 				Plugins:    plugins,
 				TotalCount: 0,
 			}, nil
@@ -295,7 +291,7 @@ func (p *PostgresBackend) FindPlugins(
 		return nil, err
 	}
 
-	pluginsList := types.PluginsPaginatedList{
+	pluginsList := itypes.PluginsPaginatedList{
 		Plugins:    plugins,
 		TotalCount: totalCount,
 	}
@@ -303,10 +299,10 @@ func (p *PostgresBackend) FindPlugins(
 	return &pluginsList, nil
 }
 
-func (p *PostgresBackend) FindReviewById(ctx context.Context, db pgx.Tx, id string) (*types.ReviewDto, error) {
+func (p *PostgresBackend) FindReviewById(ctx context.Context, db pgx.Tx, id string) (*itypes.ReviewDto, error) {
 	query := fmt.Sprintf(`SELECT id, plugin_id, public_key, rating, comment, created_at FROM %s WHERE id = $1 LIMIT 1;`, REVIEWS_TABLE)
 
-	var reviewDto types.ReviewDto
+	var reviewDto itypes.ReviewDto
 	var err error
 
 	if db != nil {
@@ -339,9 +335,9 @@ func (p *PostgresBackend) FindReviewById(ctx context.Context, db pgx.Tx, id stri
 	return &reviewDto, nil
 }
 
-func (p *PostgresBackend) FindReviews(ctx context.Context, pluginId string, skip int, take int, sort string) (types.ReviewsDto, error) {
+func (p *PostgresBackend) FindReviews(ctx context.Context, pluginId string, skip int, take int, sort string) (itypes.ReviewsDto, error) {
 	if p.pool == nil {
-		return types.ReviewsDto{}, fmt.Errorf("database pool is nil")
+		return itypes.ReviewsDto{}, fmt.Errorf("database pool is nil")
 	}
 
 	allowedSortingColumns := map[string]bool{"created_at": true}
@@ -356,16 +352,16 @@ func (p *PostgresBackend) FindReviews(ctx context.Context, pluginId string, skip
 
 	rows, err := p.pool.Query(ctx, query, pluginId, take, skip)
 	if err != nil {
-		return types.ReviewsDto{}, err
+		return itypes.ReviewsDto{}, err
 	}
 
 	defer rows.Close()
 
-	var reviews []types.Review
+	var reviews []itypes.Review
 	var totalCount int
 
 	for rows.Next() {
-		var review types.Review
+		var review itypes.Review
 
 		err := rows.Scan(
 			&review.ID,
@@ -377,13 +373,13 @@ func (p *PostgresBackend) FindReviews(ctx context.Context, pluginId string, skip
 			&totalCount,
 		)
 		if err != nil {
-			return types.ReviewsDto{}, err
+			return itypes.ReviewsDto{}, err
 		}
 
 		reviews = append(reviews, review)
 	}
 
-	pluginsDto := types.ReviewsDto{
+	pluginsDto := itypes.ReviewsDto{
 		Reviews:    reviews,
 		TotalCount: totalCount,
 	}
@@ -391,10 +387,10 @@ func (p *PostgresBackend) FindReviews(ctx context.Context, pluginId string, skip
 	return pluginsDto, nil
 }
 
-func (p *PostgresBackend) FindReviewByUserAndPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, userAddress string) (*types.ReviewDto, error) {
+func (p *PostgresBackend) FindReviewByUserAndPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, userAddress string) (*itypes.ReviewDto, error) {
 	query := fmt.Sprintf(`SELECT id, plugin_id, public_key, rating, comment, created_at FROM %s WHERE plugin_id = $1 AND LOWER(public_key) = LOWER($2) LIMIT 1;`, REVIEWS_TABLE)
 
-	var reviewDto types.ReviewDto
+	var reviewDto itypes.ReviewDto
 	var err error
 
 	if dbTx != nil {
@@ -427,7 +423,7 @@ func (p *PostgresBackend) FindReviewByUserAndPlugin(ctx context.Context, dbTx pg
 	return &reviewDto, nil
 }
 
-func (p *PostgresBackend) UpdateReview(ctx context.Context, dbTx pgx.Tx, reviewId string, reviewDto types.ReviewCreateDto) error {
+func (p *PostgresBackend) UpdateReview(ctx context.Context, dbTx pgx.Tx, reviewId string, reviewDto itypes.ReviewCreateDto) error {
 	query := fmt.Sprintf(`UPDATE %s SET rating = $1, comment = $2, updated_at = NOW() WHERE id = $3`, REVIEWS_TABLE)
 
 	ct, err := dbTx.Exec(ctx, query, reviewDto.Rating, reviewDto.Comment, reviewId)
@@ -442,7 +438,7 @@ func (p *PostgresBackend) UpdateReview(ctx context.Context, dbTx pgx.Tx, reviewI
 	return nil
 }
 
-func (p *PostgresBackend) CreateReview(ctx context.Context, dbTx pgx.Tx, reviewDto types.ReviewCreateDto, pluginId string) (string, error) {
+func (p *PostgresBackend) CreateReview(ctx context.Context, dbTx pgx.Tx, reviewDto itypes.ReviewCreateDto, pluginId string) (string, error) {
 	// Fix: Use public_key instead of address to match the database schema
 	columns := []string{"public_key", "rating", "comment", "plugin_id", "created_at"}
 	argNames := []string{"@PublicKey", "@Rating", "@Comment", "@PluginId", "@CreatedAt"}

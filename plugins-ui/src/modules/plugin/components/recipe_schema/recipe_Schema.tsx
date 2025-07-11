@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 import Button from "@/modules/core/components/ui/button/Button";
 import "./recipe_Schema.styles.css";
-import { PolicySchema, ScheduleSchema } from "@/gen/policy_pb";
+import { BillingFrequency, FeePolicy, FeePolicySchema, FeeType, PolicySchema, ScheduleSchema } from "@/gen/policy_pb";
 import { ScheduleFrequency } from "@/gen/scheduling_pb";
 import { ConstraintSchema, ConstraintType } from "@/gen/constraint_pb";
 import { Effect, RuleSchema } from "@/gen/rule_pb";
@@ -14,7 +14,7 @@ import { RecipeSchema } from "@/gen/recipe_specification_pb";
 import { v4 as uuidv4 } from "uuid";
 import { Plugin } from "../../models/plugin";
 import { publish } from "@/utils/eventBus";
-import { PluginPolicy, FeePolicies } from "../../models/policy";
+import { PluginPolicy } from "../../models/policy";
 import { usePolicies } from "@/modules/policy/context/PolicyProvider";
 import { toProtoTimestamp } from "@/utils/functions";
 
@@ -154,6 +154,7 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
                 return parameterConstraint;
             });
 
+            
             const rule = create(RuleSchema, {
                 constraints: {},
                 description: "",
@@ -162,6 +163,50 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
                 parameterConstraints,
                 resource: currentResource.resourcePath?.full,
             });
+
+            let feePolicies: FeePolicy[] = [];
+
+            for (const price of plugin.pricing) {
+              let ft = FeeType.FEE_TYPE_UNSPECIFIED;
+              switch (price.type) {
+                case "once":
+                  ft = FeeType.ONCE;
+                  break;
+                case "recurring":
+                  ft = FeeType.RECURRING;
+                  break;
+                case "per-tx":
+                  ft = FeeType.TRANSACTION;
+                  break;
+              }
+
+              let bf = BillingFrequency.BILLING_FREQUENCY_UNSPECIFIED;
+              switch (price.frequency) {
+                case "daily" : 
+                  bf = BillingFrequency.DAILY;
+                  break;
+                case "weekly" : 
+                  bf = BillingFrequency.WEEKLY;
+                  break;
+                case "biweekly" : 
+                  bf = BillingFrequency.BIWEEKLY;
+                  break;
+                case "monthly" : 
+                  bf = BillingFrequency.MONTHLY;
+                  break;
+              }
+
+              const feePolicy = create(FeePolicySchema, {
+                id: uuidv4(),
+                type: ft,
+                frequency: bf,
+                amount: BigInt(price.amount),
+                startDate: toProtoTimestamp(new Date(startDate + ":00")),
+                description: ""
+              })
+
+              feePolicies.push(feePolicy);
+            }
 
       const schedule = () => {
         const schedule = create(ScheduleSchema, {
@@ -176,7 +221,7 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
             const jsonData = create(PolicySchema, {
                 author: "",
                 description: "",
-                feePolicies: [],
+                feePolicies: feePolicies,
                 id: schema.pluginId,
                 name: schema.pluginName,
                 rules: [rule],
@@ -191,19 +236,9 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
 
             const currentVaultId = getCurrentVaultId();
 
-            var feePolicies: FeePolicies[] = [];
-            for (const price of plugin.pricing) {
-                feePolicies.push({
-                    start_date: new Date(startDate + ":00").toISOString(),
-                    frequency: price.frequency,
-                    amount: price.amount,
-                    type: price.type,
-                });
-            }
-
             const finalData: PluginPolicy = {
+
                 active: true,
-                feePolicies: feePolicies,
                 id: uuidv4(),
                 plugin_id: plugin.id,
                 plugin_version: String(schema.pluginVersion),
@@ -226,6 +261,13 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
                     type: "error",
                 });
             }
+        }
+        else {
+          setState((prevState) => ({
+            ...prevState,
+            error: "Unable to validate policy",
+            loading: false,
+        }));
         }
     };
 

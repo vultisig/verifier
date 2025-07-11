@@ -6,8 +6,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/vultisig/verifier/internal/types"
 	ptypes "github.com/vultisig/verifier/types"
+	types "github.com/vultisig/verifier/types"
 )
 
 func (p *PostgresBackend) GetPricingByPluginId(ctx context.Context, pluginId ptypes.PluginID) ([]types.Pricing, error) {

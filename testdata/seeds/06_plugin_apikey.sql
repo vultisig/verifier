@@ -6,4 +6,4 @@ INSERT INTO plugin_apikey (id, plugin_id, apikey, created_at, expires_at, status
  now(),
  null,
  1
-) ON CONFLICT (plugin_id) DO NOTHING;
+);

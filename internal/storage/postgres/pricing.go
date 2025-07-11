@@ -6,12 +6,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/vultisig/verifier/internal/types"
 	ptypes "github.com/vultisig/verifier/types"
+	types "github.com/vultisig/verifier/types"
 )
 
 func (p *PostgresBackend) GetPricingByPluginId(ctx context.Context, pluginId ptypes.PluginID) ([]types.Pricing, error) {
-	query := `SELECT pricings.* FROM plugins join pricings where pricings.plugin_id = plugins.id WHERE plugins.id = $1`
+	query := `SELECT pricings.* FROM pricings WHERE pricings.plugin_id = $1`
 
 	rows, err := p.pool.Query(ctx, query, pluginId)
 	if err != nil {

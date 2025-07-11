@@ -64,17 +64,17 @@ func (s *PolicyService) syncPolicy(syncEntity itypes.PluginPolicySync) error {
 }
 
 // This loops through the billing policies and checks if the pricing is valid for the billing policy.
-func compareBillingPricing(pricing *itypes.Pricing, billing *types.BillingPolicy) bool {
+func compareBillingPricing(pricing *types.Pricing, billing *types.BillingPolicy) bool {
 	if pricing == nil && billing == nil {
 		return true
 	}
 	if pricing == nil || billing == nil {
 		return false
 	}
-	sameType := string(pricing.Type) == billing.Type
+	sameType := pricing.Type == billing.Type
 	sameFrequency := true
-	if pricing.Type == itypes.PricingTypeRecurring && pricing.Frequency != nil {
-		sameFrequency = string(*pricing.Frequency) == billing.Frequency
+	if pricing.Type == types.PricingTypeRecurring && pricing.Frequency != nil {
+		sameFrequency = *pricing.Frequency == *billing.Frequency
 	}
 	sameAmount := pricing.Amount == billing.Amount
 	//metrics to be added later for support. For now the only pricing db entry supported in fixed.
@@ -83,18 +83,29 @@ func compareBillingPricing(pricing *itypes.Pricing, billing *types.BillingPolicy
 }
 
 func (s *PolicyService) validateBillingInformation(ctx context.Context, policy types.PluginPolicy) error {
+	var err error
 	tx, err := s.db.Pool().Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer s.handleRollback(tx, ctx)
+
+	//If there is an error, then rollback the tx at the end
+	defer func() {
+		if err != nil {
+			s.handleRollback(tx, ctx)
+		}
+	}()
 
 	pluginData, err := s.db.FindPluginById(ctx, tx, policy.PluginID)
 	if err != nil {
 		return fmt.Errorf("failed to find plugin: %w", err)
 	}
 
-	policy.ParseBillingFromRecipe()
+	err = policy.ParseBillingFromRecipe()
+	if err != nil {
+		return fmt.Errorf("failed to parse billing from recipe: %w", err)
+	}
+
 	if len(policy.Billing) != len(pluginData.Pricing) {
 		return fmt.Errorf("billing policies count (%d) does not match plugin pricing count (%d)", len(policy.Billing), len(pluginData.Pricing))
 	}
@@ -147,7 +158,7 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 
 	// Create one-time fee records within the transaction
 	for _, billingPolicy := range newPolicy.Billing {
-		if billingPolicy.Type == string(types.BILLING_TYPE_ONCE) {
+		if billingPolicy.Type == types.PricingTypeOnce {
 			// Create fee record for one-time billing
 			fee, err := s.db.InsertFee(ctx, tx, types.Fee{
 				PluginPolicyBillingID: billingPolicy.ID,

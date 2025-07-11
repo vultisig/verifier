@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/vultisig/verifier/types"
 )
 
 type PricingFrequency string
@@ -45,7 +44,7 @@ type Pricing struct {
 	Metric    PricingMetric     `json:"metric" validate:"required"`
 	CreatedAt time.Time         `json:"created_at" validate:"required"`
 	UpdatedAt time.Time         `json:"updated_at" validate:"required"`
-	PluginID  types.PluginID    `json:"plugin_id" validate:"required"`
+	PluginID  PluginID          `json:"plugin_id" validate:"required"`
 }
 type PricingCreateDataDto struct {
 	Type      PricingType       `json:"type" validate:"required"`
@@ -55,5 +54,5 @@ type PricingCreateDataDto struct {
 }
 type PricingCreateDto struct {
 	PricingCreateDataDto
-	PluginID types.PluginID `json:"plugin_id" validate:"required"`
+	PluginID PluginID `json:"plugin_id" validate:"required"`
 }

@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 
@@ -20,8 +19,7 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (*t
 
 	var policy types.PluginPolicy
 
-	query := `
-				SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe
+	query := `SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe
         FROM plugin_policies 
         WHERE id = $1`
 
@@ -48,19 +46,15 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (*t
 	defer billingRows.Close()
 	for billingRows.Next() {
 		var billing types.BillingPolicy
-		var freq sql.NullString
 		err := billingRows.Scan(
 			&billing.ID,
 			&billing.Type,
-			&freq,
+			&billing.Frequency,
 			&billing.StartDate,
 			&billing.Amount,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan billing info: %w", err)
-		}
-		if freq.Valid {
-			billing.Frequency = freq.String
 		}
 		policy.Billing = append(policy.Billing, billing)
 	}
@@ -115,20 +109,16 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 		}
 		for billingRows.Next() {
 			var billing types.BillingPolicy
-			var freq sql.NullString
 			err := billingRows.Scan(
 				&billing.ID,
 				&billing.Type,
-				&freq,
+				&billing.Frequency,
 				&billing.StartDate,
 				&billing.Amount,
 			)
 			if err != nil {
 				billingRows.Close()
 				return nil, fmt.Errorf("failed to scan billing info: %w", err)
-			}
-			if freq.Valid {
-				billing.Frequency = freq.String
 			}
 			policy.Billing = append(policy.Billing, billing)
 		}
@@ -182,45 +172,30 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		return nil, fmt.Errorf("failed to insert policy: %w", err)
 	}
 
-	billingQueryWithFrequency := `
-	INSERT INTO plugin_policy_billing (id, plugin_policy_id, type, frequency, start_date, amount)
-	VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, type, frequency, start_date, amount`
-	billingQueryWithoutFrequency := `
-	INSERT INTO plugin_policy_billing (id, plugin_policy_id, type, start_date, amount)
-	VALUES ($1, $2, $3, $4, $5) RETURNING id, type, start_date, amount`
+	billingQuery := `
+	INSERT INTO plugin_policy_billing (id, plugin_policy_id, type, frequency, start_date, amount, asset)
+	VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, type, frequency, start_date, amount, asset`
 	for _, billing := range policy.Billing {
 		var err error
-		if billing.Frequency == "" {
-			err = tx.QueryRow(ctx, billingQueryWithoutFrequency,
-				billing.ID,
-				policy.ID,
-				billing.Type,
-				billing.StartDate,
-				billing.Amount,
-			).Scan(
-				&billing.ID,
-				&billing.Type,
-				&billing.StartDate,
-				&billing.Amount,
-			)
-		} else {
-			err = tx.QueryRow(ctx, billingQueryWithFrequency,
+		if billing.Frequency == nil {
+			err = tx.QueryRow(ctx, billingQuery,
 				billing.ID,
 				policy.ID,
 				billing.Type,
 				billing.Frequency,
 				billing.StartDate,
 				billing.Amount,
+				billing.Asset,
 			).Scan(
 				&billing.ID,
 				&billing.Type,
 				&billing.Frequency,
 				&billing.StartDate,
 				&billing.Amount,
+				&billing.Asset,
 			)
 		}
 		if err != nil {
-			fmt.Println("Error inserting billing policy XX:", err)
 			tx.Rollback(ctx)
 			return nil, fmt.Errorf("failed to insert billing policy: %w", err)
 		}

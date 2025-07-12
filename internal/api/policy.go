@@ -50,6 +50,10 @@ func (s *Server) validatePluginPolicy(ctx context.Context, policy types.PluginPo
 	if err != nil {
 		return fmt.Errorf("failed to validate plugin policy: %w", err)
 	}
+	if err := policy.ParseBillingFromRecipe(); err != nil {
+		return fmt.Errorf("failed to parse billing from recipe: %w", err)
+	}
+
 	return nil
 }
 

@@ -43,8 +43,8 @@ func (s *FeeService) PublicKeyGetFeeInfo(ctx context.Context, publicKey string) 
 		return nil, fmt.Errorf("failed to get fees: %w", err)
 	}
 
-	totalFeesIncurred := 0
-	feesPendingCollection := 0
+	var totalFeesIncurred uint64
+	var feesPendingCollection uint64
 
 	ifees := make([]itypes.FeeDto, 0, len(fees))
 	for _, fee := range fees {

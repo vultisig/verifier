@@ -11,7 +11,7 @@ jsonpath "$.plugins[0].id" matches "^[a-z]+-[a-z]+-[0-9a-f]{4}$"
 jsonpath "$.plugins[0].title" exists
 jsonpath "$.plugins[0].description" exists
 jsonpath "$.plugins[0].server_endpoint" exists
-jsonpath "$.plugins[0].pricing_id" exists
+jsonpath "$.plugins[0].pricing" exists
 jsonpath "$.plugins[0].category_id" exists
 jsonpath "$.plugins[0].created_at" exists
 jsonpath "$.plugins[0].updated_at" exists
@@ -24,7 +24,7 @@ jsonpath "$.id" == "vultisig-dca-0000"
 jsonpath "$.title" exists
 jsonpath "$.description" exists
 jsonpath "$.server_endpoint" exists
-jsonpath "$.pricing_id" exists
+jsonpath "$.pricing" exists
 jsonpath "$.category_id" == "plugin"
 jsonpath "$.created_at" exists
 jsonpath "$.updated_at" exists
@@ -62,23 +62,34 @@ jsonpath "$[1].id" matches "{{uuid_regex}}"
 jsonpath "$[1].name" == "Operations"
 jsonpath "$[1].created_at" exists
 
-GET http://localhost:8080/pricing/00000000-0000-0000-0000-000000000001
-HTTP 200
-Content-Type: application/json
-[Asserts]
-jsonpath "$.id" matches "{{uuid_regex}}"
-jsonpath "$.type" == "free"
-jsonpath "$.amount" == 0.00
-jsonpath "$.metric" == "fixed"
-jsonpath "$.created_at" exists
-
 GET http://localhost:8080/pricing/00000000-0000-0000-0000-000000000002
 HTTP 200
 Content-Type: application/json
 [Asserts]
 jsonpath "$.id" matches "{{uuid_regex}}"
 jsonpath "$.type" == "per-tx"
-jsonpath "$.amount" == 100.00
+jsonpath "$.amount" == 10000
+jsonpath "$.metric" == "fixed"
+jsonpath "$.created_at" exists
+
+GET http://localhost:8080/pricing/00000000-0000-0000-0000-000000000003
+HTTP 200
+Content-Type: application/json
+[Asserts]
+jsonpath "$.id" matches "{{uuid_regex}}"
+jsonpath "$.type" == "once"
+jsonpath "$.amount" == 50000
+jsonpath "$.metric" == "fixed"
+jsonpath "$.created_at" exists
+
+GET http://localhost:8080/pricing/00000000-0000-0000-0000-000000000004
+HTTP 200
+Content-Type: application/json
+[Asserts]
+jsonpath "$.id" matches "{{uuid_regex}}"
+jsonpath "$.type" == "recurring"
+jsonpath "$.frequency" == "monthly"
+jsonpath "$.amount" == 30000
 jsonpath "$.metric" == "fixed"
 jsonpath "$.created_at" exists
 

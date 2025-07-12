@@ -2,20 +2,10 @@
 -- +goose StatementBegin
 -- Create category enum
 CREATE TYPE plugin_category AS ENUM ('ai-agent', 'plugin');
-CREATE TYPE pricing_frequency AS ENUM ('annual', 'monthly', 'weekly');
-CREATE TYPE pricing_metric AS ENUM ('fixed', 'percentage');
-CREATE TYPE pricing_type AS ENUM ('free', 'single', 'recurring', 'per-tx');
-
--- Pricings table
-CREATE TABLE pricings (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    type pricing_type NOT NULL,
-    frequency pricing_frequency DEFAULT NULL,
-    amount DECIMAL(10, 2) NOT NULL,
-    metric pricing_metric NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+CREATE TYPE pricing_frequency AS ENUM ('daily','weekly', 'biweekly', 'monthly');
+CREATE TYPE pricing_metric AS ENUM ('fixed');
+CREATE TYPE pricing_type AS ENUM ('once', 'recurring', 'per-tx');
+CREATE TYPE pricing_asset AS ENUM ('usdc');
 
 -- Plugins table (simplified)
 CREATE TABLE plugins (
@@ -23,10 +13,26 @@ CREATE TABLE plugins (
     title VARCHAR(255) NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     server_endpoint TEXT NOT NULL,
-    pricing_id UUID REFERENCES pricings(id),
     category plugin_category NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Pricings table
+CREATE TABLE pricings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    type pricing_type NOT NULL,
+    frequency pricing_frequency DEFAULT NULL,
+    amount BIGINT NOT NULL,
+    asset pricing_asset NOT NULL,
+    metric pricing_metric NOT NULL,
+    plugin_id plugin_id NOT NULL REFERENCES plugins(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    CONSTRAINT frequency_check CHECK (
+        (type = 'recurring' AND frequency IS NOT NULL) OR
+        (type IN ('per-tx', 'once') AND frequency IS NULL)
+    )
 );
 
 -- Plugin policy sync

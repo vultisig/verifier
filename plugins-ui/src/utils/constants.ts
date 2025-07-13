@@ -41,3 +41,8 @@ export const AliasToFeeType: Record<string, FeeType> = {
   once: FeeType.ONCE,
   recurring: FeeType.RECURRING,
 };
+
+export const AliasToFeeTypeText: Record<string, string> = {
+  "per-tx": "per trade",
+  once: "once",
+};

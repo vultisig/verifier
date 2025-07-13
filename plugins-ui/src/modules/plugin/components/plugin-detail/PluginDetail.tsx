@@ -14,7 +14,7 @@ import RecipeSchema from "@/modules/plugin/components/recipe_schema/recipe_Schem
 import { useWallet } from "@/modules/shared/wallet/WalletProvider";
 import PolicyTable from "../../../policy/policy-table/PolicyTable";
 import Modal from "@/modules/core/components/ui/modal/Modal";
-import { PluginPricingType } from "@/utils/constants";
+import { AliasToFeeTypeText } from "@/utils/constants";
 
 const PluginDetail = () => {
   const navigate = useNavigate();
@@ -191,8 +191,10 @@ const PluginDetail = () => {
                     <>
                       {plugin.pricing.map((pricing) => (
                         <aside key={pricing.id}>
-                          ${pricing.amount ?? 0}{" "}
-                          {PluginPricingType[pricing.type] ?? ""}
+                          {`${pricing.amount} ${pricing.asset.toUpperCase()} `}
+                          {pricing.type === "recurring"
+                            ? pricing.frequency
+                            : (AliasToFeeTypeText[pricing.type] ?? "")}
                         </aside>
                       ))}
                     </>

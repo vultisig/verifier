@@ -26,9 +26,9 @@ export type PluginPricing = {
   type: string;
   created_at: string;
   updated_at: string;
-  frequency: string;
   amount: number;
   asset:string;
+  frequency?: string;
   metric: string;
   plugin_id: string;
 };

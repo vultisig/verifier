@@ -2,12 +2,23 @@ import React, { useEffect, useState } from "react";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 import Button from "@/modules/core/components/ui/button/Button";
 import "./recipe_Schema.styles.css";
-import { PolicySchema, ScheduleSchema } from "@/gen/policy_pb";
+import {
+  BillingFrequency,
+  FeePolicySchema,
+  FeeType,
+  PolicySchema,
+  ScheduleSchema,
+} from "@/gen/policy_pb";
 import { ScheduleFrequency } from "@/gen/scheduling_pb";
 import { ConstraintSchema, ConstraintType } from "@/gen/constraint_pb";
 import { Effect, RuleSchema } from "@/gen/rule_pb";
 import { create, toBinary } from "@bufbuild/protobuf";
-import { constraintTypeName, frequencyName } from "@/utils/constants";
+import {
+  aliasToBillingFrequency,
+  AliasToFeeType,
+  constraintTypeName,
+  frequencyName,
+} from "@/utils/constants";
 import { ParameterConstraintSchema } from "@/gen/parameter_constraint_pb";
 import { getCurrentVaultId } from "@/storage/currentVaultId";
 import { RecipeSchema } from "@/gen/recipe_specification_pb";
@@ -17,6 +28,7 @@ import { publish } from "@/utils/eventBus";
 import { PluginPolicy } from "../../models/policy";
 import { usePolicies } from "@/modules/policy/context/PolicyProvider";
 import { toProtoTimestamp } from "@/utils/functions";
+import { TimestampSchema } from "@bufbuild/protobuf/wkt";
 
 interface InitialState {
   error?: string;
@@ -183,11 +195,29 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
         });
         return { schedule };
       };
-
       const jsonData = create(PolicySchema, {
         author: "",
         description: "",
-        feePolicies: [],
+        feePolicies: plugin.pricing
+          ? plugin.pricing.map((pricing) =>
+              create(FeePolicySchema, {
+                $typeName: "types.FeePolicy",
+                amount: BigInt(pricing.amount),
+                description: "",
+                frequency:
+                  AliasToFeeType[pricing.type] === FeeType.RECURRING
+                    ? aliasToBillingFrequency[pricing.frequency!]
+                    : BillingFrequency.BILLING_FREQUENCY_UNSPECIFIED,
+                id: pricing.id,
+                startDate: create(TimestampSchema, {
+                  ...toProtoTimestamp(new Date(startDate + ":00")),
+                  $typeName: "google.protobuf.Timestamp",
+                }),
+                type:
+                  AliasToFeeType[pricing.type] || FeeType.FEE_TYPE_UNSPECIFIED,
+              })
+            )
+          : [],
         id: schema.pluginId,
         name: schema.pluginName,
         rules: [rule],
@@ -204,14 +234,6 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
 
       const finalData: PluginPolicy = {
         active: true,
-        feePolicies: plugin.pricing
-          ? plugin.pricing.map((pricing) => ({
-              start_date: new Date(startDate + ":00").toISOString(),
-              frequency: pricing.frequency,
-              amount: pricing.amount,
-              type: pricing.type,
-            }))
-          : [],
         id: uuidv4(),
         plugin_id: plugin.id,
         plugin_version: String(schema.pluginVersion),
@@ -385,13 +407,29 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
                   </label>
 
                   {!useNextMonthStart && (
-                    <input
-                      type="datetime-local"
-                      className="form-input"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      min={new Date().toISOString().slice(0, 16)}
-                    />
+                    <>
+                      <input
+                        type="datetime-local"
+                        className="form-input"
+                        value={startDate}
+                        onChange={(e) => {
+                          setState((prevState) => ({
+                            ...prevState,
+                            validationErrors: {
+                              ...prevState.validationErrors,
+                              startDate: "",
+                            },
+                          }));
+                          setStartDate(e.target.value);
+                        }}
+                        min={new Date().toISOString().slice(0, 16)}
+                      />
+                      {validationErrors.startDate && (
+                        <div className="error-message">
+                          {validationErrors.startDate}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 

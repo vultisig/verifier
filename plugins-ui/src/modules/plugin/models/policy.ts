@@ -32,7 +32,6 @@ export type PluginPolicy = {
   plugin_id: string;
   policy_version: number;
   active: boolean;
-  feePolicies: FeePolicies[];
   signature?: string;
   recipe: string;
 };

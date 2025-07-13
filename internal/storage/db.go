@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -49,6 +50,7 @@ type FeeRepository interface {
 	GetFeesByPublicKey(ctx context.Context, publicKey string, includeCollected bool) ([]types.Fee, error)
 	GetAllFeesByPublicKey(ctx context.Context, includeCollected bool) ([]types.Fee, error)
 	InsertFee(ctx context.Context, dbTx pgx.Tx, fee types.Fee) (*types.Fee, error)
+	MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txid string) ([]types.Fee, error)
 }
 
 type PluginPolicySyncRepository interface {

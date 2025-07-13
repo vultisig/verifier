@@ -63,10 +63,11 @@ CREATE TABLE "fees" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "plugin_policy_billing_id" "uuid" NOT NULL,
     "transaction_id" "uuid",
+    "transaction_hash" character varying(66),
     "amount" bigint NOT NULL,
     "created_at" timestamp without time zone DEFAULT "now"() NOT NULL,
     "charged_at" "date" DEFAULT "now"() NOT NULL,
-    "collected_at" time without time zone
+    "collected_at" timestamp without time zone
 );
 
 CREATE TABLE "plugin_policies" (
@@ -102,6 +103,7 @@ CREATE VIEW "fees_view" AS
     "f"."id",
     "f"."plugin_policy_billing_id",
     "f"."transaction_id",
+    "f"."transaction_hash",
     "f"."amount",
     "f"."created_at",
     "f"."charged_at",

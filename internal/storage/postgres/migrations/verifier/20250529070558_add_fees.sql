@@ -23,10 +23,11 @@ CREATE TABLE IF NOT EXISTS fees(
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     plugin_policy_billing_id uuid NOT NULL, -- used for recurring fees
     transaction_id uuid, -- used for tx based fees only
+    transaction_hash VARCHAR(66), -- The hash of the transaction that collected the fee
     amount BIGINT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now(),
     charged_at DATE NOT NULL DEFAULT now(),
-    collected_at TIME,
+    collected_at TIMESTAMP,
     CONSTRAINT fk_billing FOREIGN KEY (plugin_policy_billing_id) REFERENCES plugin_policy_billing(id) ON DELETE CASCADE
 );
 

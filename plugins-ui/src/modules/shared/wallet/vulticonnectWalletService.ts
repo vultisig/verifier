@@ -66,11 +66,13 @@ const VulticonnectWalletService = {
     await VulticonnectWalletService.isAvailable();
 
     try {
-      const [account]: string[] = await window.vultisig.ethereum.request({
+      const accounts = await window.vultisig.ethereum.request({
         method: "eth_accounts",
       });
-
-      return account;
+      if (!accounts || accounts.length === 0) {
+        return undefined;
+      }
+      return accounts[0];
     } catch (error) {
       console.error(
         `Failed to get account - ${error instanceof Error ? error.message : String(error)}`

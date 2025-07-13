@@ -208,7 +208,7 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
                   AliasToFeeType[pricing.type] === FeeType.RECURRING
                     ? aliasToBillingFrequency[pricing.frequency!]
                     : BillingFrequency.BILLING_FREQUENCY_UNSPECIFIED,
-                id: pricing.id,
+                id: uuidv4(),
                 startDate: create(TimestampSchema, {
                   ...toProtoTimestamp(new Date(startDate + ":00")),
                   $typeName: "google.protobuf.Timestamp",

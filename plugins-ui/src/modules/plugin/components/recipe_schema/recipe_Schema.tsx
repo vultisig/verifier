@@ -202,20 +202,16 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
 
       const currentVaultId = getCurrentVaultId();
 
-      const pluginPricing = await MarketplaceService.getPluginPricing(
-        plugin.pricing_id
-      );
-
       const finalData: PluginPolicy = {
         active: true,
-        feePolicies: [
-          {
-            start_date: new Date(startDate + ":00").toISOString(),
-            frequency: pluginPricing.frequency,
-            amount: pluginPricing.amount,
-            type: pluginPricing.type,
-          },
-        ],
+        feePolicies: plugin.pricing
+          ? plugin.pricing.map((pricing) => ({
+              start_date: new Date(startDate + ":00").toISOString(),
+              frequency: pricing.frequency,
+              amount: pricing.amount,
+              type: pricing.type,
+            }))
+          : [],
         id: uuidv4(),
         plugin_id: plugin.id,
         plugin_version: String(schema.pluginVersion),

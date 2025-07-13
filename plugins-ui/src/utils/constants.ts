@@ -19,3 +19,8 @@ export const constraintTypeName: Record<ConstraintType, string> = {
   [ConstraintType.UNSPECIFIED]: "unspecified",
   [ConstraintType.WHITELIST]: "whitelist",
 };
+
+export const PluginPricingType: Record<string, string> = {
+  "per-tx": "per trade",
+  once: "once",
+};

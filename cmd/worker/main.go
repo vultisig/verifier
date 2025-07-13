@@ -11,7 +11,6 @@ import (
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/storage/postgres"
-	"github.com/vultisig/verifier/internal/syncer"
 	"github.com/vultisig/verifier/internal/tasks"
 	"github.com/vultisig/verifier/tx_indexer"
 	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
@@ -48,11 +47,10 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("failed to initialize database: %v", err))
 	}
-	syncService := syncer.NewPolicySyncer(backendDB, client)
 
 	policyService, err := service.NewPolicyService(
 		backendDB,
-		client,
+		nil, // No syncer needed for async operations
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to initialize policy service: %v", err))
@@ -66,7 +64,6 @@ func main() {
 			Queues: map[string]int{
 				tasks.QUEUE_NAME:         10,
 				vault.EmailQueueName:     100,
-				syncer.QUEUE_NAME:        100,
 				"scheduled_plugin_queue": 10, // new queue
 			},
 		},
@@ -96,17 +93,8 @@ func main() {
 	mux.HandleFunc(tasks.TypeKeyGenerationDKLS, vaultMgmService.HandleKeyGenerationDKLS)
 	mux.HandleFunc(tasks.TypeKeySignDKLS, vaultMgmService.HandleKeySignDKLS)
 	mux.HandleFunc(tasks.TypeReshareDKLS, vaultMgmService.HandleReshareDKLS)
-	mux.HandleFunc(syncer.TaskKeySyncPolicy, syncService.ProcessSyncTask)
 	mux.HandleFunc(tasks.TypeRecurringFeeRecord, policyService.HandleScheduledFees)
 
-	if err := syncService.Start(); err != nil {
-		panic(fmt.Sprintf("failed to start sync service: %v", err))
-	}
-	defer func() {
-		if err := syncService.Stop(); err != nil {
-			logger.WithError(err).Error("failed to stop sync service")
-		}
-	}()
 	if err := srv.Run(mux); err != nil {
 		panic(fmt.Errorf("could not run server: %w", err))
 	}

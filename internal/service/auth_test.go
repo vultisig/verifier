@@ -90,12 +90,12 @@ func (m *MockDatabaseStorage) Close() error {
 }
 
 // CreatePricing is a stub to satisfy the DatabaseStorage interface
-func (m *MockDatabaseStorage) CreatePricing(ctx context.Context, pricingDto itypes.PricingCreateDto) (*itypes.Pricing, error) {
+func (m *MockDatabaseStorage) CreatePricing(ctx context.Context, pricingDto types.PricingCreateDto) (*types.Pricing, error) {
 	args := m.Called(ctx, pricingDto)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*itypes.Pricing), args.Error(1)
+	return args.Get(0).(*types.Pricing), args.Error(1)
 }
 
 func (m *MockDatabaseStorage) FindPluginById(ctx context.Context, tx pgx.Tx, pluginID types.PluginID) (*itypes.Plugin, error) {
@@ -183,12 +183,12 @@ func (m *MockDatabaseStorage) InsertFee(ctx context.Context, dbTx pgx.Tx, fee ty
 	return args.Get(0).(*types.Fee), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) FindPricingById(ctx context.Context, id uuid.UUID) (*itypes.Pricing, error) {
+func (m *MockDatabaseStorage) FindPricingById(ctx context.Context, id uuid.UUID) (*types.Pricing, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*itypes.Pricing), args.Error(1)
+	return args.Get(0).(*types.Pricing), args.Error(1)
 }
 
 func (m *MockDatabaseStorage) DeletePricingById(ctx context.Context, id uuid.UUID) error {

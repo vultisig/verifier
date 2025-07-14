@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/vultisig/verifier/internal/types"
+	"github.com/vultisig/verifier/types"
 )
 
 const PRICINGS_TABLE = "pricings"
@@ -38,7 +38,7 @@ func (p *PostgresBackend) CreatePricing(ctx context.Context, pricingDto types.Pr
 		"Metric": pricingDto.Metric,
 	}
 
-	if pricingDto.Frequency != "" {
+	if pricingDto.Frequency != nil {
 		columns = append(columns, "frequency")
 		argNames = append(argNames, "@Frequency")
 		args["Frequency"] = pricingDto.Frequency

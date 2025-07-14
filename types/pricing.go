@@ -29,22 +29,15 @@ const (
 	PricingMetricFixed PricingMetric = "fixed"
 )
 
-type PricingAsset string
-
-const (
-	PricingAssetUSDC PricingAsset = "usdc"
-)
-
 type Pricing struct {
 	ID        uuid.UUID         `json:"id" validate:"required"`
 	Type      PricingType       `json:"type" validate:"required"`
 	Frequency *PricingFrequency `json:"frequency,omitempty"`
 	Amount    uint64            `json:"amount" validate:"gte=0"`
-	Asset     PricingAsset      `json:"asset" validate:"required"`
 	Metric    PricingMetric     `json:"metric" validate:"required"`
 	CreatedAt time.Time         `json:"created_at" validate:"required"`
 	UpdatedAt time.Time         `json:"updated_at" validate:"required"`
-	PluginID  PluginID          `json:"plugin_id" validate:"required"`
+	// PluginID  PluginID          `json:"plugin_id" validate:"required"`
 }
 type PricingCreateDataDto struct {
 	Type      PricingType       `json:"type" validate:"required"`

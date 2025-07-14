@@ -162,7 +162,7 @@ func (p *PostgresBackend) FindPlugins(
 
 	if filters.CategoryID != nil {
 		queryFilter := fmt.Sprintf(
-			` %s p.category_id = $%d`,
+			` %s p.category = $%d`,
 			filterClause,
 			currentArgNumber,
 		)

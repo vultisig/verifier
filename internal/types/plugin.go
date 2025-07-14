@@ -28,7 +28,7 @@ type PluginWithRatings struct {
 type PluginFilters struct {
 	Term       *string    `json:"term"`
 	TagID      *uuid.UUID `json:"tag_id"`
-	CategoryID *uuid.UUID `json:"category_id"`
+	CategoryID *string    `json:"category_id"`
 }
 
 type PluginsPaginatedList struct {

@@ -24,6 +24,7 @@ import { publish } from "@/utils/eventBus";
 import { PluginPolicy } from "../../models/policy";
 import { usePolicies } from "@/modules/policy/context/PolicyProvider";
 import { toProtoTimestamp } from "@/utils/functions";
+import { fieldIsEmpty, validateField } from "@/utils/validation";
 
 interface InitialState {
   error?: string;
@@ -35,6 +36,7 @@ interface InitialState {
   schema?: RecipeSchema;
   submitting?: boolean;
   validationErrors: Record<string, string>;
+  canSubmit?: boolean;
 }
 
 interface RecipeSchemaProps {
@@ -49,6 +51,7 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
     selectedResource: 0,
     schedulingEnabled: false,
     validationErrors: {},
+    canSubmit: false,
   };
   const [startDate, setStartDate] = useState(() => {
     const now = new Date();
@@ -61,7 +64,6 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
 
     return localTime.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:MM"
   });
-
   const [useNextMonthStart, setUseNextMonthStart] = useState(false);
   const [state, setState] = useState(initialState);
   const { fetchPolicies, addPolicy } = usePolicies();
@@ -74,6 +76,7 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
     schedulingEnabled,
     schema,
     validationErrors,
+    canSubmit,
   } = state;
   const currentResource = schema?.supportedResources[selectedResource];
 
@@ -153,6 +156,7 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
   };
 
   const handleSubmit = async () => {
+    if (!canSubmit) return;
     if (currentResource && schema && formValidation()) {
       const parameterConstraints = currentResource.parameterCapabilities.map(
         ({ parameterName, required }) => {
@@ -307,6 +311,30 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
 
   useEffect(() => fetchSchema(), [plugin]);
 
+  useEffect(() => {
+    const noErrors = Object.values(validationErrors).every((e) => !e);
+    const requiredFilled = Object.entries(formData).every(([key, val]) => {
+      const cap = currentResource?.parameterCapabilities.find(
+        (c) => c.parameterName === key
+      );
+      return cap?.required ? !fieldIsEmpty(val) : true;
+    });
+    const timeOK = useNextMonthStart || new Date(startDate) > new Date();
+    const freqOK = !schedulingEnabled || frequency !== undefined;
+    setState((prev) => ({
+      ...prev,
+      canSubmit: noErrors && requiredFilled && timeOK && freqOK,
+    }));
+  }, [
+    validationErrors,
+    formData,
+    frequency,
+    schedulingEnabled,
+    startDate,
+    useNextMonthStart,
+    currentResource,
+  ]);
+
   return loading ? (
     <div className="recipe-schema-popup">
       <div className="recipe-schema-content">
@@ -410,6 +438,20 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
                         onChange={(e) =>
                           handleInputChange(param.parameterName, e.target.value)
                         }
+                        onBlur={(e) => {
+                          const err = validateField(
+                            param.parameterName,
+                            e.target.value,
+                            param.required
+                          );
+                          setState((prev) => ({
+                            ...prev,
+                            validationErrors: {
+                              ...prev.validationErrors,
+                              [param.parameterName]: err,
+                            },
+                          }));
+                        }}
                         placeholder={`Enter ${param.parameterName}...`}
                       />
                       <div className="input-help">
@@ -533,6 +575,7 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
                     type="button"
                     styleType="primary"
                     onClick={handleSubmit}
+                    disabled={!canSubmit}
                   >
                     Configure Plugin
                   </Button>

@@ -1,5 +1,4 @@
 import { ConstraintType } from "@/gen/constraint_pb";
-import { BillingFrequency } from "@/gen/policy_pb";
 import { ScheduleFrequency } from "@/gen/scheduling_pb";
 
 export const frequencyName: Record<ScheduleFrequency, string> = {
@@ -9,14 +8,6 @@ export const frequencyName: Record<ScheduleFrequency, string> = {
   [ScheduleFrequency.WEEKLY]: "Weekly",
   [ScheduleFrequency.BIWEEKLY]: "Biweekly",
   [ScheduleFrequency.MONTHLY]: "Monthly",
-};
-
-export const aliasToBillingFrequency: Record<string, BillingFrequency> = {
-  daily: BillingFrequency.DAILY,
-  weekly: BillingFrequency.WEEKLY,
-  biweekly: BillingFrequency.BIWEEKLY,
-  monthly: BillingFrequency.MONTHLY,
-  unspecified: BillingFrequency.BILLING_FREQUENCY_UNSPECIFIED,
 };
 
 export const constraintTypeName: Record<ConstraintType, string> = {

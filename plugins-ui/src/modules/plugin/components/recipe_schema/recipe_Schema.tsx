@@ -480,13 +480,32 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
                   </label>
 
                   {!useNextMonthStart && (
-                    <input
-                      type="datetime-local"
-                      className="form-input"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      min={new Date().toISOString().slice(0, 16)}
-                    />
+                    <>
+                      <input
+                        type="datetime-local"
+                        className="form-input"
+                        value={startDate}
+                        onChange={(e) => {
+                          setState((prevState) => ({
+                            ...prevState,
+                            validationErrors: {
+                              ...prevState.validationErrors,
+                              startDate:
+                                new Date(e.target.value) <= new Date()
+                                  ? "Start date must be in the future"
+                                  : "",
+                            },
+                          }));
+                          setStartDate(e.target.value);
+                        }}
+                        min={new Date().toISOString().slice(0, 16)}
+                      />
+                      {validationErrors.startDate && (
+                        <div className="error-message">
+                          {validationErrors.startDate}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 

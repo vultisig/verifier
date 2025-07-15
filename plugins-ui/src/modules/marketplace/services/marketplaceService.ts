@@ -14,6 +14,7 @@ import {
   TransactionHistory,
 } from "@/modules/plugin/models/policy";
 import { RecipeSchema } from "@/gen/recipe_specification_pb";
+import { PluginFilters } from "@/modules/marketplace/components/marketplace-filters/MarketplaceFilters";
 
 export const getMarketplaceUrl = () => import.meta.env.VITE_MARKETPLACE_URL;
 
@@ -44,8 +45,16 @@ const MarketplaceService = {
    * Get plugins from the API.
    * @returns {Promise<Object>} A promise that resolves to the fetched plugins.
    */
-  getPlugins: async (): Promise<PluginMap> => {
-    return get(`${getMarketplaceUrl()}/plugins`);
+  getPlugins: async (
+    skip = 0,
+    take = 12,
+    term?: string,
+    category?: string,
+    sort?: string
+  ): Promise<PluginMap> => {
+    return get(
+      `${getMarketplaceUrl()}/plugins?skip=${skip}&take=${take}${term ? `&term=${term}` : ""}${category ? `&category_id=${category}` : ""}&sort=${sort}`
+    );
   },
 
   /**

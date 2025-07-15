@@ -1,5 +1,5 @@
 import { ConstraintType } from "@/gen/constraint_pb";
-import { BillingFrequency, FeeType } from "@/gen/policy_pb";
+import { BillingFrequency } from "@/gen/policy_pb";
 import { ScheduleFrequency } from "@/gen/scheduling_pb";
 
 export const frequencyName: Record<ScheduleFrequency, string> = {
@@ -27,22 +27,4 @@ export const constraintTypeName: Record<ConstraintType, string> = {
   [ConstraintType.RANGE]: "range",
   [ConstraintType.UNSPECIFIED]: "unspecified",
   [ConstraintType.WHITELIST]: "whitelist",
-};
-
-export const PluginPricingType: Record<FeeType, string> = {
-  [FeeType.FEE_TYPE_UNSPECIFIED]: "unspecified",
-  [FeeType.RECURRING]: "recurring",
-  [FeeType.ONCE]: "once",
-  [FeeType.TRANSACTION]: "per trade",
-};
-
-export const AliasToFeeType: Record<string, FeeType> = {
-  "per-tx": FeeType.TRANSACTION,
-  once: FeeType.ONCE,
-  recurring: FeeType.RECURRING,
-};
-
-export const AliasToFeeTypeText: Record<string, string> = {
-  "per-tx": "per trade",
-  once: "once",
 };

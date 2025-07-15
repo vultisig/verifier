@@ -60,8 +60,9 @@ type PluginPolicySyncRepository interface {
 }
 
 type PricingRepository interface {
-	FindPricingById(ctx context.Context, id uuid.UUID) (*itypes.Pricing, error)
-	CreatePricing(ctx context.Context, pricingDto itypes.PricingCreateDto) (*itypes.Pricing, error)
+	GetPricingByPluginId(ctx context.Context, pluginId types.PluginID) ([]types.Pricing, error)
+	FindPricingById(ctx context.Context, id uuid.UUID) (*types.Pricing, error)
+	CreatePricing(ctx context.Context, pricingDto types.PricingCreateDto) (*types.Pricing, error)
 	DeletePricingById(ctx context.Context, id uuid.UUID) error
 }
 

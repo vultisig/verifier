@@ -18,7 +18,7 @@ export type Plugin = {
   category_id: string;
   tags: Tag[];
   ratings: PluginRatings[];
-  pricing?: PluginPricing[];
+  pricing: PluginPricing[];
 };
 
 export type PluginPricing = {
@@ -26,9 +26,7 @@ export type PluginPricing = {
   type: string;
   created_at: string;
   updated_at: string;
+  frequency: string;
   amount: number;
-  asset:string;
-  frequency?: string;
   metric: string;
-  plugin_id: string;
 };

@@ -4,6 +4,7 @@ import Button from "@/modules/core/components/ui/button/Button";
 import "./recipe_Schema.styles.css";
 import {
   BillingFrequency,
+  FeePolicy,
   FeePolicySchema,
   FeeType,
   PolicySchema,
@@ -13,12 +14,7 @@ import { ScheduleFrequency } from "@/gen/scheduling_pb";
 import { ConstraintSchema, ConstraintType } from "@/gen/constraint_pb";
 import { Effect, RuleSchema } from "@/gen/rule_pb";
 import { create, toBinary } from "@bufbuild/protobuf";
-import {
-  aliasToBillingFrequency,
-  AliasToFeeType,
-  constraintTypeName,
-  frequencyName,
-} from "@/utils/constants";
+import { constraintTypeName, frequencyName } from "@/utils/constants";
 import { ParameterConstraintSchema } from "@/gen/parameter_constraint_pb";
 import { getCurrentVaultId } from "@/storage/currentVaultId";
 import { RecipeSchema } from "@/gen/recipe_specification_pb";
@@ -28,7 +24,6 @@ import { publish } from "@/utils/eventBus";
 import { PluginPolicy } from "../../models/policy";
 import { usePolicies } from "@/modules/policy/context/PolicyProvider";
 import { toProtoTimestamp } from "@/utils/functions";
-import { TimestampSchema } from "@bufbuild/protobuf/wkt";
 
 interface InitialState {
   error?: string;
@@ -58,9 +53,13 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
   const [startDate, setStartDate] = useState(() => {
     const now = new Date();
     now.setSeconds(0, 0);
+    now.setMinutes(0);
+    now.setHours(now.getHours() + 1); // move to next hour
+
     const offset = now.getTimezoneOffset() * 60000;
     const localTime = new Date(now.getTime() - offset);
-    return localTime.toISOString().slice(0, 16);
+
+    return localTime.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:MM"
   });
 
   const [useNextMonthStart, setUseNextMonthStart] = useState(false);
@@ -186,6 +185,50 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
         resource: currentResource.resourcePath?.full,
       });
 
+      let feePolicies: FeePolicy[] = [];
+
+      for (const price of plugin.pricing) {
+        let ft = FeeType.FEE_TYPE_UNSPECIFIED;
+        switch (price.type) {
+          case "once":
+            ft = FeeType.ONCE;
+            break;
+          case "recurring":
+            ft = FeeType.RECURRING;
+            break;
+          case "per-tx":
+            ft = FeeType.TRANSACTION;
+            break;
+        }
+
+        let bf = BillingFrequency.BILLING_FREQUENCY_UNSPECIFIED;
+        switch (price.frequency) {
+          case "daily":
+            bf = BillingFrequency.DAILY;
+            break;
+          case "weekly":
+            bf = BillingFrequency.WEEKLY;
+            break;
+          case "biweekly":
+            bf = BillingFrequency.BIWEEKLY;
+            break;
+          case "monthly":
+            bf = BillingFrequency.MONTHLY;
+            break;
+        }
+
+        const feePolicy = create(FeePolicySchema, {
+          id: uuidv4(),
+          type: ft,
+          frequency: bf,
+          amount: BigInt(price.amount),
+          startDate: toProtoTimestamp(new Date(startDate + ":00")),
+          description: "",
+        });
+
+        feePolicies.push(feePolicy);
+      }
+
       const schedule = () => {
         const schedule = create(ScheduleSchema, {
           frequency,
@@ -195,29 +238,11 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
         });
         return { schedule };
       };
+
       const jsonData = create(PolicySchema, {
         author: "",
         description: "",
-        feePolicies: plugin.pricing
-          ? plugin.pricing.map((pricing) =>
-              create(FeePolicySchema, {
-                $typeName: "types.FeePolicy",
-                amount: BigInt(pricing.amount),
-                description: "",
-                frequency:
-                  AliasToFeeType[pricing.type] === FeeType.RECURRING
-                    ? aliasToBillingFrequency[pricing.frequency!]
-                    : BillingFrequency.BILLING_FREQUENCY_UNSPECIFIED,
-                id: uuidv4(),
-                startDate: create(TimestampSchema, {
-                  ...toProtoTimestamp(new Date(startDate + ":00")),
-                  $typeName: "google.protobuf.Timestamp",
-                }),
-                type:
-                  AliasToFeeType[pricing.type] || FeeType.FEE_TYPE_UNSPECIFIED,
-              })
-            )
-          : [],
+        feePolicies: feePolicies,
         id: schema.pluginId,
         name: schema.pluginName,
         rules: [rule],
@@ -256,6 +281,12 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
           type: "error",
         });
       }
+    } else {
+      setState((prevState) => ({
+        ...prevState,
+        error: "Unable to validate policy",
+        loading: false,
+      }));
     }
   };
 
@@ -407,29 +438,13 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
                   </label>
 
                   {!useNextMonthStart && (
-                    <>
-                      <input
-                        type="datetime-local"
-                        className="form-input"
-                        value={startDate}
-                        onChange={(e) => {
-                          setState((prevState) => ({
-                            ...prevState,
-                            validationErrors: {
-                              ...prevState.validationErrors,
-                              startDate: "",
-                            },
-                          }));
-                          setStartDate(e.target.value);
-                        }}
-                        min={new Date().toISOString().slice(0, 16)}
-                      />
-                      {validationErrors.startDate && (
-                        <div className="error-message">
-                          {validationErrors.startDate}
-                        </div>
-                      )}
-                    </>
+                    <input
+                      type="datetime-local"
+                      className="form-input"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      min={new Date().toISOString().slice(0, 16)}
+                    />
                   )}
                 </div>
 

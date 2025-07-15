@@ -3,7 +3,7 @@ package vault_config
 type Config struct {
 	Relay struct {
 		Server string `mapstructure:"server" json:"server"`
-		// Encrypt MCP plugin<>relay<>verifier.
+		// Encrypt MPC plugin<>relay<>verifier.
 		// Doesn't need to set secret on verifier.worker side, because it gets it alongside with KeysignRequest
 		// by private plugin->verifier API call (put to queue)
 		EncryptionSecret string `mapstructure:"encryption_secret" json:"encryption_secret,omitempty"`

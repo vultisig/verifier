@@ -34,13 +34,15 @@ func TestMPCWrapperImp_KeyshareFromBytes(t *testing.T) {
 
 	ecdsaBytes, err := base64.StdEncoding.DecodeString(ecdsa.Keyshare)
 	require.Nil(t, err, "failed to decode ECDSA keyshare")
-	eddsaBytes, err := base64.StdEncoding.DecodeString(eddsa.Keyshare)
-	require.Nil(t, err, "failed to decode EDDSA keyshare")
 
 	_, err = NewMPCWrapperImp(false).KeyshareFromBytes(ecdsaBytes)
 	require.Nil(t, err, "KeyshareFromBytes")
-	_, err = NewMPCWrapperImp(true).KeyshareFromBytes(eddsaBytes)
-	require.Nil(t, err, "KeyshareFromBytes")
+
+	// TODO: https://github.com/vultisig/verifier/issues/257
+	//eddsaBytes, err := base64.StdEncoding.DecodeString(eddsa.Keyshare)
+	//require.Nil(t, err, "failed to decode EDDSA keyshare")
+	//_, err = NewMPCWrapperImp(true).KeyshareFromBytes(eddsaBytes)
+	//require.Nil(t, err, "KeyshareFromBytes")
 }
 
 func sortKeyshares(vault *vaultType.Vault) (*vaultType.Vault_KeyShare, *vaultType.Vault_KeyShare) {

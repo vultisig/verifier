@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/ed25519"
-	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -100,12 +99,22 @@ func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[strin
 		var publicKey string
 
 		if msg.Chain.IsEdDSA() {
-			publicKey = localStateAccessor.Vault.PublicKeyEcdsa
-		} else {
 			publicKey = localStateAccessor.Vault.PublicKeyEddsa
+		} else {
+			publicKey = localStateAccessor.Vault.PublicKeyEcdsa
 		}
 
-		sig, err := t.keysignWithRetry(req.SessionID, req.HexEncryptionKey, publicKey, msg.Chain.IsEdDSA(), msg.Hash, msg.Chain.GetDerivePath(), localPartyID, partiesJoined)
+		sig, err := t.keysignWithRetry(
+			req.SessionID,
+			req.HexEncryptionKey,
+			publicKey,
+			msg.Chain.IsEdDSA(),
+			msg.Message,
+			msg.Hash,
+			msg.Chain.GetDerivePath(),
+			localPartyID,
+			partiesJoined,
+		)
 		if err != nil {
 			return result, fmt.Errorf("failed to keysign: %w", err)
 		}
@@ -127,7 +136,8 @@ func (t *DKLSTssService) keysignWithRetry(sessionID string,
 	hexEncryptionKey string,
 	publicKey string,
 	isEdDSA bool,
-	message string,
+	messageBody string,
+	messageHash string,
 	derivePath string,
 	localPartyID string,
 	keysignCommittee []string) (*tss.KeysignResponse, error) {
@@ -136,7 +146,8 @@ func (t *DKLSTssService) keysignWithRetry(sessionID string,
 			hexEncryptionKey,
 			publicKey,
 			isEdDSA,
-			message,
+			messageBody,
+			messageHash,
 			derivePath,
 			localPartyID,
 			keysignCommittee, i)
@@ -144,7 +155,8 @@ func (t *DKLSTssService) keysignWithRetry(sessionID string,
 			t.logger.WithFields(logrus.Fields{
 				"session_id":        sessionID,
 				"public_key_ecdsa":  publicKey,
-				"message":           message,
+				"messageBody":       messageBody,
+				"messageHash":       messageHash,
 				"derive_path":       derivePath,
 				"local_party_id":    localPartyID,
 				"keysign_committee": keysignCommittee,
@@ -163,7 +175,8 @@ func (t *DKLSTssService) keysign(sessionID string,
 	hexEncryptionKey string,
 	publicKey string,
 	isEdDSA bool,
-	message string,
+	messageBody string,
+	messageHash string,
 	derivePath string,
 	localPartyID string,
 	keysignCommittee []string,
@@ -171,8 +184,11 @@ func (t *DKLSTssService) keysign(sessionID string,
 	if publicKey == "" {
 		return nil, fmt.Errorf("public key is empty")
 	}
-	if message == "" {
-		return nil, fmt.Errorf("message is empty")
+	if messageBody == "" {
+		return nil, fmt.Errorf("messageBody is empty")
+	}
+	if messageHash == "" {
+		return nil, fmt.Errorf("messageHash is empty")
 	}
 	if derivePath == "" {
 		return nil, fmt.Errorf("derive path is empty")
@@ -189,7 +205,8 @@ func (t *DKLSTssService) keysign(sessionID string,
 	t.logger.WithFields(logrus.Fields{
 		"session_id":        sessionID,
 		"public_key_ecdsa":  publicKey,
-		"message":           message,
+		"messageBody":       messageBody,
+		"messageHash":       messageHash,
 		"derive_path":       derivePath,
 		"local_party_id":    localPartyID,
 		"keysign_committee": keysignCommittee,
@@ -214,34 +231,32 @@ func (t *DKLSTssService) keysign(sessionID string,
 			t.logger.Error("failed to free keyshare", "error", err)
 		}
 	}()
-	md5Hash := md5.Sum([]byte(message))
-	messageID := hex.EncodeToString(md5Hash[:])
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	// retrieve the setup Message
-	encryptedEncodedSetupMsg, err := relayClient.WaitForSetupMessage(ctx, sessionID, messageID)
+	encryptedEncodedSetupMsg, err := relayClient.WaitForSetupMessage(ctx, sessionID, messageHash)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get setup message: %w", err)
+		return nil, fmt.Errorf("failed to get setup messageBody: %w", err)
 	}
 
 	setupMessageBytes, err := t.decodeDecryptMessage(encryptedEncodedSetupMsg, hexEncryptionKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode setup message: %w", err)
+		return nil, fmt.Errorf("failed to decode setup messageBody: %w", err)
 	}
-	messageHashInSetupMsg, err := mpcWrapper.DecodeMessage(setupMessageBytes)
+	messageInSetupMsg, err := mpcWrapper.DecodeMessage(setupMessageBytes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode message: %w", err)
+		return nil, fmt.Errorf("failed to decode messageBody: %w", err)
 	}
-	msgRawBytes, err := hex.DecodeString(message)
+	msgRawBytes, err := hex.DecodeString(messageBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode message: %w", err)
+		return nil, fmt.Errorf("failed to decode messageBody: %w", err)
 	}
-	if !bytes.Equal(messageHashInSetupMsg, msgRawBytes) {
-		return nil, fmt.Errorf("message hash in setup message is not equal to the message, stop keysign")
+	if !bytes.Equal(messageInSetupMsg, msgRawBytes) {
+		return nil, fmt.Errorf("messageInSetupMsg is not equal to the messageBody, stop keysign")
 	}
 	sessionHandle, err := mpcWrapper.SignSessionFromSetup(setupMessageBytes, []byte(localPartyID), keyshareHandle)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create session from setup message: %w", err)
+		return nil, fmt.Errorf("failed to create session from setup messageBody: %w", err)
 	}
 	defer func() {
 		if err := mpcWrapper.SignSessionFree(sessionHandle); err != nil {
@@ -251,11 +266,28 @@ func (t *DKLSTssService) keysign(sessionID string,
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
-		if err := t.processKeysignOutbound(sessionHandle, sessionID, hexEncryptionKey, keysignCommittee, localPartyID, messageID, wg, isEdDSA); err != nil {
+		if err := t.processKeysignOutbound(
+			sessionHandle,
+			sessionID,
+			hexEncryptionKey,
+			keysignCommittee,
+			localPartyID,
+			messageHash,
+			wg,
+			isEdDSA,
+		); err != nil {
 			t.logger.Error("failed to process keygen outbound", "error", err)
 		}
 	}()
-	sig, err := t.processKeysignInbound(sessionHandle, sessionID, hexEncryptionKey, localPartyID, isEdDSA, messageID, wg)
+	sig, err := t.processKeysignInbound(
+		sessionHandle,
+		sessionID,
+		hexEncryptionKey,
+		localPartyID,
+		isEdDSA,
+		messageHash,
+		wg,
+	)
 	wg.Wait()
 	t.logger.Infoln("Keysign result is:", len(sig))
 	rBytes := sig[:32]
@@ -265,7 +297,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 		return nil, fmt.Errorf("failed to get der signature: %w", err)
 	}
 	resp := &tss.KeysignResponse{
-		Msg:          message,
+		Msg:          messageBody,
 		R:            hex.EncodeToString(sig[:32]),
 		S:            hex.EncodeToString(sig[32:64]),
 		DerSignature: hex.EncodeToString(derBytes),

@@ -2,12 +2,13 @@ import PluginCard from "@/modules/plugin/components/plugin-card/PluginCard";
 import "./Marketplace.css";
 import MarketplaceFilters from "../marketplace-filters/MarketplaceFilters";
 import { PluginFilters } from "../marketplace-filters/MarketplaceFilters";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PluginMap, ViewFilter } from "../../models/marketplace";
 import { Category } from "../../models/category";
 import MarketplaceService from "../../services/marketplaceService";
 import Pagination from "@/modules/core/components/ui/pagination/Pagination";
 import { publish } from "@/utils/eventBus";
+import { debounce } from "lodash-es";
 
 const getSavedView = (): string => {
   return localStorage.getItem("view") || "grid";
@@ -21,7 +22,6 @@ const getCategoryName = (categories: Category[], id: string) => {
 };
 
 const ITEMS_PER_PAGE = 6;
-const DEBOUNCE_DELAY = 500;
 
 const Marketplace = () => {
   const [view, setView] = useState<string>(getSavedView());
@@ -35,20 +35,19 @@ const Marketplace = () => {
     sortOrder: "DESC",
   });
   const [categories, setCategories] = useState<Category[]>([]);
+  const [pluginsMap, setPlugins] = useState<PluginMap | null>(null);
 
   const changeView = (view: ViewFilter) => {
     localStorage.setItem("view", view);
     setView(view);
   };
 
-  const [pluginsMap, setPlugins] = useState<PluginMap | null>(null);
-
-  useEffect(() => {
-    const fetchCategories = async (): Promise<void> => {
-      try {
-        const fetchedCategories = await MarketplaceService.getCategories();
+  const fetchCategories = () => {
+    MarketplaceService.getCategories()
+      .then((fetchedCategories) => {
         setCategories(fetchedCategories);
-      } catch (error) {
+      })
+      .catch((error) => {
         if (error instanceof Error) {
           console.error("Failed to get categories:", error.message);
           publish("onToast", {
@@ -56,55 +55,59 @@ const Marketplace = () => {
             type: "error",
           });
         }
-      }
-    };
+      });
+  };
 
-    fetchCategories();
-  }, []);
+  const fetchPlugins = useCallback(
+    debounce((skip: number, filters: PluginFilters) => {
+      MarketplaceService.getPlugins(
+        skip,
+        ITEMS_PER_PAGE,
+        filters.term,
+        filters.categoryId,
+        `${filters.sortOrder === "DESC" ? "-" : ""}${filters.sortBy}`
+      )
+        .then((fetchedPlugins) => {
+          console.log("here fetchedPlugins");
+          console.log(fetchedPlugins);
 
-  useEffect(() => {
-    const fetchPlugins = async (): Promise<void> => {
-      try {
-        const fetchedPlugins = await MarketplaceService.getPlugins();
-        console.log("here fetchedPlugins");
-        console.log(fetchedPlugins);
-        setPlugins(fetchedPlugins);
-        setTotalPages(
-          Math.ceil(
-            fetchedPlugins.total_count
-              ? fetchedPlugins.total_count / ITEMS_PER_PAGE
-              : 1
-          )
-        );
+          setPlugins(fetchedPlugins);
 
-        if (
-          fetchedPlugins &&
-          fetchedPlugins.total_count / ITEMS_PER_PAGE > 1 &&
-          currentPage === 0
-        ) {
-          setCurrentPage(1);
-        }
-      } catch (error) {
-        if (error instanceof Error) {
-          console.error("Failed to get plugins:", error.message);
-          publish("onToast", {
-            type: "error",
-            message: "Failed to get plugins",
-          });
-        }
-      }
-    };
+          setTotalPages(
+            Math.ceil(
+              fetchedPlugins.total_count
+                ? fetchedPlugins.total_count / ITEMS_PER_PAGE
+                : 1
+            )
+          );
 
-    const timeout = setTimeout(() => {
-      fetchPlugins();
-    }, DEBOUNCE_DELAY);
-
-    return () => clearTimeout(timeout);
-  }, [filters, currentPage]);
+          if (!skip) setCurrentPage(1);
+        })
+        .catch((error) => {
+          if (error instanceof Error) {
+            console.error("Failed to get plugins:", error.message);
+            publish("onToast", {
+              type: "error",
+              message: "Failed to get plugins",
+            });
+          }
+        });
+    }, 500),
+    []
+  );
 
   const onCurrentPageChange = (page: number): void => {
     setCurrentPage(page);
   };
+
+  useEffect(() => {
+    console.log("filters", filters);
+    fetchPlugins(0, filters);
+  }, [filters]);
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
 
   return (
     <>

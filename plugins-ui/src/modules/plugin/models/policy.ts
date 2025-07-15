@@ -19,12 +19,6 @@ export type BillingPolicy = {
   amount: number;
 };
 
-export type FeePolicies = {
-  type: string;
-  start_date: string;
-  frequency: string;
-  amount: number;
-};
 export type PluginPolicy = {
   id: string;
   public_key: string;
@@ -32,7 +26,6 @@ export type PluginPolicy = {
   plugin_id: string;
   policy_version: number;
   active: boolean;
-  feePolicies: FeePolicies[];
   signature?: string;
   recipe: string;
 };

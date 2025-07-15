@@ -108,7 +108,7 @@ func (s *Server) GetPlugins(c echo.Context) error {
 	filters := types.PluginFilters{
 		Term:       common.GetQueryParam(c, "term"),
 		TagID:      common.GetUUIDParam(c, "tag_id"),
-		CategoryID: common.GetUUIDParam(c, "category_id"),
+		CategoryID: common.GetQueryParam(c, "category_id"),
 	}
 
 	plugins, err := s.db.FindPlugins(c.Request().Context(), filters, int(take), int(skip), sort)

@@ -243,15 +243,11 @@ func (t *DKLSTssService) keysign(sessionID string,
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode setup messageBody: %w", err)
 	}
-	messageInSetupMsg, err := mpcWrapper.DecodeMessage(setupMessageBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode messageBody: %w", err)
-	}
 	msgRawBytes, err := hex.DecodeString(messageBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode messageBody: %w", err)
 	}
-	if !bytes.Equal(messageInSetupMsg, msgRawBytes) {
+	if !bytes.Equal(setupMessageBytes, msgRawBytes) {
 		return nil, fmt.Errorf("messageInSetupMsg is not equal to the messageBody, stop keysign")
 	}
 	sessionHandle, err := mpcWrapper.SignSessionFromSetup(setupMessageBytes, []byte(localPartyID), keyshareHandle)

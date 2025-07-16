@@ -253,7 +253,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 		return nil, fmt.Errorf("failed to decrypt wireEncryptedB64SetupMsg: %w", err)
 	}
 
-	setupMsgRawBytes, err := io.ReadAll(hex.NewDecoder(bytes.NewReader(hexSetupMsg)))
+	setupMsgRawBytes, err := io.ReadAll(hex.NewDecoder(bytes.NewReader(bytes.TrimPrefix(hexSetupMsg, []byte("0x")))))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode hexSetupMsg: %w", err)
 	}

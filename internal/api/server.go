@@ -32,6 +32,7 @@ import (
 	"github.com/vultisig/verifier/internal/sigutil"
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/storage/postgres"
+	"github.com/vultisig/verifier/internal/syncer"
 	"github.com/vultisig/verifier/internal/tasks"
 	vv "github.com/vultisig/verifier/internal/vultisig_validator"
 	tv "github.com/vultisig/verifier/types"
@@ -71,7 +72,10 @@ func NewServer(
 
 	logger := logrus.WithField("service", "verifier-server").Logger
 
-	policyService, err := service.NewPolicyService(db, asynqClient)
+	// Create syncer for synchronous policy sync
+	syncer := syncer.NewPolicySyncer(db)
+
+	policyService, err := service.NewPolicyService(db, syncer)
 	if err != nil {
 		logrus.Fatalf("Failed to initialize policy service: %v", err)
 	}

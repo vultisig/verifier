@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -258,8 +257,6 @@ func (t *DKLSTssService) keysign(sessionID string,
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode hexSetupMsg: %w", err)
 	}
-	// remove unused slice cap, because rust code has validation
-	setupMsgRawBytes = slices.Clip(setupMsgRawBytes)
 
 	reqMsgRawBytes, err := hex.DecodeString(strings.TrimPrefix(messageBody, "0x"))
 	if err != nil {

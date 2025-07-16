@@ -172,6 +172,10 @@ func (t *DKLSTssService) keysignWithRetry(sessionID string,
 	return nil, fmt.Errorf("fail to keysign after max retry")
 }
 
+func toIdsSlice(ids []string) []byte {
+	return []byte(strings.Join(ids, "\x00"))
+}
+
 func (t *DKLSTssService) keysign(sessionID string,
 	hexEncryptionKey string,
 	publicKey string,
@@ -261,9 +265,20 @@ func (t *DKLSTssService) keysign(sessionID string,
 	if !bytes.Equal(setupMsgRawBytes, reqMsgRawBytes) {
 		return nil, fmt.Errorf("setupMsgRawBytes is not equal to the reqMsgRawBytes, stop keysign")
 	}
-	sessionHandle, err := mpcWrapper.SignSessionFromSetup(setupMsgRawBytes, []byte(localPartyID), keyshareHandle)
+
+	mpcSetupMsg, err := mpcWrapper.SignSetupMsgNew(
+		[]byte(localPartyID),
+		[]byte(derivePath),
+		setupMsgRawBytes,
+		toIdsSlice(keysignCommittee),
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create session from setup messageBody: %w", err)
+		return nil, fmt.Errorf("failed to create SignSetupMsgNew: %w", err)
+	}
+
+	sessionHandle, err := mpcWrapper.SignSessionFromSetup(mpcSetupMsg, []byte(localPartyID), keyshareHandle)
+	if err != nil {
+		return nil, fmt.Errorf("failed to SignSessionFromSetup: %w", err)
 	}
 	defer func() {
 		if err := mpcWrapper.SignSessionFree(sessionHandle); err != nil {
@@ -315,7 +330,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 			return nil, fmt.Errorf("failed to decode public key: %w", err)
 		}
 
-		if ed25519.Verify(pubKeyBytes, setupMsgRawBytes, sig) {
+		if ed25519.Verify(pubKeyBytes, mpcSetupMsg, sig) {
 			t.logger.Infoln("Signature is valid")
 		} else {
 			t.logger.Error("Signature is invalid")
@@ -335,7 +350,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse public key: %w", err)
 		}
-		if ecdsa.Verify(publicKeyECDSA.ToECDSA(), setupMsgRawBytes, new(big.Int).SetBytes(rBytes), new(big.Int).SetBytes(sBytes)) {
+		if ecdsa.Verify(publicKeyECDSA.ToECDSA(), mpcSetupMsg, new(big.Int).SetBytes(rBytes), new(big.Int).SetBytes(sBytes)) {
 			t.logger.Infoln("Signature is valid")
 		} else {
 			t.logger.Error("Signature is invalid")

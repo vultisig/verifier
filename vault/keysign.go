@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"math/big"
 	"strings"
 	"sync"
@@ -239,13 +240,13 @@ func (t *DKLSTssService) keysign(sessionID string,
 		return nil, fmt.Errorf("failed to get setup messageBody: %w", err)
 	}
 
-	encryptedSetupMessage, err := hex.DecodeString(encryptedEncodedSetupMsg)
+	encodedSetupMsg, err := common.DecryptGCM([]byte(encryptedEncodedSetupMsg), hexEncryptionKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode encryptedEncodedSetupMsg: %w", err)
+		return nil, fmt.Errorf("failed to decrypt encryptedEncodedSetupMsg: %w", err)
 	}
-	setupMsgRawBytes, err := common.DecryptGCM(encryptedSetupMessage, hexEncryptionKey)
+	setupMsgRawBytes, err := io.ReadAll(hex.NewDecoder(bytes.NewReader(encodedSetupMsg)))
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt encryptedSetupMessage: %w", err)
+		return nil, fmt.Errorf("failed to decode encodedSetupMsg: %w", err)
 	}
 
 	reqMsgRawBytes, err := hex.DecodeString(messageBody)
@@ -253,7 +254,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 		return nil, fmt.Errorf("failed to decode messageBody: %w", err)
 	}
 	if !bytes.Equal(setupMsgRawBytes, reqMsgRawBytes) {
-		return nil, fmt.Errorf("messageInSetupMsg is not equal to the messageBody, stop keysign")
+		return nil, fmt.Errorf("setupMsgRawBytes is not equal to the reqMsgRawBytes, stop keysign")
 	}
 	sessionHandle, err := mpcWrapper.SignSessionFromSetup(setupMsgRawBytes, []byte(localPartyID), keyshareHandle)
 	if err != nil {

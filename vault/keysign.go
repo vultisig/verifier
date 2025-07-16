@@ -240,10 +240,15 @@ func (t *DKLSTssService) keysign(sessionID string,
 		return nil, fmt.Errorf("failed to get setup messageBody: %w", err)
 	}
 
-	hexSetupMsg, err := t.decodeDecryptMessage(encryptedEncodedSetupMsg, hexEncryptionKey)
+	wireEncryptedB64SetupMsg, err := base64.StdEncoding.DecodeString(encryptedEncodedSetupMsg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode+decrypt encryptedEncodedSetupMsg: %w", err)
+		return nil, fmt.Errorf("failed to decode encryptedEncodedSetupMsg: %w", err)
 	}
+	hexSetupMsg, err := common.DecryptGCM(wireEncryptedB64SetupMsg, hexEncryptionKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt wireEncryptedB64SetupMsg: %w", err)
+	}
+
 	setupMsgRawBytes, err := io.ReadAll(hex.NewDecoder(bytes.NewReader(hexSetupMsg)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode hexSetupMsg: %w", err)

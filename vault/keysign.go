@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"math/big"
 	"slices"
 	"strings"
@@ -253,7 +254,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 		return nil, fmt.Errorf("failed to decrypt wireEncryptedB64SetupMsg: %w", err)
 	}
 
-	setupMsgRawBytes, err := hex.DecodeString(string(bytes.TrimPrefix(hexSetupMsg, []byte("0x"))))
+	setupMsgRawBytes, err := io.ReadAll(hex.NewDecoder(bytes.NewReader(bytes.TrimPrefix(hexSetupMsg, []byte("0x")))))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode hexSetupMsg: %w", err)
 	}
@@ -268,8 +269,13 @@ func (t *DKLSTssService) keysign(sessionID string,
 		return nil, fmt.Errorf("setupMsgRawBytes is not equal to the reqMsgRawBytes, stop keysign")
 	}
 
+	keyshareID, err := mpcWrapper.KeyshareKeyID(keyshareHandle)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get keyshare ID: %w", err)
+	}
+
 	mpcSetupMsg, err := mpcWrapper.SignSetupMsgNew(
-		[]byte(localPartyID),
+		keyshareID,
 		[]byte(derivePath),
 		setupMsgRawBytes,
 		toIdsSlice(keysignCommittee),

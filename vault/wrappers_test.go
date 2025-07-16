@@ -2,6 +2,7 @@ package vault
 
 import (
 	"encoding/base64"
+	"fmt"
 	"os"
 	"testing"
 
@@ -10,23 +11,34 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+//
+//func TestMPCWrapperImp_SignSetupMsgNew(t *testing.T) {
+//	vault, err := unpackKeyshare("testdata/vault_unencrypted.vult")
+//	require.Nil(t, err, "unpackKeyshare")
+//
+//	ecdsa, _ := sortKeyshares(vault)
+//	ecdsaBytes, err := base64.StdEncoding.DecodeString(ecdsa.Keyshare)
+//	require.Nil(t, err, "failed to decode ECDSA keyshare")
+//
+//	mpc := NewMPCWrapperImp(false)
+//
+//	keyshare, err := mpc.KeyshareFromBytes(ecdsaBytes)
+//	require.Nil(t, err, "KeyshareFromBytes")
+//
+//	setupMsg, err := mpc.SignSetupMsgNew(
+//		keyshare,
+//		[]byte("m/44'/60'/0'/0/0"),
+//		make([]byte, 32),
+//		toIdsSlice([]string{
+//			""
+//		}),
+//		)
+//	require.Nil(t, err, "SignSetupMsgNew")
+//}
+
 func TestMPCWrapperImp_KeyshareFromBytes(t *testing.T) {
-	dataB64, err := os.ReadFile("testdata/vault_unencrypted.vult")
-	require.Nil(t, err, "failed to read keyshare file")
-
-	containerBytes, err := base64.StdEncoding.DecodeString(string(dataB64))
-	require.Nil(t, err, "failed to decode base64 container")
-
-	container := &vaultType.VaultContainer{}
-	err = proto.Unmarshal(containerBytes, container)
-	require.Nil(t, err, "failed to unmarshal container")
-
-	vaultBytes, err := base64.StdEncoding.DecodeString(container.Vault)
-	require.Nil(t, err, "failed to decode base64 vault")
-
-	vault := &vaultType.Vault{}
-	err = proto.Unmarshal(vaultBytes, vault)
-	require.Nil(t, err, "failed to unmarshal vault")
+	vault, err := unpackKeyshare("testdata/vault_unencrypted.vult")
+	require.Nil(t, err, "unpackKeyshare")
 
 	ecdsa, eddsa := sortKeyshares(vault)
 	require.NotNil(t, ecdsa, "ECDSA keyshare should not be nil")
@@ -43,6 +55,36 @@ func TestMPCWrapperImp_KeyshareFromBytes(t *testing.T) {
 	//require.Nil(t, err, "failed to decode EDDSA keyshare")
 	//_, err = NewMPCWrapperImp(true).KeyshareFromBytes(eddsaBytes)
 	//require.Nil(t, err, "KeyshareFromBytes")
+}
+
+func unpackKeyshare(path string) (*vaultType.Vault, error) {
+	dataB64, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("os.ReadFile: %w", err)
+	}
+
+	containerBytes, err := base64.StdEncoding.DecodeString(string(dataB64))
+	if err != nil {
+		return nil, fmt.Errorf("base64.StdEncoding.DecodeString: %w", err)
+	}
+
+	container := &vaultType.VaultContainer{}
+	err = proto.Unmarshal(containerBytes, container)
+	if err != nil {
+		return nil, fmt.Errorf("proto.Unmarshal: %w", err)
+	}
+
+	vaultBytes, err := base64.StdEncoding.DecodeString(container.Vault)
+	if err != nil {
+		return nil, fmt.Errorf("base64.StdEncoding.DecodeString: %w", err)
+	}
+
+	vault := &vaultType.Vault{}
+	err = proto.Unmarshal(vaultBytes, vault)
+	if err != nil {
+		return nil, fmt.Errorf("proto.Unmarshal: %w", err)
+	}
+	return vault, nil
 }
 
 func sortKeyshares(vault *vaultType.Vault) (*vaultType.Vault_KeyShare, *vaultType.Vault_KeyShare) {

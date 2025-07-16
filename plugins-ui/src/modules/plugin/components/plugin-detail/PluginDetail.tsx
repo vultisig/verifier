@@ -15,6 +15,7 @@ import { useWallet } from "@/modules/shared/wallet/WalletProvider";
 import PolicyTable from "../../../policy/policy-table/PolicyTable";
 import Modal from "@/modules/core/components/ui/modal/Modal";
 
+
 const PluginDetail = () => {
     const navigate = useNavigate();
     const [plugin, setPlugin] = useState<Plugin | null>(null);

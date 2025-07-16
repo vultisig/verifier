@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/vultiserver/contexthelper"
 
@@ -26,9 +25,7 @@ const (
 	policyEndpoint = "/plugin/policy"
 
 	// Retry configuration
-	maxRetries        = 3
-	QUEUE_NAME        = "policy-syncer"
-	TaskKeySyncPolicy = "sync_policy"
+	maxRetries = 3
 )
 
 type Action int
@@ -39,18 +36,15 @@ const (
 )
 
 type Syncer struct {
-	logger      *logrus.Logger
-	client      *retryablehttp.Client
-	storage     storage.DatabaseStorage
-	asynqClient *asynq.Client
+	logger  *logrus.Logger
+	client  *retryablehttp.Client
+	storage storage.DatabaseStorage
 
 	cacheLocker              sync.Locker
 	pluginServerAddressCache map[ptypes.PluginID]string
-	wg                       *sync.WaitGroup
-	stopCh                   chan struct{}
 }
 
-func NewPolicySyncer(storage storage.DatabaseStorage, client *asynq.Client) *Syncer {
+func NewPolicySyncer(storage storage.DatabaseStorage) *Syncer {
 	logger := logrus.WithField("component", "policy-syncer").Logger
 	retryClient := retryablehttp.NewClient()
 	retryClient.HTTPClient.Timeout = defaultTimeout
@@ -60,83 +54,9 @@ func NewPolicySyncer(storage storage.DatabaseStorage, client *asynq.Client) *Syn
 		logger:                   logger,
 		client:                   retryClient,
 		storage:                  storage,
-		asynqClient:              client,
 		pluginServerAddressCache: make(map[ptypes.PluginID]string),
 		cacheLocker:              &sync.Mutex{},
-		wg:                       &sync.WaitGroup{},
-		stopCh:                   make(chan struct{}),
 	}
-}
-
-func (s *Syncer) Start() error {
-	s.wg.Add(1)
-	go s.processFailedTasks()
-	return nil
-}
-
-func (s *Syncer) processFailedTasks() {
-	defer s.wg.Done()
-	s.logger.Info("starting processing failed tasks")
-	for {
-		select {
-		case <-s.stopCh:
-			return
-		case <-time.After(30 * time.Minute):
-			syncTasks, err := s.storage.GetUnFinishedPluginPolicySyncs(context.Background())
-			if err != nil {
-				s.logger.WithError(err).Error("failed to get unfinished plugin policy syncs")
-				continue
-			}
-			for _, syncTask := range syncTasks {
-				payload, err := json.Marshal(syncTask)
-				if err != nil {
-					s.logger.Errorf("failed to marshal sync task: %v", err)
-					continue
-				}
-				ti, err := s.asynqClient.Enqueue(
-					asynq.NewTask(TaskKeySyncPolicy, payload),
-					asynq.Queue(QUEUE_NAME),
-					asynq.MaxRetry(3),
-				)
-				if err != nil {
-					s.logger.Errorf("failed to enqueue task: %v", err)
-					continue
-				}
-				s.logger.WithField("task_id", ti.ID).Info("enqueued sync policy task")
-			}
-		}
-	}
-
-}
-
-func (s *Syncer) Stop() error {
-	close(s.stopCh)
-	s.wg.Wait()
-	return nil
-}
-
-func (s *Syncer) ProcessSyncTask(ctx context.Context, task *asynq.Task) error {
-	if err := contexthelper.CheckCancellation(ctx); err != nil {
-		return err
-	}
-	var req itypes.PluginPolicySync
-	if err := json.Unmarshal(task.Payload(), &req); err != nil {
-		s.logger.Errorf("failed to unmarshal payload: %v", err)
-		return fmt.Errorf("failed to unmarshal task payload: %s: %w", err, asynq.SkipRetry)
-	}
-	switch req.SyncType {
-	case itypes.AddPolicy, itypes.UpdatePolicy:
-		if err := s.createPolicySync(ctx, req); err != nil {
-			s.logger.Errorf("failed to create policy sync: %v", err)
-			return fmt.Errorf("failed to create policy sync: %w", err)
-		}
-	case itypes.RemovePolicy:
-		if err := s.DeletePolicySync(ctx, req); err != nil {
-			s.logger.Errorf("failed to delete policy sync: %v", err)
-			return fmt.Errorf("failed to delete policy sync: %w", err)
-		}
-	}
-	return nil
 }
 
 func (s *Syncer) getServerAddr(ctx context.Context, pluginID ptypes.PluginID) (string, error) {
@@ -167,7 +87,7 @@ func (s *Syncer) getServerAddrFromStorage(ctx context.Context, pluginID ptypes.P
 	return plugin.ServerEndpoint, nil
 }
 
-func (s *Syncer) createPolicySync(ctx context.Context, policySyncEntity itypes.PluginPolicySync) error {
+func (s *Syncer) CreatePolicySync(ctx context.Context, policySyncEntity itypes.PluginPolicySync) error {
 	s.logger.WithFields(logrus.Fields{
 		"policy_id": policySyncEntity.PolicyID,
 		"sync_id":   policySyncEntity.ID,
@@ -179,17 +99,16 @@ func (s *Syncer) createPolicySync(ctx context.Context, policySyncEntity itypes.P
 
 	policyBytes, err := json.Marshal(policy)
 	if err != nil {
-		return fmt.Errorf("fail to marshal policy: %v,err: %w", err, asynq.SkipRetry)
+		return fmt.Errorf("fail to marshal policy: %v", err)
 	}
-	defer func() {
-		if err := s.updatePolicySyncStatus(ctx, policySyncEntity); err != nil {
-			s.logger.Errorf("failed to update policy sync status: %v", err)
-		}
-	}()
 	serverEndpoint, err := s.getServerAddr(ctx, policySyncEntity.PluginID)
 	if err != nil {
 		policySyncEntity.Status = itypes.Failed
 		policySyncEntity.FailReason = fmt.Sprintf("failed to get server address: %s", err)
+		// Update status in database before returning error
+		if updateErr := s.updatePolicySyncStatus(ctx, policySyncEntity); updateErr != nil {
+			s.logger.Errorf("failed to update policy sync status: %v", updateErr)
+		}
 		return fmt.Errorf("failed to get server address: %w", err)
 	}
 
@@ -198,6 +117,10 @@ func (s *Syncer) createPolicySync(ctx context.Context, policySyncEntity itypes.P
 	if err != nil {
 		policySyncEntity.Status = itypes.Failed
 		policySyncEntity.FailReason = fmt.Sprintf("failed to sync policy with plugin server(%s): %s", url, err.Error())
+		// Update status in database before returning error
+		if updateErr := s.updatePolicySyncStatus(ctx, policySyncEntity); updateErr != nil {
+			s.logger.Errorf("failed to update policy sync status: %v", updateErr)
+		}
 		return fmt.Errorf("fail to sync policy with verifier server: %w", err)
 	}
 	defer s.closer(resp.Body)
@@ -205,6 +128,10 @@ func (s *Syncer) createPolicySync(ctx context.Context, policySyncEntity itypes.P
 	if err != nil {
 		policySyncEntity.Status = itypes.Failed
 		policySyncEntity.FailReason = fmt.Sprintf("failed to sync policy with plugin server(%s): %s", url, err.Error())
+		// Update status in database before returning error
+		if updateErr := s.updatePolicySyncStatus(ctx, policySyncEntity); updateErr != nil {
+			s.logger.Errorf("failed to update policy sync status: %v", updateErr)
+		}
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
 
@@ -217,16 +144,28 @@ func (s *Syncer) createPolicySync(ctx context.Context, policySyncEntity itypes.P
 		policySyncEntity.Status = itypes.Failed
 		policySyncEntity.FailReason = fmt.Sprintf("failed to sync policy with plugin server(%s): status: %d, body: %s", url, resp.StatusCode, string(body))
 
+		// Update status in database before returning error
+		if updateErr := s.updatePolicySyncStatus(ctx, policySyncEntity); updateErr != nil {
+			s.logger.Errorf("failed to update policy sync status: %v", updateErr)
+		}
+
 		return fmt.Errorf("fail to sync policy with verifier server: status: %d", resp.StatusCode)
 	}
+
+	// Success case
 	policySyncEntity.Status = itypes.Synced
+	policySyncEntity.FailReason = ""
+
+	// Update status in database
+	if err := s.updatePolicySyncStatus(ctx, policySyncEntity); err != nil {
+		s.logger.Errorf("failed to update policy sync status: %v", err)
+	}
 
 	s.logger.WithFields(logrus.Fields{
 		"policy_id": policy.ID,
 	}).Info("sync successfully")
 
 	return nil
-
 }
 func (s *Syncer) updatePolicySyncStatus(ctx context.Context, policySyncEntity itypes.PluginPolicySync) (returnErr error) {
 	// update plugin policy sync status
@@ -266,17 +205,23 @@ func (s *Syncer) DeletePolicySync(ctx context.Context, syncEntity itypes.PluginP
 	}
 	reqBodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
-		return fmt.Errorf("fail to marshal request body: %v,err: %w", err, asynq.SkipRetry)
-	}
-	defer func() {
-		if err := s.updatePolicySyncStatus(ctx, syncEntity); err != nil {
-			s.logger.Errorf("failed to update policy sync status: %v", err)
+		syncEntity.Status = itypes.Failed
+		syncEntity.FailReason = fmt.Sprintf("failed to marshal request body: %v", err)
+		// Update status in database before returning error
+		if updateErr := s.updatePolicySyncStatus(ctx, syncEntity); updateErr != nil {
+			s.logger.Errorf("failed to update policy sync status: %v", updateErr)
 		}
-	}()
+		return fmt.Errorf("fail to marshal request body: %v", err)
+	}
+
 	serverEndpoint, err := s.getServerAddr(ctx, syncEntity.PluginID)
 	if err != nil {
 		syncEntity.Status = itypes.Failed
 		syncEntity.FailReason = fmt.Sprintf("failed to get server address: %s", err)
+		// Update status in database before returning error
+		if updateErr := s.updatePolicySyncStatus(ctx, syncEntity); updateErr != nil {
+			s.logger.Errorf("failed to update policy sync status: %v", updateErr)
+		}
 		return fmt.Errorf("failed to get server address: %w", err)
 	}
 
@@ -285,6 +230,10 @@ func (s *Syncer) DeletePolicySync(ctx context.Context, syncEntity itypes.PluginP
 	if err != nil {
 		syncEntity.Status = itypes.Failed
 		syncEntity.FailReason = fmt.Sprintf("failed to create request: %s", err)
+		// Update status in database before returning error
+		if updateErr := s.updatePolicySyncStatus(ctx, syncEntity); updateErr != nil {
+			s.logger.Errorf("failed to update policy sync status: %v", updateErr)
+		}
 		return fmt.Errorf("fail to create request, err: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -293,6 +242,10 @@ func (s *Syncer) DeletePolicySync(ctx context.Context, syncEntity itypes.PluginP
 	if err != nil {
 		syncEntity.Status = itypes.Failed
 		syncEntity.FailReason = fmt.Sprintf("failed to delete policy with plugin server(%s): %s", url, err.Error())
+		// Update status in database before returning error
+		if updateErr := s.updatePolicySyncStatus(ctx, syncEntity); updateErr != nil {
+			s.logger.Errorf("failed to update policy sync status: %v", updateErr)
+		}
 		return fmt.Errorf("fail to delete policy on verifier server, err: %w", err)
 	}
 	defer s.closer(resp.Body)
@@ -300,6 +253,10 @@ func (s *Syncer) DeletePolicySync(ctx context.Context, syncEntity itypes.PluginP
 	if err != nil {
 		syncEntity.Status = itypes.Failed
 		syncEntity.FailReason = fmt.Sprintf("failed to read response body: %s", err)
+		// Update status in database before returning error
+		if updateErr := s.updatePolicySyncStatus(ctx, syncEntity); updateErr != nil {
+			s.logger.Errorf("failed to update policy sync status: %v", updateErr)
+		}
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
 
@@ -311,15 +268,27 @@ func (s *Syncer) DeletePolicySync(ctx context.Context, syncEntity itypes.PluginP
 		}).Error("Failed to sync delete policy")
 		syncEntity.Status = itypes.Failed
 		syncEntity.FailReason = fmt.Sprintf("failed to sync delete policy with plugin server(%s): status: %d, body: %s", url, resp.StatusCode, string(body))
+
+		// Update status in database before returning error
+		if updateErr := s.updatePolicySyncStatus(ctx, syncEntity); updateErr != nil {
+			s.logger.Errorf("failed to update policy sync status: %v", updateErr)
+		}
+
 		return fmt.Errorf("fail to delete policy on verifier server, status: %d", resp.StatusCode)
 	}
+
+	// Success case
 	syncEntity.Status = itypes.Synced
 	syncEntity.FailReason = ""
+
+	// Update status in database
+	if err := s.updatePolicySyncStatus(ctx, syncEntity); err != nil {
+		s.logger.Errorf("failed to update policy sync status: %v", err)
+	}
 
 	s.logger.WithFields(logrus.Fields{
 		"policy_id": syncEntity.PolicyID,
 	}).Info("Successfully sync deleted policy")
 
 	return nil
-
 }

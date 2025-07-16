@@ -2,12 +2,10 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
 
@@ -31,36 +29,18 @@ var _ Policy = (*PolicyService)(nil)
 type PolicyService struct {
 	db     storage.DatabaseStorage
 	logger *logrus.Logger
-	client *asynq.Client
+	syncer *syncer.Syncer
 }
 
-func NewPolicyService(db storage.DatabaseStorage,
-	client *asynq.Client) (*PolicyService, error) {
+func NewPolicyService(db storage.DatabaseStorage, syncer *syncer.Syncer) (*PolicyService, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database storage cannot be nil")
 	}
 	return &PolicyService{
 		db:     db,
 		logger: logrus.WithField("service", "policy").Logger,
-		client: client,
+		syncer: syncer,
 	}, nil
-}
-
-func (s *PolicyService) syncPolicy(syncEntity itypes.PluginPolicySync) error {
-	syncEntityJSON, err := json.Marshal(syncEntity)
-	if err != nil {
-		return fmt.Errorf("failed to marshal sync entity: %w", err)
-	}
-	ti, err := s.client.Enqueue(
-		asynq.NewTask(syncer.TaskKeySyncPolicy, syncEntityJSON),
-		asynq.Queue(syncer.QUEUE_NAME),
-		asynq.MaxRetry(3),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to enqueue task: %w", err)
-	}
-	s.logger.WithField("task_id", ti.ID).Info("enqueued sync policy task")
-	return nil
 }
 
 // This loops through the billing policies and checks if the pricing is valid for the billing policy.
@@ -195,11 +175,10 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	// Sync policy after successful commit
-	if err := s.syncPolicy(policySync); err != nil {
-		s.logger.WithError(err).Error("failed to enqueue sync policy task")
-		// Note: We don't return error here as the policy was successfully created
-		// The sync can be retried later through the failed task processor
+	// Sync policy synchronously - if this fails, the entire operation fails
+	if err := s.syncer.CreatePolicySync(ctx, policySync); err != nil {
+		s.logger.WithError(err).Error("failed to sync policy with plugin server")
+		return nil, fmt.Errorf("failed to sync policy with plugin server: %w", err)
 	}
 
 	return newPolicy, nil
@@ -236,11 +215,10 @@ func (s *PolicyService) UpdatePolicy(ctx context.Context, policy types.PluginPol
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	// Sync policy after successful commit
-	if err := s.syncPolicy(syncPolicyEntity); err != nil {
-		s.logger.WithError(err).Error("failed to enqueue sync policy task")
-		// Note: We don't return error here as the policy was successfully updated
-		// The sync can be retried later through the failed task processor
+	// Sync policy synchronously - if this fails, the entire operation fails
+	if err := s.syncer.CreatePolicySync(ctx, syncPolicyEntity); err != nil {
+		s.logger.WithError(err).Error("failed to sync policy with plugin server")
+		return nil, fmt.Errorf("failed to sync policy with plugin server: %w", err)
 	}
 	return updatedPolicy, nil
 }
@@ -281,11 +259,10 @@ func (s *PolicyService) DeletePolicy(ctx context.Context, policyID uuid.UUID, pl
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	// Sync policy after successful commit
-	if err := s.syncPolicy(syncPolicyEntity); err != nil {
-		s.logger.WithError(err).Error("failed to enqueue sync policy task")
-		// Note: We don't return error here as the policy was successfully deleted
-		// The sync can be retried later through the failed task processor
+	// Sync policy synchronously - if this fails, the entire operation fails
+	if err := s.syncer.DeletePolicySync(ctx, syncPolicyEntity); err != nil {
+		s.logger.WithError(err).Error("failed to sync policy deletion with plugin server")
+		return fmt.Errorf("failed to sync policy deletion with plugin server: %w", err)
 	}
 
 	return nil

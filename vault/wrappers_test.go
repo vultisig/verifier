@@ -89,7 +89,7 @@ func TestMPCWrapperImp_SignSessionFromSetup(t *testing.T) {
 	)
 	require.Nil(t, err, "SignSetupMsgNew")
 
-	_, err = mpc.SignSessionFromSetup(setupMsg, id, keyshare)
+	_, err = mpc.SignSessionFromSetup(setupMsg, []byte("verifier-1"), keyshare)
 	require.Nil(t, err, "SignSessionFromSetup")
 }
 

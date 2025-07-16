@@ -281,7 +281,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 		return nil, fmt.Errorf("failed to create SignSetupMsgNew: %w", err)
 	}
 
-	sessionHandle, err := mpcWrapper.SignSessionFromSetup(mpcSetupMsg, keyshareID, keyshareHandle)
+	sessionHandle, err := mpcWrapper.SignSessionFromSetup(mpcSetupMsg, []byte(localPartyID), keyshareHandle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to SignSessionFromSetup: %w", err)
 	}

@@ -11,37 +11,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestMPCWrapperImp_SignSessionFromSetup(t *testing.T) {
-	vault, err := unpackKeyshare("testdata/vault_unencrypted.vult")
-	require.Nil(t, err, "unpackKeyshare")
-
-	ecdsa, _ := sortKeyshares(vault)
-	ecdsaBytes, err := base64.StdEncoding.DecodeString(ecdsa.Keyshare)
-	require.Nil(t, err, "failed to decode ECDSA keyshare")
-
-	mpc := NewMPCWrapperImp(false)
-
-	keyshare, err := mpc.KeyshareFromBytes(ecdsaBytes)
-	require.Nil(t, err, "KeyshareFromBytes")
-
-	id, err := mpc.KeyshareKeyID(keyshare)
-	require.Nil(t, err, "KeyshareKeyID")
-
-	setupMsg, err := mpc.SignSetupMsgNew(
-		id,
-		[]byte("m/44'/60'/0'/0/0"),
-		make([]byte, 32),
-		toIdsSlice([]string{
-			"verifier-1",
-			"payroll-plugin-0000-1",
-		}),
-	)
-	require.Nil(t, err, "SignSetupMsgNew")
-
-	_, err = mpc.SignSessionFromSetup(setupMsg, id, keyshare)
-	require.Nil(t, err, "SignSessionFromSetup")
-}
-
 func TestMPCWrapperImp_KeyshareFromBytes(t *testing.T) {
 	vault, err := unpackKeyshare("testdata/vault_unencrypted.vult")
 	require.Nil(t, err, "unpackKeyshare")
@@ -91,6 +60,37 @@ func unpackKeyshare(path string) (*vaultType.Vault, error) {
 		return nil, fmt.Errorf("proto.Unmarshal: %w", err)
 	}
 	return vault, nil
+}
+
+func TestMPCWrapperImp_SignSessionFromSetup(t *testing.T) {
+	vault, err := unpackKeyshare("testdata/vault_unencrypted.vult")
+	require.Nil(t, err, "unpackKeyshare")
+
+	ecdsa, _ := sortKeyshares(vault)
+	ecdsaBytes, err := base64.StdEncoding.DecodeString(ecdsa.Keyshare)
+	require.Nil(t, err, "failed to decode ECDSA keyshare")
+
+	mpc := NewMPCWrapperImp(false)
+
+	keyshare, err := mpc.KeyshareFromBytes(ecdsaBytes)
+	require.Nil(t, err, "KeyshareFromBytes")
+
+	id, err := mpc.KeyshareKeyID(keyshare)
+	require.Nil(t, err, "KeyshareKeyID")
+
+	setupMsg, err := mpc.SignSetupMsgNew(
+		id,
+		[]byte("m/44'/60'/0'/0/0"),
+		make([]byte, 32),
+		toIdsSlice([]string{
+			"verifier-1",
+			"payroll-plugin-0000-1",
+		}),
+	)
+	require.Nil(t, err, "SignSetupMsgNew")
+
+	_, err = mpc.SignSessionFromSetup(setupMsg, id, keyshare)
+	require.Nil(t, err, "SignSessionFromSetup")
 }
 
 func sortKeyshares(vault *vaultType.Vault) (*vaultType.Vault_KeyShare, *vaultType.Vault_KeyShare) {

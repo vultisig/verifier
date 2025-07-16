@@ -258,7 +258,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 		return nil, fmt.Errorf("failed to decode hexSetupMsg: %w", err)
 	}
 
-	reqMsgRawBytes, err := hex.DecodeString(messageBody)
+	reqMsgRawBytes, err := hex.DecodeString(strings.TrimPrefix(messageBody, "0x"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode messageBody: %w", err)
 	}

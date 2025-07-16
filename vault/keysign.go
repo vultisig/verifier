@@ -239,18 +239,23 @@ func (t *DKLSTssService) keysign(sessionID string,
 		return nil, fmt.Errorf("failed to get setup messageBody: %w", err)
 	}
 
-	setupMessageBytes, err := t.decodeDecryptMessage(encryptedEncodedSetupMsg, hexEncryptionKey)
+	encryptedSetupMessage, err := hex.DecodeString(encryptedEncodedSetupMsg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode setup messageBody: %w", err)
+		return nil, fmt.Errorf("failed to decode encryptedEncodedSetupMsg: %w", err)
 	}
-	msgRawBytes, err := hex.DecodeString(messageBody)
+	setupMsgRawBytes, err := common.DecryptGCM(encryptedSetupMessage, hexEncryptionKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt encryptedSetupMessage: %w", err)
+	}
+
+	reqMsgRawBytes, err := hex.DecodeString(messageBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode messageBody: %w", err)
 	}
-	if !bytes.Equal(setupMessageBytes, msgRawBytes) {
+	if !bytes.Equal(setupMsgRawBytes, reqMsgRawBytes) {
 		return nil, fmt.Errorf("messageInSetupMsg is not equal to the messageBody, stop keysign")
 	}
-	sessionHandle, err := mpcWrapper.SignSessionFromSetup(setupMessageBytes, []byte(localPartyID), keyshareHandle)
+	sessionHandle, err := mpcWrapper.SignSessionFromSetup(setupMsgRawBytes, []byte(localPartyID), keyshareHandle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create session from setup messageBody: %w", err)
 	}
@@ -304,7 +309,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 			return nil, fmt.Errorf("failed to decode public key: %w", err)
 		}
 
-		if ed25519.Verify(pubKeyBytes, msgRawBytes, sig) {
+		if ed25519.Verify(pubKeyBytes, setupMsgRawBytes, sig) {
 			t.logger.Infoln("Signature is valid")
 		} else {
 			t.logger.Error("Signature is invalid")
@@ -324,7 +329,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse public key: %w", err)
 		}
-		if ecdsa.Verify(publicKeyECDSA.ToECDSA(), msgRawBytes, new(big.Int).SetBytes(rBytes), new(big.Int).SetBytes(sBytes)) {
+		if ecdsa.Verify(publicKeyECDSA.ToECDSA(), setupMsgRawBytes, new(big.Int).SetBytes(rBytes), new(big.Int).SetBytes(sBytes)) {
 			t.logger.Infoln("Signature is valid")
 		} else {
 			t.logger.Error("Signature is invalid")

@@ -127,15 +127,17 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
       }
     });
 
-    if (schedulingEnabled && frequency === undefined) {
-      validationErrors.frequency =
-        "Please select a frequency for scheduled execution";
-    }
-    // Validate start date is in the future
-    if (!useNextMonthStart && new Date(startDate) <= new Date()) {
-      validationErrors.startDate = "Start date must be in the future";
-    }
-    setState((prevState) => ({ ...prevState, validationErrors }));
+        if (schedulingEnabled && frequency === undefined) {
+            validationErrors.frequency = "Please select a frequency for scheduled execution";
+        }
+
+        if (schedulingEnabled){
+          // Validate start date is in the future
+          if (!useNextMonthStart && new Date(startDate) <= new Date()) {
+              validationErrors.startDate = "Start date must be in the future";
+          }
+        }
+        setState((prevState) => ({ ...prevState, validationErrors }));
 
     return Object.keys(validationErrors).length === 0;
   };
@@ -159,7 +161,7 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
     if (!canSubmit) return;
     if (currentResource && schema && formValidation()) {
       const parameterConstraints = currentResource.parameterCapabilities.map(
-        ({ parameterName, required }) => {
+        ({ parameterName, required, supportedTypes }) => {
           const constraint = create(ConstraintSchema, {
             denominatedIn:
               currentResource.resourcePath?.chainId.toLowerCase() === "ethereum"
@@ -167,7 +169,7 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
                 : "",
             period: "",
             required,
-            type: ConstraintType.FIXED,
+            type: supportedTypes[0],
             value: { case: "fixedValue", value: formData[parameterName] },
           });
 
@@ -191,19 +193,20 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
 
       let feePolicies: FeePolicy[] = [];
 
-      for (const price of plugin.pricing) {
-        let ft = FeeType.FEE_TYPE_UNSPECIFIED;
-        switch (price.type) {
-          case "once":
-            ft = FeeType.ONCE;
-            break;
-          case "recurring":
-            ft = FeeType.RECURRING;
-            break;
-          case "per-tx":
-            ft = FeeType.TRANSACTION;
-            break;
-        }
+            if ((plugin?.pricing?.length || 0) > 0){
+            for (const price of plugin.pricing) {
+              let ft = FeeType.FEE_TYPE_UNSPECIFIED;
+              switch (price.type) {
+                case "once":
+                  ft = FeeType.ONCE;
+                  break;
+                case "recurring":
+                  ft = FeeType.RECURRING;
+                  break;
+                case "per-tx":
+                  ft = FeeType.TRANSACTION;
+                  break;
+              }
 
         let bf = BillingFrequency.BILLING_FREQUENCY_UNSPECIFIED;
         switch (price.frequency) {
@@ -230,8 +233,9 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
           description: "",
         });
 
-        feePolicies.push(feePolicy);
-      }
+              feePolicies.push(feePolicy);
+            }
+          }
 
       const schedule = () => {
         const schedule = create(ScheduleSchema, {
@@ -465,147 +469,106 @@ const RecipeSchemaForm: React.FC<RecipeSchemaProps> = ({ plugin, onClose }) => {
                     </div>
                   ))}
                 </div>
-                <h4>Scheduling</h4>
-                <div className="form-group">
-                  <label className="form-label">
-                    Start Date <span className="required">*</span>
-                  </label>
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={useNextMonthStart}
-                      onChange={(e) => setUseNextMonthStart(e.target.checked)}
-                    />
-                    Start from the beginning of next month
-                  </label>
-
-                  {!useNextMonthStart && (
-                    <>
+                {schema?.scheduling?.supportsScheduling && (
+                <>
+                  <h4>Scheduling</h4>
+                  <div className="form-group">
+                    <label className="form-label">
+                      Start Date <span className="required">*</span>
+                    </label>
+                    <label className="checkbox-label">
                       <input
-                        type="datetime-local"
-                        className="form-input"
-                        value={startDate}
-                        onChange={(e) => {
-                          setState((prevState) => ({
-                            ...prevState,
-                            validationErrors: {
-                              ...prevState.validationErrors,
-                              startDate:
-                                new Date(e.target.value) <= new Date()
-                                  ? "Start date must be in the future"
-                                  : "",
-                            },
-                          }));
-                          setStartDate(e.target.value);
-                        }}
-                        min={new Date().toISOString().slice(0, 16)}
+                        type="checkbox"
+                        checked={useNextMonthStart}
+                        onChange={(e) => setUseNextMonthStart(e.target.checked)}
                       />
-                      {validationErrors.startDate && (
-                        <div className="error-message">
-                          {validationErrors.startDate}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                {/* Scheduling */}
-                {schema.scheduling?.supportsScheduling && (
-                  <div className="scheduling-section">
-                    <div className="form-group">
-                      <label className="checkbox-label">
+                      Start from the beginning of next month
+                    </label>
+                    {!useNextMonthStart && (
                         <input
-                          type="checkbox"
-                          checked={schedulingEnabled}
-                          onChange={(e) =>
-                            setState((prevState) => ({
-                              ...prevState,
-                              schedulingEnabled: e.target.checked,
-                            }))
-                          }
+                            type="datetime-local"
+                            className="form-input"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            min={new Date().toISOString().slice(0, 16)}
                         />
-                        Enable scheduled execution
-                      </label>
-                    </div>
-
-                    {schedulingEnabled && (
-                      <div className="form-group">
-                        <label className="form-label">
-                          Frequency <span className="required">*</span>
-                        </label>
-                        <select
-                          className={`form-select ${validationErrors.frequency ? "error" : ""}`}
-                          value={frequency || ""}
-                          onChange={(e) =>
-                            setState((prevState) => ({
-                              ...prevState,
-                              frequency: Number(e.target.value),
-                            }))
-                          }
-                        >
-                          <option value="">Select frequency...</option>
-                          {schema.scheduling.supportedFrequencies.map(
-                            (freq) => (
-                              <option key={freq} value={freq}>
-                                {frequencyName[freq]}
-                              </option>
-                            )
-                          )}
-                        </select>
-                        <div className="input-help">
-                          Max {schema.scheduling.maxScheduledExecutions}{" "}
-                          scheduled executions
-                        </div>
-                        {validationErrors.frequency && (
-                          <div className="error-message">
-                            {validationErrors.frequency}
-                          </div>
-                        )}
-                      </div>
                     )}
                   </div>
-                )}
-                {/* Requirements Info */}
-                <div className="requirements-section">
-                  <h4>Requirements</h4>
-                  <div className="requirements-list">
-                    <div>
-                      Min Vultisig Version:{" "}
-                      {schema.requirements?.minVultisigVersion}
-                    </div>
-                    <div>
-                      Supported Chains:{" "}
-                      {schema.requirements?.supportedChains.join(", ")}
-                    </div>
+                  <div className="scheduling-section">
+                      <div className="form-group">
+                          <label className="checkbox-label">
+                              <input
+                                  type="checkbox"
+                                  checked={schedulingEnabled}
+                                  onChange={(e) =>
+                                      setState((prevState) => ({
+                                          ...prevState,
+                                          schedulingEnabled: e.target.checked,
+                                      }))
+                                  }
+                              />
+                              Enable scheduled execution
+                          </label>
+                      </div>
+
+                      {schedulingEnabled && (
+                          <div className="form-group">
+                              <label className="form-label">
+                                  Frequency <span className="required">*</span>
+                              </label>
+                              <select
+                                  className={`form-select ${validationErrors.frequency ? "error" : ""}`}
+                                  value={frequency || ""}
+                                  onChange={(e) =>
+                                      setState((prevState) => ({
+                                          ...prevState,
+                                          frequency: Number(e.target.value),
+                                      }))
+                                  }
+                              >
+                                <option value="">Select frequency...</option>
+                                {schema?.scheduling?.supportedFrequencies.map((freq) => (
+                                    <option key={freq} value={freq}>
+                                        {frequencyName[freq]}
+                                    </option>
+                                ))}
+                              </select>
+                              <div className="input-help">
+                                  Max {schema?.scheduling?.maxScheduledExecutions} scheduled executions
+                              </div>
+                              {validationErrors.frequency && (
+                                  <div className="error-message">{validationErrors.frequency}</div>
+                              )}
+                            </div>
+                      )}
                   </div>
-                </div>
-                {/* Action Buttons */}
-                <div className="form-actions">
-                  <Button
-                    size="medium"
-                    type="button"
-                    styleType="secondary"
-                    onClick={onClose}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="medium"
-                    type="button"
-                    styleType="primary"
-                    onClick={handleSubmit}
-                    disabled={!canSubmit}
-                  >
-                    Configure Plugin
-                  </Button>
-                </div>
+                </>
+              )}
               </>
             )}
+            
+            {/* Requirements Info */}
+            <div className="requirements-section">
+                <h4>Requirements</h4>
+                <div className="requirements-list">
+                    <div>Min Vultisig Version: {schema.requirements?.minVultisigVersion}</div>
+                    <div>Supported Chains: {schema.requirements?.supportedChains.join(", ")}</div>
+                </div>
+            </div>
+            {/* Action Buttons */}
+            <div className="form-actions">
+                <Button size="medium" type="button" styleType="secondary" onClick={onClose}>
+                    Cancel
+                </Button>
+                <Button size="medium" type="button" styleType="primary" onClick={handleSubmit}>
+                    Configure Plugin
+                </Button>
+            </div>
           </div>
         </div>
       </div>
     )
   );
 };
-
 export default RecipeSchemaForm;
+

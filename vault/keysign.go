@@ -100,9 +100,9 @@ func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[strin
 		var publicKey string
 
 		if msg.Chain.IsEdDSA() {
-			publicKey = localStateAccessor.Vault.PublicKeyEcdsa
-		} else {
 			publicKey = localStateAccessor.Vault.PublicKeyEddsa
+		} else {
+			publicKey = localStateAccessor.Vault.PublicKeyEcdsa
 		}
 
 		sig, err := t.keysignWithRetry(req.SessionID, req.HexEncryptionKey, publicKey, msg.Chain.IsEdDSA(), msg.Hash, msg.Chain.GetDerivePath(), localPartyID, partiesJoined)

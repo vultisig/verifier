@@ -1,0 +1,126 @@
+import { Col, Empty, Form, Row, Select, SelectProps, Spin } from "antd";
+import { SearchInput } from "components/input_search";
+import { PageHeading } from "components/page_heading";
+import { PluginItem } from "components/plugin_item";
+import { useFilterParams } from "hooks/useFilterParams";
+import { debounce } from "lodash-es";
+import { useCallback, useEffect, useState } from "react";
+import { Container } from "styles/Container";
+import { FormInput } from "styles/FormInput";
+import { Stack } from "styles/Stack";
+import { getPluginCategories, getPlugins } from "utils/services/marketplace";
+import { Plugin, PluginFilters } from "utils/types";
+
+type InitialState = {
+  categoryOptions: NonNullable<SelectProps["options"]>;
+  loading: boolean;
+  plugins: Plugin[];
+  sortOptions: NonNullable<SelectProps["options"]>;
+};
+
+export const PluginsPage = () => {
+  const initialState: InitialState = {
+    categoryOptions: [],
+    loading: true,
+    plugins: [],
+    sortOptions: [
+      { value: "created_at", label: "Newest" },
+      { value: "-created_at", label: "Oldest" },
+    ],
+  };
+  const [state, setState] = useState(initialState);
+  const { categoryOptions, loading, plugins, sortOptions } = state;
+  const [form] = Form.useForm<PluginFilters>();
+  const { filters, setFilters } = useFilterParams<PluginFilters>();
+
+  const fetchPlugins = useCallback(
+    debounce((skip: number, filters: PluginFilters) => {
+      setState((prevState) => ({ ...prevState, loading: true }));
+
+      getPlugins(skip, filters)
+        .then(({ plugins }) => {
+          setState((prevState) => ({ ...prevState, loading: false, plugins }));
+        })
+        .catch(() => {
+          setState((prevState) => ({ ...prevState, loading: false }));
+        });
+    }, 500),
+    []
+  );
+
+  const handleChange = (_: unknown, values: PluginFilters) => {
+    setFilters(values);
+  };
+
+  useEffect(() => fetchPlugins(0, filters), [fetchPlugins, filters]);
+
+  useEffect(() => {
+    getPluginCategories()
+      .then((categories) => {
+        const categoryOptions: SelectProps["options"] = categories.map(
+          ({ id, name }) => ({ value: id, label: name })
+        );
+
+        setState((prevState) => ({ ...prevState, categoryOptions }));
+      })
+      .catch(() => {});
+  }, []);
+
+  return (
+    <Container $flexDirection="column" $gap="16px">
+      <PageHeading
+        description="Discover and install plugins to enhance your experience."
+        title="Plugins Marketplace"
+      />
+      <Form
+        form={form}
+        initialValues={filters}
+        layout="vertical"
+        onValuesChange={handleChange}
+      >
+        <Row gutter={[16, 16]}>
+          <Col xs={24} sm={12} xl={8}>
+            <Form.Item<PluginFilters> name="term" noStyle>
+              <SearchInput placeholder="Search by" />
+            </Form.Item>
+          </Col>
+          <Col xs={12} sm={6} xl={{ span: 4, offset: 8 }}>
+            <Form.Item<PluginFilters> name="category" noStyle>
+              <FormInput
+                as={Select}
+                options={categoryOptions}
+                placeholder="Category"
+                allowClear
+              />
+            </Form.Item>
+          </Col>
+          <Col xs={12} sm={6} xl={4}>
+            <Form.Item<PluginFilters> name="sort" noStyle>
+              <FormInput
+                as={Select}
+                options={sortOptions}
+                placeholder="Sort"
+                allowClear
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+      </Form>
+      {loading ? (
+        <Stack $alignItems="center" $justifyContent="center" $flexGrow>
+          <Spin />
+        </Stack>
+      ) : plugins.length ? (
+        <Row gutter={[16, 16]}>
+          {plugins.map((plugin) => (
+            <Col key={plugin.id} xs={24} sm={12} xl={8}>
+              <PluginItem {...plugin} />
+            </Col>
+          ))}
+        </Row>
+      ) : (
+        <Empty />
+      )}
+    </Container>
+  );
+};

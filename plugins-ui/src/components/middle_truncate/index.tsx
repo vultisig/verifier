@@ -67,35 +67,24 @@ export const MiddleTruncate: FC<MiddleTruncateProps> = ({
   useEffect(ellipsisDidUpdate, [ellipsis, counter, text]);
   useEffect(componentDidUpdate, [text]);
 
-  return onClick ? (
-    <Stack
-      as="span"
-      ref={elmRef}
-      onClick={handleClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") handleClick();
-      }}
-      tabIndex={0}
-      role="button"
-      $display="block"
-      $position="relative"
-      $width={width}
-    >
-      {truncating ? (
-        <Stack as="span" $position="absolute" $visibility="hidden">
-          {ellipsis}
-        </Stack>
-      ) : (
-        ellipsis
-      )}
-    </Stack>
-  ) : (
+  return (
     <Stack
       as="span"
       ref={elmRef}
       $display="block"
       $position="relative"
       $width={width}
+      {...() =>
+        onClick
+          ? {
+              onClick: handleClick,
+              onKeyDown: (e: React.KeyboardEvent) => {
+                if (e.key === "Enter" || e.key === " ") handleClick();
+              },
+              role: "button" as const,
+              tabIndex: 0,
+            }
+          : {}}
     >
       {truncating ? (
         <Stack as="span" $position="absolute" $visibility="hidden">

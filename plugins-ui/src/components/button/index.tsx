@@ -1,11 +1,5 @@
 import { Spin } from "antd";
-import {
-  ButtonHTMLAttributes,
-  FC,
-  HTMLAttributes,
-  ReactNode,
-  useMemo,
-} from "react";
+import { ButtonHTMLAttributes, FC, HTMLAttributes, ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Stack, StackProps } from "styles/Stack";
 
@@ -155,26 +149,27 @@ export const Button: FC<ButtonProps> = ({
     ...(disabled ? disabledProps[kind] : activeProps[kind][status]),
   };
 
-  const content = useMemo(() => {
-    return (
-      <>
-        {loading ? <Spin size="small" /> : icon}
-        {children}
-      </>
-    );
-  }, [children, icon, loading]);
-
-  return disabled ? (
-    <Stack as="span" {...props} {...rest}>
-      {content}
-    </Stack>
-  ) : href ? (
-    <Stack as={Link} to={href} state={true} {...props} {...rest}>
-      {content}
-    </Stack>
-  ) : (
-    <Stack as="button" type={type} {...props} {...rest}>
-      {content}
+  return (
+    <Stack
+      {...props}
+      {...rest}
+      {...(disabled
+        ? {
+            as: "span",
+          }
+        : href
+        ? {
+            as: Link,
+            state: true,
+            to: href,
+          }
+        : {
+            as: "button",
+            type,
+          })}
+    >
+      {loading ? <Spin size="small" /> : icon}
+      {children}
     </Stack>
   );
 };

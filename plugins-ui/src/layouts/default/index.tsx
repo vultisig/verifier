@@ -71,7 +71,7 @@ export const DefaultLayout = () => {
   };
 
   useEffect(() => {
-    setTimeout(() => connect(), 100);
+    setTimeout(() => connect(), 200);
   }, []);
 
   return (

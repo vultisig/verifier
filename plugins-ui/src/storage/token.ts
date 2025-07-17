@@ -1,35 +1,26 @@
-import { getState } from "./get";
-import { setState } from "./set";
+import { storageKeys } from "storage/constants";
+import { getState } from "storage/state/get";
+import { setState } from "storage/state/set";
 
-type Tokens = Record<string, string>;
+const initialTokens: Record<string, string> = {};
 
-const initialTokens: Tokens = {};
-
-const storageKey = "tokens";
-
-const selectTokens = () => {
-  return getState(storageKey, initialTokens);
+const getTokens = () => {
+  return getState(storageKeys.token, initialTokens);
 };
 
-const updateTokens = (tokens: Tokens) => {
-  setState(storageKey, tokens);
-};
-
-export const createToken = (key: string, token: string) => {
-  const tokens = selectTokens();
-  tokens[key] = token;
-  updateTokens(tokens);
-};
-
-export const deleteToken = (key: string) => {
-  const tokens = selectTokens();
+export const delToken = (key: string) => {
+  const tokens = getTokens();
   delete tokens[key];
-  updateTokens(tokens);
+  setState(storageKeys.token, tokens);
 };
 
-export const selectToken = (key: string) => {
-  const tokens = selectTokens();
+export const getToken = (key: string) => {
+  const tokens = getTokens();
   return tokens[key];
 };
 
-export const updateToken = createToken;
+export const setToken = (key: string, token: string) => {
+  const tokens = getTokens();
+  tokens[key] = token;
+  setState(storageKeys.token, tokens);
+};

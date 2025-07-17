@@ -1,0 +1,36 @@
+export const chains = [
+  "Arbitrum",
+  "Avalanche",
+  "Base",
+  "Bitcoin",
+  "BitcoinCash",
+  "Blast",
+  "BSC",
+  "CronosChain",
+  "Dash",
+  "Dogecoin",
+  "Dydx",
+  "Ethereum",
+  "Cosmos",
+  "Kujira",
+  "Litecoin",
+  "MayaChain",
+  "Noble",
+  "Optimism",
+  "Osmosis",
+  "Polkadot",
+  "Polygon",
+  "Solana",
+  "Sui",
+  "Terra",
+  "TerraClassic",
+  "THORChain",
+  "TON",
+  "Tron",
+  "XRP",
+  "Zksync",
+] as const;
+
+export type Chain = (typeof chains)[number];
+
+export const defaultChain: Chain = "Ethereum";

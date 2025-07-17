@@ -1,6 +1,5 @@
 import { Typography } from "antd";
 import { FC } from "react";
-import styled from "styled-components";
 import { Stack } from "styles/Stack";
 
 interface PageHeadingProps {
@@ -10,25 +9,27 @@ interface PageHeadingProps {
 
 export const PageHeading: FC<PageHeadingProps> = ({ description, title }) => (
   <Stack $flexDirection="column" $gap="14px">
-    <StyledTitle>{title}</StyledTitle>
-    {description ? <StyledText>{description}</StyledText> : <></>}
+    <Stack
+      as={Typography.Title}
+      $fontSize="40px"
+      $fontWeight="500"
+      $lineHeight="42px"
+      $margin="0"
+    >
+      {title}
+    </Stack>
+    {description ? (
+      <Stack
+        as={Typography.Text}
+        $color="textExtraLight"
+        $fontSize="14px"
+        $fontWeight="400"
+        $lineHeight="20px"
+      >
+        {description}
+      </Stack>
+    ) : (
+      <></>
+    )}
   </Stack>
 );
-
-const StyledText = styled(Typography.Text)`
-  &.ant-typography {
-    color: ${({ theme }) => theme.textExtraLight};
-    font-size: 14px;
-    font-weight: 400;
-    line-height: 20px;
-  }
-`;
-
-const StyledTitle = styled(Typography.Title)`
-  &.ant-typography {
-    font-size: 40px;
-    font-weight: 500;
-    line-height: 42px;
-    margin: 0;
-  }
-`;

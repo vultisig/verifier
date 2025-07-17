@@ -102,7 +102,7 @@ export const PluginDetailsPage = () => {
   return (
     <>
       <Container $flexDirection="column" $gap="20px">
-        <Stack>
+        <Stack onClick={() => goBack(routeTree.plugins.path)}>
           <Stack
             as="span"
             $alignItems="center"

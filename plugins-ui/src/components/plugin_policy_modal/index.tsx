@@ -77,14 +77,6 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
   const onFinishSuccess: FormProps<FieldType>["onFinish"] = (values) => {
     setState((prevState) => ({ ...prevState, submitting: true }));
 
-    const startDate = schema.scheduling?.supportsScheduling
-      ? values.startFromNextMonth
-        ? dayjs().add(1, "month").startOf("month")
-        : values.startDate
-      : dayjs().add(1, "hour").startOf("hour");
-
-    const protoTimestamp = create(TimestampSchema, toTimestamp(startDate));
-
     const { parameterCapabilities, resourcePath } =
       schema.supportedResources[values.supportedResource];
 
@@ -124,7 +116,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
         description: "",
         frequency,
         id: uuidv4(),
-        startDate: protoTimestamp,
+        startDate: create(TimestampSchema, toTimestamp(dayjs())),
         type,
       });
     });
@@ -160,12 +152,24 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
       resource: resourcePath?.full,
     });
 
-    const schedule = create(ScheduleSchema, {
-      frequency: values.frequency,
-      interval: 0,
-      maxExecutions: 0,
-      startTime: protoTimestamp,
-    });
+    const schedule = () => {
+      if (schema.scheduling?.supportsScheduling) {
+        const startDate = values.startFromNextMonth
+          ? dayjs().add(1, "month").startOf("month")
+          : values.startDate;
+
+        return {
+          schedule: create(ScheduleSchema, {
+            frequency: values.frequency,
+            interval: 0,
+            maxExecutions: 0,
+            startTime: create(TimestampSchema, toTimestamp(startDate)),
+          }),
+        };
+      } else {
+        return {};
+      }
+    };
 
     const jsonData = create(PolicySchema, {
       author: "",
@@ -174,8 +178,8 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
       id: schema.pluginId,
       name: schema.pluginName,
       rules: [rule],
+      ...schedule(),
       scheduleVersion: schema.scheduleVersion,
-      schedule,
       version: schema.pluginVersion,
     });
 
@@ -239,10 +243,12 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
   }, [schema]);
 
   const frequencyOptions: SelectProps["options"] = useMemo(() => {
-    return schema?.scheduling?.supportedFrequencies.map((value) => ({
-      label: scheduleFrequencyLabels[value],
-      value,
-    }));
+    return (
+      schema?.scheduling?.supportedFrequencies?.map((value) => ({
+        label: scheduleFrequencyLabels[value],
+        value,
+      })) || []
+    );
   }, [schema]);
 
   return (
@@ -261,11 +267,10 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
           </Button>
         </Stack>
       }
+      maskClosable={false}
       onCancel={() => goBack()}
       open={visible}
-      title={
-        schema ? `Configure ${schema.pluginName}` : "Loading policy schema..."
-      }
+      title={`Configure ${schema.pluginName}`}
       centered
     >
       <Form

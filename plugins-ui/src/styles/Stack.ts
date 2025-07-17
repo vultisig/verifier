@@ -1,89 +1,88 @@
 import styled, { css } from "styled-components";
 import { ThemeColorKeys } from "utils/constants/styled";
-import { formatSize, isUndefined } from "utils/functions";
 import { CSSProperties } from "utils/types";
 
 export const Stack = styled.div<StackProps>`
   ${({ $alignItems }) =>
-    isUndefined($alignItems)
-      ? css``
-      : css`
+    $alignItems
+      ? css`
           align-items: ${$alignItems};
-        `}
+        `
+      : css``}
 
   ${({ $backgroundColor, theme }) =>
-    isUndefined($backgroundColor)
-      ? css``
-      : css`
+    $backgroundColor
+      ? css`
           background-color: ${theme[$backgroundColor]};
-        `}
+        `
+      : css``}
 
   ${({ $backgroundColorHover, theme }) =>
-    isUndefined($backgroundColorHover)
-      ? css``
-      : css`
+    $backgroundColorHover
+      ? css`
           &:hover {
             background-color: ${theme[$backgroundColorHover]};
           }
-        `}
+        `
+      : css``}
 
   ${({ $border }) =>
-    isUndefined($border)
-      ? css``
-      : css`
+    $border
+      ? css`
           border: ${$border};
-        `}
+        `
+      : css``}
 
   ${({ $borderColor, theme }) =>
-    isUndefined($borderColor)
-      ? css``
-      : css`
+    $borderColor
+      ? css`
           border-color: ${theme[$borderColor]};
-        `}
+        `
+      : css``}
 
   ${({ $borderStyle }) =>
-    isUndefined($borderStyle)
-      ? css``
-      : css`
+    $borderStyle
+      ? css`
           border-style: ${$borderStyle};
-        `}
+        `
+      : css``}
 
   ${({ $borderWidth }) =>
-    isUndefined($borderWidth)
-      ? css``
-      : css`
-          border-width: ${formatSize($borderWidth)};
-        `}
+    $borderWidth
+      ? css`
+          border-width: ${$borderWidth};
+        `
+      : css``}
 
   ${({ $borderRadius }) =>
-    isUndefined($borderRadius)
-      ? css``
-      : css`
-          border-radius: ${formatSize($borderRadius)};
-        `}
+    $borderRadius
+      ? css`
+          border-radius: ${$borderRadius};
+        `
+      : css``}
 
   ${({ $color, theme }) =>
-    isUndefined($color)
-      ? css``
-      : css`
+    $color
+      ? css`
           color: ${theme[$color]};
-        `}
+        `
+      : css``}
 
   ${({ $colorHover, theme }) =>
-    isUndefined($colorHover)
-      ? css``
-      : css`
+    $colorHover
+      ? css`
           &:hover {
             color: ${theme[$colorHover]};
           }
-        `}
+        `
+      : css``}
   
   ${({ $cursor }) =>
-    isUndefined($cursor)
-      ? css``
-      : css`
+    $cursor
+      ? css`
           cursor: ${$cursor};
-        `}
+        `
+      : css``}
   
   ${({ $display = "flex" }) =>
     css`
@@ -91,18 +90,18 @@ export const Stack = styled.div<StackProps>`
     `}
 
   ${({ $fill, theme }) =>
-    isUndefined($fill)
-      ? css``
-      : css`
+    $fill
+      ? css`
           fill: ${theme[$fill]};
-        `}
+        `
+      : css``}
 
   ${({ $flexDirection }) =>
-    isUndefined($flexDirection)
-      ? css``
-      : css`
+    $flexDirection
+      ? css`
           flex-direction: ${$flexDirection};
-        `}
+        `
+      : css``}
 
   ${({ $flexGrow }) =>
     $flexGrow
@@ -112,127 +111,145 @@ export const Stack = styled.div<StackProps>`
       : css``}
 
   ${({ $fontSize }) =>
-    isUndefined($fontSize)
-      ? css``
-      : css`
-          font-size: ${formatSize($fontSize)};
-        `}
+    $fontSize
+      ? css`
+          font-size: ${$fontSize};
+        `
+      : css``}
   
   ${({ $fontWeight }) =>
-    isUndefined($fontWeight)
-      ? css``
-      : css`
+    $fontWeight
+      ? css`
           font-weight: ${$fontWeight};
-        `}
+        `
+      : css``}
 
   ${({ $fullHeight, $height }) =>
     $fullHeight
       ? css`
           height: 100%;
         `
-      : isUndefined($height)
-      ? css``
-      : css`
-          height: ${formatSize($height)};
-        `}
+      : $height
+      ? css`
+          height: ${$height};
+        `
+      : css``}
 
-  ${({ $fullWidth }) =>
+  ${({ $fullWidth, $width }) =>
     $fullWidth
       ? css`
           width: 100%;
         `
+      : $width
+      ? css`
+          width: ${$width};
+        `
       : css``}
 
   ${({ $gap }) =>
-    isUndefined($gap)
-      ? css``
-      : css`
-          gap: ${formatSize($gap)};
-        `}
+    $gap
+      ? css`
+          gap: ${$gap};
+        `
+      : css``}
 
   ${({ $justifyContent }) =>
-    isUndefined($justifyContent)
-      ? css``
-      : css`
+    $justifyContent
+      ? css`
           justify-content: ${$justifyContent};
-        `}
+        `
+      : css``}
         
   ${({ $left }) =>
-    isUndefined($left)
-      ? css``
-      : css`
-          left: ${formatSize($left)};
-        `}
+    $left
+      ? css`
+          left: ${$left};
+        `
+      : css``}
     
   ${({ $lineHeight }) =>
-    isUndefined($lineHeight)
-      ? css``
-      : css`
-          line-height: ${formatSize($lineHeight)};
-        `}
+    $lineHeight
+      ? css`
+          line-height: ${$lineHeight};
+        `
+      : css``}
+
+  ${({ $margin }) =>
+    $margin
+      ? css`
+          margin: ${$margin};
+        `
+      : css``}
 
   ${({ $maxWidth }) =>
-    isUndefined($maxWidth)
-      ? css``
-      : css`
-          max-width: ${formatSize($maxWidth)};
-        `}
+    $maxWidth
+      ? css`
+          max-width: ${$maxWidth};
+        `
+      : css``}
   
   ${({ $minHeight }) =>
-    isUndefined($minHeight)
-      ? css``
-      : css`
-          min-height: ${formatSize($minHeight)};
-        `}
+    $minHeight
+      ? css`
+          min-height: ${$minHeight};
+        `
+      : css``}
 
   ${({ $padding }) =>
-    isUndefined($padding)
-      ? css``
-      : css`
-          padding: ${formatSize($padding)};
-        `}
+    $padding
+      ? css`
+          padding: ${$padding};
+        `
+      : css``}
 
   ${({ $paddingLeft }) =>
-    isUndefined($paddingLeft)
-      ? css``
-      : css`
-          padding-left: ${formatSize($paddingLeft)};
-        `}
+    $paddingLeft
+      ? css`
+          padding-left: ${$paddingLeft};
+        `
+      : css``}
 
   ${({ $position }) =>
-    isUndefined($position)
-      ? css``
-      : css`
+    $position
+      ? css`
           position: ${$position};
-        `}
+        `
+      : css``}
 
   ${({ $top }) =>
-    isUndefined($top)
-      ? css``
-      : css`
-          top: ${formatSize($top)};
-        `}
+    $top
+      ? css`
+          top: ${$top};
+        `
+      : css``}
 
   ${({ $transform }) =>
-    isUndefined($transform)
-      ? css``
-      : css`
+    $transform
+      ? css`
           transform: ${$transform};
-        `}
+        `
+      : css``}
 
   ${({ $backgroundColorHover, $colorHover }) =>
-    isUndefined($backgroundColorHover) && isUndefined($colorHover)
-      ? css``
-      : css`
+    $backgroundColorHover && $colorHover
+      ? css`
           transition: all 0.2s;
-        `}
+        `
+      : css``}
+
+  ${({ $visibility }) =>
+    $visibility
+      ? css`
+          visibility: ${$visibility};
+        `
+      : css``}
 
   ${({ $zIndex }) =>
-    isUndefined($zIndex)
-      ? css``
-      : css`
+    $zIndex
+      ? css`
           z-index: ${$zIndex};
-        `}
+        `
+      : css``}
 `;
 
 export type StackProps = {
@@ -260,6 +277,7 @@ export type StackProps = {
   $justifyContent?: CSSProperties["justifyContent"];
   $left?: CSSProperties["left"];
   $lineHeight?: CSSProperties["lineHeight"];
+  $margin?: CSSProperties["margin"];
   $maxWidth?: CSSProperties["maxWidth"];
   $minHeight?: CSSProperties["minHeight"];
   $padding?: CSSProperties["padding"];
@@ -267,5 +285,7 @@ export type StackProps = {
   $position?: CSSProperties["position"];
   $top?: CSSProperties["top"];
   $transform?: CSSProperties["transform"];
+  $visibility?: CSSProperties["visibility"];
+  $width?: CSSProperties["width"];
   $zIndex?: CSSProperties["zIndex"];
 };

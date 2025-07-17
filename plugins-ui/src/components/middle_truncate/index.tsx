@@ -1,34 +1,18 @@
-import { FC, useEffect, useRef, useState } from 'react'
-import styled, { css } from 'styled-components'
-
-const StyledTruncate = styled.span`
-  position: absolute;
-  visibility: hidden;
-`
-
-const StyledMiddleTruncate = styled.span<{ width?: number }>`
-  display: block;
-  position: relative;
-  ${({ width }) => {
-    return width
-      ? css`
-          width: ${width}px;
-        `
-      : css``
-  }}
-`
+import { FC, useEffect, useMemo, useRef, useState } from "react";
+import { Stack } from "styles/Stack";
+import { CSSProperties } from "utils/types";
 
 type MiddleTruncateProps = {
-  onClick?: () => void
-  text: string
-  width?: number
-}
+  onClick?: () => void;
+  text: string;
+  width?: CSSProperties["width"];
+};
 
 type InitialState = {
-  counter: number
-  ellipsis: string
-  truncating: boolean
-}
+  counter: number;
+  ellipsis: string;
+  truncating: boolean;
+};
 
 export const MiddleTruncate: FC<MiddleTruncateProps> = ({
   onClick,
@@ -37,68 +21,89 @@ export const MiddleTruncate: FC<MiddleTruncateProps> = ({
 }) => {
   const initialState: InitialState = {
     counter: 0,
-    ellipsis: '',
+    ellipsis: "",
     truncating: true,
-  }
-  const [state, setState] = useState(initialState)
-  const { counter, ellipsis, truncating } = state
-  const elmRef = useRef<HTMLSpanElement>(null)
+  };
+  const [state, setState] = useState(initialState);
+  const { counter, ellipsis, truncating } = state;
+  const elmRef = useRef<HTMLSpanElement>(null);
 
   const handleClick = () => {
-    if (onClick) onClick()
-  }
+    if (onClick) onClick();
+  };
 
   const ellipsisDidUpdate = (): void => {
     if (elmRef.current) {
-      const [child] = elmRef.current.children
-      const parentWidth = elmRef.current.clientWidth
-      const childWidth = child?.clientWidth ?? 0
+      const [child] = elmRef.current.children;
+      const parentWidth = elmRef.current.clientWidth;
+      const childWidth = child?.clientWidth ?? 0;
 
       if (childWidth > parentWidth) {
-        const chunkLen = Math.ceil(text.length / 2) - counter
+        const chunkLen = Math.ceil(text.length / 2) - counter;
 
-        setState(prevState => ({
+        setState((prevState) => ({
           ...prevState,
           counter: counter + 1,
           ellipsis: `${text.slice(0, chunkLen)}...${text.slice(chunkLen * -1)}`,
-        }))
+        }));
       } else {
-        setState(prevState => ({
+        setState((prevState) => ({
           ...prevState,
           counter: 0,
           truncating: false,
-        }))
+        }));
       }
     }
-  }
+  };
 
   const componentDidUpdate = (): void => {
-    setState(prevState => ({
+    setState((prevState) => ({
       ...prevState,
       ellipsis: text,
       truncating: true,
-    }))
-  }
+    }));
+  };
 
-  useEffect(ellipsisDidUpdate, [ellipsis, counter, text])
-  useEffect(componentDidUpdate, [text])
+  useEffect(ellipsisDidUpdate, [ellipsis, counter, text]);
+  useEffect(componentDidUpdate, [text]);
 
   return onClick ? (
-    <StyledMiddleTruncate
+    <Stack
+      as="span"
       ref={elmRef}
       onClick={handleClick}
-      onKeyDown={e => {
-        if (e.key === 'Enter' || e.key === ' ') handleClick()
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") handleClick();
       }}
       tabIndex={0}
       role="button"
-      width={width}
+      $display="block"
+      $position="relative"
+      $width={width}
     >
-      {truncating ? <StyledTruncate>{ellipsis}</StyledTruncate> : ellipsis}
-    </StyledMiddleTruncate>
+      {truncating ? (
+        <Stack as="span" $position="absolute" $visibility="hidden">
+          {ellipsis}
+        </Stack>
+      ) : (
+        ellipsis
+      )}
+    </Stack>
   ) : (
-    <StyledMiddleTruncate ref={elmRef} width={width}>
-      {truncating ? <StyledTruncate>{ellipsis}</StyledTruncate> : ellipsis}
-    </StyledMiddleTruncate>
-  )
-}
+    <Stack
+      as="span"
+      ref={elmRef}
+      $display="block"
+      $position="relative"
+      $width={width}
+    >
+      {truncating ? (
+        <Stack as="span" $position="absolute" $visibility="hidden">
+          {ellipsis}
+        </Stack>
+      ) : (
+        ellipsis
+      )}
+    </Stack>
+  );
+};

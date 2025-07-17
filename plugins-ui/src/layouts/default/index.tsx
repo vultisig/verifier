@@ -8,6 +8,7 @@ import { CircleDollarSignIcon } from "icons/CircleDollarSignIcon";
 import { LanguagesIcon } from "icons/LanguagesIcon";
 import { LogOutIcon } from "icons/LogOutIcon";
 import { VultisigLogoIcon } from "icons/VultisigLogoIcon";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Outlet, useNavigate } from "react-router-dom";
 import { Container } from "styles/Container";
@@ -69,6 +70,10 @@ export const DefaultLayout = () => {
     }
   };
 
+  useEffect(() => {
+    setTimeout(() => connect(), 100);
+  }, []);
+
   return (
     <Stack as={Layout} $flexDirection="column" $minHeight="100%">
       <Stack
@@ -98,7 +103,7 @@ export const DefaultLayout = () => {
           {isConnected && address ? (
             <Stack $alignItems="center" $gap="20px">
               <Button kind="primary" onClick={copyAddress}>
-                <MiddleTruncate text={address} width={118} />
+                <MiddleTruncate text={address} width="118px" />
               </Button>
               <Dropdown
                 menu={{ items: dropdownMenu }}

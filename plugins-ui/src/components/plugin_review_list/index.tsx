@@ -185,7 +185,7 @@ export const PluginReviewList: FC<Plugin> = (plugin) => {
                 >
                   {comment}
                   <Divider />
-                  <MiddleTruncate text={address} width={200} />
+                  <MiddleTruncate text={address} width="200px" />
                 </Card>
               </Col>
             ))}

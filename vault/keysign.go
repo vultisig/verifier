@@ -261,7 +261,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 			return nil, fmt.Errorf("failed to encrypt setup message: %w", e)
 		}
 
-		e = relayClient.UploadSetupMessage(sessionID, payload)
+		e = relayClient.UploadSetupMessage(sessionID, messageHash, payload)
 		if e != nil {
 			return nil, fmt.Errorf("failed to relayClient.UploadSetupMessage: %w", e)
 		}

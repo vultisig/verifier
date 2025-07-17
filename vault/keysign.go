@@ -233,15 +233,50 @@ func (t *DKLSTssService) keysign(sessionID string,
 	}()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	// retrieve the setup Message
-	encryptedEncodedSetupMsg, err := relayClient.WaitForSetupMessage(ctx, sessionID, messageHash)
-	if err != nil {
-		return nil, fmt.Errorf("failed to relayClient.WaitForSetupMessage: %w", err)
+
+	var encryptedEncodedSetupMsg string
+	if t.cfg.DoSetupMsg {
+		id, e := mpcWrapper.KeyshareKeyID(keyshareHandle)
+		if e != nil {
+			return nil, fmt.Errorf("failed to get keyshare key ID: %w", e)
+		}
+
+		hashToSign, e := base64.StdEncoding.DecodeString(messageBody)
+		if e != nil {
+			return nil, fmt.Errorf("failed to decode messageBody: %w", e)
+		}
+
+		msg, e := mpcWrapper.SignSetupMsgNew(
+			id,
+			fmtDerivePath(derivePath),
+			hashToSign,
+			fmtIdsSlice(keysignCommittee),
+		)
+		if e != nil {
+			return nil, fmt.Errorf("failed to create SignSetupMsgNew: %w", e)
+		}
+
+		payload, e := common.EncryptGCM(base64.StdEncoding.EncodeToString(msg), hexEncryptionKey)
+		if e != nil {
+			return nil, fmt.Errorf("failed to encrypt setup message: %w", e)
+		}
+
+		e = relayClient.UploadSetupMessage(sessionID, payload)
+		if e != nil {
+			return nil, fmt.Errorf("failed to relayClient.UploadSetupMessage: %w", e)
+		}
+		encryptedEncodedSetupMsg = payload
+	} else {
+		msg, e := relayClient.WaitForSetupMessage(ctx, sessionID, messageHash)
+		if e != nil {
+			return nil, fmt.Errorf("failed to relayClient.WaitForSetupMessage: %w", e)
+		}
+		encryptedEncodedSetupMsg = msg
 	}
 
-	setupMsg, err := t.decodeDecryptMessage(encryptedEncodedSetupMsg, hexEncryptionKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decodeDecryptMessage: %w", err)
+	setupMsg, e := t.decodeDecryptMessage(encryptedEncodedSetupMsg, hexEncryptionKey)
+	if e != nil {
+		return nil, fmt.Errorf("failed to decodeDecryptMessage: %w", e)
 	}
 
 	setupHashToSign, err := mpcWrapper.DecodeMessage(setupMsg)
@@ -249,7 +284,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 		return nil, fmt.Errorf("failed to mpcWrapper.DecodeMessage: %w", err)
 	}
 
-	reqHashToSign, err := hex.DecodeString(strings.TrimPrefix(messageBody, "0x"))
+	reqHashToSign, err := base64.StdEncoding.DecodeString(messageBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode messageBody: %w", err)
 	}
@@ -317,8 +352,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 			t.logger.Error("Signature is invalid")
 		}
 	} else {
-		publicKeyDerivePath := strings.Replace(derivePath, "'", "", -1)
-		childPublicKey, err := mpcWrapper.KeyshareDeriveChildPublicKey(keyshareHandle, []byte(publicKeyDerivePath))
+		childPublicKey, err := mpcWrapper.KeyshareDeriveChildPublicKey(keyshareHandle, fmtDerivePath(derivePath))
 		if err != nil {
 			return nil, fmt.Errorf("failed to derive child public key: %w", err)
 		}
@@ -450,4 +484,12 @@ func (t *DKLSTssService) processKeysignInbound(handle Handle,
 			}
 		}
 	}
+}
+
+func fmtDerivePath(derivePath string) []byte {
+	return []byte(strings.ReplaceAll(derivePath, "'", ""))
+}
+
+func fmtIdsSlice(ids []string) []byte {
+	return []byte(strings.Join(ids, "\x00"))
 }

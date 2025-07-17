@@ -11,6 +11,7 @@ type Config struct {
 	LocalPartyPrefix string `mapstructure:"local_party_prefix" json:"local_party_prefix,omitempty"`
 	QueueEmailTask   bool   `mapstructure:"queue_email_task" json:"queue_email_task,omitempty"`
 	EncryptionSecret string `mapstructure:"encryption_secret" json:"encryption_secret,omitempty"`
+	DoSetupMsg       bool   `mapstructure:"do_setup_msg" json:"do_setup_msg,omitempty"`
 }
 
 type BlockStorage struct {

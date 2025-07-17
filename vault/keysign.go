@@ -460,16 +460,19 @@ func (t *DKLSTssService) processKeysignInbound(handle Handle,
 					continue
 				}
 				messageCache.Store(cacheKey, true)
-				hashStr := message.Hash
-				if err := relayClient.DeleteMessageFromServer(sessionID, localPartyID, hashStr, messageID); err != nil {
-					t.logger.Error("fail to delete message", "error", err)
-				}
 				if isFinished {
 					t.logger.Infoln("keysign finished")
-					result, err := mpcWrapper.SignSessionFinish(handle)
-					if err != nil {
-						t.logger.Error("fail to finish keysign", "error", err)
-						return nil, err
+
+					var result []byte
+					if t.cfg.DoSetupMsg {
+						r, e := mpcWrapper.SignSessionFinish(handle)
+						if e != nil {
+							t.logger.Error("fail to finish keysign mpcWrapper.SignSessionFinish", "error", e)
+							return nil, e
+						}
+						result = r
+					} else {
+
 					}
 					encodedKeysignResult := base64.StdEncoding.EncodeToString(result)
 					t.logger.Infof("Keysign result: %s", encodedKeysignResult)

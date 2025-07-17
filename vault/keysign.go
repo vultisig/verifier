@@ -462,17 +462,10 @@ func (t *DKLSTssService) processKeysignInbound(handle Handle,
 				messageCache.Store(cacheKey, true)
 				if isFinished {
 					t.logger.Infoln("keysign finished")
-
-					var result []byte
-					if t.cfg.DoSetupMsg {
-						r, e := mpcWrapper.SignSessionFinish(handle)
-						if e != nil {
-							t.logger.Error("fail to finish keysign mpcWrapper.SignSessionFinish", "error", e)
-							return nil, e
-						}
-						result = r
-					} else {
-
+					result, err := mpcWrapper.SignSessionFinish(handle)
+					if err != nil {
+						t.logger.Error("fail to finish keysign", "error", err)
+						return nil, err
 					}
 					encodedKeysignResult := base64.StdEncoding.EncodeToString(result)
 					t.logger.Infof("Keysign result: %s", encodedKeysignResult)

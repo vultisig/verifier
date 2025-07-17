@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"math/big"
 	"strings"
 	"sync"
@@ -172,10 +171,6 @@ func (t *DKLSTssService) keysignWithRetry(sessionID string,
 	return nil, fmt.Errorf("fail to keysign after max retry")
 }
 
-func toIdsSlice(ids []string) []byte {
-	return []byte(strings.Join(ids, "\x00"))
-}
-
 func (t *DKLSTssService) keysign(sessionID string,
 	hexEncryptionKey string,
 	publicKey string,
@@ -241,47 +236,28 @@ func (t *DKLSTssService) keysign(sessionID string,
 	// retrieve the setup Message
 	encryptedEncodedSetupMsg, err := relayClient.WaitForSetupMessage(ctx, sessionID, messageHash)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get setup messageBody: %w", err)
+		return nil, fmt.Errorf("failed to relayClient.WaitForSetupMessage: %w", err)
 	}
 
-	wireEncryptedB64SetupMsg, err := base64.StdEncoding.DecodeString(encryptedEncodedSetupMsg)
+	setupMsg, err := t.decodeDecryptMessage(encryptedEncodedSetupMsg, hexEncryptionKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode encryptedEncodedSetupMsg: %w", err)
-	}
-	hexSetupMsg, err := common.DecryptGCM(wireEncryptedB64SetupMsg, hexEncryptionKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt wireEncryptedB64SetupMsg: %w", err)
+		return nil, fmt.Errorf("failed to decodeDecryptMessage: %w", err)
 	}
 
-	setupMsgRawBytes, err := io.ReadAll(hex.NewDecoder(bytes.NewReader(bytes.TrimPrefix(hexSetupMsg, []byte("0x")))))
+	setupHashToSign, err := mpcWrapper.DecodeMessage(setupMsg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode hexSetupMsg: %w", err)
+		return nil, fmt.Errorf("failed to mpcWrapper.DecodeMessage: %w", err)
 	}
 
-	reqMsgRawBytes, err := hex.DecodeString(strings.TrimPrefix(messageBody, "0x"))
+	reqHashToSign, err := hex.DecodeString(strings.TrimPrefix(messageBody, "0x"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode messageBody: %w", err)
 	}
-	if !bytes.Equal(setupMsgRawBytes, reqMsgRawBytes) {
-		return nil, fmt.Errorf("setupMsgRawBytes is not equal to the reqMsgRawBytes, stop keysign")
+	if !bytes.Equal(setupHashToSign, reqHashToSign) {
+		return nil, fmt.Errorf("setupHashToSign is not equal to the reqHashToSign, stop keysign")
 	}
 
-	keyshareID, err := mpcWrapper.KeyshareKeyID(keyshareHandle)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get keyshare ID: %w", err)
-	}
-
-	mpcSetupMsg, err := mpcWrapper.SignSetupMsgNew(
-		keyshareID,
-		[]byte(derivePath),
-		setupMsgRawBytes,
-		toIdsSlice(keysignCommittee),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create SignSetupMsgNew: %w", err)
-	}
-
-	sessionHandle, err := mpcWrapper.SignSessionFromSetup(mpcSetupMsg, []byte(localPartyID), keyshareHandle)
+	sessionHandle, err := mpcWrapper.SignSessionFromSetup(setupMsg, []byte(localPartyID), keyshareHandle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to SignSessionFromSetup: %w", err)
 	}
@@ -335,7 +311,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 			return nil, fmt.Errorf("failed to decode public key: %w", err)
 		}
 
-		if ed25519.Verify(pubKeyBytes, mpcSetupMsg, sig) {
+		if ed25519.Verify(pubKeyBytes, setupHashToSign, sig) {
 			t.logger.Infoln("Signature is valid")
 		} else {
 			t.logger.Error("Signature is invalid")
@@ -355,7 +331,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse public key: %w", err)
 		}
-		if ecdsa.Verify(publicKeyECDSA.ToECDSA(), mpcSetupMsg, new(big.Int).SetBytes(rBytes), new(big.Int).SetBytes(sBytes)) {
+		if ecdsa.Verify(publicKeyECDSA.ToECDSA(), setupHashToSign, new(big.Int).SetBytes(rBytes), new(big.Int).SetBytes(sBytes)) {
 			t.logger.Infoln("Signature is valid")
 		} else {
 			t.logger.Error("Signature is invalid")

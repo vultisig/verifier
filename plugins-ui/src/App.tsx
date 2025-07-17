@@ -78,8 +78,19 @@ export const App = () => {
 
   const connect = () => {
     connectToExtension()
-      .then((address) => {
-        if (address) signMessage(address);
+      .then(async (address) => {
+        if (address) {
+          try {
+            const signed = await signMessage(address);
+            if (!signed) {
+              delVaultId();
+            }
+          } catch {
+            delVaultId();
+          }
+        } else {
+          delVaultId();
+        }
       })
       .catch((error) => {
         messageApi.error(getErrorMessage(error, "Connection failed"));
@@ -147,7 +158,7 @@ export const App = () => {
           token,
           vaultId: publicKeyEcdsa,
         }));
-
+        setVaultId(publicKeyEcdsa);
         return true;
       }
 

@@ -37,7 +37,9 @@ api.interceptors.request.use(
     const publicKey = getVaultId();
     const token = getToken(publicKey);
 
-    if (!token) return config;
+    if (!token) {
+      return { ...config, headers: config.headers.setAuthorization(null) };
+    }
 
     try {
       const decoded = jwtDecode<JwtPayload>(token);

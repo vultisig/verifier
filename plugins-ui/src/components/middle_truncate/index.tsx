@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useRef, useState } from "react";
+import { FC, useEffect, useRef, useState } from "react";
 import { Stack } from "styles/Stack";
 import { CSSProperties } from "utils/types";
 

@@ -340,13 +340,6 @@ func (t *DKLSTssService) keysign(sessionID string,
 		return nil, fmt.Errorf("failed to process keysign: %w", err)
 	}
 
-	hash := md5.New()
-	hash.Write(setupHashToSign)
-	hashStr := hex.EncodeToString(hash.Sum(nil))
-
-	if err := relayClient.DeleteMessageFromServer(sessionID, localPartyID, hashStr, messageID); err != nil {
-		t.logger.WithError(err).Error("fail to delete message, continue keysign")
-	}
 	t.logger.Infoln("keysign finished")
 	sig, err := mpcWrapper.SignSessionFinish(sess.Get())
 	sess.Release()
@@ -477,7 +470,8 @@ func (t *DKLSTssService) processKeysignInbound(
 				if message.From == localPartyID {
 					continue
 				}
-				_, ok := cache.Load(message.Body)
+				cacheKey := fmt.Sprintf("%s-%s-%s", sessionID, localPartyID, message.Body)
+				_, ok := cache.Load(cacheKey)
 				if ok {
 					continue
 				}
@@ -490,9 +484,18 @@ func (t *DKLSTssService) processKeysignInbound(
 				t.logger.Infoln("Received message from", message.From)
 				isFinished, err := mpcWrapper.SignSessionInputMessage(handle.Get(), rawBody)
 				handle.Release()
-				cache.Store(message.Body, true)
+				cache.Store(cacheKey, true)
 				if err != nil {
 					return fmt.Errorf("failed to SignSessionInputMessage: %w", err)
+				}
+
+				hash := md5.New()
+				hash.Write([]byte(message.Body))
+				hashStr := hex.EncodeToString(hash.Sum(nil))
+
+				err = relayClient.DeleteMessageFromServer(sessionID, localPartyID, hashStr, messageID)
+				if err != nil {
+					return fmt.Errorf("failed to DeleteMessageFromServer: %w", err)
 				}
 				if isFinished {
 					return nil

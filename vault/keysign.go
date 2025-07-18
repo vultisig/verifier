@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
@@ -106,7 +105,7 @@ func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[strin
 			publicKey = localStateAccessor.Vault.PublicKeyEcdsa
 		}
 
-		sig, err := t.keysign(
+		sig, err := t.keysignWithRetry(
 			req.SessionID,
 			req.HexEncryptionKey,
 			publicKey,
@@ -115,7 +114,6 @@ func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[strin
 			msg.Chain.GetDerivePath(),
 			localPartyID,
 			partiesJoined,
-			0,
 		)
 		if err != nil {
 			return result, fmt.Errorf("failed to keysign: %w", err)
@@ -311,7 +309,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 			isEdDSA,
 		)
 		if er != nil {
-			return fmt.Errorf("failed to processKeysignOutbound", er)
+			return fmt.Errorf("failed to processKeysignOutbound: %w", er)
 		}
 		return nil
 	})
@@ -324,7 +322,6 @@ func (t *DKLSTssService) keysign(sessionID string,
 			isEdDSA,
 			messageID,
 		)
-		t.isKeysignFinished.Store(true) // right place to unblock both goroutines in error case
 		if er != nil {
 			return fmt.Errorf("failed to processKeysignInbound: %w", er)
 		}
@@ -448,7 +445,8 @@ func (t *DKLSTssService) processKeysignInbound(
 	isEdDSA bool,
 	messageID string,
 ) error {
-	var messageCache sync.Map
+	defer t.isKeysignFinished.Store(true)
+
 	mpcWrapper := t.GetMPCKeygenWrapper(isEdDSA)
 	relayClient := relay.NewRelayClient(t.cfg.Relay.Server)
 	start := time.Now()
@@ -456,7 +454,6 @@ func (t *DKLSTssService) processKeysignInbound(
 		select {
 		case <-time.After(time.Millisecond * 100):
 			if time.Since(start) > time.Minute {
-				t.isKeysignFinished.Store(true)
 				return TssKeyGenTimeout
 			}
 			messages, err := relayClient.DownloadMessages(sessionID, localPartyID, messageID)
@@ -466,14 +463,6 @@ func (t *DKLSTssService) processKeysignInbound(
 			}
 			for _, message := range messages {
 				if message.From == localPartyID {
-					continue
-				}
-				cacheKey := fmt.Sprintf("%s-%s-%s", sessionID, localPartyID, message.Hash)
-				if messageID != "" {
-					cacheKey = fmt.Sprintf("%s-%s-%s-%s", sessionID, localPartyID, messageID, message.Hash)
-				}
-				if _, found := messageCache.Load(cacheKey); found {
-					t.logger.Infof("Message already applied, skipping,hash: %s", message.Hash)
 					continue
 				}
 
@@ -489,7 +478,6 @@ func (t *DKLSTssService) processKeysignInbound(
 					t.logger.Error("fail to apply input message", "error", err)
 					continue
 				}
-				messageCache.Store(cacheKey, true)
 				if isFinished {
 					return nil
 				}

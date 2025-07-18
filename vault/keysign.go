@@ -8,9 +8,11 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
@@ -293,13 +295,14 @@ func (t *DKLSTssService) keysign(sessionID string,
 	if err != nil {
 		return nil, fmt.Errorf("failed to SignSessionFromSetup: %w", err)
 	}
+	sess := conc.NewLocked(sessionHandle)
 	defer func() {
-		if err := mpcWrapper.SignSessionFree(sessionHandle); err != nil {
+		err := mpcWrapper.SignSessionFree(sess.Get())
+		sess.Release()
+		if err != nil {
 			t.logger.Error("failed to free keysign session", "error", err)
 		}
 	}()
-
-	sess := conc.NewLocked(sessionHandle)
 
 	eg := &errgroup.Group{}
 	eg.Go(func() error {
@@ -345,7 +348,8 @@ func (t *DKLSTssService) keysign(sessionID string,
 		t.logger.WithError(err).Error("fail to delete message, continue keysign")
 	}
 	t.logger.Infoln("keysign finished")
-	sig, err := mpcWrapper.SignSessionFinish(sessionHandle)
+	sig, err := mpcWrapper.SignSessionFinish(sess.Get())
+	sess.Release()
 	if err != nil {
 		t.logger.WithError(err).Error("failed to finish keysign")
 		return nil, fmt.Errorf("failed to finish keysign: %w", err)
@@ -413,7 +417,7 @@ func (t *DKLSTssService) processKeysignOutbound(handle *conc.Locked[Handle],
 		outbound, err := mpcWrapper.SignSessionOutputMessage(handle.Get())
 		handle.Release()
 		if err != nil {
-			t.logger.Error("failed to get output message", "error", err)
+			return fmt.Errorf("failed to SignSessionOutputMessage: %w", err)
 		}
 		if len(outbound) == 0 {
 			if t.isKeysignFinished.Load() {
@@ -428,16 +432,17 @@ func (t *DKLSTssService) processKeysignOutbound(handle *conc.Locked[Handle],
 			receiver, err := mpcWrapper.SignSessionMessageReceiver(handle.Get(), outbound, i)
 			handle.Release()
 			if err != nil {
-				t.logger.Error("failed to get receiver message", "error", err)
+				return fmt.Errorf("failed to SignSessionMessageReceiver: %w", err)
 			}
 			if len(receiver) == 0 {
-				continue
+				return errors.New("unexpected empty receiver")
 			}
 
 			t.logger.Infoln("Sending message to", string(receiver))
 			// send the message to the receiver
-			if err := messenger.Send(localPartyID, string(receiver), encodedOutbound); err != nil {
-				t.logger.Errorf("failed to send message: %v", err)
+			err = messenger.Send(localPartyID, string(receiver), encodedOutbound)
+			if err != nil {
+				return fmt.Errorf("failed to send message: %w", err)
 			}
 		}
 	}
@@ -452,6 +457,8 @@ func (t *DKLSTssService) processKeysignInbound(
 	messageID string,
 ) error {
 	defer t.isKeysignFinished.Store(true)
+
+	cache := &sync.Map{}
 
 	mpcWrapper := t.GetMPCKeygenWrapper(isEdDSA)
 	relayClient := relay.NewRelayClient(t.cfg.Relay.Server)
@@ -470,6 +477,10 @@ func (t *DKLSTssService) processKeysignInbound(
 				if message.From == localPartyID {
 					continue
 				}
+				_, ok := cache.Load(message.Body)
+				if ok {
+					continue
+				}
 
 				rawBody, err := t.decodeDecryptMessage(message.Body, hexEncryptionKey)
 				if err != nil {
@@ -479,6 +490,7 @@ func (t *DKLSTssService) processKeysignInbound(
 				t.logger.Infoln("Received message from", message.From)
 				isFinished, err := mpcWrapper.SignSessionInputMessage(handle.Get(), rawBody)
 				handle.Release()
+				cache.Store(message.Body, true)
 				if err != nil {
 					return fmt.Errorf("failed to SignSessionInputMessage: %w", err)
 				}

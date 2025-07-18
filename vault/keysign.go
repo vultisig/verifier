@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
@@ -444,6 +445,8 @@ func (t *DKLSTssService) processKeysignInbound(
 ) error {
 	defer t.isKeysignFinished.Store(true)
 
+	messageCache := &sync.Map{}
+
 	mpcWrapper := t.GetMPCKeygenWrapper(isEdDSA)
 	relayClient := relay.NewRelayClient(t.cfg.Relay.Server)
 	start := time.Now()
@@ -462,6 +465,16 @@ func (t *DKLSTssService) processKeysignInbound(
 					continue
 				}
 
+				hash := md5.New()
+				hash.Write([]byte(message.Body))
+				hashStr := hex.EncodeToString(hash.Sum(nil))
+
+				cacheKey := fmt.Sprintf("%s-%s-%s-%s", sessionID, localPartyID, messageID, hashStr)
+				if _, found := messageCache.Load(cacheKey); found {
+					t.logger.Infof("Message already applied, skipping, hash: %s", message.Hash)
+					continue
+				}
+
 				rawBody, err := t.decodeDecryptMessage(message.Body, hexEncryptionKey)
 				if err != nil {
 					return fmt.Errorf("failed to decodeDecryptMessage: %w", err)
@@ -472,17 +485,14 @@ func (t *DKLSTssService) processKeysignInbound(
 				if err != nil {
 					return fmt.Errorf("failed to SignSessionInputMessage: %w", err)
 				}
-				if isFinished {
-					return nil
-				}
-
-				hash := md5.New()
-				hash.Write([]byte(message.Body))
-				hashStr := hex.EncodeToString(hash.Sum(nil))
 
 				err = relayClient.DeleteMessageFromServer(sessionID, localPartyID, hashStr, messageID)
 				if err != nil {
 					return fmt.Errorf("failed to DeleteMessageFromServer: %w", err)
+				}
+
+				if isFinished {
+					return nil
 				}
 			}
 		}

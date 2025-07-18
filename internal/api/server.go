@@ -49,7 +49,7 @@ type Server struct {
 	sdClient         *statsd.Client
 	policyService    service.Policy
 	pluginService    service.Plugin
-	feeService       service.Fees
+	feeService       *service.FeeService
 	authService      *service.AuthService
 	txIndexerService *tx_indexer.Service
 	logger           *logrus.Logger
@@ -71,6 +71,7 @@ func NewServer(
 	var err error
 
 	logger := logrus.WithField("service", "verifier-server").Logger
+	logger.SetLevel(logrus.DebugLevel)
 
 	// Create syncer for synchronous policy sync
 	syncer := syncer.NewPolicySyncer(db)
@@ -85,7 +86,7 @@ func NewServer(
 		logrus.Fatalf("Failed to initialize plugin service: %v", err)
 	}
 
-	feeService, err := service.NewFeeService(db, asynqClient, logger)
+	feeService, err := service.NewFeeService(db, asynqClient, logger, cfg.Fees)
 	if err != nil {
 		logrus.Fatalf("Failed to initialize fee service: %v", err)
 	}

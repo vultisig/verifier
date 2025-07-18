@@ -20,6 +20,7 @@ type WorkerConfig struct {
 		PluginConfigs map[string]map[string]interface{} `mapstructure:"plugin_configs" json:"plugin_configs,omitempty"`
 	} `mapstructure:"plugin" json:"plugin,omitempty"`
 	Datadog DatadogConfig `mapstructure:"datadog" json:"datadog"`
+	Fees    FeesConfig    `mapstructure:"fees" json:"fees"`
 }
 
 type VerifierConfig struct {
@@ -39,6 +40,7 @@ type VerifierConfig struct {
 		// pointer so it must be explicitly set to false, no value considered as enabled
 		Enabled *bool `mapstructure:"enabled" json:"enabled,omitempty"`
 	} `mapstructure:"auth" json:"auth"`
+	Fees FeesConfig `mapstructure:"fees" json:"fees"`
 }
 
 type DatadogConfig struct {
@@ -56,6 +58,11 @@ type RedisConfig struct {
 	User     string `mapstructure:"user" json:"user,omitempty"`
 	Password string `mapstructure:"password" json:"password,omitempty"`
 	DB       int    `mapstructure:"db" json:"db,omitempty"`
+}
+
+type FeesConfig struct {
+	RecipientWhiteList []string `mapstructure:"recipient_white_list" json:"recipient_white_list,omitempty"`
+	USDCAddress        string   `mapstructure:"usdc_address" json:"usdc_address,omitempty"`
 }
 
 func GetConfigure() (*WorkerConfig, error) {

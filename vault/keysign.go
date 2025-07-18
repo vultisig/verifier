@@ -472,6 +472,9 @@ func (t *DKLSTssService) processKeysignInbound(
 				if err != nil {
 					return fmt.Errorf("failed to SignSessionInputMessage: %w", err)
 				}
+				if isFinished {
+					return nil
+				}
 
 				hash := md5.New()
 				hash.Write([]byte(message.Body))
@@ -480,9 +483,6 @@ func (t *DKLSTssService) processKeysignInbound(
 				err = relayClient.DeleteMessageFromServer(sessionID, localPartyID, hashStr, messageID)
 				if err != nil {
 					return fmt.Errorf("failed to DeleteMessageFromServer: %w", err)
-				}
-				if isFinished {
-					return nil
 				}
 			}
 		}

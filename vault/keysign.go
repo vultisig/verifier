@@ -485,6 +485,7 @@ func (t *DKLSTssService) processKeysignInbound(
 				if err != nil {
 					return fmt.Errorf("failed to SignSessionInputMessage: %w", err)
 				}
+				messageCache.Store(cacheKey, true)
 
 				err = relayClient.DeleteMessageFromServer(sessionID, localPartyID, hashStr, messageID)
 				if err != nil {

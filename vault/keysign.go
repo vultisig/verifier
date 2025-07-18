@@ -19,6 +19,7 @@ import (
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
 	"github.com/vultisig/mobile-tss-lib/tss"
 	"github.com/vultisig/vultiserver/relay"
+	"golang.org/x/sync/errgroup"
 
 	vcommon "github.com/vultisig/vultiserver/common"
 
@@ -296,32 +297,60 @@ func (t *DKLSTssService) keysign(sessionID string,
 			t.logger.Error("failed to free keysign session", "error", err)
 		}
 	}()
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-	go func() {
-		if err := t.processKeysignOutbound(
+
+	eg := &errgroup.Group{}
+	eg.Go(func() error {
+		er := t.processKeysignOutbound(
 			sessionHandle,
 			sessionID,
 			hexEncryptionKey,
 			keysignCommittee,
 			localPartyID,
 			messageID,
-			wg,
 			isEdDSA,
-		); err != nil {
-			t.logger.Error("failed to process keygen outbound", "error", err)
+		)
+		if er != nil {
+			return fmt.Errorf("failed to processKeysignOutbound", er)
 		}
-	}()
-	sig, err := t.processKeysignInbound(
-		sessionHandle,
-		sessionID,
-		hexEncryptionKey,
-		localPartyID,
-		isEdDSA,
-		messageID,
-		wg,
-	)
-	wg.Wait()
+		return nil
+	})
+	eg.Go(func() error {
+		er := t.processKeysignInbound(
+			sessionHandle,
+			sessionID,
+			hexEncryptionKey,
+			localPartyID,
+			isEdDSA,
+			messageID,
+		)
+		if er != nil {
+			return fmt.Errorf("failed to processKeysignInbound: %w", er)
+		}
+		return nil
+	})
+	err = eg.Wait()
+	if err != nil {
+		t.logger.WithError(err).Error("failed to process keysign")
+		return nil, fmt.Errorf("failed to process keysign: %w", err)
+	}
+
+	hash := md5.New()
+	hash.Write(setupHashToSign)
+	hashStr := hex.EncodeToString(hash.Sum(nil))
+
+	if err := relayClient.DeleteMessageFromServer(sessionID, localPartyID, hashStr, messageID); err != nil {
+		t.logger.WithError(err).Error("fail to delete message, continue keysign")
+	}
+	t.logger.Infoln("keysign finished")
+	sig, err := mpcWrapper.SignSessionFinish(sessionHandle)
+	if err != nil {
+		t.logger.WithError(err).Error("failed to finish keysign")
+		return nil, fmt.Errorf("failed to finish keysign: %w", err)
+	}
+	encodedKeysignResult := base64.StdEncoding.EncodeToString(sig)
+	t.logger.Infof("Keysign result: %s", encodedKeysignResult)
+	t.isKeysignFinished.Store(true)
+
 	t.logger.Infoln("Keysign result is:", len(sig))
 	rBytes := sig[:32]
 	sBytes := sig[32:64]
@@ -374,8 +403,8 @@ func (t *DKLSTssService) processKeysignOutbound(handle Handle,
 	parties []string,
 	localPartyID string,
 	messageID string,
-	wg *sync.WaitGroup, isEdDSA bool) error {
-	defer wg.Done()
+	isEdDSA bool,
+) error {
 	messenger := relay.NewMessenger(t.cfg.Relay.Server, sessionID, hexEncryptionKey, true, messageID)
 	mpcWrapper := t.GetMPCKeygenWrapper(isEdDSA)
 	for {
@@ -410,14 +439,14 @@ func (t *DKLSTssService) processKeysignOutbound(handle Handle,
 	}
 }
 
-func (t *DKLSTssService) processKeysignInbound(handle Handle,
+func (t *DKLSTssService) processKeysignInbound(
+	handle Handle,
 	sessionID string,
 	hexEncryptionKey string,
 	localPartyID string,
 	isEdDSA bool,
 	messageID string,
-	wg *sync.WaitGroup) ([]byte, error) {
-	defer wg.Done()
+) error {
 	var messageCache sync.Map
 	mpcWrapper := t.GetMPCKeygenWrapper(isEdDSA)
 	relayClient := relay.NewRelayClient(t.cfg.Relay.Server)
@@ -427,7 +456,7 @@ func (t *DKLSTssService) processKeysignInbound(handle Handle,
 		case <-time.After(time.Millisecond * 100):
 			if time.Since(start) > time.Minute {
 				t.isKeysignFinished.Store(true)
-				return nil, TssKeyGenTimeout
+				return TssKeyGenTimeout
 			}
 			messages, err := relayClient.DownloadMessages(sessionID, localPartyID, messageID)
 			if err != nil {
@@ -460,21 +489,8 @@ func (t *DKLSTssService) processKeysignInbound(handle Handle,
 					continue
 				}
 				messageCache.Store(cacheKey, true)
-				hashStr := message.Hash
-				if err := relayClient.DeleteMessageFromServer(sessionID, localPartyID, hashStr, messageID); err != nil {
-					t.logger.Error("fail to delete message", "error", err)
-				}
 				if isFinished {
-					t.logger.Infoln("keysign finished")
-					result, err := mpcWrapper.SignSessionFinish(handle)
-					if err != nil {
-						t.logger.Error("fail to finish keysign", "error", err)
-						return nil, err
-					}
-					encodedKeysignResult := base64.StdEncoding.EncodeToString(result)
-					t.logger.Infof("Keysign result: %s", encodedKeysignResult)
-					t.isKeysignFinished.Store(true)
-					return result, nil
+					return nil
 				}
 			}
 		}

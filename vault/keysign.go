@@ -317,19 +317,20 @@ func (t *DKLSTssService) keysign(sessionID string,
 		}
 		return nil
 	})
-
-	err = t.processKeysignInbound(
-		sessionHandle,
-		sessionID,
-		hexEncryptionKey,
-		localPartyID,
-		isEdDSA,
-		messageID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to processKeysignInbound: %w", err)
-	}
-
+	eg.Go(func() error {
+		er := t.processKeysignInbound(
+			sessionHandle,
+			sessionID,
+			hexEncryptionKey,
+			localPartyID,
+			isEdDSA,
+			messageID,
+		)
+		if er != nil {
+			return fmt.Errorf("failed to processKeysignInbound: %w", er)
+		}
+		return nil
+	})
 	err = eg.Wait()
 	if err != nil {
 		t.logger.WithError(err).Error("failed to process keysign")
@@ -464,11 +465,7 @@ func (t *DKLSTssService) processKeysignInbound(
 					continue
 				}
 
-				hash := md5.New()
-				hash.Write([]byte(message.Body))
-				hashStr := hex.EncodeToString(hash.Sum(nil))
-
-				cacheKey := fmt.Sprintf("%s-%s-%s-%s", sessionID, localPartyID, messageID, hashStr)
+				cacheKey := fmt.Sprintf("%s-%s-%s-%s", sessionID, localPartyID, messageID, message.Hash)
 				if _, found := messageCache.Load(cacheKey); found {
 					t.logger.Infof("Message already applied, skipping, hash: %s", message.Hash)
 					continue
@@ -486,7 +483,7 @@ func (t *DKLSTssService) processKeysignInbound(
 				}
 				messageCache.Store(cacheKey, true)
 
-				err = relayClient.DeleteMessageFromServer(sessionID, localPartyID, hashStr, messageID)
+				err = relayClient.DeleteMessageFromServer(sessionID, localPartyID, message.Hash, messageID)
 				if err != nil {
 					return fmt.Errorf("failed to DeleteMessageFromServer: %w", err)
 				}

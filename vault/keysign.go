@@ -323,6 +323,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 			isEdDSA,
 			messageID,
 		)
+		t.isKeysignFinished.Store(true) // right place to unblock both goroutines in error case
 		if er != nil {
 			return fmt.Errorf("failed to processKeysignInbound: %w", er)
 		}
@@ -349,7 +350,6 @@ func (t *DKLSTssService) keysign(sessionID string,
 	}
 	encodedKeysignResult := base64.StdEncoding.EncodeToString(sig)
 	t.logger.Infof("Keysign result: %s", encodedKeysignResult)
-	t.isKeysignFinished.Store(true)
 
 	t.logger.Infoln("Keysign result is:", len(sig))
 	rBytes := sig[:32]

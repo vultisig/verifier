@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
@@ -451,8 +450,6 @@ func (t *DKLSTssService) processKeysignInbound(
 ) error {
 	defer t.isKeysignFinished.Store(true)
 
-	cache := &sync.Map{}
-
 	mpcWrapper := t.GetMPCKeygenWrapper(isEdDSA)
 	relayClient := relay.NewRelayClient(t.cfg.Relay.Server)
 	start := time.Now()
@@ -470,11 +467,6 @@ func (t *DKLSTssService) processKeysignInbound(
 				if message.From == localPartyID {
 					continue
 				}
-				cacheKey := fmt.Sprintf("%s-%s-%s", sessionID, localPartyID, message.Body)
-				_, ok := cache.Load(cacheKey)
-				if ok {
-					continue
-				}
 
 				rawBody, err := t.decodeDecryptMessage(message.Body, hexEncryptionKey)
 				if err != nil {
@@ -484,7 +476,6 @@ func (t *DKLSTssService) processKeysignInbound(
 				t.logger.Infoln("Received message from", message.From)
 				isFinished, err := mpcWrapper.SignSessionInputMessage(handle.Get(), rawBody)
 				handle.Release()
-				cache.Store(cacheKey, true)
 				if err != nil {
 					return fmt.Errorf("failed to SignSessionInputMessage: %w", err)
 				}

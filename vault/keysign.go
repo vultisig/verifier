@@ -437,8 +437,6 @@ func (t *DKLSTssService) processKeysignInbound(
 	isEdDSA bool,
 	messageID string,
 ) ([]byte, error) {
-	defer t.isKeysignFinished.Store(true)
-
 	messageCache := &sync.Map{}
 
 	mpcWrapper := t.GetMPCKeygenWrapper(isEdDSA)
@@ -448,6 +446,7 @@ func (t *DKLSTssService) processKeysignInbound(
 		select {
 		case <-time.After(time.Millisecond * 100):
 			if time.Since(start) > time.Minute {
+				t.isKeysignFinished.Store(true)
 				return nil, TssKeyGenTimeout
 			}
 			messages, err := relayClient.DownloadMessages(sessionID, localPartyID, messageID)
@@ -493,6 +492,7 @@ func (t *DKLSTssService) processKeysignInbound(
 
 					encodedKeysignResult := base64.StdEncoding.EncodeToString(sig)
 					t.logger.Infof("Keysign result: %s", encodedKeysignResult)
+					t.isKeysignFinished.Store(true)
 					return sig, nil
 				}
 			}

@@ -308,6 +308,10 @@ func (t *DKLSTssService) keysign(sessionID string,
 	sig, err := t.processKeysignInbound(sessionHandle, sessionID, hexEncryptionKey, localPartyID, isEdDSA, messageID, wg)
 	wg.Wait()
 
+	if err != nil {
+		return nil, fmt.Errorf("failed to process keysign: %w", err)
+	}
+
 	t.logger.Infoln("Keysign result is:", len(sig))
 	rBytes := sig[:32]
 	sBytes := sig[32:64]

@@ -460,6 +460,10 @@ func (t *DKLSTssService) processKeysignInbound(handle Handle,
 					continue
 				}
 				messageCache.Store(cacheKey, true)
+				hashStr := message.Hash
+				if err := relayClient.DeleteMessageFromServer(sessionID, localPartyID, hashStr, messageID); err != nil {
+					t.logger.Error("fail to delete message", "error", err)
+				}
 				if isFinished {
 					t.logger.Infoln("keysign finished")
 					result, err := mpcWrapper.SignSessionFinish(handle)

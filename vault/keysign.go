@@ -17,6 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
 	"github.com/vultisig/mobile-tss-lib/tss"
+	"github.com/vultisig/verifier/internal/conc"
 	"github.com/vultisig/vultiserver/relay"
 	"golang.org/x/sync/errgroup"
 
@@ -105,7 +106,7 @@ func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[strin
 			publicKey = localStateAccessor.Vault.PublicKeyEcdsa
 		}
 
-		sig, err := t.keysignWithRetry(
+		sig, err := t.keysign(
 			req.SessionID,
 			req.HexEncryptionKey,
 			publicKey,
@@ -114,6 +115,7 @@ func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[strin
 			msg.Chain.GetDerivePath(),
 			localPartyID,
 			partiesJoined,
+			0,
 		)
 		if err != nil {
 			return result, fmt.Errorf("failed to keysign: %w", err)
@@ -297,10 +299,12 @@ func (t *DKLSTssService) keysign(sessionID string,
 		}
 	}()
 
+	sess := conc.NewLocked(sessionHandle)
+
 	eg := &errgroup.Group{}
 	eg.Go(func() error {
 		er := t.processKeysignOutbound(
-			sessionHandle,
+			sess,
 			sessionID,
 			hexEncryptionKey,
 			keysignCommittee,
@@ -315,7 +319,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 	})
 	eg.Go(func() error {
 		er := t.processKeysignInbound(
-			sessionHandle,
+			sess,
 			sessionID,
 			hexEncryptionKey,
 			localPartyID,
@@ -395,7 +399,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 	}
 	return resp, nil
 }
-func (t *DKLSTssService) processKeysignOutbound(handle Handle,
+func (t *DKLSTssService) processKeysignOutbound(handle *conc.Locked[Handle],
 	sessionID string,
 	hexEncryptionKey string,
 	parties []string,
@@ -406,7 +410,8 @@ func (t *DKLSTssService) processKeysignOutbound(handle Handle,
 	messenger := relay.NewMessenger(t.cfg.Relay.Server, sessionID, hexEncryptionKey, true, messageID)
 	mpcWrapper := t.GetMPCKeygenWrapper(isEdDSA)
 	for {
-		outbound, err := mpcWrapper.SignSessionOutputMessage(handle)
+		outbound, err := mpcWrapper.SignSessionOutputMessage(handle.Get())
+		handle.Release()
 		if err != nil {
 			t.logger.Error("failed to get output message", "error", err)
 		}
@@ -420,7 +425,8 @@ func (t *DKLSTssService) processKeysignOutbound(handle Handle,
 		}
 		encodedOutbound := base64.StdEncoding.EncodeToString(outbound)
 		for i := 0; i < len(parties); i++ {
-			receiver, err := mpcWrapper.SignSessionMessageReceiver(handle, outbound, i)
+			receiver, err := mpcWrapper.SignSessionMessageReceiver(handle.Get(), outbound, i)
+			handle.Release()
 			if err != nil {
 				t.logger.Error("failed to get receiver message", "error", err)
 			}
@@ -438,7 +444,7 @@ func (t *DKLSTssService) processKeysignOutbound(handle Handle,
 }
 
 func (t *DKLSTssService) processKeysignInbound(
-	handle Handle,
+	handle *conc.Locked[Handle],
 	sessionID string,
 	hexEncryptionKey string,
 	localPartyID string,
@@ -458,8 +464,7 @@ func (t *DKLSTssService) processKeysignInbound(
 			}
 			messages, err := relayClient.DownloadMessages(sessionID, localPartyID, messageID)
 			if err != nil {
-				t.logger.Error("fail to get messages", "error", err)
-				continue
+				return fmt.Errorf("failed to DownloadMessages: %w", err)
 			}
 			for _, message := range messages {
 				if message.From == localPartyID {
@@ -468,15 +473,14 @@ func (t *DKLSTssService) processKeysignInbound(
 
 				rawBody, err := t.decodeDecryptMessage(message.Body, hexEncryptionKey)
 				if err != nil {
-					t.logger.Error("fail to decode inbound message", "error", err)
-					continue
+					return fmt.Errorf("failed to decodeDecryptMessage: %w", err)
 				}
 				// decode to get raw message
 				t.logger.Infoln("Received message from", message.From)
-				isFinished, err := mpcWrapper.SignSessionInputMessage(handle, rawBody)
+				isFinished, err := mpcWrapper.SignSessionInputMessage(handle.Get(), rawBody)
+				handle.Release()
 				if err != nil {
-					t.logger.Error("fail to apply input message", "error", err)
-					continue
+					return fmt.Errorf("failed to SignSessionInputMessage: %w", err)
 				}
 				if isFinished {
 					return nil

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
 
@@ -14,6 +15,7 @@ import (
 
 type Fees interface {
 	PublicKeyGetFeeInfo(ctx context.Context, publicKey string) (*itypes.FeeHistoryDto, error)
+	MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txHash string) ([]itypes.FeeDto, error)
 }
 
 var _ Fees = (*FeeService)(nil)
@@ -78,4 +80,26 @@ func (s *FeeService) PublicKeyGetFeeInfo(ctx context.Context, publicKey string) 
 		TotalFeesIncurred:     totalFeesIncurred,
 		FeesPendingCollection: feesPendingCollection,
 	}, nil
+}
+
+func (s *FeeService) MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txHash string) ([]itypes.FeeDto, error) {
+	fees, err := s.db.MarkFeesCollected(ctx, collectedAt, ids, txHash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to mark fees as collected: %w", err)
+	}
+
+	feesDto := make([]itypes.FeeDto, 0, len(fees))
+	for _, fee := range fees {
+		feesDto = append(feesDto, itypes.FeeDto{
+			ID:          fee.ID,
+			PublicKey:   fee.PublicKey,
+			PolicyId:    fee.PolicyID,
+			PluginId:    fee.PluginID.String(),
+			Amount:      fee.Amount,
+			Collected:   true,
+			CollectedAt: collectedAt.Format(time.RFC3339),
+			ChargedAt:   fee.ChargedAt.Format(time.RFC3339),
+		})
+	}
+	return feesDto, nil
 }

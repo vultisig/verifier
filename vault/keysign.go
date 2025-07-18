@@ -317,20 +317,19 @@ func (t *DKLSTssService) keysign(sessionID string,
 		}
 		return nil
 	})
-	eg.Go(func() error {
-		er := t.processKeysignInbound(
-			sessionHandle,
-			sessionID,
-			hexEncryptionKey,
-			localPartyID,
-			isEdDSA,
-			messageID,
-		)
-		if er != nil {
-			return fmt.Errorf("failed to processKeysignInbound: %w", er)
-		}
-		return nil
-	})
+
+	err = t.processKeysignInbound(
+		sessionHandle,
+		sessionID,
+		hexEncryptionKey,
+		localPartyID,
+		isEdDSA,
+		messageID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to processKeysignInbound: %w", err)
+	}
+
 	err = eg.Wait()
 	if err != nil {
 		t.logger.WithError(err).Error("failed to process keysign")

@@ -79,7 +79,7 @@ func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[strin
 			publicKey = localStateAccessor.Vault.PublicKeyEcdsa
 		}
 
-		sig, err := t.keysign(
+		sig, err := t.keysignWithRetry(
 			req.SessionID,
 			req.HexEncryptionKey,
 			publicKey,
@@ -88,7 +88,6 @@ func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[strin
 			msg.Chain.GetDerivePath(),
 			localPartyID,
 			partiesJoined,
-			0,
 		)
 		if err != nil {
 			return result, fmt.Errorf("failed to keysign: %w", err)
@@ -339,6 +338,42 @@ func (t *DKLSTssService) keysign(sessionID string,
 		}
 	}
 	return resp, nil
+}
+
+func (t *DKLSTssService) keysignWithRetry(sessionID string,
+	hexEncryptionKey string,
+	publicKey string,
+	isEdDSA bool,
+	message string,
+	derivePath string,
+	localPartyID string,
+	keysignCommittee []string) (*tss.KeysignResponse, error) {
+	for i := 0; i < 3; i++ {
+		keysignResult, err := t.keysign(sessionID,
+			hexEncryptionKey,
+			publicKey,
+			isEdDSA,
+			message,
+			derivePath,
+			localPartyID,
+			keysignCommittee, i)
+		if err != nil {
+			t.logger.WithFields(logrus.Fields{
+				"session_id":        sessionID,
+				"public_key_ecdsa":  publicKey,
+				"message":           message,
+				"derive_path":       derivePath,
+				"local_party_id":    localPartyID,
+				"keysign_committee": keysignCommittee,
+				"attempt":           i,
+			}).Error(err)
+			time.Sleep(50 * time.Millisecond)
+			continue
+		} else {
+			return keysignResult, nil
+		}
+	}
+	return nil, fmt.Errorf("fail to keysign after max retry")
 }
 
 func (t *DKLSTssService) processKeysignOutbound(

@@ -120,7 +120,7 @@ func (t *Service) SetSignedAndBroadcasted(
 
 	body, err := hexutil.Decode(tx.ProposedTxHex)
 	if err != nil {
-		return fmt.Errorf("failed to decode proposed tx")
+		return fmt.Errorf("failed to decode proposed tx: %w", err)
 	}
 
 	txHash, err := client.ComputeTxHash(body, sigs)

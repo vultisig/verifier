@@ -4,7 +4,8 @@
       "server": "https://api.vultisig.com/router"
     },
     "local_party_prefix": "verifier",
-    "encryption_secret": "test123"
+    "encryption_secret": "test123",
+    "do_setup_msg": false
   },
   "redis": {
     "host": "localhost",

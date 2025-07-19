@@ -2,10 +2,10 @@ package tx_indexer
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/mobile-tss-lib/tss"
@@ -118,7 +118,7 @@ func (t *Service) SetSignedAndBroadcasted(
 		return fmt.Errorf("client for chain not found: %s", chainID)
 	}
 
-	body, err := hexutil.Decode(tx.ProposedTxHex)
+	body, err := hex.DecodeString(tx.ProposedTxHex)
 	if err != nil {
 		return fmt.Errorf("failed to decode proposed tx: %w", err)
 	}

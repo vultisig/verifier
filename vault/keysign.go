@@ -312,6 +312,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 	t.logger.Infoln("keysign result is:", len(sig))
 	rBytes := sig[:32]
 	sBytes := sig[32:64]
+	vBytes := sig[64:]
 	derBytes, err := vcommon.GetDerSignature(rBytes, sBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get der signature: %w", err)
@@ -321,6 +322,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 		R:            hex.EncodeToString(sig[:32]),
 		S:            hex.EncodeToString(sig[32:64]),
 		DerSignature: hex.EncodeToString(derBytes),
+		RecoveryID:   hex.EncodeToString(vBytes),
 	}
 
 	if t.cfg.DoSetupMsg {

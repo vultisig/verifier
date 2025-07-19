@@ -124,6 +124,7 @@ func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[strin
 		}
 		result[msg.Hash] = *sig
 	}
+
 	if err := relayClient.CompleteSession(req.SessionID, localPartyID); err != nil {
 		t.logger.WithFields(logrus.Fields{
 			"session": req.SessionID,
@@ -321,6 +322,15 @@ func (t *DKLSTssService) keysign(sessionID string,
 		S:            hex.EncodeToString(sig[32:64]),
 		DerSignature: hex.EncodeToString(derBytes),
 	}
+
+	if t.cfg.DoSetupMsg {
+		// no need to save same response from each consumer
+		er := relayClient.MarkKeysignComplete(sessionID, messageID, *resp)
+		if er != nil {
+			return nil, fmt.Errorf("failed to save sig: %w", er)
+		}
+	}
+
 	if isEdDSA {
 		pubKeyBytes, err := hex.DecodeString(publicKey)
 		if err != nil {

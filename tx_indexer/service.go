@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/mobile-tss-lib/tss"
@@ -117,7 +118,12 @@ func (t *Service) SetSignedAndBroadcasted(
 		return fmt.Errorf("client for chain not found: %s", chainID)
 	}
 
-	txHash, err := client.ComputeTxHash(tx.ProposedTxHex, sigs)
+	body, err := hexutil.Decode(tx.ProposedTxHex)
+	if err != nil {
+		return fmt.Errorf("failed to decode proposed tx")
+	}
+
+	txHash, err := client.ComputeTxHash(body, sigs)
 	if err != nil {
 		return fmt.Errorf("client.ComputeTxHash: %w", err)
 	}

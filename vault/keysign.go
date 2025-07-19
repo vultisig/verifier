@@ -276,7 +276,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 			isEdDSA,
 		)
 		if er != nil {
-			return fmt.Errorf("failed to processKeysignOutbound: %w", e)
+			return fmt.Errorf("failed to processKeysignOutbound: %w", er)
 		}
 		return nil
 	})
@@ -290,7 +290,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 			messageID,
 		)
 		if er != nil {
-			return fmt.Errorf("failed to processKeysignInbound: %w", e)
+			return fmt.Errorf("failed to processKeysignInbound: %w", er)
 		}
 		return nil
 	})

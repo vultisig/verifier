@@ -14,7 +14,8 @@ import {
   Spin,
   Tag,
 } from "antd";
-import { Button } from "components/button";
+import { Button } from "components/Button";
+import { Stack } from "components/Stack";
 import dayjs, { Dayjs } from "dayjs";
 import { useGoBack } from "hooks/useGoBack";
 import { ConstraintSchema } from "proto/constraint_pb";
@@ -32,8 +33,6 @@ import { ScheduleFrequency } from "proto/scheduling_pb";
 import { FC, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { getVaultId } from "storage/vaultId";
-import { FormInput } from "styles/FormInput";
-import { Stack } from "styles/Stack";
 import { modalHash, scheduleFrequencyLabels } from "utils/constants/core";
 import { toTimestamp } from "utils/functions";
 import { signPluginPolicy } from "utils/services/extension";
@@ -254,7 +253,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
   return (
     <Modal
       footer={
-        <Stack $gap="8px" $justifyContent="end">
+        <Stack $style={{ gap: "8px", justifyContent: "end" }}>
           <Button disabled={submitting} onClick={() => goBack()}>
             Cancel
           </Button>
@@ -282,7 +281,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
       >
         {schema ? (
           <>
-            <Stack $display="block">
+            <Stack $style={{ display: "block" }}>
               <Divider orientation="start" orientationMargin={0}>
                 <Tag>{`v${schema.pluginVersion}`}</Tag>
                 {schema.pluginId.capitalizeFirst()}
@@ -292,7 +291,11 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
                 label="Supported Resource"
                 rules={[{ required: true }]}
               >
-                <FormInput as={Select} options={resourceOptions} />
+                <Stack
+                  as={Select}
+                  options={resourceOptions}
+                  $style={{ height: "44px" }}
+                />
               </Form.Item>
               <Form.Item
                 shouldUpdate={(prevValues, currentValues) =>
@@ -322,7 +325,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
                             name={parameterName}
                             rules={[{ required }]}
                           >
-                            <FormInput as={Input} />
+                            <Stack as={Input} $style={{ height: "44px" }} />
                           </Form.Item>
                         )
                       )}
@@ -332,7 +335,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
               </Form.Item>
             </Stack>
             {schema.scheduling?.supportsScheduling ? (
-              <Stack $display="block">
+              <Stack $style={{ display: "block" }}>
                 <Divider orientation="start" orientationMargin={0}>
                   Scheduling
                 </Divider>
@@ -360,7 +363,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
                         label="start date"
                         rules={[{ required: true }]}
                       >
-                        <FormInput
+                        <Stack
                           as={DatePicker}
                           disabledDate={(current) => {
                             return current && current.isBefore(dayjs(), "day");
@@ -383,6 +386,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
                             showMinute: false,
                             showSecond: false,
                           }}
+                          $style={{ height: "44px" }}
                         />
                       </Form.Item>
                     );
@@ -411,7 +415,11 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
                         rules={[{ required: true }]}
                         help={`Max ${schema.scheduling?.maxScheduledExecutions} scheduled executions`}
                       >
-                        <FormInput as={Select} options={frequencyOptions} />
+                        <Stack
+                          as={Select}
+                          options={frequencyOptions}
+                          $style={{ height: "44px" }}
+                        />
                       </Form.Item>
                     ) : (
                       <></>
@@ -422,7 +430,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
             ) : (
               <></>
             )}
-            <Stack $display="block">
+            <Stack $style={{ display: "block" }}>
               <Divider orientation="start" orientationMargin={0}>
                 Requirements
               </Divider>
@@ -438,7 +446,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
             </Stack>
           </>
         ) : (
-          <Stack $alignItems="center" $justifyContent="center">
+          <Stack $style={{ alignItems: "center", justifyContent: "center" }}>
             <Spin />
           </Stack>
         )}

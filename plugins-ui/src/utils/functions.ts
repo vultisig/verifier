@@ -1,5 +1,8 @@
 import { Dayjs } from "dayjs";
+import { DefaultTheme } from "styled-components";
 import { CSSProperties, PluginPolicy } from "utils/types";
+import { ThemeColorKeys } from "utils/constants/styled";
+import { CSSColorProperties, cssColorProperties } from "utils/constants/styles";
 
 const isArray = (arr: any): arr is any[] => {
   return Array.isArray(arr);
@@ -23,9 +26,19 @@ const toSnake = (value: string): string => {
   return value.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 };
 
-export const cssPropertiesToString = (styles: CSSProperties): string => {
+export const cssPropertiesToString = (
+  styles: CSSProperties,
+  theme: DefaultTheme
+): string => {
   return Object.entries(styles)
-    .map(([key, value]) => `${toKebab(key)}: ${value};`)
+    .map(
+      ([key, value]) =>
+        `${toKebab(key)}: ${
+          cssColorProperties.includes(key as CSSColorProperties)
+            ? theme[value as ThemeColorKeys]
+            : value
+        };`
+    )
     .join("\n");
 };
 

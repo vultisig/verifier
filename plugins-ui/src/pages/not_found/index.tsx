@@ -1,7 +1,7 @@
 import { Layout, Result } from "antd";
-import { Button } from "components/button";
+import { Button } from "components/Button";
+import { Stack } from "components/Stack";
 import { useGoBack } from "hooks/useGoBack";
-import { Stack } from "styles/Stack";
 import { routeTree } from "utils/constants/routes";
 
 export const NotFoundPage = () => {
@@ -10,10 +10,12 @@ export const NotFoundPage = () => {
   return (
     <Stack
       as={Layout}
-      $alignItems="center"
-      $backgroundColor="backgroundPrimary"
-      $justifyContent="center"
-      $fullHeight
+      $style={{
+        alignItems: "center",
+        backgroundColor: "backgroundPrimary",
+        justifyContent: "center",
+        height: "100%",
+      }}
     >
       <Result
         status="404"

@@ -18,6 +18,7 @@ export type Plugin = {
   description: string;
   id: string;
   pricing: PluginPricing[];
+  rating: { count: number; rate: number };
   ratings: Rating[];
   serverEndpoint: string;
   title: string;

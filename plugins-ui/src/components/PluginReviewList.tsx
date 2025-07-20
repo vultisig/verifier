@@ -11,12 +11,12 @@ import {
   Spin,
   Tag,
 } from "antd";
-import { Button } from "components/button";
-import { MiddleTruncate } from "components/middle_truncate";
+import { Button } from "components/Button";
+import { MiddleTruncate } from "components/MiddleTruncate";
+import { Stack } from "components/Stack";
 import dayjs from "dayjs";
 import { useApp } from "hooks/useApp";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
-import { Stack } from "styles/Stack";
 import { addPluginReview, getPluginReviews } from "utils/services/marketplace";
 import { Plugin, Review, ReviewForm } from "utils/types";
 
@@ -132,7 +132,7 @@ export const PluginReviewList: FC<Plugin> = (plugin) => {
                   const isTouched = form.isFieldsTouched(true);
 
                   return (
-                    <Stack $justifyContent="end">
+                    <Stack $style={{ justifyContent: "end" }}>
                       {isConnected ? (
                         <Button
                           disabled={!isTouched || hasErrors}
@@ -155,7 +155,11 @@ export const PluginReviewList: FC<Plugin> = (plugin) => {
           </Form>
         </Col>
         {loading ? (
-          <Stack as={Col} xs={24} $alignItems="center" $justifyContent="center">
+          <Stack
+            as={Col}
+            xs={24}
+            $style={{ alignItems: "center", justifyContent: "center" }}
+          >
             <Spin />
           </Stack>
         ) : reviews.length ? (
@@ -163,7 +167,7 @@ export const PluginReviewList: FC<Plugin> = (plugin) => {
             <Col xs={24}>
               <Card
                 extra={
-                  <Stack $alignItems="center">
+                  <Stack $style={{ alignItems: "center" }}>
                     <Tag>{`${averageRating} / 5`}</Tag>
                     <Rate count={5} value={averageRating} disabled />
                   </Stack>

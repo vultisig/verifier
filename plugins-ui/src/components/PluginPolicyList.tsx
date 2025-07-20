@@ -1,14 +1,14 @@
 import { fromBinary } from "@bufbuild/protobuf";
 import { base64Decode } from "@bufbuild/protobuf/wire";
 import { Divider, List, message, Modal, Table, TableProps } from "antd";
-import { Button } from "components/button";
-import { MiddleTruncate } from "components/middle_truncate";
-import { PluginPolicyModal } from "components/plugin_policy_modal";
+import { Button } from "components/Button";
+import { MiddleTruncate } from "components/MiddleTruncate";
+import { PluginPolicyModal } from "components/PluginPolicyModal";
+import { Stack } from "components/Stack";
 import { TrashIcon } from "icons/TrashIcon";
 import { Policy, PolicySchema } from "proto/policy_pb";
 import { RecipeSchema } from "proto/recipe_specification_pb";
 import { FC, useCallback, useEffect, useState } from "react";
-import { Stack } from "styles/Stack";
 import { scheduleFrequencyLabels } from "utils/constants/core";
 import {
   delPluginPolicy,
@@ -190,7 +190,7 @@ export const PluginPolicyList: FC<Plugin> = (plugin) => {
                     <List.Item.Meta
                       title={
                         record.case ? (
-                          <Stack $alignItems="center" $gap="4px">
+                          <Stack $style={{ alignItems: "center", gap: "4px" }}>
                             <span>{record.name.capitalizeFirst()}</span>
                             <small>{`(${record.case})`}</small>
                           </Stack>

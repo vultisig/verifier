@@ -1,13 +1,11 @@
-import { Col, Empty, Form, Row, Select, SelectProps, Spin } from "antd";
-import { SearchInput } from "components/input_search";
-import { PageHeading } from "components/page_heading";
-import { PluginItem } from "components/plugin_item";
+import { Col, Empty, Form, Layout, Row, Select, SelectProps, Spin } from "antd";
+import { SearchInput } from "components/InputSearch";
+import { PageHeading } from "components/PageHeading";
+import { PluginItem } from "components/PluginItem";
+import { Stack } from "components/Stack";
 import { useFilterParams } from "hooks/useFilterParams";
 import { debounce } from "lodash-es";
 import { useCallback, useEffect, useState } from "react";
-import { Container } from "styles/Container";
-import { FormInput } from "styles/FormInput";
-import { Stack } from "styles/Stack";
 import { getPluginCategories, getPlugins } from "utils/services/marketplace";
 import { Plugin, PluginFilters } from "utils/types";
 
@@ -67,60 +65,81 @@ export const PluginsPage = () => {
   }, []);
 
   return (
-    <Container $flexDirection="column" $gap="16px">
-      <PageHeading
-        description="Discover and install plugins to enhance your experience."
-        title="Plugins Marketplace"
-      />
-      <Form
-        form={form}
-        initialValues={filters}
-        layout="vertical"
-        onValuesChange={handleChange}
+    <Stack
+      as={Layout.Content}
+      $style={{ flexGrow: "1", justifyContent: "center", padding: "30px 0" }}
+    >
+      <Stack
+        $style={{
+          flexDirection: "column",
+          gap: "16px",
+          maxWidth: "1200px",
+          padding: "0 16px",
+          width: "100%",
+        }}
       >
-        <Row gutter={[16, 16]}>
-          <Col xs={24} sm={12} xl={8}>
-            <Form.Item<PluginFilters> name="term" noStyle>
-              <SearchInput placeholder="Search by" />
-            </Form.Item>
-          </Col>
-          <Col xs={12} sm={6} xl={{ span: 4, offset: 8 }}>
-            <Form.Item<PluginFilters> name="category" noStyle>
-              <FormInput
-                as={Select}
-                options={categoryOptions}
-                placeholder="Category"
-                allowClear
-              />
-            </Form.Item>
-          </Col>
-          <Col xs={12} sm={6} xl={4}>
-            <Form.Item<PluginFilters> name="sort" noStyle>
-              <FormInput
-                as={Select}
-                options={sortOptions}
-                placeholder="Sort"
-                allowClear
-              />
-            </Form.Item>
-          </Col>
-        </Row>
-      </Form>
-      {loading ? (
-        <Stack $alignItems="center" $justifyContent="center" $flexGrow>
-          <Spin />
-        </Stack>
-      ) : plugins.length ? (
-        <Row gutter={[16, 16]}>
-          {plugins.map((plugin) => (
-            <Col key={plugin.id} xs={24} sm={12} xl={8}>
-              <PluginItem {...plugin} />
+        <PageHeading
+          description="Discover and install plugins to enhance your experience."
+          title="Plugins Marketplace"
+        />
+        <Form
+          form={form}
+          initialValues={filters}
+          layout="vertical"
+          onValuesChange={handleChange}
+        >
+          <Row gutter={[16, 16]}>
+            <Col xs={24} sm={12} xl={8}>
+              <Form.Item<PluginFilters> name="term" noStyle>
+                <SearchInput placeholder="Search by" />
+              </Form.Item>
             </Col>
-          ))}
-        </Row>
-      ) : (
-        <Empty />
-      )}
-    </Container>
+            <Col xs={12} sm={6} xl={{ span: 4, offset: 8 }}>
+              <Form.Item<PluginFilters> name="category" noStyle>
+                <Stack
+                  as={Select}
+                  options={categoryOptions}
+                  placeholder="Category"
+                  allowClear
+                  $style={{ height: "44px" }}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={12} sm={6} xl={4}>
+              <Form.Item<PluginFilters> name="sort" noStyle>
+                <Stack
+                  as={Select}
+                  options={sortOptions}
+                  placeholder="Sort"
+                  allowClear
+                  $style={{ height: "44px" }}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
+        {loading ? (
+          <Stack
+            $style={{
+              alignItems: "center",
+              flexGrow: "1",
+              justifyContent: "center",
+            }}
+          >
+            <Spin />
+          </Stack>
+        ) : plugins.length ? (
+          <Row gutter={[16, 16]}>
+            {plugins.map((plugin) => (
+              <Col key={plugin.id} xs={24} sm={12} xl={8}>
+                <PluginItem {...plugin} />
+              </Col>
+            ))}
+          </Row>
+        ) : (
+          <Empty />
+        )}
+      </Stack>
+    </Stack>
   );
 };

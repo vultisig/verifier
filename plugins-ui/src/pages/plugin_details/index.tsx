@@ -1,14 +1,16 @@
-import { Card, message, Modal, Spin } from "antd";
-import { Button } from "components/button";
-import { PluginPolicyList } from "components/plugin_policy_list";
-import { PluginReviewList } from "components/plugin_review_list";
+import { Card, Col, Layout, message, Modal, Row, Spin } from "antd";
+import { Button } from "components/Button";
+import { PluginPolicyList } from "components/PluginPolicyList";
+import { PluginReviewList } from "components/PluginReviewList";
+import { Rate } from "components/Rate";
+import { Stack } from "components/Stack";
+import { Tag } from "components/Tag";
 import { useApp } from "hooks/useApp";
 import { useGoBack } from "hooks/useGoBack";
 import { ChevronLeftIcon } from "icons/ChevronLeftIcon";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Container } from "styles/Container";
-import { Stack } from "styles/Stack";
+import { useTheme } from "styled-components";
 import { modalHash } from "utils/constants/core";
 import { routeTree } from "utils/constants/routes";
 import { startReshareSession } from "utils/services/extension";
@@ -35,6 +37,7 @@ export const PluginDetailsPage = () => {
   const [modalAPI, modalHolder] = Modal.useModal();
   const navigate = useNavigate();
   const goBack = useGoBack();
+  const theme = useTheme();
 
   const handleUninstall = () => {
     modalAPI.confirm({
@@ -101,77 +104,187 @@ export const PluginDetailsPage = () => {
 
   return (
     <>
-      <Container $flexDirection="column" $gap="20px">
-        <Stack onClick={() => goBack(routeTree.plugins.path)}>
+      {plugin ? (
+        <Stack
+          as={Layout.Content}
+          $after={{
+            backdropFilter: "blur(8px)",
+            background: `linear-gradient(transparent -300%, ${theme.backgroundPrimary} 100%)`,
+            height: "400px",
+            left: "0",
+            position: "absolute",
+            right: "0",
+            top: "0",
+          }}
+          $before={{
+            backgroundImage: `url(/plugins/${id}.jpg)`,
+            backgroundRepeat: "no-repeat",
+            backgroundSize: "cover",
+            height: "400px",
+            left: "0",
+            position: "absolute",
+            right: "0",
+            top: "0",
+          }}
+          $style={{
+            justifyContent: "center",
+            padding: "30px 0",
+            position: "relative",
+          }}
+        >
           <Stack
-            as="span"
-            $alignItems="center"
-            $colorHover="textLight"
-            $cursor="pointer"
-            $gap="8px"
+            $style={{
+              flexDirection: "column",
+              gap: "20px",
+              maxWidth: "1200px",
+              padding: "0 16px",
+              position: "relative",
+              width: "100%",
+              zIndex: "1",
+            }}
           >
-            <ChevronLeftIcon fontSize={20} />
-            Back to All Plugins
-          </Stack>
-        </Stack>
-        {plugin ? (
-          <>
-            <Stack $flexDirection="column" $gap="16px">
-              <Card title={plugin.title} variant="borderless">
-                {plugin.description}
-              </Card>
-              <Stack>
-                {isConnected ? (
-                  <>
-                    {isInstalled === undefined ? (
-                      <Button disabled loading>
-                        Checking
-                      </Button>
-                    ) : isInstalled ? (
-                      <Stack $gap="8px">
-                        <Button
-                          loading={loading}
-                          onClick={handleUninstall}
-                          status="danger"
-                        >
-                          Uninstall
-                        </Button>
-                        <Button
-                          disabled={loading}
-                          kind="primary"
-                          onClick={() =>
-                            navigate(modalHash.policy, { state: true })
-                          }
-                        >
-                          Add Policy
-                        </Button>
-                      </Stack>
-                    ) : (
-                      <Button
-                        kind="primary"
-                        loading={loading}
-                        onClick={handleReshareSession}
-                      >
-                        Install
-                      </Button>
-                    )}
-                  </>
-                ) : (
-                  <Button kind="primary" onClick={connect}>
-                    Connect
-                  </Button>
-                )}
+            <Stack onClick={() => goBack(routeTree.plugins.path)}>
+              <Stack
+                as="span"
+                $style={{ alignItems: "center", cursor: "pointer", gap: "8px" }}
+                $hover={{ color: "textExtraLight" }}
+              >
+                <ChevronLeftIcon fontSize={20} />
+                Back to All Plugins
               </Stack>
             </Stack>
+            <Row gutter={[16, 16]}>
+              <Col xs={24} lg={12} xl={10}>
+                <Stack
+                  as="img"
+                  alt={plugin.title}
+                  src={`/plugins/${id}.jpg`}
+                  $style={{ borderRadius: "12px", width: "100%" }}
+                />
+              </Col>
+              <Stack
+                as={Col}
+                xs={24}
+                lg={12}
+                xl={14}
+                $style={{ flexDirection: "column", gap: "16px" }}
+              >
+                <Stack $style={{ gap: "8px" }}>
+                  <Tag color="alertSuccess" text={plugin.categoryId} />
+                </Stack>
+                <Stack
+                  $style={{
+                    flexDirection: "column",
+                    flexGrow: "1",
+                    gap: "8px",
+                  }}
+                >
+                  <Stack
+                    as="span"
+                    $style={{
+                      fontSize: "40px",
+                      fontWeight: "500",
+                      lineHeight: "42px",
+                    }}
+                  >
+                    {plugin.title}
+                  </Stack>
+                  <Stack
+                    as="span"
+                    $style={{ flexGrow: "1", lineHeight: "20px" }}
+                  >
+                    {plugin.description}
+                  </Stack>
+                </Stack>
+                <Stack $style={{ flexDirection: "column", gap: "24px" }}>
+                  <Stack
+                    $style={{
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <Rate
+                      count={plugin.rating.count}
+                      value={plugin.rating.rate}
+                    />
+                    <Stack
+                      as="span"
+                      $style={{ color: "textLight", fontWeight: "500" }}
+                    >
+                      {`Plugin fee: ${
+                        plugin.pricing.length ? "0.1% per trade" : "free"
+                      }`}
+                    </Stack>
+                  </Stack>
+                  <Stack $style={{ gap: "16px" }}>
+                    {isConnected ? (
+                      <>
+                        {isInstalled === undefined ? (
+                          <Button disabled loading>
+                            Checking
+                          </Button>
+                        ) : isInstalled ? (
+                          <>
+                            <Button
+                              disabled={loading}
+                              onClick={() =>
+                                navigate(modalHash.policy, { state: true })
+                              }
+                            >
+                              View Policy Schema
+                            </Button>
+                            <Button
+                              kind="link"
+                              loading={loading}
+                              onClick={handleUninstall}
+                              status="danger"
+                            >
+                              Uninstall
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              disabled={loading}
+                              onClick={handleReshareSession}
+                            >
+                              View Policy Schema
+                            </Button>
+                            <Button
+                              kind="primary"
+                              loading={loading}
+                              onClick={handleReshareSession}
+                            >
+                              Install
+                            </Button>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <Button kind="primary" onClick={connect}>
+                        Connect
+                      </Button>
+                    )}
+                  </Stack>
+                </Stack>
+              </Stack>
+            </Row>
             {isInstalled && <PluginPolicyList {...plugin} />}
             <PluginReviewList {...plugin} />
-          </>
-        ) : (
-          <Stack $alignItems="center" $justifyContent="center" $flexGrow>
-            <Spin />
           </Stack>
-        )}
-      </Container>
+        </Stack>
+      ) : (
+        <Stack
+          as={Layout.Content}
+          $style={{
+            alignItems: "center",
+            flexGrow: "1",
+            justifyContent: "center",
+          }}
+        >
+          <Spin />
+        </Stack>
+      )}
 
       {messageHolder}
       {modalHolder}

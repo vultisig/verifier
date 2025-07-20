@@ -33,10 +33,23 @@ export const getAuthToken = async (data: AuthTokenForm): Promise<string> =>
   );
 
 export const getPlugin = async (id: string) =>
-  get<Plugin>(`${baseUrl}/plugins/${id}`).then((plugin) => ({
-    ...plugin,
-    pricing: plugin.pricing || [],
-  }));
+  get<Plugin>(`${baseUrl}/plugins/${id}`).then((plugin) => {
+    const count =
+      plugin.ratings?.reduce((sum, item) => sum + item.count, 0) || 0;
+    const rate = count
+      ? plugin.ratings.reduce(
+          (sum, item) => sum + item.rating * item.count,
+          0
+        ) / count
+      : 0;
+
+    return {
+      ...plugin,
+      pricing: plugin.pricing || [],
+      rating: { count, rate },
+      ratings: plugin.ratings || [],
+    };
+  });
 
 export const getPlugins = (
   skip: number,

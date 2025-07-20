@@ -1,4 +1,5 @@
 import { ConfigProvider, message, Modal, Spin } from "antd";
+import { GlobalStyle } from "components/GlobalStyle";
 import { AppContext } from "context/AppContext";
 import { hexlify, randomBytes } from "ethers";
 import { i18nInstance } from "i18n/config";
@@ -24,7 +25,6 @@ import { getTheme, setTheme as setThemeStorage } from "storage/theme";
 import { delToken, getToken, setToken } from "storage/token";
 import { delVaultId, getVaultId, setVaultId } from "storage/vaultId";
 import { ThemeProvider } from "styled-components";
-import { GlobalStyle } from "styles/GlobalStyle";
 import { antdThemes } from "utils/constants/antd";
 import { Chain } from "utils/constants/chain";
 import { Currency } from "utils/constants/currency";

@@ -1,8 +1,9 @@
 import { Avatar, Dropdown, Layout, MenuProps, message } from "antd";
-import { Button } from "components/button";
-import { CurrencyModal } from "components/currency_modal";
-import { LanguageModal } from "components/language_modal";
-import { MiddleTruncate } from "components/middle_truncate";
+import { Button } from "components/Button";
+import { CurrencyModal } from "components/CurrencyModal";
+import { LanguageModal } from "components/LanguageModal";
+import { MiddleTruncate } from "components/MiddleTruncate";
+import { Stack } from "components/Stack";
 import { useApp } from "hooks/useApp";
 import { CircleDollarSignIcon } from "icons/CircleDollarSignIcon";
 import { LanguagesIcon } from "icons/LanguagesIcon";
@@ -11,11 +12,10 @@ import { VultisigLogoIcon } from "icons/VultisigLogoIcon";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Outlet, useNavigate } from "react-router-dom";
-import { Container } from "styles/Container";
-import { Stack } from "styles/Stack";
 import { modalHash } from "utils/constants/core";
 import { languageNames } from "utils/constants/language";
 import { routeTree } from "utils/constants/routes";
+import { getAccount } from "utils/services/extension";
 
 export const DefaultLayout = () => {
   const { t } = useTranslation();
@@ -28,7 +28,9 @@ export const DefaultLayout = () => {
     {
       key: "1",
       label: (
-        <Stack $alignItems="center" $justifyContent="space-between">
+        <Stack
+          $style={{ alignItems: "center", justifyContent: "space-between" }}
+        >
           <span>{t("language")}</span>
           <span>{languageNames[language]}</span>
         </Stack>
@@ -41,7 +43,9 @@ export const DefaultLayout = () => {
     {
       key: "2",
       label: (
-        <Stack $alignItems="center" $justifyContent="space-between">
+        <Stack
+          $style={{ alignItems: "center", justifyContent: "space-between" }}
+        >
           <span>{t("currency")}</span>
           <span>{currency.toUpperCase()}</span>
         </Stack>
@@ -71,37 +75,57 @@ export const DefaultLayout = () => {
   };
 
   useEffect(() => {
-    setTimeout(() => connect(), 200);
+    setTimeout(() => {
+      getAccount().then((account) => {
+        if (account) connect();
+      });
+    }, 200);
   }, []);
 
   return (
-    <Stack as={Layout} $flexDirection="column" $minHeight="100%">
+    <Stack as={Layout} $style={{ flexDirection: "column", minHeight: "100%" }}>
       <Stack
         as={Layout.Header}
-        $alignItems="center"
-        $justifyContent="center"
-        $height="64px"
-        $position="sticky"
-        $top="0"
-        $zIndex="1"
+        $style={{
+          alignItems: "center",
+          borderBottom: "solid 1px",
+          borderColor: "borderLight",
+          justifyContent: "center",
+          height: "64px",
+          position: "sticky",
+          top: "0",
+          zIndex: "2",
+        }}
       >
-        <Container $alignItems="center" $justifyContent="space-between">
+        <Stack
+          $style={{
+            alignItems: "center",
+            justifyContent: "space-between",
+            maxWidth: "1200px",
+            padding: "0 16px",
+            width: "100%",
+          }}
+        >
           <Stack
             as={Link}
             state={true}
             to={routeTree.root.path}
-            $alignItems="center"
-            $color="textPrimary"
-            $colorHover="textLight"
-            $gap="4px"
+            $style={{ alignItems: "center", color: "textPrimary", gap: "4px" }}
+            $hover={{ color: "textLight" }}
           >
             <VultisigLogoIcon fontSize={32} />
-            <Stack $fontSize="32px" $fontWeight="500" $lineHeight="32px">
+            <Stack
+              $style={{
+                fontSize: "32px",
+                fontWeight: "500",
+                lineHeight: "32px",
+              }}
+            >
               Vultisig
             </Stack>
           </Stack>
           {isConnected && address ? (
-            <Stack $alignItems="center" $gap="20px">
+            <Stack $style={{ alignItems: "center", gap: "20px" }}>
               <Button kind="primary" onClick={copyAddress}>
                 <MiddleTruncate text={address} width="118px" />
               </Button>
@@ -117,16 +141,9 @@ export const DefaultLayout = () => {
               Connect Wallet
             </Button>
           )}
-        </Container>
+        </Stack>
       </Stack>
-      <Stack
-        as={Layout.Content}
-        $justifyContent="center"
-        $padding="30px 0"
-        $flexGrow
-      >
-        <Outlet />
-      </Stack>
+      <Outlet />
 
       <CurrencyModal />
       <LanguageModal />

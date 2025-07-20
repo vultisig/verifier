@@ -1,5 +1,5 @@
+import { Stack } from "components/Stack";
 import { FC, useEffect, useRef, useState } from "react";
-import { Stack } from "styles/Stack";
 import { CSSProperties } from "utils/types";
 
 type MiddleTruncateProps = {
@@ -71,9 +71,7 @@ export const MiddleTruncate: FC<MiddleTruncateProps> = ({
     <Stack
       as="span"
       ref={elmRef}
-      $display="block"
-      $position="relative"
-      $width={width}
+      $style={{ display: "block", position: "relative", width }}
       {...() =>
         onClick
           ? {
@@ -87,7 +85,10 @@ export const MiddleTruncate: FC<MiddleTruncateProps> = ({
           : {}}
     >
       {truncating ? (
-        <Stack as="span" $position="absolute" $visibility="hidden">
+        <Stack
+          as="span"
+          $style={{ position: "absolute", visibility: "hidden" }}
+        >
           {ellipsis}
         </Stack>
       ) : (

@@ -22,8 +22,8 @@ export const PluginsPage = () => {
     loading: true,
     plugins: [],
     sortOptions: [
-      { value: "created_at", label: "Newest" },
-      { value: "-created_at", label: "Oldest" },
+      { value: "-created_at", label: "Newest" },
+      { value: "created_at", label: "Oldest" },
     ],
   };
   const [state, setState] = useState(initialState);

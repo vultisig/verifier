@@ -53,12 +53,12 @@ export const getPlugin = async (id: string) =>
 
 export const getPlugins = (
   skip: number,
-  { category, sort, term }: PluginFilters
+  { category, sort = "-created_at", term }: PluginFilters
 ) =>
   get<{ plugins: Plugin[]; totalCount: number }>(
     `${baseUrl}/plugins?skip=${skip}&take=12${term ? `&term=${term}` : ""}${
       category ? `&category_id=${category}` : ""
-    }${sort ? `&sort=${sort}` : ""}`
+    }&sort=${sort}`
   ).then(({ plugins, totalCount }) => ({
     plugins:
       plugins.map((plugin) => ({ ...plugin, pricing: plugin.pricing || [] })) ||

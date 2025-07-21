@@ -18,9 +18,9 @@ import (
 	"github.com/sirupsen/logrus"
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
 	"github.com/vultisig/mobile-tss-lib/tss"
-	"github.com/vultisig/vultiserver/relay"
-
 	vcommon "github.com/vultisig/vultiserver/common"
+	"github.com/vultisig/vultiserver/relay"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/types"
@@ -39,32 +39,6 @@ func (t *DKLSTssService) GetExistingVault(vaultFileName, password string) (*vaul
 		return nil, fmt.Errorf("failed to decrypt vault: %w", err)
 	}
 	return vault, nil
-}
-
-// OriginalOrder
-// mainly for BTC to sign the inputs in the same order it passed to sign,
-// without hashing inputs from proposedTx to get it from map[string]tss.KeysignResponse by correct map key
-func OriginalOrder(
-	req types.KeysignRequest,
-	res map[string]tss.KeysignResponse,
-) ([]tss.KeysignResponse, error) {
-	if len(req.Messages) != len(res) {
-		return nil, fmt.Errorf(
-			"number of messages (%d) does not match number of signatures (%d)",
-			len(req.Messages),
-			len(res),
-		)
-	}
-
-	var sigs []tss.KeysignResponse
-	for _, msg := range req.Messages {
-		sig, ok := res[msg.Hash]
-		if !ok {
-			return nil, fmt.Errorf("signature for message %s not found", msg.Hash)
-		}
-		sigs = append(sigs, sig)
-	}
-	return sigs, nil
 }
 
 func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[string]tss.KeysignResponse, error) {
@@ -105,7 +79,16 @@ func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[strin
 			publicKey = localStateAccessor.Vault.PublicKeyEcdsa
 		}
 
-		sig, err := t.keysignWithRetry(req.SessionID, req.HexEncryptionKey, publicKey, msg.Chain.IsEdDSA(), msg.Hash, msg.Chain.GetDerivePath(), localPartyID, partiesJoined)
+		sig, err := t.keysignWithRetry(
+			req.SessionID,
+			req.HexEncryptionKey,
+			publicKey,
+			msg.Chain.IsEdDSA(),
+			msg.Message,
+			msg.Chain.GetDerivePath(),
+			localPartyID,
+			partiesJoined,
+		)
 		if err != nil {
 			return result, fmt.Errorf("failed to keysign: %w", err)
 		}
@@ -114,6 +97,7 @@ func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[strin
 		}
 		result[msg.Hash] = *sig
 	}
+
 	if err := relayClient.CompleteSession(req.SessionID, localPartyID); err != nil {
 		t.logger.WithFields(logrus.Fields{
 			"session": req.SessionID,
@@ -122,41 +106,6 @@ func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[strin
 	}
 
 	return result, nil
-}
-func (t *DKLSTssService) keysignWithRetry(sessionID string,
-	hexEncryptionKey string,
-	publicKey string,
-	isEdDSA bool,
-	message string,
-	derivePath string,
-	localPartyID string,
-	keysignCommittee []string) (*tss.KeysignResponse, error) {
-	for i := 0; i < 3; i++ {
-		keysignResult, err := t.keysign(sessionID,
-			hexEncryptionKey,
-			publicKey,
-			isEdDSA,
-			message,
-			derivePath,
-			localPartyID,
-			keysignCommittee, i)
-		if err != nil {
-			t.logger.WithFields(logrus.Fields{
-				"session_id":        sessionID,
-				"public_key_ecdsa":  publicKey,
-				"message":           message,
-				"derive_path":       derivePath,
-				"local_party_id":    localPartyID,
-				"keysign_committee": keysignCommittee,
-				"attempt":           i,
-			}).Error(err)
-			time.Sleep(50 * time.Millisecond)
-			continue
-		} else {
-			return keysignResult, nil
-		}
-	}
-	return nil, fmt.Errorf("fail to keysign after max retry")
 }
 
 func (t *DKLSTssService) keysign(sessionID string,
@@ -196,6 +145,9 @@ func (t *DKLSTssService) keysign(sessionID string,
 		"attempt":           attempt,
 	}).Info("Keysign")
 
+	md5Hash := md5.Sum([]byte(message))
+	messageID := hex.EncodeToString(md5Hash[:])
+
 	// we need to get the shares
 	keyshare, err := t.localStateAccessor.GetLocalState(publicKey)
 	if err != nil {
@@ -214,52 +166,126 @@ func (t *DKLSTssService) keysign(sessionID string,
 			t.logger.Error("failed to free keyshare", "error", err)
 		}
 	}()
-	md5Hash := md5.Sum([]byte(message))
-	messageID := hex.EncodeToString(md5Hash[:])
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	// retrieve the setup Message
-	encryptedEncodedSetupMsg, err := relayClient.WaitForSetupMessage(ctx, sessionID, messageID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get setup message: %w", err)
+
+	var encryptedEncodedSetupMsg string
+	if t.cfg.DoSetupMsg {
+		id, e := mpcWrapper.KeyshareKeyID(keyshareHandle)
+		if e != nil {
+			return nil, fmt.Errorf("failed to get keyshare key ID: %w", e)
+		}
+
+		hashToSign, e := base64.StdEncoding.DecodeString(message)
+		if e != nil {
+			return nil, fmt.Errorf("failed to decode message: %w", e)
+		}
+
+		msg, e := mpcWrapper.SignSetupMsgNew(
+			id,
+			fmtDerivePath(derivePath),
+			hashToSign,
+			fmtIdsSlice(keysignCommittee),
+		)
+		if e != nil {
+			return nil, fmt.Errorf("failed to create SignSetupMsgNew: %w", e)
+		}
+
+		payload, e := common.EncryptGCM(base64.StdEncoding.EncodeToString(msg), hexEncryptionKey)
+		if e != nil {
+			return nil, fmt.Errorf("failed to encrypt setup message: %w", e)
+		}
+
+		e = relayClient.UploadSetupMessage(sessionID, messageID, payload)
+		if e != nil {
+			return nil, fmt.Errorf("failed to relayClient.UploadSetupMessage: %w", e)
+		}
+		encryptedEncodedSetupMsg = payload
+	} else {
+		msg, e := relayClient.WaitForSetupMessage(ctx, sessionID, messageID)
+		if e != nil {
+			return nil, fmt.Errorf("failed to relayClient.WaitForSetupMessage: %w", e)
+		}
+		encryptedEncodedSetupMsg = msg
 	}
 
-	setupMessageBytes, err := t.decodeDecryptMessage(encryptedEncodedSetupMsg, hexEncryptionKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode setup message: %w", err)
+	setupMsg, e := t.decodeDecryptMessage(encryptedEncodedSetupMsg, hexEncryptionKey)
+	if e != nil {
+		return nil, fmt.Errorf("failed to decodeDecryptMessage: %w", e)
 	}
-	messageHashInSetupMsg, err := mpcWrapper.DecodeMessage(setupMessageBytes)
+
+	setupHashToSign, err := mpcWrapper.DecodeMessage(setupMsg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to mpcWrapper.DecodeMessage: %w", err)
+	}
+
+	reqHashToSign, err := base64.StdEncoding.DecodeString(message)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode message: %w", err)
 	}
-	msgRawBytes, err := hex.DecodeString(message)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode message: %w", err)
+	if !bytes.Equal(setupHashToSign, reqHashToSign) {
+		return nil, fmt.Errorf("setupHashToSign is not equal to the reqHashToSign, stop keysign")
 	}
-	if !bytes.Equal(messageHashInSetupMsg, msgRawBytes) {
-		return nil, fmt.Errorf("message hash in setup message is not equal to the message, stop keysign")
-	}
-	sessionHandle, err := mpcWrapper.SignSessionFromSetup(setupMessageBytes, []byte(localPartyID), keyshareHandle)
+
+	sessionHandle, err := mpcWrapper.SignSessionFromSetup(setupMsg, []byte(localPartyID), keyshareHandle)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create session from setup message: %w", err)
+		return nil, fmt.Errorf("failed to SignSessionFromSetup: %w", err)
 	}
 	defer func() {
-		if err := mpcWrapper.SignSessionFree(sessionHandle); err != nil {
+		err := mpcWrapper.SignSessionFree(sessionHandle)
+		if err != nil {
 			t.logger.Error("failed to free keysign session", "error", err)
 		}
 	}()
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-	go func() {
-		if err := t.processKeysignOutbound(sessionHandle, sessionID, hexEncryptionKey, keysignCommittee, localPartyID, messageID, wg, isEdDSA); err != nil {
-			t.logger.Error("failed to process keygen outbound", "error", err)
+
+	eg := &errgroup.Group{}
+	eg.Go(func() error {
+		er := t.processKeysignOutbound(
+			sessionHandle,
+			sessionID,
+			hexEncryptionKey,
+			keysignCommittee,
+			localPartyID,
+			messageID,
+			isEdDSA,
+		)
+		if er != nil {
+			return fmt.Errorf("failed to processKeysignOutbound: %w", er)
 		}
-	}()
-	sig, err := t.processKeysignInbound(sessionHandle, sessionID, hexEncryptionKey, localPartyID, isEdDSA, messageID, wg)
-	wg.Wait()
-	t.logger.Infoln("Keysign result is:", len(sig))
+		return nil
+	})
+	eg.Go(func() error {
+		er := t.processKeysignInbound(
+			sessionHandle,
+			sessionID,
+			hexEncryptionKey,
+			localPartyID,
+			isEdDSA,
+			messageID,
+		)
+		if er != nil {
+			return fmt.Errorf("failed to processKeysignInbound: %w", er)
+		}
+		return nil
+	})
+	err = eg.Wait()
+	if err != nil {
+		return nil, fmt.Errorf("failed to process keysign: %w", err)
+	}
+
+	sig, err := mpcWrapper.SignSessionFinish(sessionHandle)
+	if err != nil {
+		return nil, fmt.Errorf("failed to SignSessionFinish: %w", err)
+	}
+
+	t.logger.Infoln("keysign finished successfully")
+	encodedKeysignResult := base64.StdEncoding.EncodeToString(sig)
+	t.logger.Infof("keysign result: %s", encodedKeysignResult)
+
+	t.logger.Infoln("keysign result is:", len(sig))
 	rBytes := sig[:32]
 	sBytes := sig[32:64]
+	vBytes := sig[64:]
 	derBytes, err := vcommon.GetDerSignature(rBytes, sBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get der signature: %w", err)
@@ -269,21 +295,30 @@ func (t *DKLSTssService) keysign(sessionID string,
 		R:            hex.EncodeToString(sig[:32]),
 		S:            hex.EncodeToString(sig[32:64]),
 		DerSignature: hex.EncodeToString(derBytes),
+		RecoveryID:   hex.EncodeToString(vBytes),
 	}
+
+	if t.cfg.DoSetupMsg {
+		// no need to save same response from each consumer
+		er := relayClient.MarkKeysignComplete(sessionID, messageID, *resp)
+		if er != nil {
+			return nil, fmt.Errorf("failed to save sig: %w", er)
+		}
+	}
+
 	if isEdDSA {
 		pubKeyBytes, err := hex.DecodeString(publicKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode public key: %w", err)
 		}
 
-		if ed25519.Verify(pubKeyBytes, msgRawBytes, sig) {
-			t.logger.Infoln("Signature is valid")
+		if ed25519.Verify(pubKeyBytes, setupHashToSign, sig) {
+			t.logger.Infoln("signature is valid")
 		} else {
-			t.logger.Error("Signature is invalid")
+			t.logger.Error("signature is invalid")
 		}
 	} else {
-		publicKeyDerivePath := strings.Replace(derivePath, "'", "", -1)
-		childPublicKey, err := mpcWrapper.KeyshareDeriveChildPublicKey(keyshareHandle, []byte(publicKeyDerivePath))
+		childPublicKey, err := mpcWrapper.KeyshareDeriveChildPublicKey(keyshareHandle, fmtDerivePath(derivePath))
 		if err != nil {
 			return nil, fmt.Errorf("failed to derive child public key: %w", err)
 		}
@@ -296,22 +331,60 @@ func (t *DKLSTssService) keysign(sessionID string,
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse public key: %w", err)
 		}
-		if ecdsa.Verify(publicKeyECDSA.ToECDSA(), msgRawBytes, new(big.Int).SetBytes(rBytes), new(big.Int).SetBytes(sBytes)) {
-			t.logger.Infoln("Signature is valid")
+		if ecdsa.Verify(publicKeyECDSA.ToECDSA(), setupHashToSign, new(big.Int).SetBytes(rBytes), new(big.Int).SetBytes(sBytes)) {
+			t.logger.Infoln("signature is valid")
 		} else {
-			t.logger.Error("Signature is invalid")
+			t.logger.Error("signature is invalid")
 		}
 	}
 	return resp, nil
 }
-func (t *DKLSTssService) processKeysignOutbound(handle Handle,
+
+func (t *DKLSTssService) keysignWithRetry(sessionID string,
+	hexEncryptionKey string,
+	publicKey string,
+	isEdDSA bool,
+	message string,
+	derivePath string,
+	localPartyID string,
+	keysignCommittee []string) (*tss.KeysignResponse, error) {
+	for i := 0; i < 3; i++ {
+		keysignResult, err := t.keysign(sessionID,
+			hexEncryptionKey,
+			publicKey,
+			isEdDSA,
+			message,
+			derivePath,
+			localPartyID,
+			keysignCommittee, i)
+		if err != nil {
+			t.logger.WithFields(logrus.Fields{
+				"session_id":        sessionID,
+				"public_key_ecdsa":  publicKey,
+				"message":           message,
+				"derive_path":       derivePath,
+				"local_party_id":    localPartyID,
+				"keysign_committee": keysignCommittee,
+				"attempt":           i,
+			}).Error(err)
+			time.Sleep(50 * time.Millisecond)
+			continue
+		} else {
+			return keysignResult, nil
+		}
+	}
+	return nil, fmt.Errorf("fail to keysign after max retry")
+}
+
+func (t *DKLSTssService) processKeysignOutbound(
+	handle Handle,
 	sessionID string,
 	hexEncryptionKey string,
 	parties []string,
 	localPartyID string,
 	messageID string,
-	wg *sync.WaitGroup, isEdDSA bool) error {
-	defer wg.Done()
+	isEdDSA bool,
+) error {
 	messenger := relay.NewMessenger(t.cfg.Relay.Server, sessionID, hexEncryptionKey, true, messageID)
 	mpcWrapper := t.GetMPCKeygenWrapper(isEdDSA)
 	for {
@@ -346,14 +419,14 @@ func (t *DKLSTssService) processKeysignOutbound(handle Handle,
 	}
 }
 
-func (t *DKLSTssService) processKeysignInbound(handle Handle,
+func (t *DKLSTssService) processKeysignInbound(
+	handle Handle,
 	sessionID string,
 	hexEncryptionKey string,
 	localPartyID string,
 	isEdDSA bool,
 	messageID string,
-	wg *sync.WaitGroup) ([]byte, error) {
-	defer wg.Done()
+) error {
 	var messageCache sync.Map
 	mpcWrapper := t.GetMPCKeygenWrapper(isEdDSA)
 	relayClient := relay.NewRelayClient(t.cfg.Relay.Server)
@@ -363,7 +436,7 @@ func (t *DKLSTssService) processKeysignInbound(handle Handle,
 		case <-time.After(time.Millisecond * 100):
 			if time.Since(start) > time.Minute {
 				t.isKeysignFinished.Store(true)
-				return nil, TssKeyGenTimeout
+				return TssKeyGenTimeout
 			}
 			messages, err := relayClient.DownloadMessages(sessionID, localPartyID, messageID)
 			if err != nil {
@@ -401,18 +474,18 @@ func (t *DKLSTssService) processKeysignInbound(handle Handle,
 					t.logger.Error("fail to delete message", "error", err)
 				}
 				if isFinished {
-					t.logger.Infoln("keysign finished")
-					result, err := mpcWrapper.SignSessionFinish(handle)
-					if err != nil {
-						t.logger.Error("fail to finish keysign", "error", err)
-						return nil, err
-					}
-					encodedKeysignResult := base64.StdEncoding.EncodeToString(result)
-					t.logger.Infof("Keysign result: %s", encodedKeysignResult)
 					t.isKeysignFinished.Store(true)
-					return result, nil
+					return nil
 				}
 			}
 		}
 	}
+}
+
+func fmtDerivePath(derivePath string) []byte {
+	return []byte(strings.ReplaceAll(derivePath, "'", ""))
+}
+
+func fmtIdsSlice(ids []string) []byte {
+	return []byte(strings.Join(ids, "\x00"))
 }

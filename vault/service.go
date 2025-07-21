@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/vultisig/mobile-tss-lib/tss"
 
 	"github.com/vultisig/verifier/tx_indexer"
 	"github.com/vultisig/verifier/vault_config"
@@ -179,34 +180,31 @@ func (s *ManagementService) HandleKeySignDKLS(ctx context.Context, t *asynq.Task
 		return fmt.Errorf("t.ResultWriter.Write failed: %v: %w", err, asynq.SkipRetry)
 	}
 
-	if s.txIndexerService != nil {
-		orderedSigs, err := OriginalOrder(p, signatures)
-		if err != nil {
-			s.logger.WithError(err).Error("OriginalOrder")
-			return fmt.Errorf("OriginalOrder: %v: %w", err, asynq.SkipRetry)
+	var sigs []tss.KeysignResponse
+	for _, sig := range signatures {
+		sigs = append(sigs, sig)
+	}
+
+	for _, msg := range p.Messages {
+		if msg.TxIndexerID == "" {
+			continue // not from plugin
 		}
 
-		for _, msg := range p.Messages {
-			if msg.TxIndexerID == "" {
-				continue // not from plugin
-			}
+		txID, er := uuid.Parse(msg.TxIndexerID)
+		if er != nil {
+			s.logger.WithError(er).Error("uuid.Parse(reqPlugin.TxIndexerID)")
+			return fmt.Errorf("uuid.Parse(reqPlugin.TxIndexerID): %v: %w", er, asynq.SkipRetry)
+		}
 
-			txID, er := uuid.Parse(msg.TxIndexerID)
-			if er != nil {
-				s.logger.WithError(er).Error("uuid.Parse(reqPlugin.TxIndexerID)")
-				return fmt.Errorf("uuid.Parse(reqPlugin.TxIndexerID): %v: %w", er, asynq.SkipRetry)
-			}
-
-			er = s.txIndexerService.SetSignedAndBroadcasted(
-				ctx,
-				msg.Chain,
-				txID,
-				orderedSigs,
-			)
-			if er != nil {
-				s.logger.WithError(er).Error("s.txIndexerService.SetSignedAndBroadcasted")
-				return fmt.Errorf("s.txIndexerService.SetSignedAndBroadcasted: %v: %w", er, asynq.SkipRetry)
-			}
+		er = s.txIndexerService.SetSignedAndBroadcasted(
+			ctx,
+			msg.Chain,
+			txID,
+			sigs,
+		)
+		if er != nil {
+			s.logger.WithError(er).Error("s.txIndexerService.SetSignedAndBroadcasted")
+			return fmt.Errorf("s.txIndexerService.SetSignedAndBroadcasted: %v: %w", er, asynq.SkipRetry)
 		}
 	}
 

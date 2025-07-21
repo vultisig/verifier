@@ -43,27 +43,21 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		//  Current engine.Evaluate needs to be reworked — simplified and reimplemented to be universal
 		//  for all plugins / supported args without hardcoding or edge-cases + covered with unit-tests.
 
-		var txToTrackID uuid.UUID
-		if s.txIndexerService != nil {
-			txToTrack, err := s.txIndexerService.CreateTx(c.Request().Context(), storage.CreateTxDto{
-				PluginID:      ptypes.PluginID(req.PluginID),
-				ChainID:       keysignMessage.Chain,
-				PolicyID:      policy.ID,
-				FromPublicKey: req.PublicKey,
-				ProposedTxHex: keysignMessage.Message,
-			})
-			if err != nil {
-				return fmt.Errorf("s.txIndexerService.CreateTx(: %w", err)
-			}
-			txToTrackID = txToTrack.ID
-			req.Messages[i].TxIndexerID = txToTrack.ID.String()
+		txToTrack, err := s.txIndexerService.CreateTx(c.Request().Context(), storage.CreateTxDto{
+			PluginID:      ptypes.PluginID(req.PluginID),
+			ChainID:       keysignMessage.Chain,
+			PolicyID:      policy.ID,
+			FromPublicKey: req.PublicKey,
+			ProposedTxHex: req.Transaction,
+		})
+		if err != nil {
+			return fmt.Errorf("s.txIndexerService.CreateTx(: %w", err)
 		}
+		req.Messages[i].TxIndexerID = txToTrack.ID.String()
 
-		if s.txIndexerService != nil {
-			err = s.txIndexerService.SetStatus(c.Request().Context(), txToTrackID, storage.TxVerified)
-			if err != nil {
-				return fmt.Errorf("tx_id=%s, failed to set transaction status to verified: %w", txToTrackID, err)
-			}
+		err = s.txIndexerService.SetStatus(c.Request().Context(), txToTrack.ID, storage.TxVerified)
+		if err != nil {
+			return fmt.Errorf("tx_id=%s, failed to set transaction status to verified: %w", txToTrack.ID, err)
 		}
 	}
 

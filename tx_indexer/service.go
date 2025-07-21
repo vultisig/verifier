@@ -2,6 +2,7 @@ package tx_indexer
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -117,7 +118,12 @@ func (t *Service) SetSignedAndBroadcasted(
 		return fmt.Errorf("client for chain not found: %s", chainID)
 	}
 
-	txHash, err := client.ComputeTxHash(tx.ProposedTxHex, sigs)
+	body, err := hex.DecodeString(tx.ProposedTxHex)
+	if err != nil {
+		return fmt.Errorf("failed to decode proposed tx: %w", err)
+	}
+
+	txHash, err := client.ComputeTxHash(body, sigs)
 	if err != nil {
 		return fmt.Errorf("client.ComputeTxHash: %w", err)
 	}

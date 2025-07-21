@@ -247,11 +247,12 @@ func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 
 func (p *PostgresBackend) DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id uuid.UUID) error {
 	_, err := dbTx.Exec(ctx, `
-	DELETE FROM plugin_policies
+	UPDATE plugin_policies
+	SET deleted = true, active = false
 	WHERE id = $1
 	`, id)
 	if err != nil {
-		return fmt.Errorf("failed to delete policy: %w", err)
+		return fmt.Errorf("failed to soft delete policy: %w", err)
 	}
 
 	return nil
@@ -294,7 +295,7 @@ func (p *PostgresBackend) GetPluginPolicySync(ctx context.Context, id uuid.UUID)
 }
 
 func (p *PostgresBackend) DeletePluginPolicySync(ctx context.Context, id uuid.UUID) error {
-	qry := `DELETE FROM plugin_policy_sync WHERE id = $1`
+	qry := `UPDATE plugin_policies SET deleted = true WHERE id = $1`
 	_, err := p.pool.Exec(ctx, qry, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete plugin policy sync: %w", err)

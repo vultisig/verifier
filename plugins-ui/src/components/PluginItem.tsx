@@ -1,10 +1,10 @@
 import { Button } from "components/Button";
+import { Rate } from "components/Rate";
 import { Stack } from "components/Stack";
+import { Tag } from "components/Tag";
 import { FC } from "react";
 import { routeTree } from "utils/constants/routes";
 import { Plugin } from "utils/types";
-import { Tag } from "components/Tag";
-import { Rate } from "components/Rate";
 
 export const PluginItem: FC<Plugin> = ({
   categoryId,

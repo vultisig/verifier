@@ -1,8 +1,8 @@
 import { Dayjs } from "dayjs";
 import { DefaultTheme } from "styled-components";
-import { CSSProperties, PluginPolicy } from "utils/types";
 import { ThemeColorKeys } from "utils/constants/styled";
 import { CSSColorProperties, cssColorProperties } from "utils/constants/styles";
+import { CSSProperties, PluginPolicy } from "utils/types";
 
 const isArray = (arr: any): arr is any[] => {
   return Array.isArray(arr);
@@ -115,8 +115,8 @@ export const toSnakeCase = <T>(obj: T): T => {
     const result: Record<string, unknown> = {};
 
     Object.keys(obj).forEach((key) => {
-      const kebabKey = toSnake(key);
-      result[kebabKey] = toSnakeCase((obj as Record<string, unknown>)[key]);
+      const snakeKey = toSnake(key);
+      result[snakeKey] = toSnakeCase((obj as Record<string, unknown>)[key]);
     });
 
     return result as T;

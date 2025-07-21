@@ -1,4 +1,4 @@
-import { Card, Col, Layout, message, Modal, Row, Spin } from "antd";
+import { Col, Layout, message, Modal, Row, Spin } from "antd";
 import { Button } from "components/Button";
 import { PluginPolicyList } from "components/PluginPolicyList";
 import { PluginReviewList } from "components/PluginReviewList";
@@ -8,7 +8,7 @@ import { Tag } from "components/Tag";
 import { useApp } from "hooks/useApp";
 import { useGoBack } from "hooks/useGoBack";
 import { ChevronLeftIcon } from "icons/ChevronLeftIcon";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTheme } from "styled-components";
 import { modalHash } from "utils/constants/core";

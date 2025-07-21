@@ -43,7 +43,7 @@ import { getAuthToken } from "utils/services/marketplace";
 
 interface InitialState {
   address?: string;
-  chain: string;
+  chain: Chain;
   currency: Currency;
   isConnected: boolean;
   language: Language;
@@ -99,7 +99,7 @@ export const App = () => {
 
   const disconnect = () => {
     modalAPI.confirm({
-      title: "Are you sure disconnect?",
+      title: "Are you sure you want to disconnect?",
       okText: "Yes",
       okType: "default",
       cancelText: "No",
@@ -114,7 +114,6 @@ export const App = () => {
             messageApi.error(getErrorMessage(error, "Disconnection failed"));
           });
       },
-      onCancel() {},
     });
   };
 

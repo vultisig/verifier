@@ -87,8 +87,10 @@ export const PluginReviewList: FC<Plugin> = (plugin) => {
 
   const averageRating = useMemo(() => {
     return reviews.length
-      ? Math.ceil(
-          reviews.reduce((sum, item) => sum + item.rating, 0) / reviews.length
+      ? parseFloat(
+          (
+            reviews.reduce((sum, item) => sum + item.rating, 0) / reviews.length
+          ).toFixed(1)
         )
       : 0;
   }, [reviews]);

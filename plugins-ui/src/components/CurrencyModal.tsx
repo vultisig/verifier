@@ -41,7 +41,7 @@ export const CurrencyModal = () => {
           title: currencySymbols[key],
         }))}
         renderItem={({ key, title }) => (
-          <List.Item onClick={() => handleSelect(key)}>
+          <List.Item key={key} onClick={() => handleSelect(key)}>
             <span>{title}</span>
             <span>{key.toUpperCase()}</span>
           </List.Item>

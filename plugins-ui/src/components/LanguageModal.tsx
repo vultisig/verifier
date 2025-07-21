@@ -37,7 +37,9 @@ export const LanguageModal = () => {
           title: languageNames[key],
         }))}
         renderItem={({ key, title }) => (
-          <List.Item onClick={() => handleSelect(key)}>{title}</List.Item>
+          <List.Item key={key} onClick={() => handleSelect(key)}>
+            {title}
+          </List.Item>
         )}
       />
     </Modal>

@@ -43,7 +43,7 @@ export const cssPropertiesToString = (
 };
 
 export const getErrorMessage = (error: any, message: string) => {
-  return error instanceof Error ? error.message : message;
+  return isObject(error) ? error.message : message;
 };
 
 export const isUndefined = (val: any): val is undefined => {

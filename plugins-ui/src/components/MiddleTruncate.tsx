@@ -32,7 +32,7 @@ export const MiddleTruncate: FC<MiddleTruncateProps> = ({
     if (onClick) onClick();
   };
 
-  const ellipsisDidUpdate = (): void => {
+  useEffect(() => {
     if (elmRef.current) {
       const [child] = elmRef.current.children;
       const parentWidth = elmRef.current.clientWidth;
@@ -54,18 +54,15 @@ export const MiddleTruncate: FC<MiddleTruncateProps> = ({
         }));
       }
     }
-  };
+  }, [ellipsis, counter, text]);
 
-  const componentDidUpdate = (): void => {
+  useEffect(() => {
     setState((prevState) => ({
       ...prevState,
       ellipsis: text,
       truncating: true,
     }));
-  };
-
-  useEffect(ellipsisDidUpdate, [ellipsis, counter, text]);
-  useEffect(componentDidUpdate, [text]);
+  }, [text]);
 
   return (
     <Stack

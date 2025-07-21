@@ -32,7 +32,6 @@ import { Language } from "utils/constants/language";
 import { routeTree } from "utils/constants/routes";
 import { styledThemes } from "utils/constants/styled";
 import { Theme } from "utils/constants/theme";
-import { getErrorMessage } from "utils/functions";
 import {
   connect as connectToExtension,
   disconnect as disconnectFromExtension,
@@ -76,25 +75,34 @@ export const App = () => {
   const [messageApi, messageHolder] = message.useMessage();
   const [modalAPI, modalHolder] = Modal.useModal();
 
-  const connect = () => {
-    connectToExtension()
-      .then(async (address) => {
-        if (address) {
-          try {
-            const signed = await signMessage(address);
-            if (!signed) {
-              delVaultId();
-            }
-          } catch {
-            delVaultId();
-          }
-        } else {
-          delVaultId();
-        }
+  const clear = () => {
+    disconnectFromExtension()
+      .then(() => {
+        delToken(getVaultId());
+        delVaultId();
+        setState(initialState);
       })
-      .catch((error) => {
-        messageApi.error(getErrorMessage(error, "Connection failed"));
+      .catch(() => {
+        messageApi.error("Disconnection failed");
       });
+  };
+
+  const connect = () => {
+    connectToExtension().then((address) => {
+      if (address) {
+        signMessage(address).then((done) => {
+          if (done) {
+            messageApi.success("Successfully authenticated!");
+          } else {
+            messageApi.error("Authentication failed");
+            clear();
+          }
+        });
+      } else {
+        messageApi.error("Connection failed");
+        clear();
+      }
+    });
   };
 
   const disconnect = () => {
@@ -104,15 +112,7 @@ export const App = () => {
       okType: "default",
       cancelText: "No",
       onOk() {
-        disconnectFromExtension()
-          .then(() => {
-            delToken(getVaultId());
-            delVaultId();
-            setState(initialState);
-          })
-          .catch((error) => {
-            messageApi.error(getErrorMessage(error, "Disconnection failed"));
-          });
+        clear();
       },
     });
   };
@@ -191,12 +191,8 @@ export const App = () => {
         vaultId: publicKeyEcdsa,
       }));
 
-      messageApi.success("Successfully authenticated!");
-
       return true;
-    } catch (error) {
-      messageApi.error(getErrorMessage(error, "Authentication failed"));
-
+    } catch {
       return false;
     }
   };

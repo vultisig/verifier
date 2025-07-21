@@ -2,6 +2,7 @@ import { Col, Layout, message, Modal, Row, Spin } from "antd";
 import { Button } from "components/Button";
 import { PluginPolicyList } from "components/PluginPolicyList";
 import { PluginReviewList } from "components/PluginReviewList";
+import { Pricing } from "components/Pricing";
 import { Rate } from "components/Rate";
 import { Stack } from "components/Stack";
 import { Tag } from "components/Tag";
@@ -170,7 +171,13 @@ export const PluginDetailsPage = () => {
                 $style={{ flexDirection: "column", gap: "16px" }}
               >
                 <Stack $style={{ gap: "8px" }}>
-                  <Tag color="alertSuccess" text={plugin.categoryId} />
+                  <Tag
+                    color="alertSuccess"
+                    text={plugin.categoryId.capitalizeFirst()}
+                  />
+                  {isInstalled && (
+                    <Tag color="buttonPrimary" text="Installed" />
+                  )}
                 </Stack>
                 <Stack
                   $style={{
@@ -207,57 +214,42 @@ export const PluginDetailsPage = () => {
                       count={plugin.rating.count}
                       value={plugin.rating.rate}
                     />
-                    <Stack
-                      as="span"
-                      $style={{ color: "textLight", fontWeight: "500" }}
-                    >
-                      {`Plugin fee: ${
-                        plugin.pricing.length ? "0.1% per trade" : "free"
-                      }`}
-                    </Stack>
+                    <Pricing pricing={plugin.pricing} />
                   </Stack>
                   <Stack $style={{ gap: "16px" }}>
                     {isConnected ? (
                       <>
                         {isInstalled === undefined ? (
-                          <Button disabled loading>
+                          <Button kind="primary" disabled loading>
                             Checking
                           </Button>
                         ) : isInstalled ? (
                           <>
                             <Button
-                              disabled={loading}
-                              onClick={() =>
-                                navigate(modalHash.policy, { state: true })
-                              }
-                            >
-                              View Policy Schema
-                            </Button>
-                            <Button
-                              kind="link"
                               loading={loading}
                               onClick={handleUninstall}
                               status="danger"
                             >
                               Uninstall
                             </Button>
-                          </>
-                        ) : (
-                          <>
                             <Button
                               disabled={loading}
-                              onClick={handleReshareSession}
+                              kind="primary"
+                              onClick={() =>
+                                navigate(modalHash.policy, { state: true })
+                              }
                             >
                               View Policy Schema
                             </Button>
-                            <Button
-                              kind="primary"
-                              loading={loading}
-                              onClick={handleReshareSession}
-                            >
-                              Install
-                            </Button>
                           </>
+                        ) : (
+                          <Button
+                            kind="primary"
+                            loading={loading}
+                            onClick={handleReshareSession}
+                          >
+                            Install
+                          </Button>
                         )}
                       </>
                     ) : (

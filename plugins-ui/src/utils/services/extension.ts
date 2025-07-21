@@ -18,13 +18,7 @@ export const connect = async () => {
     });
 
     return account;
-  } catch (error) {
-    console.error(
-      `Failed to connect - ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
-
+  } catch {
     return undefined;
   }
 };
@@ -32,19 +26,9 @@ export const connect = async () => {
 export const disconnect = async () => {
   await isAvailable();
 
-  try {
-    await window.vultisig.ethereum.request({
-      method: "wallet_revokePermissions",
-    });
-  } catch (error) {
-    console.error(
-      `Failed to disconnect - ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
-
-    throw error;
-  }
+  await window.vultisig.ethereum.request({
+    method: "wallet_revokePermissions",
+  });
 };
 
 export const getAccount = async () => {
@@ -56,13 +40,7 @@ export const getAccount = async () => {
     });
 
     return account;
-  } catch (error) {
-    console.error(
-      `Failed to get account - ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
-
+  } catch {
     return undefined;
   }
 };
@@ -70,26 +48,15 @@ export const getAccount = async () => {
 export const getVault = async () => {
   await isAvailable();
 
-  try {
-    const vault: Vault = await window.vultisig.getVault();
+  const vault: Vault = await window.vultisig.getVault();
 
-    if (vault) {
-      if (!vault.hexChainCode || !vault.publicKeyEcdsa) {
-        throw new Error("Missing required vault data");
-      }
+  if (vault) {
+    if (!vault.hexChainCode || !vault.publicKeyEcdsa)
+      throw new Error("Missing required vault data");
 
-      return vault;
-    } else {
-      throw new Error("Vault not found");
-    }
-  } catch (error) {
-    console.error(
-      `Failed to get vault - ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
-
-    throw error;
+    return vault;
+  } else {
+    throw new Error("Vault not found");
   }
 };
 
@@ -99,26 +66,14 @@ export const signCustomMessage = async (
 ) => {
   await isAvailable();
 
-  try {
-    const signature = await window.vultisig.ethereum.request({
-      method: "personal_sign",
-      params: [hexMessage, walletAddress],
-    });
+  const signature = await window.vultisig.ethereum.request({
+    method: "personal_sign",
+    params: [hexMessage, walletAddress],
+  });
 
-    if (signature && signature.error) {
-      throw signature.error;
-    }
+  if (signature && signature.error) throw signature.error;
 
-    return signature as string;
-  } catch (error) {
-    console.error(
-      `Failed to sign the message - ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
-
-    throw error;
-  }
+  return signature as string;
 };
 
 export const startReshareSession = async (pluginId: string) => {
@@ -183,26 +138,16 @@ export const signPluginPolicy = async ({
 >) => {
   await isAvailable();
 
-  try {
-    const account = await getAccount();
+  const account = await getAccount();
 
-    if (!account) throw new Error("Need to connect to wallet");
+  if (!account) throw new Error("Need to connect to wallet");
 
-    const hexMessage = policyToHexMessage({
-      pluginVersion,
-      policyVersion,
-      publicKey,
-      recipe,
-    });
+  const hexMessage = policyToHexMessage({
+    pluginVersion,
+    policyVersion,
+    publicKey,
+    recipe,
+  });
 
-    return await signCustomMessage(hexMessage, account);
-  } catch (error) {
-    console.error(
-      `Failed to sign policy - ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
-
-    throw error;
-  }
+  return await signCustomMessage(hexMessage, account);
 };

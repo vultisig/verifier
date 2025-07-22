@@ -6,6 +6,6 @@ import tsconfigPaths from "vite-tsconfig-paths";
 export default defineConfig({
   plugins: [nodePolyfills(), react(), tsconfigPaths()],
   server: {
-    allowedHosts: ['store.vultisigplugin.app'], // 👈 Add this line
+    allowedHosts: ['store.vultisigplugin.app'],
   },
 });

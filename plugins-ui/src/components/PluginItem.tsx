@@ -74,7 +74,7 @@ export const PluginItem: FC<Plugin> = ({
           </Stack>
         </Stack>
       </Stack>
-      <Stack $style={{ alignItems: "center", justifyContent: "space-between" }}>
+      <Stack $style={{ alignItems: "end", justifyContent: "space-between" }}>
         <Rate count={128} value={4.5} />
         <Pricing pricing={pricing} />
       </Stack>

@@ -63,6 +63,7 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 
 	// Use a map to group plugins by ID and collect their pricing records
 	pluginMap := make(map[types.PluginID]*itypes.Plugin)
+	pluginIds := []types.PluginID{}
 
 	for rows.Next() {
 		var plugin itypes.Plugin
@@ -115,13 +116,14 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 				}
 			}
 			pluginMap[plugin.ID] = &plugin
+			pluginIds = append(pluginIds, plugin.ID)
 		}
 	}
 
 	// Convert map back to slice
 	plugins := make([]itypes.Plugin, 0, len(pluginMap))
-	for _, plugin := range pluginMap {
-		plugins = append(plugins, *plugin)
+	for _, pluginId := range pluginIds {
+		plugins = append(plugins, *pluginMap[pluginId])
 	}
 
 	return plugins, nil
@@ -171,9 +173,6 @@ func (p *PostgresBackend) FindPlugins(
 	if p.pool == nil {
 		return nil, fmt.Errorf("database pool is nil")
 	}
-
-	allowedSortingColumns := map[string]bool{"updated_at": true, "created_at": true, "title": true}
-	orderBy, orderDirection := common.GetSortingCondition(sort, allowedSortingColumns)
 
 	joinQuery := fmt.Sprintf(`
 		FROM %s p
@@ -255,12 +254,11 @@ func (p *PostgresBackend) FindPlugins(
 
 	// pagination
 	queryOrderPaginate := fmt.Sprintf(
-		` ORDER BY p.%s %s LIMIT $%d OFFSET $%d;`,
-		pgx.Identifier{orderBy}.Sanitize(),
-		orderDirection,
+		` ORDER BY p.id LIMIT $%d OFFSET $%d;`,
 		currentArgNumber,
 		currentArgNumber+1,
 	)
+
 	args = append(args, take, skip)
 	query += queryOrderPaginate
 

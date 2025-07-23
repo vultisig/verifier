@@ -73,6 +73,11 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
   const [form] = Form.useForm<FieldType>();
   const goBack = useGoBack();
 
+  const feeHardcodedValues = {
+    amount: "500000000",
+    recipient: "0x7d760c17d798a7A9a4c4AcAf311A02dC95972503",
+  };
+
   const onFinishSuccess: FormProps<FieldType>["onFinish"] = (values) => {
     setState((prevState) => ({ ...prevState, submitting: true }));
 
@@ -195,7 +200,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
       publicKey: getVaultId(),
       recipe: base64Data,
     };
-
+    
     signPluginPolicy(finalData)
       .then((signature) => {
         addPluginPolicy({ ...finalData, signature })
@@ -217,6 +222,8 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
       });
   };
 
+  const isFeesPlugin = schema.pluginId === "vultisig-fees-feee";
+
   const onFinishFailed: FormProps<FieldType>["onFinishFailed"] = (
     errorInfo
   ) => {
@@ -233,6 +240,15 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
       visible: hash === modalHash.policy,
     }));
   }, [hash]);
+
+  useEffect(() => {
+    if (isFeesPlugin && visible) {
+      form.setFieldsValue({
+        amount: feeHardcodedValues.amount,
+        recipient: feeHardcodedValues.recipient,
+      });
+    }
+  }, [form, isFeesPlugin, visible]);
 
   const resourceOptions: SelectProps["options"] = useMemo(() => {
     return schema?.supportedResources.map((resource, index) => ({
@@ -294,6 +310,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
                 <Stack
                   as={Select}
                   options={resourceOptions}
+                  disabled={isFeesPlugin}
                   $style={{ height: "44px" }}
                 />
               </Form.Item>
@@ -325,7 +342,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
                             name={parameterName}
                             rules={[{ required }]}
                           >
-                            <Stack as={Input} $style={{ height: "44px" }} />
+                            <Stack as={Input} $style={{ height: "44px" }} disabled={isFeesPlugin}/>
                           </Form.Item>
                         )
                       )}

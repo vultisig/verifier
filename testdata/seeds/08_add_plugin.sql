@@ -1,5 +1,10 @@
+-- +goose Up
+-- +goose StatementBegin
+ALTER TYPE plugin_id ADD VALUE 'vultisig-copytrader-0000';
+-- +goose StatementEnd
+
 INSERT INTO plugins (id, title, description, server_endpoint, category) VALUES
--- Fee Management Plugin with free pricing
+-- Copytrader Plugin
 (
     'vultisig-copytrader-0000',
     'Vultisig Copy Trading Plugin',

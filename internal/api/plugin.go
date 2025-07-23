@@ -38,6 +38,13 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		return fmt.Errorf("policy plugin ID mismatch")
 	}
 
+	// Handle fee specific validations
+	if policy.PluginID == ptypes.PluginVultisigFees_feee {
+		if err := s.feeService.ValidateFees(c.Request().Context(), req); err != nil {
+			return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid fee keysign request"))
+		}
+	}
+
 	for i, keysignMessage := range req.Messages {
 		// TODO: Unpack calldata and verify tx against the policy (same recipient, amount, etc.).
 		//  Current engine.Evaluate needs to be reworked — simplified and reimplemented to be universal

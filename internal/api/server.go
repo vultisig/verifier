@@ -19,7 +19,6 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/labstack/gommon/log"
 	"github.com/sirupsen/logrus"
 
 	ecommon "github.com/ethereum/go-ethereum/common"
@@ -49,7 +48,7 @@ type Server struct {
 	sdClient         *statsd.Client
 	policyService    service.Policy
 	pluginService    service.Plugin
-	feeService       service.Fees
+	feeService       *service.FeeService
 	authService      *service.AuthService
 	txIndexerService *tx_indexer.Service
 	logger           *logrus.Logger
@@ -85,7 +84,7 @@ func NewServer(
 		logrus.Fatalf("Failed to initialize plugin service: %v", err)
 	}
 
-	feeService, err := service.NewFeeService(db, asynqClient, logger)
+	feeService, err := service.NewFeeService(db, asynqClient, logger, cfg.Fees)
 	if err != nil {
 		logrus.Fatalf("Failed to initialize fee service: %v", err)
 	}
@@ -111,7 +110,6 @@ func NewServer(
 
 func (s *Server) StartServer() error {
 	e := echo.New()
-	e.Logger.SetLevel(log.DEBUG)
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit("2M")) // set maximum allowed size for a request body to 2M

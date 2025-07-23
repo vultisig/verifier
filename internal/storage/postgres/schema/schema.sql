@@ -11,7 +11,8 @@ CREATE TYPE "plugin_category" AS ENUM (
 CREATE TYPE "plugin_id" AS ENUM (
     'vultisig-dca-0000',
     'vultisig-payroll-0000',
-    'vultisig-fees-feee'
+    'vultisig-fees-feee',
+    'vultisig-copytrader-0000'
 );
 
 CREATE TYPE "pricing_asset" AS ENUM (
@@ -354,4 +355,6 @@ ALTER TABLE ONLY "pricings"
 
 ALTER TABLE ONLY "reviews"
     ADD CONSTRAINT "reviews_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugins"("id") ON DELETE CASCADE;
+
+REVOKE USAGE ON SCHEMA "public" FROM PUBLIC;
 

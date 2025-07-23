@@ -171,14 +171,14 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 		return nil, fmt.Errorf("failed to add policy sync: %w", err)
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
 	// Sync policy synchronously - if this fails, the entire operation fails
 	if err := s.syncer.CreatePolicySync(ctx, policySync); err != nil {
 		s.logger.WithError(err).Error("failed to sync policy with plugin server")
 		return nil, fmt.Errorf("failed to sync policy with plugin server: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return newPolicy, nil
@@ -211,14 +211,14 @@ func (s *PolicyService) UpdatePolicy(ctx context.Context, policy types.PluginPol
 		return nil, fmt.Errorf("failed to add policy sync: %w", err)
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
 	// Sync policy synchronously - if this fails, the entire operation fails
 	if err := s.syncer.CreatePolicySync(ctx, syncPolicyEntity); err != nil {
 		s.logger.WithError(err).Error("failed to sync policy with plugin server")
 		return nil, fmt.Errorf("failed to sync policy with plugin server: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 	return updatedPolicy, nil
 }
@@ -255,14 +255,14 @@ func (s *PolicyService) DeletePolicy(ctx context.Context, policyID uuid.UUID, pl
 		return fmt.Errorf("failed to delete policy: %w", err)
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
 	// Sync policy synchronously - if this fails, the entire operation fails
 	if err := s.syncer.DeletePolicySync(ctx, syncPolicyEntity); err != nil {
 		s.logger.WithError(err).Error("failed to sync policy deletion with plugin server")
 		return fmt.Errorf("failed to sync policy deletion with plugin server: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil

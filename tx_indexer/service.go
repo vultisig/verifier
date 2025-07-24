@@ -12,7 +12,6 @@ import (
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/tx_indexer/pkg/rpc"
 	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
-	"github.com/vultisig/verifier/types"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -44,46 +43,15 @@ func (t *Service) CreateTx(ctx context.Context, req storage.CreateTxDto) (storag
 
 func (t *Service) GetTxsInTimeRange(
 	ctx context.Context,
-	chainID common.Chain,
-	pluginID types.PluginID,
 	policyID uuid.UUID,
-	tokenID, recipientPublicKey string,
 	from, to time.Time,
-) <-chan storage.RowsStream[storage.Tx] {
-	return t.repo.GetTxsInTimeRange(
-		ctx,
-		chainID,
-		pluginID,
-		policyID,
-		tokenID,
-		recipientPublicKey,
-		from,
-		to,
-	)
-}
-
-func (t *Service) GetTxInTimeRange(
-	ctx context.Context,
-	chainID common.Chain,
-	pluginID types.PluginID,
-	policyID uuid.UUID,
-	tokenID, recipientPublicKey string,
-	from, to time.Time,
-) (storage.Tx, error) {
-	tx, err := t.repo.GetTxInTimeRange(
-		ctx,
-		chainID,
-		pluginID,
-		policyID,
-		tokenID,
-		recipientPublicKey,
-		from,
-		to,
-	)
+) ([]storage.Tx, error) {
+	ch := t.repo.GetTxsInTimeRange(ctx, policyID, from, to)
+	txs, err := storage.AllFromRowsStream(ch)
 	if err != nil {
-		return storage.Tx{}, fmt.Errorf("t.repo.GetTxInTimeRange: %w", err)
+		return nil, fmt.Errorf("failed to get txs in time range: %w", err)
 	}
-	return tx, nil
+	return txs, nil
 }
 
 func (t *Service) SetStatus(ctx context.Context, txID uuid.UUID, status storage.TxStatus) error {

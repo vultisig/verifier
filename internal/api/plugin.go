@@ -45,6 +45,32 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		}
 	}
 
+	recipe, err := policy.GetRecipe()
+	if err != nil {
+		return fmt.Errorf("failed to unpack recipe: %w", err)
+	}
+
+	txs, err := s.txIndexerService.GetTxsInTimeRange(
+		c.Request().Context(),
+		policy.ID,
+		time.Now().Add(time.Duration(-recipe.GetMinExecWindow())*time.Second),
+		time.Now(),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get data from tx indexer: %w", err)
+	}
+	if uint32(len(txs)) >= recipe.GetMaxTxsPerWindow() {
+		return fmt.Errorf(
+			"policy not allowed to execute more txs in currrent time window: "+
+				"policy_id=%s, txs=%d, max_txs=%d, min_exec_window=%d",
+			policy.ID.String(),
+			len(txs),
+			recipe.GetMaxTxsPerWindow(),
+			recipe.GetMinExecWindow(),
+		)
+	}
+
+	// plugin will always send one message for now
 	for i, keysignMessage := range req.Messages {
 		// TODO: Unpack calldata and verify tx against the policy (same recipient, amount, etc.).
 		//  Current engine.Evaluate needs to be reworked — simplified and reimplemented to be universal

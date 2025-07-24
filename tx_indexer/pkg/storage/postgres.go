@@ -8,9 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/tx_indexer/pkg/rpc"
-	"github.com/vultisig/verifier/types"
 )
 
 type PostgresTxIndexStore struct {
@@ -201,10 +199,7 @@ func (p *PostgresTxIndexStore) GetTxByID(c context.Context, id uuid.UUID) (Tx, e
 
 func (p *PostgresTxIndexStore) GetTxsInTimeRange(
 	c context.Context,
-	chainID common.Chain,
-	pluginID types.PluginID,
 	policyID uuid.UUID,
-	tokenID, recipientPublicKey string,
 	from, to time.Time,
 ) <-chan RowsStream[Tx] {
 	return GetRowsStream[Tx](
@@ -212,57 +207,12 @@ func (p *PostgresTxIndexStore) GetTxsInTimeRange(
 		p.pool,
 		TxFromRow,
 		`SELECT * FROM tx_indexer
-		 WHERE chain_id = $1 AND plugin_id = $2 AND policy_id = $3 AND token_id = $4 AND to_public_key = $5
-		 AND created_at >= $6 AND created_at <= $7
-		 ORDER BY created_at DESC`,
-		chainID,
-		pluginID,
+		 WHERE policy_id = $1
+		 AND created_at >= $2 AND created_at <= $3`,
 		policyID,
-		tokenID,
-		recipientPublicKey,
 		from,
 		to,
 	)
-}
-
-func (p *PostgresTxIndexStore) GetTxInTimeRange(
-	c context.Context,
-	chainID common.Chain,
-	pluginID types.PluginID,
-	policyID uuid.UUID,
-	tokenID, recipientPublicKey string,
-	from, to time.Time,
-) (Tx, error) {
-	ctx, cancel := context.WithTimeout(c, defaultTimeout)
-	defer cancel()
-
-	rows, err := p.pool.Query(
-		ctx,
-		`SELECT * FROM tx_indexer
-		 WHERE chain_id = $1 AND plugin_id = $2 AND policy_id = $3 AND token_id = $4 AND to_public_key = $5
-		 AND created_at >= $6 AND created_at <= $7
-		 ORDER BY created_at DESC LIMIT 1`,
-		chainID,
-		pluginID,
-		policyID,
-		tokenID,
-		recipientPublicKey,
-		from,
-		to,
-	)
-	if err != nil {
-		return Tx{}, fmt.Errorf("p.pool.Query: %w", err)
-	}
-	if !rows.Next() {
-		return Tx{}, ErrNoTx
-	}
-
-	tx, err := TxFromRow(rows)
-	if err != nil {
-		return Tx{}, fmt.Errorf("TxFromRow: %w", err)
-	}
-
-	return tx, nil
 }
 
 func (p *PostgresTxIndexStore) CreateTx(c context.Context, req CreateTxDto) (Tx, error) {

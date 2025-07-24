@@ -62,7 +62,7 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (*t
 	return &policy, nil
 }
 
-func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (*itypes.PluginPolicyPaginatedList, error) {
+func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int, includeInactive bool) (*itypes.PluginPolicyPaginatedList, error) {
 	if p.pool == nil {
 		return nil, fmt.Errorf("database pool is nil")
 	}
@@ -72,7 +72,13 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 		COUNT(*) OVER() AS total_count
 		FROM plugin_policies
 		WHERE public_key = $1
-		AND plugin_id = $2
+		AND plugin_id = $2`
+
+	if !includeInactive {
+		query += ` AND active = true`
+	}
+
+	query += `
 		ORDER BY policy_version DESC
 		LIMIT $3 OFFSET $4`
 

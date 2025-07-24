@@ -77,7 +77,7 @@ CREATE FUNCTION "prevent_billing_update_if_policy_deleted"() RETURNS "trigger"
 DECLARE
     is_deleted boolean;
 BEGIN
-    SELECT deleted INTO is_deleted FROM plugin_policies WHERE id = NEW.plugin_policy_id;
+    SELECT deleted INTO is_deleted FROM plugin_policies WHERE id = COALESCE(NEW.plugin_policy_id, OLD.plugin_policy_id);
     IF is_deleted THEN
         RAISE EXCEPTION 'Cannot modify billing for a deleted policy';
     END IF;
@@ -94,7 +94,7 @@ BEGIN
     SELECT p.deleted INTO is_deleted
     FROM plugin_policies p
     JOIN plugin_policy_billing b ON b.plugin_policy_id = p.id
-    WHERE b.id = NEW.plugin_policy_billing_id;
+    WHERE b.id = COALESCE(NEW.plugin_policy_billing_id, OLD.plugin_policy_billing_id);
     IF is_deleted THEN
         RAISE EXCEPTION 'Cannot modify fees for a deleted policy';
     END IF;
@@ -102,15 +102,12 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION "prevent_sync_update_if_policy_deleted"() RETURNS "trigger"
+CREATE FUNCTION "prevent_insert_if_policy_deleted"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
-DECLARE
-    is_deleted boolean;
 BEGIN
-    SELECT deleted INTO is_deleted FROM plugin_policies WHERE id = NEW.policy_id;
-    IF is_deleted THEN
-        RAISE EXCEPTION 'Cannot modify sync for a deleted policy';
+    IF NEW.deleted = true THEN
+        RAISE EXCEPTION 'Cannot insert a deleted policy';
     END IF;
     RETURN NEW;
 END;
@@ -122,7 +119,7 @@ CREATE FUNCTION "prevent_tx_indexer_update_if_policy_deleted"() RETURNS "trigger
 DECLARE
     is_deleted boolean;
 BEGIN
-    SELECT deleted INTO is_deleted FROM plugin_policies WHERE id = NEW.policy_id;
+    SELECT deleted INTO is_deleted FROM plugin_policies WHERE id = COALESCE(NEW.policy_id, OLD.policy_id);
     IF is_deleted THEN
         RAISE EXCEPTION 'Cannot modify tx_indexer for a deleted policy';
     END IF;
@@ -439,13 +436,13 @@ CREATE TRIGGER "trg_prevent_billing_update_if_policy_deleted" BEFORE INSERT OR D
 
 CREATE TRIGGER "trg_prevent_fees_update_if_policy_deleted" BEFORE INSERT OR DELETE OR UPDATE ON "fees" FOR EACH ROW EXECUTE FUNCTION "public"."prevent_fees_update_if_policy_deleted"();
 
-CREATE TRIGGER "trg_prevent_sync_update_if_policy_deleted" BEFORE INSERT OR DELETE OR UPDATE ON "plugin_policy_sync" FOR EACH ROW EXECUTE FUNCTION "public"."prevent_sync_update_if_policy_deleted"();
+CREATE TRIGGER "trg_prevent_insert_if_policy_deleted" BEFORE INSERT ON "plugin_policies" FOR EACH ROW EXECUTE FUNCTION "public"."prevent_insert_if_policy_deleted"();
 
 CREATE TRIGGER "trg_prevent_tx_indexer_update_if_policy_deleted" BEFORE INSERT OR DELETE OR UPDATE ON "tx_indexer" FOR EACH ROW EXECUTE FUNCTION "public"."prevent_tx_indexer_update_if_policy_deleted"();
 
 CREATE TRIGGER "trg_prevent_update_if_policy_deleted" BEFORE UPDATE ON "plugin_policies" FOR EACH ROW WHEN (("old"."deleted" = true)) EXECUTE FUNCTION "public"."prevent_update_if_policy_deleted"();
 
-CREATE TRIGGER "trg_set_policy_inactive_on_delete" BEFORE UPDATE ON "plugin_policies" FOR EACH ROW WHEN ((("old"."deleted" = false) AND ("new"."deleted" = true))) EXECUTE FUNCTION "public"."set_policy_inactive_on_delete"();
+CREATE TRIGGER "trg_set_policy_inactive_on_delete" BEFORE INSERT OR UPDATE ON "plugin_policies" FOR EACH ROW WHEN (("new"."deleted" = true)) EXECUTE FUNCTION "public"."set_policy_inactive_on_delete"();
 
 ALTER TABLE ONLY "fees"
     ADD CONSTRAINT "fk_billing" FOREIGN KEY ("plugin_policy_billing_id") REFERENCES "plugin_policy_billing"("id") ON DELETE CASCADE;

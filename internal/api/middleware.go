@@ -103,7 +103,7 @@ func (s *Server) PluginAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		apiKey, err := s.db.GetAPIKey(c.Request().Context(), tokenStr)
 		if err != nil {
 			s.logger.WithError(err).Error("fail to get API key")
-			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to validate API key"))
+			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("Failed to validate API key"))
 		}
 		if apiKey.Status == 0 {
 			s.logger.Warnf("API key is disabled, id: %s", apiKey.ID)

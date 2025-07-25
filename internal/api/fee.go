@@ -1,14 +1,21 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/vultisig/verifier/types"
 )
 
 func (s *Server) GetPublicKeyFees(c echo.Context) error {
+	pluginId := fmt.Sprint(c.Get("plugin_id"))
+	if pluginId != string(types.PluginVultisigFees_feee) {
+		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("unauthorized"))
+	}
+
 	publicKey := c.Param("publicKey")
 
 	history, err := s.feeService.PublicKeyGetFeeInfo(c.Request().Context(), publicKey)

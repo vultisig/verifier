@@ -17,6 +17,7 @@ import (
 
 	"github.com/vultisig/verifier/internal/storage"
 	itypes "github.com/vultisig/verifier/internal/types"
+	"github.com/vultisig/verifier/types"
 	ptypes "github.com/vultisig/verifier/types"
 )
 
@@ -87,7 +88,35 @@ func (s *Syncer) getServerAddrFromStorage(ctx context.Context, pluginID ptypes.P
 	return plugin.ServerEndpoint, nil
 }
 
-func (s *Syncer) CreatePolicySync(ctx context.Context, policySyncEntity itypes.PluginPolicySync) error {
+// Creates a policy in a synchronous manner.
+func (s *Syncer) CreatePolicySync(ctx context.Context, pluginPolicy types.PluginPolicy) error {
+	policyBytes, err := json.Marshal(pluginPolicy)
+	if err != nil {
+		return fmt.Errorf("fail to marshal policy: %v", err)
+	}
+	serverEndpoint, err := s.getServerAddr(ctx, pluginPolicy.PluginID)
+	if err != nil {
+		return fmt.Errorf("failed to get server address: %w", err)
+	}
+
+	url := serverEndpoint + policyEndpoint
+	resp, err := s.client.Post(url, "application/json", bytes.NewBuffer(policyBytes))
+	if err != nil {
+		return fmt.Errorf("failed to sync policy with plugin server(%s): %s", url, err.Error())
+	}
+	defer s.closer(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to sync policy with plugin server(%s): status: %d, body: %s", url, resp.StatusCode, string(body))
+	}
+	return nil
+}
+
+// Deprecated: use CreatePolicySync instead.
+func (s *Syncer) CreatePolicyAsync(ctx context.Context, policySyncEntity itypes.PluginPolicySync) error {
 	s.logger.WithFields(logrus.Fields{
 		"policy_id": policySyncEntity.PolicyID,
 		"sync_id":   policySyncEntity.ID,
@@ -194,7 +223,46 @@ type DeleteRequestBody struct {
 	Signature string `json:"signature"`
 }
 
-func (s *Syncer) DeletePolicySync(ctx context.Context, syncEntity itypes.PluginPolicySync) error {
+// Deletes a policy in a synchronous manner.
+func (s *Syncer) DeletePolicySync(ctx context.Context, pluginPolicy types.PluginPolicy) error {
+	reqBody := DeleteRequestBody{
+		Signature: pluginPolicy.Signature,
+	}
+	reqBodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request body: %v", err)
+	}
+
+	serverEndpoint, err := s.getServerAddr(ctx, pluginPolicy.PluginID)
+	if err != nil {
+		return fmt.Errorf("failed to get server address: %w", err)
+	}
+
+	url := serverEndpoint + policyEndpoint + "/" + pluginPolicy.ID.String()
+	req, err := http.NewRequest(http.MethodDelete, url, bytes.NewBuffer(reqBodyBytes))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to delete policy with plugin server(%s): %s", url, err.Error())
+	}
+	defer s.closer(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to delete policy with plugin server(%s): status: %d, body: %s", url, resp.StatusCode, string(body))
+	}
+	return nil
+}
+
+// Deprecated: use DeletePolicySync instead.
+func (s *Syncer) DeletePolicyAsync(ctx context.Context, syncEntity itypes.PluginPolicySync) error {
 	s.logger.WithFields(logrus.Fields{
 		"sync_id":   syncEntity.ID,
 		"policy_id": syncEntity.PolicyID,

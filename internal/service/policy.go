@@ -19,7 +19,7 @@ type Policy interface {
 	CreatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
 	UpdatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
 	DeletePolicy(ctx context.Context, policyID uuid.UUID, pluginID types.PluginID, signature string) error
-	GetPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (*itypes.PluginPolicyPaginatedList, error)
+	GetPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int, includeInactive bool) (*itypes.PluginPolicyPaginatedList, error)
 	GetPluginPolicy(ctx context.Context, policyID uuid.UUID) (*types.PluginPolicy, error)
 	DeleteAllPolicies(ctx context.Context, pluginID types.PluginID, publicKey string) error
 }
@@ -157,22 +157,8 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 		}
 	}
 
-	// TODO handle updates sync cases with billing info
-	policySync := itypes.PluginPolicySync{
-		ID:         uuid.New(),
-		PolicyID:   newPolicy.ID,
-		PluginID:   newPolicy.PluginID,
-		Signature:  newPolicy.Signature,
-		SyncType:   itypes.AddPolicy,
-		Status:     itypes.NotSynced,
-		FailReason: "",
-	}
-	if err := s.db.AddPluginPolicySync(ctx, tx, policySync); err != nil {
-		return nil, fmt.Errorf("failed to add policy sync: %w", err)
-	}
-
 	// Sync policy synchronously - if this fails, the entire operation fails
-	if err := s.syncer.CreatePolicySync(ctx, policySync); err != nil {
+	if err := s.syncer.CreatePolicySync(ctx, policy); err != nil {
 		s.logger.WithError(err).Error("failed to sync policy with plugin server")
 		return nil, fmt.Errorf("failed to sync policy with plugin server: %w", err)
 	}
@@ -212,7 +198,7 @@ func (s *PolicyService) UpdatePolicy(ctx context.Context, policy types.PluginPol
 	}
 
 	// Sync policy synchronously - if this fails, the entire operation fails
-	if err := s.syncer.CreatePolicySync(ctx, syncPolicyEntity); err != nil {
+	if err := s.syncer.CreatePolicyAsync(ctx, syncPolicyEntity); err != nil {
 		s.logger.WithError(err).Error("failed to sync policy with plugin server")
 		return nil, fmt.Errorf("failed to sync policy with plugin server: %w", err)
 	}
@@ -236,29 +222,21 @@ func (s *PolicyService) DeletePolicy(ctx context.Context, policyID uuid.UUID, pl
 	}
 	defer s.handleRollback(tx, ctx)
 
-	syncPolicyEntity := itypes.PluginPolicySync{
-		ID:         uuid.New(),
-		PolicyID:   policyID,
-		PluginID:   pluginID,
-		Signature:  signature,
-		SyncType:   itypes.RemovePolicy,
-		Status:     itypes.NotSynced,
-		FailReason: "",
-	}
-	if err := s.db.AddPluginPolicySync(ctx, tx, syncPolicyEntity); err != nil {
-		return fmt.Errorf("failed to add policy sync: %w", err)
-	}
-
-	// TODO: use soft delete instead of hard delete (hard delete will remove policy syncs as well)
-	err = s.db.DeletePluginPolicyTx(ctx, tx, policyID)
+	// Check if policy exists
+	policy, err := s.db.GetPluginPolicy(ctx, policyID)
 	if err != nil {
-		return fmt.Errorf("failed to delete policy: %w", err)
+		return fmt.Errorf("failed to get policy: %w", err)
 	}
 
 	// Sync policy synchronously - if this fails, the entire operation fails
-	if err := s.syncer.DeletePolicySync(ctx, syncPolicyEntity); err != nil {
+	if err := s.syncer.DeletePolicySync(ctx, *policy); err != nil {
 		s.logger.WithError(err).Error("failed to sync policy deletion with plugin server")
 		return fmt.Errorf("failed to sync policy deletion with plugin server: %w", err)
+	}
+
+	err = s.db.DeletePluginPolicyTx(ctx, tx, policyID)
+	if err != nil {
+		return fmt.Errorf("failed to delete policy: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -268,8 +246,8 @@ func (s *PolicyService) DeletePolicy(ctx context.Context, policyID uuid.UUID, pl
 	return nil
 }
 
-func (s *PolicyService) GetPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (*itypes.PluginPolicyPaginatedList, error) {
-	policies, err := s.db.GetAllPluginPolicies(ctx, publicKey, pluginID, take, skip)
+func (s *PolicyService) GetPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int, includeInactive bool) (*itypes.PluginPolicyPaginatedList, error) {
+	policies, err := s.db.GetAllPluginPolicies(ctx, publicKey, pluginID, take, skip, includeInactive)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get policies: %w", err)
 	}

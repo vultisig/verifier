@@ -62,7 +62,7 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (*t
 	return &policy, nil
 }
 
-func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (*itypes.PluginPolicyPaginatedList, error) {
+func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int, includeInactive bool) (*itypes.PluginPolicyPaginatedList, error) {
 	if p.pool == nil {
 		return nil, fmt.Errorf("database pool is nil")
 	}
@@ -72,7 +72,13 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 		COUNT(*) OVER() AS total_count
 		FROM plugin_policies
 		WHERE public_key = $1
-		AND plugin_id = $2
+		AND plugin_id = $2`
+
+	if !includeInactive {
+		query += ` AND active = true`
+	}
+
+	query += `
 		ORDER BY policy_version DESC
 		LIMIT $3 OFFSET $4`
 
@@ -247,11 +253,12 @@ func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 
 func (p *PostgresBackend) DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id uuid.UUID) error {
 	_, err := dbTx.Exec(ctx, `
-	DELETE FROM plugin_policies
+	UPDATE plugin_policies
+	SET deleted = true, active = false
 	WHERE id = $1
 	`, id)
 	if err != nil {
-		return fmt.Errorf("failed to delete policy: %w", err)
+		return fmt.Errorf("failed to soft delete policy: %w", err)
 	}
 
 	return nil
@@ -294,7 +301,7 @@ func (p *PostgresBackend) GetPluginPolicySync(ctx context.Context, id uuid.UUID)
 }
 
 func (p *PostgresBackend) DeletePluginPolicySync(ctx context.Context, id uuid.UUID) error {
-	qry := `DELETE FROM plugin_policy_sync WHERE id = $1`
+	qry := `UPDATE plugin_policies SET deleted = true WHERE id = $1`
 	_, err := p.pool.Exec(ctx, qry, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete plugin policy sync: %w", err)

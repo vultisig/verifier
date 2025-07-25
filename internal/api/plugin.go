@@ -50,24 +50,26 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		return fmt.Errorf("failed to unpack recipe: %w", err)
 	}
 
-	txs, err := s.txIndexerService.GetTxsInTimeRange(
-		c.Request().Context(),
-		policy.ID,
-		time.Now().Add(time.Duration(-recipe.GetMinExecWindow())*time.Second),
-		time.Now(),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get data from tx indexer: %w", err)
-	}
-	if uint32(len(txs)) >= recipe.GetMaxTxsPerWindow() {
-		return fmt.Errorf(
-			"policy not allowed to execute more txs in currrent time window: "+
-				"policy_id=%s, txs=%d, max_txs=%d, min_exec_window=%d",
-			policy.ID.String(),
-			len(txs),
-			recipe.GetMaxTxsPerWindow(),
-			recipe.GetMinExecWindow(),
+	if recipe.RateLimitWindow != nil && recipe.MaxTxsPerWindow != nil {
+		txs, er := s.txIndexerService.GetTxsInTimeRange(
+			c.Request().Context(),
+			policy.ID,
+			time.Now().Add(time.Duration(-recipe.GetRateLimitWindow())*time.Second),
+			time.Now(),
 		)
+		if er != nil {
+			return fmt.Errorf("failed to get data from tx indexer: %w", er)
+		}
+		if uint32(len(txs)) >= recipe.GetMaxTxsPerWindow() {
+			return fmt.Errorf(
+				"policy not allowed to execute more txs in currrent time window: "+
+					"policy_id=%s, txs=%d, max_txs=%d, min_exec_window=%d",
+				policy.ID.String(),
+				len(txs),
+				recipe.GetMaxTxsPerWindow(),
+				recipe.GetRateLimitWindow(),
+			)
+		}
 	}
 
 	// plugin will always send one message for now

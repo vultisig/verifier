@@ -41,6 +41,15 @@ func (t *Service) CreateTx(ctx context.Context, req storage.CreateTxDto) (storag
 	return r, nil
 }
 
+// Returns a tracked tx by its ID.
+func (t *Service) GetTxByID(ctx context.Context, txID uuid.UUID) (storage.Tx, error) {
+	r, err := t.repo.GetTxByID(ctx, txID)
+	if err != nil {
+		return storage.Tx{}, fmt.Errorf("t.repo.GetTxByID: %w", err)
+	}
+	return r, nil
+}
+
 func (t *Service) GetTxsInTimeRange(
 	ctx context.Context,
 	policyID uuid.UUID,

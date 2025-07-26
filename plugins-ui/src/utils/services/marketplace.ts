@@ -36,12 +36,14 @@ export const getPlugin = async (id: string) =>
   get<Plugin>(`${baseUrl}/plugins/${id}`).then((plugin) => {
     const count =
       plugin.ratings?.reduce((sum, item) => sum + item.count, 0) || 0;
-    const rate = count
+    const average = count
       ? plugin.ratings.reduce(
           (sum, item) => sum + item.rating * item.count,
           0
         ) / count
       : 0;
+    const clamped = Math.min(Math.max(average, 1), 5);
+    const rate = Math.round(clamped * 2) / 2;
 
     return {
       ...plugin,

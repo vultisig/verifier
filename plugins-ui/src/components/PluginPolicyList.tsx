@@ -1,6 +1,6 @@
 import { fromBinary } from "@bufbuild/protobuf";
 import { base64Decode } from "@bufbuild/protobuf/wire";
-import { Divider, List, message, Modal, Table, TableProps } from "antd";
+import { List, message, Modal, Table, TableProps } from "antd";
 import { Button } from "components/Button";
 import { MiddleTruncate } from "components/MiddleTruncate";
 import { PluginPolicyModal } from "components/PluginPolicyModal";
@@ -150,7 +150,6 @@ export const PluginPolicyList: FC<Plugin> = (plugin) => {
 
   return (
     <>
-      <Divider>Policies</Divider>
       <Table
         columns={columns}
         dataSource={policies}

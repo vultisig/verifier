@@ -22,7 +22,7 @@ export const styledThemes: Record<Theme, DefaultTheme> = {
     neutralSix: "",
     neutralSeven: "",
     primaryAccentThree: "",
-    primaryAccentFour: "",
+    primaryAccentFour: "#4879fd",
     textExtraLight: "#8295ae",
     textLight: "#c9d6e8",
     textPrimary: "#f0f4fc",

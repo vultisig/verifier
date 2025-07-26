@@ -1,7 +1,6 @@
 import {
-  Card,
   Col,
-  Divider,
+  ConfigProvider,
   Empty,
   Form,
   FormProps,
@@ -9,25 +8,35 @@ import {
   Rate,
   Row,
   Spin,
-  Tag,
 } from "antd";
 import { Button } from "components/Button";
 import { MiddleTruncate } from "components/MiddleTruncate";
 import { Stack } from "components/Stack";
 import dayjs from "dayjs";
 import { useApp } from "hooks/useApp";
-import { FC, useCallback, useEffect, useMemo, useState } from "react";
+import { StarIcon } from "icons/StarIcon";
+import { FC, useCallback, useEffect, useState } from "react";
 import { addPluginReview, getPluginReviews } from "utils/services/marketplace";
 import { Plugin, Review, ReviewForm } from "utils/types";
 
-interface InitialState {
+type PluginReviewListProps = {
+  isInstalled?: boolean;
+  onInstall: () => void;
+  plugin: Plugin;
+};
+
+type InitialState = {
   loading: boolean;
   reviews: Review[];
   submitting?: boolean;
   totalCount: number;
-}
+};
 
-export const PluginReviewList: FC<Plugin> = (plugin) => {
+export const PluginReviewList: FC<PluginReviewListProps> = ({
+  plugin,
+  onInstall,
+  isInstalled,
+}) => {
   const initialState: InitialState = {
     loading: true,
     reviews: [],
@@ -85,123 +94,240 @@ export const PluginReviewList: FC<Plugin> = (plugin) => {
 
   useEffect(() => fetchReviews(0), [id, fetchReviews]);
 
-  const averageRating = useMemo(() => {
-    return reviews.length
-      ? parseFloat(
-          (
-            reviews.reduce((sum, item) => sum + item.rating, 0) / reviews.length
-          ).toFixed(1)
-        )
-      : 0;
-  }, [reviews]);
-
   return (
-    <>
-      <Divider>Reviews and Ratings</Divider>
-      <Row gutter={[16, 16]}>
-        <Col xs={24}>
-          <Form
-            autoComplete="off"
-            form={form}
-            layout="vertical"
-            onFinish={onFinishSuccess}
-            onFinishFailed={onFinishFailed}
-          >
-            <Card
-              extra={
-                <Form.Item<ReviewForm>
-                  name="rating"
-                  rules={[{ required: true }]}
-                  noStyle
-                >
-                  <Rate count={5} />
-                </Form.Item>
-              }
-              title="Leave a review"
-              variant="borderless"
-            >
-              <Form.Item<ReviewForm>
-                name="comment"
-                rules={[{ required: true }]}
-              >
-                <Input.TextArea rows={4} />
-              </Form.Item>
-              <Form.Item shouldUpdate noStyle>
-                {() => {
-                  const hasErrors = form
-                    .getFieldsError()
-                    .some(({ errors }) => errors.length > 0);
-                  const isTouched = form.isFieldsTouched(true);
-
-                  return (
-                    <Stack $style={{ justifyContent: "end" }}>
-                      {isConnected ? (
-                        <Button
-                          disabled={!isTouched || hasErrors}
-                          kind="primary"
-                          loading={submitting}
-                          type="submit"
-                        >
-                          Submit
-                        </Button>
-                      ) : (
-                        <Button kind="primary" onClick={connect}>
-                          Connect
-                        </Button>
-                      )}
-                    </Stack>
-                  );
-                }}
-              </Form.Item>
-            </Card>
-          </Form>
-        </Col>
-        {loading ? (
+    <Row gutter={[16, 16]}>
+      <Col xs={24} lg={12} xl={10}>
+        <Stack
+          $style={{
+            backgroundColor: "backgroundSecondary",
+            borderRadius: "12px",
+            flexDirection: "column",
+            gap: "24px",
+            height: "100%",
+            padding: "16px",
+          }}
+        >
           <Stack
-            as={Col}
-            xs={24}
-            $style={{ alignItems: "center", justifyContent: "center" }}
+            as="span"
+            $style={{ fontSize: "18px", fontWeight: "500", lineHeight: "28px" }}
           >
+            Rating Overview
+          </Stack>
+          <Stack
+            $style={{
+              alignItems: "center",
+              flexDirection: "column",
+              gap: "8px",
+            }}
+          >
+            <Stack
+              as="span"
+              $style={{
+                fontSize: "28px",
+                fontWeight: "500",
+                lineHeight: "34px",
+              }}
+            >
+              {plugin.rating.rate}
+            </Stack>
+            <Stack
+              $style={{
+                alignItems: "center",
+                flexDirection: "column",
+                gap: "4px",
+              }}
+            >
+              <ConfigProvider
+                theme={{ components: { Rate: { starSize: 16 } } }}
+              >
+                <Rate count={5} value={plugin.rating.rate} allowHalf disabled />
+              </ConfigProvider>
+              <Stack
+                as="span"
+                $style={{
+                  fontSize: "12px",
+                  fontWeight: "500",
+                  lineHeight: "16px",
+                }}
+              >
+                {`${plugin.rating.count} Reviews`}
+              </Stack>
+            </Stack>
+          </Stack>
+          <Stack $style={{ flexDirection: "column", gap: "12px" }}>
+            {plugin.ratings
+              .sort((a, b) => b.rating - a.rating)
+              .map(({ count, rating }) => (
+                <Stack
+                  key={rating}
+                  $style={{ alignItems: "center", gap: "8px" }}
+                >
+                  <Stack
+                    as="span"
+                    $style={{ fontSize: "14px", lineHeight: "16px" }}
+                  >
+                    {rating}
+                  </Stack>
+                  <Stack
+                    as="span"
+                    $before={{
+                      backgroundColor: "alertWarning",
+                      height: "100%",
+                      position: "absolute",
+                      width: `${(count * 100) / plugin.rating.count}%`,
+                    }}
+                    $style={{
+                      backgroundColor: "backgroundTertiary",
+                      borderRadius: "2px",
+                      height: "8px",
+                      overflow: "hidden",
+                      position: "relative",
+                      width: "100%",
+                    }}
+                  ></Stack>
+                </Stack>
+              ))}
+          </Stack>
+        </Stack>
+      </Col>
+      <Stack
+        as={Col}
+        xs={24}
+        lg={12}
+        xl={14}
+        $style={{ flexDirection: "column", gap: "16px" }}
+      >
+        <Form
+          autoComplete="off"
+          form={form}
+          layout="vertical"
+          onFinish={onFinishSuccess}
+          onFinishFailed={onFinishFailed}
+        >
+          <Stack
+            $style={{
+              backgroundColor: "backgroundSecondary",
+              borderRadius: "12px",
+              flexDirection: "column",
+              gap: "24px",
+              height: "100%",
+              padding: "16px",
+            }}
+          >
+            <Stack
+              $style={{
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <Stack
+                as="span"
+                $style={{
+                  fontSize: "18px",
+                  fontWeight: "500",
+                  lineHeight: "28px",
+                }}
+              >
+                Leave a review
+              </Stack>
+              <Form.Item<ReviewForm>
+                name="rating"
+                rules={[{ required: true }]}
+                noStyle
+              >
+                <ConfigProvider
+                  theme={{ components: { Rate: { starSize: 24 } } }}
+                >
+                  <Rate character={<StarIcon />} count={5} />
+                </ConfigProvider>
+              </Form.Item>
+            </Stack>
+            <Form.Item<ReviewForm>
+              name="comment"
+              rules={[{ required: true }]}
+              noStyle
+            >
+              <Input.TextArea
+                rows={4}
+                placeholder={
+                  isConnected
+                    ? isInstalled
+                      ? "Write a review"
+                      : "Install the plugin to leave a review"
+                    : "Connect your wallet to leave a review"
+                }
+              />
+            </Form.Item>
+            <Stack $style={{ justifyContent: "end" }}>
+              {isConnected ? (
+                isInstalled ? (
+                  <Button kind="primary" loading={submitting} type="submit">
+                    Leave a review
+                  </Button>
+                ) : (
+                  <Button kind="primary" onClick={onInstall}>
+                    Install
+                  </Button>
+                )
+              ) : (
+                <Button kind="primary" onClick={connect}>
+                  Connect
+                </Button>
+              )}
+            </Stack>
+          </Stack>
+        </Form>
+        {loading ? (
+          <Stack $style={{ alignItems: "center", justifyContent: "center" }}>
             <Spin />
           </Stack>
         ) : reviews.length ? (
           <>
-            <Col xs={24}>
-              <Card
-                extra={
-                  <Stack $style={{ alignItems: "center" }}>
-                    <Tag>{`${averageRating} / 5`}</Tag>
-                    <Rate count={5} value={averageRating} disabled />
-                  </Stack>
-                }
-                title={`${reviews.length} Reviews`}
-                variant="borderless"
-                styles={{
-                  body: { display: "none" },
-                  header: { border: "none" },
-                }}
-              />
-            </Col>
             {reviews.map(({ address, comment, createdAt, id, rating }) => (
-              <Col key={id} xs={24} md={12} lg={8}>
-                <Card
-                  extra={dayjs(createdAt).format("YYYY/MM/DD HH:mm")}
-                  title={<Rate count={5} value={rating} disabled />}
-                  variant="borderless"
+              <Stack
+                key={id}
+                $style={{
+                  backgroundColor: "backgroundSecondary",
+                  borderRadius: "12px",
+                  flexDirection: "column",
+                  gap: "12px",
+                  height: "100%",
+                  padding: "16px",
+                }}
+              >
+                <Stack
+                  $style={{
+                    alignItems: "center",
+                    fontSize: "16px",
+                    gap: "12px",
+                    justifyContent: "space-between",
+                    lineHeight: "24px",
+                  }}
+                >
+                  <Stack $style={{ gap: "12px" }}>
+                    <MiddleTruncate text={address} width="110px" />
+                    <Stack $style={{ color: "textExtraLight" }}>
+                      {dayjs(createdAt).format("MM/DD/YYYY")}
+                    </Stack>
+                  </Stack>
+                  <Rate count={5} value={rating} disabled />
+                </Stack>
+                <Stack
+                  $style={{
+                    color: "textLight",
+                    fontSize: "16px",
+                    lineHeight: "24px",
+                  }}
                 >
                   {comment}
-                  <Divider />
-                  <MiddleTruncate text={address} width="200px" />
-                </Card>
-              </Col>
+                </Stack>
+              </Stack>
             ))}
           </>
         ) : (
-          <Col xs={24}>
-            <Empty />
-          </Col>
+          <Empty />
         )}
-      </Row>
-    </>
+      </Stack>
+    </Row>
   );
 };

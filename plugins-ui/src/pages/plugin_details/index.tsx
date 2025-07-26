@@ -1,4 +1,4 @@
-import { Col, Layout, message, Modal, Row, Spin } from "antd";
+import { Col, Layout, message, Modal, Row, Spin, Tabs } from "antd";
 import { Button } from "components/Button";
 import { PluginPolicyList } from "components/PluginPolicyList";
 import { PluginReviewList } from "components/PluginReviewList";
@@ -75,7 +75,7 @@ export const PluginDetailsPage = () => {
     });
   };
 
-  const handleReshareSession = () => {
+  const handleInstall = () => {
     startReshareSession(id)
       .then(() => {})
       .catch(() => {});
@@ -129,14 +129,14 @@ export const PluginDetailsPage = () => {
           }}
           $style={{
             justifyContent: "center",
-            padding: "30px 0",
+            padding: "16px 0",
             position: "relative",
           }}
         >
           <Stack
             $style={{
               flexDirection: "column",
-              gap: "20px",
+              gap: "16px",
               maxWidth: "1200px",
               padding: "0 16px",
               position: "relative",
@@ -144,11 +144,17 @@ export const PluginDetailsPage = () => {
               zIndex: "1",
             }}
           >
-            <Stack onClick={() => goBack(routeTree.plugins.path)}>
+            <Stack>
               <Stack
                 as="span"
-                $style={{ alignItems: "center", cursor: "pointer", gap: "8px" }}
+                $style={{
+                  alignItems: "center",
+                  cursor: "pointer",
+                  gap: "8px",
+                  width: "fit-content",
+                }}
                 $hover={{ color: "textExtraLight" }}
+                onClick={() => goBack(routeTree.plugins.path)}
               >
                 <ChevronLeftIcon fontSize={20} />
                 Back to All Plugins
@@ -206,7 +212,7 @@ export const PluginDetailsPage = () => {
                 <Stack $style={{ flexDirection: "column", gap: "24px" }}>
                   <Stack
                     $style={{
-                      alignItems: "center",
+                      alignItems: "end",
                       justifyContent: "space-between",
                     }}
                   >
@@ -246,7 +252,7 @@ export const PluginDetailsPage = () => {
                           <Button
                             kind="primary"
                             loading={loading}
-                            onClick={handleReshareSession}
+                            onClick={handleInstall}
                           >
                             Install
                           </Button>
@@ -261,8 +267,26 @@ export const PluginDetailsPage = () => {
                 </Stack>
               </Stack>
             </Row>
-            {isInstalled && <PluginPolicyList {...plugin} />}
-            <PluginReviewList {...plugin} />
+            <Tabs
+              items={[
+                {
+                  key: "1",
+                  label: "Overview",
+                  children: <PluginPolicyList {...plugin} />,
+                },
+                {
+                  key: "2",
+                  label: "Reviews and Ratings",
+                  children: (
+                    <PluginReviewList
+                      isInstalled={isInstalled}
+                      onInstall={handleInstall}
+                      plugin={plugin}
+                    />
+                  ),
+                },
+              ]}
+            />
           </Stack>
         </Stack>
       ) : (

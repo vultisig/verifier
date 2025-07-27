@@ -5,18 +5,18 @@
 import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv1";
 import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv1";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
-import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_struct, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
 import type { Rule } from "./rule_pb";
 import { file_rule } from "./rule_pb";
 import type { ScheduleFrequency } from "./scheduling_pb";
 import { file_scheduling } from "./scheduling_pb";
-import type { Message } from "@bufbuild/protobuf";
+import type { JsonObject, Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file policy.proto.
  */
 export const file_policy: GenFile = /*@__PURE__*/
-  fileDesc("Cgxwb2xpY3kucHJvdG8SBXR5cGVzIrYBCglGZWVQb2xpY3kSCgoCaWQYASABKAkSHAoEdHlwZRgCIAEoDjIOLnR5cGVzLkZlZVR5cGUSKgoJZnJlcXVlbmN5GAMgASgOMhcudHlwZXMuQmlsbGluZ0ZyZXF1ZW5jeRIOCgZhbW91bnQYBCABKAMSLgoKc3RhcnRfZGF0ZRgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEwoLZGVzY3JpcHRpb24YBiABKAkiuQIKBlBvbGljeRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEg8KB3ZlcnNpb24YBCABKAUSDgoGYXV0aG9yGAUgASgJEhoKBXJ1bGVzGAYgAygLMgsudHlwZXMuUnVsZRIuCgpjcmVhdGVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIhCghzY2hlZHVsZRgJIAEoCzIPLnR5cGVzLlNjaGVkdWxlEhgKEHNjaGVkdWxlX3ZlcnNpb24YCiABKAUSJgoMZmVlX3BvbGljaWVzGAsgAygLMhAudHlwZXMuRmVlUG9saWN5Ir8BCghTY2hlZHVsZRIrCglmcmVxdWVuY3kYAiABKA4yGC50eXBlcy5TY2hlZHVsZUZyZXF1ZW5jeRIuCgpzdGFydF90aW1lGAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIsCghlbmRfdGltZRgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFgoObWF4X2V4ZWN1dGlvbnMYBSABKAUSEAoIaW50ZXJ2YWwYBiABKAUqTQoHRmVlVHlwZRIYChRGRUVfVFlQRV9VTlNQRUNJRklFRBAAEg0KCVJFQ1VSUklORxABEggKBE9OQ0UQAhIPCgtUUkFOU0FDVElPThADKmcKEEJpbGxpbmdGcmVxdWVuY3kSIQodQklMTElOR19GUkVRVUVOQ1lfVU5TUEVDSUZJRUQQABIJCgVEQUlMWRABEgoKBldFRUtMWRACEgwKCEJJV0VFS0xZEAMSCwoHTU9OVEhMWRAEQiNaIWdpdGh1Yi5jb20vdnVsdGlzaWcvcmVjaXBlcy90eXBlc2IGcHJvdG8z", [file_google_protobuf_timestamp, file_rule, file_scheduling]);
+  fileDesc("Cgxwb2xpY3kucHJvdG8SBXR5cGVzIrYBCglGZWVQb2xpY3kSCgoCaWQYASABKAkSHAoEdHlwZRgCIAEoDjIOLnR5cGVzLkZlZVR5cGUSKgoJZnJlcXVlbmN5GAMgASgOMhcudHlwZXMuQmlsbGluZ0ZyZXF1ZW5jeRIOCgZhbW91bnQYBCABKAMSLgoKc3RhcnRfZGF0ZRgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEwoLZGVzY3JpcHRpb24YBiABKAki1wMKBlBvbGljeRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEg8KB3ZlcnNpb24YBCABKAUSDgoGYXV0aG9yGAUgASgJEhoKBXJ1bGVzGAYgAygLMgsudHlwZXMuUnVsZRIuCgpjcmVhdGVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIhCghzY2hlZHVsZRgJIAEoCzIPLnR5cGVzLlNjaGVkdWxlEhgKEHNjaGVkdWxlX3ZlcnNpb24YCiABKAUSJgoMZmVlX3BvbGljaWVzGAsgAygLMhAudHlwZXMuRmVlUG9saWN5Ei4KDWNvbmZpZ3VyYXRpb24YDCABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0Eh4KEXJhdGVfbGltaXRfd2luZG93GA0gASgNSACIAQESHwoSbWF4X3R4c19wZXJfd2luZG93GA4gASgNSAGIAQFCFAoSX3JhdGVfbGltaXRfd2luZG93QhUKE19tYXhfdHhzX3Blcl93aW5kb3civwEKCFNjaGVkdWxlEisKCWZyZXF1ZW5jeRgCIAEoDjIYLnR5cGVzLlNjaGVkdWxlRnJlcXVlbmN5Ei4KCnN0YXJ0X3RpbWUYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiwKCGVuZF90aW1lGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIWCg5tYXhfZXhlY3V0aW9ucxgFIAEoBRIQCghpbnRlcnZhbBgGIAEoBSpNCgdGZWVUeXBlEhgKFEZFRV9UWVBFX1VOU1BFQ0lGSUVEEAASDQoJUkVDVVJSSU5HEAESCAoET05DRRACEg8KC1RSQU5TQUNUSU9OEAMqZwoQQmlsbGluZ0ZyZXF1ZW5jeRIhCh1CSUxMSU5HX0ZSRVFVRU5DWV9VTlNQRUNJRklFRBAAEgkKBURBSUxZEAESCgoGV0VFS0xZEAISDAoIQklXRUVLTFkQAxILCgdNT05USExZEARCI1ohZ2l0aHViLmNvbS92dWx0aXNpZy9yZWNpcGVzL3R5cGVzYgZwcm90bzM", [file_google_protobuf_struct, file_google_protobuf_timestamp, file_rule, file_scheduling]);
 
 /**
  * FeePolicy represents a single billing configuration
@@ -150,6 +150,29 @@ export type Policy = Message<"types.Policy"> & {
    * @generated from field: repeated types.FeePolicy fee_policies = 11;
    */
   feePolicies: FeePolicy[];
+
+  /**
+   * Plugin configuration
+   *
+   * @generated from field: google.protobuf.Struct configuration = 12;
+   */
+  configuration?: JsonObject;
+
+  /**
+   * MinExecWindow defines minimum allowed gap in seconds between policy txs batch executed
+   *
+   * @generated from field: optional uint32 rate_limit_window = 13;
+   */
+  rateLimitWindow?: number;
+
+  /**
+   * MaxTxsPerWindow defines maximum txs count in batch, actually rules count in policy, for example:
+   * set 1 for erc20.transfer
+   * set 2 for erc20.approve + erc20.transferFrom
+   *
+   * @generated from field: optional uint32 max_txs_per_window = 14;
+   */
+  maxTxsPerWindow?: number;
 };
 
 /**

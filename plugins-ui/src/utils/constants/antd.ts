@@ -17,17 +17,10 @@ export const antdThemes: Record<Theme, ThemeConfig> = {
       colorWarning: styledThemes.default.alertWarning,
     },
     components: {
-      Button: {
-        borderRadius: 22,
-        borderRadiusLG: 28,
-        borderRadiusSM: 18,
-        colorBorder: "transparent",
-        controlHeight: 44,
-        controlHeightSM: 36,
-        controlHeightLG: 56,
-        dangerShadow: "none",
-        defaultShadow: "none",
-        primaryShadow: "none",
+      DatePicker: {
+        activeBorderColor: styledThemes.default.borderNormal,
+        activeShadow: "none",
+        hoverBorderColor: styledThemes.default.borderNormal,
       },
       Dropdown: {
         fontSize: 16,
@@ -35,6 +28,11 @@ export const antdThemes: Record<Theme, ThemeConfig> = {
         paddingBlock: 8,
       },
       Input: {
+        activeBorderColor: styledThemes.default.borderNormal,
+        activeShadow: "none",
+        hoverBorderColor: styledThemes.default.borderNormal,
+      },
+      InputNumber: {
         activeBorderColor: styledThemes.default.borderNormal,
         activeShadow: "none",
         hoverBorderColor: styledThemes.default.borderNormal,

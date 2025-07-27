@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file constraint.proto.
  */
 export const file_constraint: GenFile = /*@__PURE__*/
-  fileDesc("ChBjb25zdHJhaW50LnByb3RvEgV0eXBlcyImCgpSYW5nZVZhbHVlEgsKA21pbhgBIAEoCRILCgNtYXgYAiABKAkiIQoPV2hpdGVsaXN0VmFsdWVzEg4KBnZhbHVlcxgBIAMoCSKzAgoKQ29uc3RyYWludBIjCgR0eXBlGAEgASgOMhUudHlwZXMuQ29uc3RyYWludFR5cGUSFQoLZml4ZWRfdmFsdWUYAiABKAlIABITCgltYXhfdmFsdWUYAyABKAlIABITCgltaW5fdmFsdWUYBCABKAlIABIoCgtyYW5nZV92YWx1ZRgFIAEoCzIRLnR5cGVzLlJhbmdlVmFsdWVIABIyChB3aGl0ZWxpc3RfdmFsdWVzGAYgASgLMhYudHlwZXMuV2hpdGVsaXN0VmFsdWVzSAASHgoUbWF4X3Blcl9wZXJpb2RfdmFsdWUYByABKAVIABIWCg5kZW5vbWluYXRlZF9pbhgIIAEoCRIOCgZwZXJpb2QYCSABKAkSEAoIcmVxdWlyZWQYCiABKAhCBwoFdmFsdWUq3AEKDkNvbnN0cmFpbnRUeXBlEh8KG0NPTlNUUkFJTlRfVFlQRV9VTlNQRUNJRklFRBAAEhkKFUNPTlNUUkFJTlRfVFlQRV9GSVhFRBABEhcKE0NPTlNUUkFJTlRfVFlQRV9NQVgQAhIXChNDT05TVFJBSU5UX1RZUEVfTUlOEAMSGQoVQ09OU1RSQUlOVF9UWVBFX1JBTkdFEAQSHQoZQ09OU1RSQUlOVF9UWVBFX1dISVRFTElTVBAFEiIKHkNPTlNUUkFJTlRfVFlQRV9NQVhfUEVSX1BFUklPRBAGQiNaIWdpdGh1Yi5jb20vdnVsdGlzaWcvcmVjaXBlcy90eXBlc2IGcHJvdG8z");
+  fileDesc("ChBjb25zdHJhaW50LnByb3RvEgV0eXBlcyImCgpSYW5nZVZhbHVlEgsKA21pbhgBIAEoCRILCgNtYXgYAiABKAkiIQoPV2hpdGVsaXN0VmFsdWVzEg4KBnZhbHVlcxgBIAMoCSLpAgoKQ29uc3RyYWludBIjCgR0eXBlGAEgASgOMhUudHlwZXMuQ29uc3RyYWludFR5cGUSFQoLZml4ZWRfdmFsdWUYAiABKAlIABITCgltYXhfdmFsdWUYAyABKAlIABITCgltaW5fdmFsdWUYBCABKAlIABIoCgtyYW5nZV92YWx1ZRgFIAEoCzIRLnR5cGVzLlJhbmdlVmFsdWVIABIyChB3aGl0ZWxpc3RfdmFsdWVzGAYgASgLMhYudHlwZXMuV2hpdGVsaXN0VmFsdWVzSAASHgoUbWF4X3Blcl9wZXJpb2RfdmFsdWUYByABKAVIABI0ChRtYWdpY19jb25zdGFudF92YWx1ZRgLIAEoDjIULnR5cGVzLk1hZ2ljQ29uc3RhbnRIABIWCg5kZW5vbWluYXRlZF9pbhgIIAEoCRIOCgZwZXJpb2QYCSABKAkSEAoIcmVxdWlyZWQYCiABKAhCBwoFdmFsdWUqgAIKDkNvbnN0cmFpbnRUeXBlEh8KG0NPTlNUUkFJTlRfVFlQRV9VTlNQRUNJRklFRBAAEhkKFUNPTlNUUkFJTlRfVFlQRV9GSVhFRBABEhcKE0NPTlNUUkFJTlRfVFlQRV9NQVgQAhIXChNDT05TVFJBSU5UX1RZUEVfTUlOEAMSGQoVQ09OU1RSQUlOVF9UWVBFX1JBTkdFEAQSHQoZQ09OU1RSQUlOVF9UWVBFX1dISVRFTElTVBAFEiIKHkNPTlNUUkFJTlRfVFlQRV9NQVhfUEVSX1BFUklPRBAGEiIKHkNPTlNUUkFJTlRfVFlQRV9NQUdJQ19DT05TVEFOVBAHKjcKDU1hZ2ljQ29uc3RhbnQSDwoLVU5TUEVDSUZJRUQQABIVChFWVUxUSVNJR19UUkVBU1VSWRABQiNaIWdpdGh1Yi5jb20vdnVsdGlzaWcvcmVjaXBlcy90eXBlc2IGcHJvdG8z");
 
 /**
  * RangeValue represents a range constraint with min and max values
@@ -109,6 +109,12 @@ export type Constraint = Message<"types.Constraint"> & {
      */
     value: number;
     case: "maxPerPeriodValue";
+  } | {
+    /**
+     * @generated from field: types.MagicConstant magic_constant_value = 11;
+     */
+    value: MagicConstant;
+    case: "magicConstantValue";
   } | { case: undefined; value?: undefined };
 
   /**
@@ -176,6 +182,11 @@ export enum ConstraintType {
    * @generated from enum value: CONSTRAINT_TYPE_MAX_PER_PERIOD = 6;
    */
   MAX_PER_PERIOD = 6,
+
+  /**
+   * @generated from enum value: CONSTRAINT_TYPE_MAGIC_CONSTANT = 7;
+   */
+  MAGIC_CONSTANT = 7,
 }
 
 /**
@@ -183,4 +194,25 @@ export enum ConstraintType {
  */
 export const ConstraintTypeSchema: GenEnum<ConstraintType> = /*@__PURE__*/
   enumDesc(file_constraint, 0);
+
+/**
+ * @generated from enum types.MagicConstant
+ */
+export enum MagicConstant {
+  /**
+   * @generated from enum value: UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: VULTISIG_TREASURY = 1;
+   */
+  VULTISIG_TREASURY = 1,
+}
+
+/**
+ * Describes the enum types.MagicConstant.
+ */
+export const MagicConstantSchema: GenEnum<MagicConstant> = /*@__PURE__*/
+  enumDesc(file_constraint, 1);
 

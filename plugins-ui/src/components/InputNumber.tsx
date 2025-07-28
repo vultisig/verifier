@@ -8,7 +8,7 @@ const StyledInputNumber = styled(DefaultInputNumber)<InputNumberProps>`
   .ant-input-number-input {
     height: 42px;
   }
-}`;
+`;
 
 export const InputNumber: FC<InputNumberProps> = (props) => (
   <StyledInputNumber {...props} />

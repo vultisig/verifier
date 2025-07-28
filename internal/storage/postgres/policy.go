@@ -62,6 +62,55 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (*t
 	return &policy, nil
 }
 
+func (p *PostgresBackend) GetPluginPolicies(ctx context.Context, publicKey string, pluginIds []types.PluginID, includeInactive bool) ([]types.PluginPolicy, error) {
+	var rows pgx.Rows
+	var err error
+
+	if len(pluginIds) == 0 {
+		if !includeInactive {
+			rows, err = p.pool.Query(ctx, `SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe FROM plugin_policies WHERE public_key = $1 AND active = true`, publicKey)
+		} else {
+			rows, err = p.pool.Query(ctx, `SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe FROM plugin_policies WHERE public_key = $1`, publicKey)
+		}
+	} else {
+		pids := []string{}
+		for _, pid := range pluginIds {
+			pids = append(pids, pid.String())
+		}
+		if !includeInactive {
+			rows, err = p.pool.Query(ctx, `SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe FROM plugin_policies WHERE public_key = $1 AND plugin_id = ANY($2) AND active = true`, publicKey, pids)
+		} else {
+			rows, err = p.pool.Query(ctx, `SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe FROM plugin_policies WHERE public_key = $1 AND plugin_id = ANY($2)`, publicKey, pids)
+		}
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get plugin policies: %w", err)
+	}
+	defer rows.Close()
+
+	var policies []types.PluginPolicy
+	for rows.Next() {
+		var policy types.PluginPolicy
+		err := rows.Scan(
+			&policy.ID,
+			&policy.PublicKey,
+			&policy.PluginID,
+			&policy.PluginVersion,
+			&policy.PolicyVersion,
+			&policy.Signature,
+			&policy.Active,
+			&policy.Recipe,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan plugin policy: %w", err)
+		}
+		policies = append(policies, policy)
+	}
+
+	return policies, nil
+}
+
 func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int, includeInactive bool) (*itypes.PluginPolicyPaginatedList, error) {
 	if p.pool == nil {
 		return nil, fmt.Errorf("database pool is nil")

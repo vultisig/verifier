@@ -27,7 +27,6 @@
     "port": "8125"
   },
   "fees": {
-    "recipient_white_list": ["0x7d760c17d798a7A9a4c4AcAf311A02dC95972503"],
     "usdc_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
   }
 }

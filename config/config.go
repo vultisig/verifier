@@ -61,8 +61,7 @@ type RedisConfig struct {
 }
 
 type FeesConfig struct {
-	RecipientWhiteList []string `mapstructure:"recipient_white_list" json:"recipient_white_list,omitempty"`
-	USDCAddress        string   `mapstructure:"usdc_address" json:"usdc_address,omitempty"`
+	USDCAddress string `mapstructure:"usdc_address" json:"usdc_address,omitempty"`
 }
 
 func GetConfigure() (*WorkerConfig, error) {

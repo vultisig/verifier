@@ -379,108 +379,112 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
                 }}
               </Form.Item>
             </Stack>
-            {schema.scheduling?.supportsScheduling ? (
-              <Stack $style={{ display: "block" }}>
-                <Divider orientation="start" orientationMargin={0}>
-                  Scheduling
-                </Divider>
-                <Form.Item<FieldType>
-                  name="startFromNextMonth"
-                  valuePropName="checked"
-                >
-                  <Checkbox>Start from the beginning of next month</Checkbox>
-                </Form.Item>
-                <Form.Item
-                  shouldUpdate={(prevValues, currentValues) =>
-                    prevValues.startFromNextMonth !==
-                    currentValues.startFromNextMonth
-                  }
-                  noStyle
-                >
-                  {({ getFieldsValue }) => {
-                    const { startFromNextMonth = false } = getFieldsValue();
+            <Stack $style={{ display: "block" }}>
+              <Divider orientation="start" orientationMargin={0}>
+                Scheduling
+              </Divider>
+              {schema.scheduling?.supportsScheduling ? (
+                <>
+                  <Form.Item<FieldType>
+                    name="startFromNextMonth"
+                    valuePropName="checked"
+                  >
+                    <Checkbox>Start from the beginning of next month</Checkbox>
+                  </Form.Item>
+                  <Form.Item
+                    shouldUpdate={(prevValues, currentValues) =>
+                      prevValues.startFromNextMonth !==
+                      currentValues.startFromNextMonth
+                    }
+                    noStyle
+                  >
+                    {({ getFieldsValue }) => {
+                      const { startFromNextMonth = false } = getFieldsValue();
 
-                    return startFromNextMonth ? (
-                      <></>
-                    ) : (
-                      <Form.Item<FieldType>
-                        name="startDate"
-                        label="Start Date"
-                        rules={[{ required: true }]}
-                      >
-                        <DatePicker
-                          disabledDate={(current) => {
-                            return current && current.isBefore(dayjs(), "day");
-                          }}
-                          format="YYYY-MM-DD HH:mm"
-                          showNow={false}
-                          showTime={{
-                            disabledHours: () => {
-                              const nextHour = dayjs()
-                                .add(1, "hour")
-                                .startOf("hour")
-                                .hour();
-
-                              return Array.from(
-                                { length: nextHour },
-                                (_, i) => i
+                      return startFromNextMonth ? (
+                        <></>
+                      ) : (
+                        <Form.Item<FieldType>
+                          name="startDate"
+                          label="Start Date"
+                          rules={[{ required: true }]}
+                        >
+                          <DatePicker
+                            disabledDate={(current) => {
+                              return (
+                                current && current.isBefore(dayjs(), "day")
                               );
-                            },
-                            format: "HH",
-                            showMinute: false,
-                            showSecond: false,
-                          }}
-                        />
-                      </Form.Item>
-                    );
-                  }}
-                </Form.Item>
-                <Form.Item<FieldType>
-                  name="schedulingEnabled"
-                  valuePropName="checked"
-                >
-                  <Checkbox>Enable scheduled execution</Checkbox>
-                </Form.Item>
-                <Form.Item
-                  shouldUpdate={(prevValues, currentValues) =>
-                    prevValues.schedulingEnabled !==
-                    currentValues.schedulingEnabled
-                  }
-                  noStyle
-                >
-                  {({ getFieldsValue }) => {
-                    const { schedulingEnabled = false } = getFieldsValue();
+                            }}
+                            format="YYYY-MM-DD HH:mm"
+                            showNow={false}
+                            showTime={{
+                              disabledHours: () => {
+                                const nextHour = dayjs()
+                                  .add(1, "hour")
+                                  .startOf("hour")
+                                  .hour();
 
-                    return schedulingEnabled ? (
-                      <Form.Item<FieldType>
-                        name="frequency"
-                        label="Frequency"
-                        rules={[{ required: true }]}
-                        help={`Max ${schema.scheduling?.maxScheduledExecutions} scheduled executions`}
-                      >
-                        <Select options={frequencyOptions} />
-                      </Form.Item>
-                    ) : (
-                      <></>
-                    );
-                  }}
-                </Form.Item>
-                <Form.Item<FieldType>
-                  name="maxTxsPerWindow"
-                  label="Max Txs Per Window"
-                >
-                  <InputNumber min={1} />
-                </Form.Item>
-                <Form.Item<FieldType>
-                  name="rateLimitWindow"
-                  label="Rate Limit Window (seconds)"
-                >
-                  <InputNumber min={1} />
-                </Form.Item>
-              </Stack>
-            ) : (
-              <></>
-            )}
+                                return Array.from(
+                                  { length: nextHour },
+                                  (_, i) => i
+                                );
+                              },
+                              format: "HH",
+                              showMinute: false,
+                              showSecond: false,
+                            }}
+                          />
+                        </Form.Item>
+                      );
+                    }}
+                  </Form.Item>
+                  <Form.Item<FieldType>
+                    name="schedulingEnabled"
+                    valuePropName="checked"
+                  >
+                    <Checkbox>Enable scheduled execution</Checkbox>
+                  </Form.Item>
+                  <Form.Item
+                    shouldUpdate={(prevValues, currentValues) =>
+                      prevValues.schedulingEnabled !==
+                      currentValues.schedulingEnabled
+                    }
+                    noStyle
+                  >
+                    {({ getFieldsValue }) => {
+                      const { schedulingEnabled = false } = getFieldsValue();
+
+                      return schedulingEnabled ? (
+                        <Form.Item<FieldType>
+                          name="frequency"
+                          label="Frequency"
+                          rules={[{ required: true }]}
+                          help={`Max ${schema.scheduling?.maxScheduledExecutions} scheduled executions`}
+                        >
+                          <Select options={frequencyOptions} />
+                        </Form.Item>
+                      ) : (
+                        <></>
+                      );
+                    }}
+                  </Form.Item>
+                </>
+              ) : (
+                <></>
+              )}
+              <Form.Item<FieldType>
+                name="maxTxsPerWindow"
+                label="Max Txs Per Window"
+              >
+                <InputNumber min={1} />
+              </Form.Item>
+              <Form.Item<FieldType>
+                name="rateLimitWindow"
+                label="Rate Limit Window (seconds)"
+              >
+                <InputNumber min={1} />
+              </Form.Item>
+            </Stack>
             <Stack $style={{ display: "block" }}>
               <Divider orientation="start" orientationMargin={0}>
                 Requirements

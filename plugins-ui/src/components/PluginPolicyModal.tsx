@@ -6,13 +6,13 @@ import {
   Drawer,
   Form,
   FormProps,
-  Input,
   List,
   SelectProps,
   Tag,
 } from "antd";
 import { Button } from "components/Button";
 import { DatePicker } from "components/DatePicker";
+import { Input } from "components/Input";
 import { InputNumber } from "components/InputNumber";
 import { Select } from "components/Select";
 import { Spin } from "components/Spin";
@@ -79,13 +79,6 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
   const { hash } = useLocation();
   const [form] = Form.useForm<FieldType>();
   const goBack = useGoBack();
-
-  const feeHardcodedValues = useMemo(() => {
-    return {
-      amount: "500000000",
-      recipient: "0x7d760c17d798a7A9a4c4AcAf311A02dC95972503",
-    };
-  }, []);
 
   const isFeesPlugin = useMemo(() => {
     return schema.pluginId === "vultisig-fees-feee";
@@ -281,19 +274,14 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
   };
 
   useEffect(() => {
-    setState((prevState) => ({
-      ...prevState,
-      visible: hash === modalHash.policy,
-    }));
-  }, [hash]);
+    if (hash === modalHash.policy) {
+      setState((prevState) => ({ ...prevState, visible: true }));
+    } else if (visible) {
+      setState((prevState) => ({ ...prevState, visible: false }));
 
-  useEffect(() => {
-    if (visible) {
-      form.setFieldValue("supportedResource", 0);
-
-      if (isFeesPlugin) form.setFieldsValue(feeHardcodedValues);
+      form.resetFields();
     }
-  }, [feeHardcodedValues, form, isFeesPlugin, visible]);
+  }, [form, hash, visible]);
 
   return (
     <Drawer
@@ -322,6 +310,17 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
         autoComplete="off"
         form={form}
         layout="vertical"
+        initialValues={{
+          maxTxsPerWindow: 2,
+          supportedResource: 0,
+          ...() =>
+            isFeesPlugin
+              ? {
+                  amount: "500000000",
+                  recipient: "0x7d760c17d798a7A9a4c4AcAf311A02dC95972503",
+                }
+              : {},
+        }}
         onFinish={onFinishSuccess}
         onFinishFailed={onFinishFailed}
         onValuesChange={onValuesChange}
@@ -368,11 +367,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
                             name={parameterName}
                             rules={[{ required }]}
                           >
-                            <Stack
-                              as={Input}
-                              disabled={isFeesPlugin}
-                              $style={{ height: "44px" }}
-                            />
+                            <Input disabled={isFeesPlugin} />
                           </Form.Item>
                         )
                       )}

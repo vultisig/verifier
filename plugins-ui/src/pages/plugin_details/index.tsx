@@ -15,6 +15,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useTheme } from "styled-components";
 import { modalHash } from "utils/constants/core";
 import { routeTree } from "utils/constants/routes";
+import { toCapitalizeFirst } from "utils/functions";
 import { startReshareSession } from "utils/services/extension";
 import {
   getPlugin,
@@ -190,7 +191,7 @@ export const PluginDetailsPage = () => {
                 <Stack $style={{ gap: "8px" }}>
                   <Tag
                     color="alertSuccess"
-                    text={plugin.categoryId.capitalizeFirst()}
+                    text={toCapitalizeFirst(plugin.categoryId)}
                   />
                   {isInstalled && (
                     <Tag color="buttonPrimary" text="Installed" />

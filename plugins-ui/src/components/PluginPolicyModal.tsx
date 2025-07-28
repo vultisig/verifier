@@ -39,7 +39,7 @@ import {
   scheduleFrequencyLabels,
   scheduleFrequencyToSeconds,
 } from "utils/constants/core";
-import { toTimestamp } from "utils/functions";
+import { toCapitalizeFirst, toTimestamp } from "utils/functions";
 import { signPluginPolicy } from "utils/services/extension";
 import { addPluginPolicy } from "utils/services/marketplace";
 import { Plugin, PluginPolicy } from "utils/types";
@@ -330,7 +330,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
             <Stack $style={{ display: "block" }}>
               <Divider orientation="start" orientationMargin={0}>
                 <Tag>{`v${schema.pluginVersion}`}</Tag>
-                {schema.pluginId.capitalizeFirst()}
+                {toCapitalizeFirst(schema.pluginId)}
               </Divider>
               <Form.Item<FieldType>
                 name="supportedResource"
@@ -363,7 +363,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
                         ({ parameterName, required }) => (
                           <Form.Item
                             key={parameterName}
-                            label={parameterName.capitalizeFirst()}
+                            label={toCapitalizeFirst(parameterName)}
                             name={parameterName}
                             rules={[{ required }]}
                           >

@@ -6,6 +6,7 @@ import { Tag } from "components/Tag";
 import { useApp } from "hooks/useApp";
 import { FC, useEffect, useState } from "react";
 import { routeTree } from "utils/constants/routes";
+import { toCapitalizeFirst } from "utils/functions";
 import { isPluginInstalled } from "utils/services/marketplace";
 import { Plugin } from "utils/types";
 
@@ -54,7 +55,7 @@ export const PluginItem: FC<Plugin> = ({
           $style={{ borderRadius: "6px", width: "100%" }}
         />
         <Stack $style={{ gap: "8px" }}>
-          <Tag color="alertSuccess" text={categoryId.capitalizeFirst()} />
+          <Tag color="alertSuccess" text={toCapitalizeFirst(categoryId)} />
           {isInstalled && <Tag color="buttonPrimary" text="Installed" />}
         </Stack>
         <Stack $style={{ flexDirection: "column", gap: "4px" }}>

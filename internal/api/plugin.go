@@ -40,7 +40,8 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 
 	// Handle fee specific validations
 	if policy.PluginID == ptypes.PluginVultisigFees_feee {
-		if err := s.feeService.ValidateFees(c.Request().Context(), req); err != nil {
+		if err := s.feeService.ValidateFees(c.Request().Context(), &req); err != nil {
+			s.logger.WithError(err).Error("invalid fee keysign request")
 			return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid fee keysign request"))
 		}
 	}
@@ -180,7 +181,6 @@ func (s *Server) GetCategories(c echo.Context) error {
 			Name: types.PluginCategoryPlugin.String(),
 		},
 	}
-
 	return c.JSON(http.StatusOK, resp)
 }
 

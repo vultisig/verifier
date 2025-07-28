@@ -405,7 +405,7 @@ CREATE INDEX "idx_vault_tokens_public_key" ON "vault_tokens" USING "btree" ("pub
 
 CREATE INDEX "idx_vault_tokens_token_id" ON "vault_tokens" USING "btree" ("token_id");
 
-CREATE UNIQUE INDEX "unique_fees_policy_per_public_key" ON "plugin_policies" USING "btree" ("plugin_id", "public_key") WHERE ("plugin_id" = 'vultisig-fees-feee'::"public"."plugin_id");
+CREATE UNIQUE INDEX "unique_fees_policy_per_public_key" ON "plugin_policies" USING "btree" ("plugin_id", "public_key") WHERE (("plugin_id" = 'vultisig-fees-feee'::"public"."plugin_id") AND ("active" = true));
 
 CREATE OR REPLACE VIEW "billing_periods" AS
  SELECT "pp"."id" AS "plugin_policy_id",

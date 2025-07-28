@@ -8,7 +8,7 @@ import { DefaultLayout } from "layouts/default";
 import { NotFoundPage } from "pages/not_found";
 import { PluginDetailsPage } from "pages/plugin_details";
 import { PluginsPage } from "pages/plugins";
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { I18nextProvider } from "react-i18next";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { getChain, setChain as setChainStorage } from "storage/chain";
@@ -54,14 +54,16 @@ interface InitialState {
 }
 
 export const App = () => {
-  const initialState: InitialState = {
-    chain: getChain(),
-    currency: getCurrency(),
-    isConnected: false,
-    language: getLanguage(),
-    loaded: true,
-    theme: getTheme(),
-  };
+  const initialState: InitialState = useMemo(() => {
+    return {
+      chain: getChain(),
+      currency: getCurrency(),
+      isConnected: false,
+      language: getLanguage(),
+      loaded: true,
+      theme: getTheme(),
+    };
+  }, []);
   const [state, setState] = useState(initialState);
   const {
     address,
@@ -76,7 +78,7 @@ export const App = () => {
   const [messageApi, messageHolder] = message.useMessage();
   const [modalAPI, modalHolder] = Modal.useModal();
 
-  const clear = () => {
+  const clear = useCallback(() => {
     disconnectFromExtension()
       .then(() => {
         delToken(getVaultId());
@@ -86,9 +88,9 @@ export const App = () => {
       .catch(() => {
         messageApi.error("Disconnection failed");
       });
-  };
+  }, [initialState, messageApi]);
 
-  const connect = () => {
+  const connect = useCallback(() => {
     connectToExtension().then((address) => {
       if (address) {
         signMessage(address).then((done) => {
@@ -104,7 +106,7 @@ export const App = () => {
         clear();
       }
     });
-  };
+  }, [clear, messageApi]);
 
   const disconnect = () => {
     modalAPI.confirm({

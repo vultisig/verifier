@@ -1,5 +1,6 @@
-import { ConfigProvider, message, Modal, Spin } from "antd";
+import { ConfigProvider, message, Modal } from "antd";
 import { GlobalStyle } from "components/GlobalStyle";
+import { Spin } from "components/Spin";
 import { AppContext } from "context/AppContext";
 import { hexlify, randomBytes } from "ethers";
 import { i18nInstance } from "i18n/config";

@@ -27,11 +27,9 @@ export const PluginItem: FC<Plugin> = ({
 
   useEffect(() => {
     if (isConnected) {
-      isPluginInstalled(id)
-        .then((isInstalled) => {
-          setState((prevState) => ({ ...prevState, isInstalled }));
-        })
-        .catch(() => {});
+      isPluginInstalled(id).then((isInstalled) => {
+        setState((prevState) => ({ ...prevState, isInstalled }));
+      });
     } else {
       setState((prevState) => ({ ...prevState, isInstalled: undefined }));
     }

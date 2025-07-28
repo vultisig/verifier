@@ -7,10 +7,10 @@ import {
   Input,
   Rate,
   Row,
-  Spin,
 } from "antd";
 import { Button } from "components/Button";
 import { MiddleTruncate } from "components/MiddleTruncate";
+import { Spin } from "components/Spin";
 import { Stack } from "components/Stack";
 import dayjs from "dayjs";
 import { useApp } from "hooks/useApp";

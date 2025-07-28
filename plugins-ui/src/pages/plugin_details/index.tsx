@@ -1,15 +1,16 @@
-import { Col, Layout, message, Modal, Row, Spin, Tabs } from "antd";
+import { Col, Layout, message, Modal, Row, Tabs } from "antd";
 import { Button } from "components/Button";
 import { PluginPolicyList } from "components/PluginPolicyList";
 import { PluginReviewList } from "components/PluginReviewList";
 import { Pricing } from "components/Pricing";
 import { Rate } from "components/Rate";
+import { Spin } from "components/Spin";
 import { Stack } from "components/Stack";
 import { Tag } from "components/Tag";
 import { useApp } from "hooks/useApp";
 import { useGoBack } from "hooks/useGoBack";
 import { ChevronLeftIcon } from "icons/ChevronLeftIcon";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTheme } from "styled-components";
 import { modalHash } from "utils/constants/core";
@@ -39,6 +40,16 @@ export const PluginDetailsPage = () => {
   const navigate = useNavigate();
   const goBack = useGoBack();
   const theme = useTheme();
+
+  const checkStatus = useCallback(() => {
+    isPluginInstalled(id).then((isInstalled) => {
+      if (isInstalled) {
+        setState((prevState) => ({ ...prevState, isInstalled }));
+      } else {
+        setTimeout(checkStatus, 1000);
+      }
+    });
+  }, [id]);
 
   const handleUninstall = () => {
     modalAPI.confirm({
@@ -76,18 +87,18 @@ export const PluginDetailsPage = () => {
   };
 
   const handleInstall = () => {
-    startReshareSession(id)
-      .then(() => {})
-      .catch(() => {});
+    startReshareSession(id);
   };
 
   useEffect(() => {
+    if (isInstalled === false) checkStatus();
+  }, [checkStatus, isInstalled]);
+
+  useEffect(() => {
     if (isConnected) {
-      isPluginInstalled(id)
-        .then((isInstalled) => {
-          setState((prevState) => ({ ...prevState, isInstalled }));
-        })
-        .catch(() => {});
+      isPluginInstalled(id).then((isInstalled) => {
+        setState((prevState) => ({ ...prevState, isInstalled }));
+      });
     } else {
       setState((prevState) => ({ ...prevState, isInstalled: undefined }));
     }

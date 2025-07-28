@@ -9,13 +9,13 @@ import {
   Input,
   List,
   SelectProps,
-  Spin,
   Tag,
 } from "antd";
 import { Button } from "components/Button";
 import { DatePicker } from "components/DatePicker";
 import { InputNumber } from "components/InputNumber";
 import { Select } from "components/Select";
+import { Spin } from "components/Spin";
 import { Stack } from "components/Stack";
 import dayjs, { Dayjs } from "dayjs";
 import { useGoBack } from "hooks/useGoBack";
@@ -80,10 +80,12 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
   const [form] = Form.useForm<FieldType>();
   const goBack = useGoBack();
 
-  const feeHardcodedValues = {
-    amount: "500000000",
-    recipient: "0x7d760c17d798a7A9a4c4AcAf311A02dC95972503",
-  };
+  const feeHardcodedValues = useMemo(() => {
+    return {
+      amount: "500000000",
+      recipient: "0x7d760c17d798a7A9a4c4AcAf311A02dC95972503",
+    };
+  }, []);
 
   const isFeesPlugin = useMemo(() => {
     return schema.pluginId === "vultisig-fees-feee";
@@ -291,7 +293,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
 
       if (isFeesPlugin) form.setFieldsValue(feeHardcodedValues);
     }
-  }, [form, isFeesPlugin, visible]);
+  }, [feeHardcodedValues, form, isFeesPlugin, visible]);
 
   return (
     <Drawer

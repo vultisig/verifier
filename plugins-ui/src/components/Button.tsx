@@ -1,10 +1,9 @@
-import { Spin } from "antd";
+import { Spin } from "components/Spin";
 import { Stack, StackProps } from "components/Stack";
 import { ButtonHTMLAttributes, FC, HTMLAttributes, ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 type Kind = "default" | "primary" | "link";
-type Size = "sm" | "md";
 type Status = "default" | "danger" | "success" | "warning";
 
 type ButtonProps = HTMLAttributes<HTMLElement> & {
@@ -13,7 +12,6 @@ type ButtonProps = HTMLAttributes<HTMLElement> & {
   icon?: ReactNode;
   kind?: Kind;
   loading?: boolean;
-  size?: Size;
   status?: Status;
   type?: ButtonHTMLAttributes<HTMLButtonElement>["type"];
 };
@@ -182,7 +180,6 @@ export const Button: FC<ButtonProps> = ({
   icon,
   kind = "default",
   loading = false,
-  size = "md",
   status = "default",
   type = "button",
   ...buttonProps

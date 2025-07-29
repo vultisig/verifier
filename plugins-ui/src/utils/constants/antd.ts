@@ -55,6 +55,11 @@ export const antdThemes: Record<Theme, ThemeConfig> = {
         headerBg: styledThemes.default.backgroundTertiary,
         headerSplitColor: styledThemes.default.borderNormal,
       },
+      Tabs: {
+        inkBarColor: styledThemes.default.primaryAccentFour,
+        itemHoverColor: styledThemes.default.primaryAccentFour,
+        itemSelectedColor: styledThemes.default.primaryAccentFour,
+      },
     },
   },
 } as const;

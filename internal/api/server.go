@@ -156,7 +156,7 @@ func (s *Server) StartServer() error {
 	pluginGroup.GET("/policies/:policyId/history", s.GetPluginPolicyTransactionHistory)
 
 	// fee group. These should only be accessible by the plugin server
-	feeGroup := e.Group("/fees")
+	feeGroup := e.Group("/fees", s.PluginAuthMiddleware)
 	feeGroup.GET("/publickey/:publicKey", s.GetPublicKeyFees)
 
 	pluginsGroup := e.Group("/plugins")

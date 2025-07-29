@@ -40,11 +40,40 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 
 	// Handle fee specific validations
 	if policy.PluginID == ptypes.PluginVultisigFees_feee {
-		if err := s.feeService.ValidateFees(c.Request().Context(), req); err != nil {
+		if err := s.feeService.ValidateFees(c.Request().Context(), &req); err != nil {
+			s.logger.WithError(err).Error("invalid fee keysign request")
 			return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid fee keysign request"))
 		}
 	}
 
+	recipe, err := policy.GetRecipe()
+	if err != nil {
+		return fmt.Errorf("failed to unpack recipe: %w", err)
+	}
+
+	if recipe.RateLimitWindow != nil && recipe.MaxTxsPerWindow != nil {
+		txs, er := s.txIndexerService.GetTxsInTimeRange(
+			c.Request().Context(),
+			policy.ID,
+			time.Now().Add(time.Duration(-recipe.GetRateLimitWindow())*time.Second),
+			time.Now(),
+		)
+		if er != nil {
+			return fmt.Errorf("failed to get data from tx indexer: %w", er)
+		}
+		if uint32(len(txs)) >= recipe.GetMaxTxsPerWindow() {
+			return fmt.Errorf(
+				"policy not allowed to execute more txs in currrent time window: "+
+					"policy_id=%s, txs=%d, max_txs=%d, min_exec_window=%d",
+				policy.ID.String(),
+				len(txs),
+				recipe.GetMaxTxsPerWindow(),
+				recipe.GetRateLimitWindow(),
+			)
+		}
+	}
+
+	// plugin will always send one message for now
 	for i, keysignMessage := range req.Messages {
 		// TODO: Unpack calldata and verify tx against the policy (same recipient, amount, etc.).
 		//  Current engine.Evaluate needs to be reworked — simplified and reimplemented to be universal
@@ -152,7 +181,6 @@ func (s *Server) GetCategories(c echo.Context) error {
 			Name: types.PluginCategoryPlugin.String(),
 		},
 	}
-
 	return c.JSON(http.StatusOK, resp)
 }
 

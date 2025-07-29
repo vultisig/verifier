@@ -130,8 +130,16 @@ func (m *MockDatabaseStorage) GetPluginPolicy(ctx context.Context, id uuid.UUID)
 	return args.Get(0).(*types.PluginPolicy), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int) (*itypes.PluginPolicyPaginatedList, error) {
-	args := m.Called(ctx, publicKey, pluginID, take, skip)
+func (m *MockDatabaseStorage) GetPluginPolicies(ctx context.Context, publicKey string, pluginIds []types.PluginID, includeInactive bool) ([]types.PluginPolicy, error) {
+	args := m.Called(ctx, publicKey, pluginIds, includeInactive)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]types.PluginPolicy), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int, includeInactive bool) (*itypes.PluginPolicyPaginatedList, error) {
+	args := m.Called(ctx, publicKey, pluginID, take, skip, includeInactive)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

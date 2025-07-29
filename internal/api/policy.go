@@ -277,6 +277,11 @@ func (s *Server) GetPluginPolicyById(c echo.Context) error {
 }
 
 func (s *Server) GetAllPluginPolicies(c echo.Context) error {
+	includeInactiveString := c.QueryParam("includeInactive")
+	var includeInactive bool = false
+	if includeInactiveString == "true" {
+		includeInactive = true
+	}
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Plugin ID is required"))
@@ -302,7 +307,7 @@ func (s *Server) GetAllPluginPolicies(c echo.Context) error {
 		take = 100
 	}
 
-	policies, err := s.policyService.GetPluginPolicies(c.Request().Context(), publicKey, vtypes.PluginID(pluginID), take, skip)
+	policies, err := s.policyService.GetPluginPolicies(c.Request().Context(), publicKey, vtypes.PluginID(pluginID), take, skip, includeInactive)
 	if err != nil {
 		s.logger.WithError(err).Errorf("Failed to get policies for public_key: %s", publicKey)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get policies"))

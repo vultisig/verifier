@@ -71,6 +71,84 @@ BEGIN
 END;
 $$;
 
+CREATE FUNCTION "prevent_billing_update_if_policy_deleted"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+DECLARE
+    is_deleted boolean;
+BEGIN
+    SELECT deleted INTO is_deleted FROM plugin_policies WHERE id = COALESCE(NEW.plugin_policy_id, OLD.plugin_policy_id);
+    IF is_deleted THEN
+        RAISE EXCEPTION 'Cannot modify billing for a deleted policy';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE FUNCTION "prevent_fees_update_if_policy_deleted"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+DECLARE
+    is_deleted boolean;
+BEGIN
+    SELECT p.deleted INTO is_deleted
+    FROM plugin_policies p
+    JOIN plugin_policy_billing b ON b.plugin_policy_id = p.id
+    WHERE b.id = COALESCE(NEW.plugin_policy_billing_id, OLD.plugin_policy_billing_id);
+    IF is_deleted THEN
+        RAISE EXCEPTION 'Cannot modify fees for a deleted policy';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE FUNCTION "prevent_insert_if_policy_deleted"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+    IF NEW.deleted = true THEN
+        RAISE EXCEPTION 'Cannot insert a deleted policy';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE FUNCTION "prevent_tx_indexer_update_if_policy_deleted"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+DECLARE
+    is_deleted boolean;
+BEGIN
+    SELECT deleted INTO is_deleted FROM plugin_policies WHERE id = COALESCE(NEW.policy_id, OLD.policy_id);
+    IF is_deleted THEN
+        RAISE EXCEPTION 'Cannot modify tx_indexer for a deleted policy';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE FUNCTION "prevent_update_if_policy_deleted"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+    IF OLD.deleted = true THEN
+        RAISE EXCEPTION 'Cannot update a deleted policy';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE FUNCTION "set_policy_inactive_on_delete"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+    IF NEW.deleted = true THEN
+        NEW.active := false;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
 CREATE VIEW "billing_periods" AS
 SELECT
     NULL::"uuid" AS "plugin_policy_id",
@@ -104,7 +182,8 @@ CREATE TABLE "plugin_policies" (
     "recipe" "text" NOT NULL,
     "active" boolean DEFAULT true NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "deleted" boolean DEFAULT false NOT NULL
 );
 
 CREATE TABLE "plugin_policy_billing" (
@@ -326,7 +405,7 @@ CREATE INDEX "idx_vault_tokens_public_key" ON "vault_tokens" USING "btree" ("pub
 
 CREATE INDEX "idx_vault_tokens_token_id" ON "vault_tokens" USING "btree" ("token_id");
 
-CREATE UNIQUE INDEX "unique_fees_policy_per_public_key" ON "plugin_policies" USING "btree" ("plugin_id", "public_key") WHERE ("plugin_id" = 'vultisig-fees-feee'::"public"."plugin_id");
+CREATE UNIQUE INDEX "unique_fees_policy_per_public_key" ON "plugin_policies" USING "btree" ("plugin_id", "public_key") WHERE (("plugin_id" = 'vultisig-fees-feee'::"public"."plugin_id") AND ("active" = true));
 
 CREATE OR REPLACE VIEW "billing_periods" AS
  SELECT "pp"."id" AS "plugin_policy_id",
@@ -352,6 +431,18 @@ CREATE OR REPLACE VIEW "billing_periods" AS
   GROUP BY "ppb"."id", "pp"."id";
 
 CREATE TRIGGER "prevent_fees_policy_deletion_with_active_fees" BEFORE DELETE ON "plugin_policies" FOR EACH ROW EXECUTE FUNCTION "public"."check_active_fees_for_public_key"();
+
+CREATE TRIGGER "trg_prevent_billing_update_if_policy_deleted" BEFORE INSERT OR DELETE OR UPDATE ON "plugin_policy_billing" FOR EACH ROW EXECUTE FUNCTION "public"."prevent_billing_update_if_policy_deleted"();
+
+CREATE TRIGGER "trg_prevent_fees_update_if_policy_deleted" BEFORE INSERT OR DELETE OR UPDATE ON "fees" FOR EACH ROW EXECUTE FUNCTION "public"."prevent_fees_update_if_policy_deleted"();
+
+CREATE TRIGGER "trg_prevent_insert_if_policy_deleted" BEFORE INSERT ON "plugin_policies" FOR EACH ROW EXECUTE FUNCTION "public"."prevent_insert_if_policy_deleted"();
+
+CREATE TRIGGER "trg_prevent_tx_indexer_update_if_policy_deleted" BEFORE INSERT OR DELETE OR UPDATE ON "tx_indexer" FOR EACH ROW EXECUTE FUNCTION "public"."prevent_tx_indexer_update_if_policy_deleted"();
+
+CREATE TRIGGER "trg_prevent_update_if_policy_deleted" BEFORE UPDATE ON "plugin_policies" FOR EACH ROW WHEN (("old"."deleted" = true)) EXECUTE FUNCTION "public"."prevent_update_if_policy_deleted"();
+
+CREATE TRIGGER "trg_set_policy_inactive_on_delete" BEFORE INSERT OR UPDATE ON "plugin_policies" FOR EACH ROW WHEN (("new"."deleted" = true)) EXECUTE FUNCTION "public"."set_policy_inactive_on_delete"();
 
 ALTER TABLE ONLY "fees"
     ADD CONSTRAINT "fk_billing" FOREIGN KEY ("plugin_policy_billing_id") REFERENCES "plugin_policy_billing"("id") ON DELETE CASCADE;

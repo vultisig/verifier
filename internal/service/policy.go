@@ -112,6 +112,14 @@ func (s *PolicyService) validateBillingInformation(ctx context.Context, policy t
 	return nil
 }
 
+func (s *PolicyService) isFeePolicyInstalled(ctx context.Context, publicKey string) (bool, error) {
+	pluginData, err := s.db.GetPluginPolicies(ctx, publicKey, []types.PluginID{types.PluginVultisigFees_feee}, false)
+	if err != nil {
+		return false, fmt.Errorf("failed to get plugin policy: %w", err)
+	}
+	return len(pluginData) > 0, nil
+}
+
 func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error) {
 	// Start transaction
 	tx, err := s.db.Pool().Begin(ctx)
@@ -128,6 +136,17 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 	// Compare and contrast the billing information (signed by user) with the pricing information (defined in the pricings table and connected to the plugin definition)
 	if err := s.validateBillingInformation(ctx, policy); err != nil {
 		return nil, fmt.Errorf("failed to validate billing information: %w", err)
+	}
+
+	// If a non plugin policy, then we need to validate the fee information
+	if policy.PluginID != types.PluginVultisigFees_feee && len(policy.Billing) > 0 {
+		isFeePolicyInstalled, err := s.isFeePolicyInstalled(ctx, policy.PublicKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check if fee policy is installed: %w", err)
+		}
+		if !isFeePolicyInstalled {
+			return nil, fmt.Errorf("fee policy is not installed")
+		}
 	}
 
 	// Insert policy

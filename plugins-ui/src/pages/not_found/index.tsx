@@ -12,7 +12,7 @@ export const NotFoundPage = () => {
       as={Layout}
       $style={{
         alignItems: "center",
-        backgroundColor: "backgroundPrimary",
+        backgroundColor: "bgPrimary",
         justifyContent: "center",
         height: "100%",
       }}

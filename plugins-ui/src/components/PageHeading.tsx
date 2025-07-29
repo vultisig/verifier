@@ -24,7 +24,7 @@ export const PageHeading: FC<PageHeadingProps> = ({ description, title }) => (
       <Stack
         as={Typography.Text}
         $style={{
-          color: "textExtraLight",
+          color: "textTertiary",
           fontSize: "14px",
           fontWeight: "400",
           lineHeight: "20px",

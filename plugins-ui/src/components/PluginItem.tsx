@@ -39,7 +39,7 @@ export const PluginItem: FC<Plugin> = ({
   return (
     <Stack
       $style={{
-        backgroundColor: "backgroundSecondary",
+        backgroundColor: "bgSecondary",
         borderRadius: "12px",
         flexDirection: "column",
         gap: "24px",
@@ -55,7 +55,7 @@ export const PluginItem: FC<Plugin> = ({
           $style={{ borderRadius: "6px", width: "100%" }}
         />
         <Stack $style={{ gap: "8px" }}>
-          <Tag color="alertSuccess" text={toCapitalizeFirst(categoryId)} />
+          <Tag color="success" text={toCapitalizeFirst(categoryId)} />
           {isInstalled && <Tag color="buttonPrimary" text="Installed" />}
         </Stack>
         <Stack $style={{ flexDirection: "column", gap: "4px" }}>
@@ -67,7 +67,7 @@ export const PluginItem: FC<Plugin> = ({
           </Stack>
           <Stack
             as="span"
-            $style={{ color: "textExtraLight", lineHeight: "20px" }}
+            $style={{ color: "textTertiary", lineHeight: "20px" }}
           >
             {description}
           </Stack>

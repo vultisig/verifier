@@ -1,4 +1,4 @@
-import { ConfigProvider, message, Modal } from "antd";
+import { message, Modal } from "antd";
 import { GlobalStyle } from "components/GlobalStyle";
 import { Spin } from "components/Spin";
 import { AppContext } from "context/AppContext";
@@ -8,6 +8,8 @@ import { DefaultLayout } from "layouts/default";
 import { NotFoundPage } from "pages/not_found";
 import { PluginDetailsPage } from "pages/plugin_details";
 import { PluginsPage } from "pages/plugins";
+import { AntdProvider } from "providers/antd";
+import { StyledProvider } from "providers/styled";
 import { useCallback, useMemo, useState } from "react";
 import { I18nextProvider } from "react-i18next";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
@@ -25,13 +27,10 @@ import {
 import { getTheme, setTheme as setThemeStorage } from "storage/theme";
 import { delToken, getToken, setToken } from "storage/token";
 import { delVaultId, getVaultId, setVaultId } from "storage/vaultId";
-import { ThemeProvider } from "styled-components";
-import { antdThemes } from "utils/constants/antd";
 import { Chain } from "utils/constants/chain";
 import { Currency } from "utils/constants/currency";
 import { Language } from "utils/constants/language";
 import { routeTree } from "utils/constants/routes";
-import { styledThemes } from "utils/constants/styled";
 import { Theme } from "utils/constants/theme";
 import {
   connect as connectToExtension,
@@ -218,8 +217,8 @@ export const App = () => {
 
   return (
     <I18nextProvider i18n={i18nInstance}>
-      <ThemeProvider theme={styledThemes[theme]}>
-        <ConfigProvider theme={antdThemes[theme]}>
+      <StyledProvider theme={theme}>
+        <AntdProvider theme={theme}>
           <GlobalStyle />
 
           <AppContext.Provider
@@ -269,8 +268,8 @@ export const App = () => {
 
           {messageHolder}
           {modalHolder}
-        </ConfigProvider>
-      </ThemeProvider>
+        </AntdProvider>
+      </StyledProvider>
     </I18nextProvider>
   );
 };

@@ -9,13 +9,13 @@ export const Rate: FC<{ count: number; value: number }> = ({
   <Stack $style={{ gap: "6px" }}>
     <Stack
       as={StarIcon}
-      $style={{ color: "alertWarning", fill: "alertWarning", fontSize: "16px" }}
+      $style={{ color: "warning", fill: "warning", fontSize: "16px" }}
     />
     <Stack as="span" $style={{ gap: "4px" }}>
       <Stack as="span" $style={{ fontWeight: "500" }}>
         {value}
       </Stack>
-      <Stack as="span" $style={{ color: "textExtraLight", fontWeight: "500" }}>
+      <Stack as="span" $style={{ color: "textTertiary", fontWeight: "500" }}>
         {`(${count})`}
       </Stack>
     </Stack>

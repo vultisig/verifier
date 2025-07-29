@@ -96,12 +96,12 @@ export const PluginsPage = () => {
           onValuesChange={handleChange}
         >
           <Row gutter={[16, 16]}>
-            <Col xs={24} sm={12} xl={8}>
+            <Col xs={24} md={12} xl={8}>
               <Form.Item<PluginFilters> name="term" noStyle>
                 <SearchInput placeholder="Search by" />
               </Form.Item>
             </Col>
-            <Col xs={12} sm={6} xl={{ span: 4, offset: 8 }}>
+            <Col xs={12} md={6} xl={{ span: 4, offset: 8 }}>
               <Form.Item<PluginFilters> name="category" noStyle>
                 <Select
                   options={categoryOptions}
@@ -110,7 +110,7 @@ export const PluginsPage = () => {
                 />
               </Form.Item>
             </Col>
-            <Col xs={12} sm={6} xl={4}>
+            <Col xs={12} md={6} xl={4}>
               <Form.Item<PluginFilters> name="sort" noStyle>
                 <Select options={sortOptions} placeholder="Sort" allowClear />
               </Form.Item>
@@ -130,7 +130,7 @@ export const PluginsPage = () => {
         ) : plugins.length ? (
           <Row gutter={[16, 16]}>
             {plugins.map((plugin) => (
-              <Col key={plugin.id} xs={24} sm={12} xl={8}>
+              <Col key={plugin.id} xs={24} md={12} xl={8}>
                 <PluginItem {...plugin} />
               </Col>
             ))}

@@ -20,7 +20,7 @@ export const Pricing: FC<Pick<Plugin, "pricing">> = ({ pricing }) => {
     <Stack
       as="span"
       $style={{
-        color: "textExtraLight",
+        color: "textTertiary",
         flexDirection: "column",
         fontWeight: "500",
       }}

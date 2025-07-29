@@ -13,7 +13,7 @@ export const SearchInput: FC<InputProps> = (props) => (
     <Stack
       as={SearchIcon}
       $style={{
-        color: "textExtraLight",
+        color: "textTertiary",
         fontSize: "24px",
         left: "8px",
         position: "absolute",

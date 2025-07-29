@@ -1,30 +1,16 @@
 import "styled-components";
 
+import { ColorToken, SharedColors } from "utils/constants/styled";
+
 declare module "styled-components" {
-  export interface DefaultTheme {
-    alertError: string;
-    alertInfo: string;
-    alertSuccess: string;
-    alertWarning: string;
-    backgroundPrimary: string;
-    backgroundSecondary: string;
-    backgroundTertiary: string;
-    borderLight: string;
-    borderNormal: string;
-    buttonBackgroundDisabled: string;
-    buttonPrimary: string;
-    buttonPrimaryHover: string;
-    buttonSecondary: string;
-    buttonSecondaryHover: string;
-    buttonTextDisabled: string;
-    neutralOne: string;
-    neutralSix: string;
-    neutralSeven: string;
-    primaryAccentThree: string;
-    primaryAccentFour: string;
-    textExtraLight: string;
-    textLight: string;
-    textPrimary: string;
-    transparent: string;
+  export interface DefaultTheme extends SharedColors {
+    bgPrimary: ColorToken;
+    bgSecondary: ColorToken;
+    bgTertiary: ColorToken;
+    borderLight: ColorToken;
+    borderNormal: ColorToken;
+    textPrimary: ColorToken;
+    textSecondary: ColorToken;
+    textTertiary: ColorToken;
   }
 }

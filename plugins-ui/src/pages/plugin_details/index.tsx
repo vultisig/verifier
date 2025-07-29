@@ -12,7 +12,6 @@ import { useGoBack } from "hooks/useGoBack";
 import { ChevronLeftIcon } from "icons/ChevronLeftIcon";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useTheme } from "styled-components";
 import { modalHash } from "utils/constants/core";
 import { routeTree } from "utils/constants/routes";
 import { toCapitalizeFirst } from "utils/functions";
@@ -40,7 +39,6 @@ export const PluginDetailsPage = () => {
   const [modalAPI, modalHolder] = Modal.useModal();
   const navigate = useNavigate();
   const goBack = useGoBack();
-  const theme = useTheme();
 
   const checkStatus = useCallback(() => {
     isPluginInstalled(id).then((isInstalled) => {
@@ -120,25 +118,6 @@ export const PluginDetailsPage = () => {
       {plugin ? (
         <Stack
           as={Layout.Content}
-          $after={{
-            backdropFilter: "blur(8px)",
-            background: `linear-gradient(transparent -300%, ${theme.backgroundPrimary} 100%)`,
-            height: "400px",
-            left: "0",
-            position: "absolute",
-            right: "0",
-            top: "0",
-          }}
-          $before={{
-            backgroundImage: `url(/plugins/${id}.jpg)`,
-            backgroundRepeat: "no-repeat",
-            backgroundSize: "cover",
-            height: "400px",
-            left: "0",
-            position: "absolute",
-            right: "0",
-            top: "0",
-          }}
           $style={{
             justifyContent: "center",
             padding: "16px 0",
@@ -165,7 +144,7 @@ export const PluginDetailsPage = () => {
                   gap: "8px",
                   width: "fit-content",
                 }}
-                $hover={{ color: "textExtraLight" }}
+                $hover={{ color: "textTertiary" }}
                 onClick={() => goBack(routeTree.plugins.path)}
               >
                 <ChevronLeftIcon fontSize={20} />
@@ -190,7 +169,7 @@ export const PluginDetailsPage = () => {
               >
                 <Stack $style={{ gap: "8px" }}>
                   <Tag
-                    color="alertSuccess"
+                    color="success"
                     text={toCapitalizeFirst(plugin.categoryId)}
                   />
                   {isInstalled && (

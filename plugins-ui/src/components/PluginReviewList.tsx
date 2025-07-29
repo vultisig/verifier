@@ -99,7 +99,7 @@ export const PluginReviewList: FC<PluginReviewListProps> = ({
       <Col xs={24} lg={12} xl={10}>
         <Stack
           $style={{
-            backgroundColor: "backgroundSecondary",
+            backgroundColor: "bgSecondary",
             borderRadius: "12px",
             flexDirection: "column",
             gap: "24px",
@@ -171,13 +171,13 @@ export const PluginReviewList: FC<PluginReviewListProps> = ({
                   <Stack
                     as="span"
                     $before={{
-                      backgroundColor: "alertWarning",
+                      backgroundColor: "warning",
                       height: "100%",
                       position: "absolute",
                       width: `${(count * 100) / plugin.rating.count}%`,
                     }}
                     $style={{
-                      backgroundColor: "backgroundTertiary",
+                      backgroundColor: "bgTertiary",
                       borderRadius: "2px",
                       height: "8px",
                       overflow: "hidden",
@@ -206,7 +206,7 @@ export const PluginReviewList: FC<PluginReviewListProps> = ({
         >
           <Stack
             $style={{
-              backgroundColor: "backgroundSecondary",
+              backgroundColor: "bgSecondary",
               borderRadius: "12px",
               flexDirection: "column",
               gap: "24px",
@@ -288,7 +288,7 @@ export const PluginReviewList: FC<PluginReviewListProps> = ({
               <Stack
                 key={id}
                 $style={{
-                  backgroundColor: "backgroundSecondary",
+                  backgroundColor: "bgSecondary",
                   borderRadius: "12px",
                   flexDirection: "column",
                   gap: "12px",
@@ -307,7 +307,7 @@ export const PluginReviewList: FC<PluginReviewListProps> = ({
                 >
                   <Stack $style={{ gap: "12px" }}>
                     <MiddleTruncate text={address} width="110px" />
-                    <Stack $style={{ color: "textExtraLight" }}>
+                    <Stack $style={{ color: "textTertiary" }}>
                       {dayjs(createdAt).format("MM/DD/YYYY")}
                     </Stack>
                   </Stack>
@@ -315,7 +315,7 @@ export const PluginReviewList: FC<PluginReviewListProps> = ({
                 </Stack>
                 <Stack
                   $style={{
-                    color: "textLight",
+                    color: "textSecondary",
                     fontSize: "16px",
                     lineHeight: "24px",
                   }}

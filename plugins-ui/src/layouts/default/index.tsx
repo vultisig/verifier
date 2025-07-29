@@ -17,7 +17,6 @@ import { Link, Outlet, useNavigate } from "react-router-dom";
 import { modalHash } from "utils/constants/core";
 import { languageNames } from "utils/constants/language";
 import { routeTree } from "utils/constants/routes";
-import { toCapitalizeFirst } from "utils/functions";
 import { getAccount } from "utils/services/extension";
 
 export const DefaultLayout = () => {
@@ -68,8 +67,8 @@ export const DefaultLayout = () => {
     },
     {
       key: "3",
-      label: `Theme: ${toCapitalizeFirst(theme)}`,
-      icon: theme === "light" ? <SunIcon /> : <MoonIcon />,
+      label: `Theme: ${theme === "light" ? "Dark" : "Light"}`,
+      icon: theme === "light" ? <MoonIcon /> : <SunIcon />,
       onClick: () => {
         setTheme(theme === "light" ? "dark" : "light");
       },

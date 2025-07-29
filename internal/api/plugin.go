@@ -13,8 +13,8 @@ import (
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/internal/conv"
-	"github.com/vultisig/verifier/internal/tasks"
 	"github.com/vultisig/verifier/internal/types"
+	"github.com/vultisig/verifier/plugin/tasks"
 	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
 	ptypes "github.com/vultisig/verifier/types"
 )

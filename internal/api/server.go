@@ -32,8 +32,8 @@ import (
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/internal/syncer"
-	"github.com/vultisig/verifier/internal/tasks"
 	vv "github.com/vultisig/verifier/internal/vultisig_validator"
+	"github.com/vultisig/verifier/plugin/tasks"
 	tv "github.com/vultisig/verifier/types"
 	"github.com/vultisig/verifier/vault"
 )

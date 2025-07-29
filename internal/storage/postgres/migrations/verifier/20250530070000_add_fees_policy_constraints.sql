@@ -2,9 +2,10 @@
 -- +goose StatementBegin
 
 -- Add unique constraint to ensure only one policy per public key for vultisig-fees-feee plugin
+DROP INDEX IF EXISTS unique_fees_policy_per_public_key;
 CREATE UNIQUE INDEX unique_fees_policy_per_public_key
 ON plugin_policies (plugin_id, public_key)
-WHERE plugin_id = 'vultisig-fees-feee';
+WHERE plugin_id = 'vultisig-fees-feee' AND active = true;
 
 -- Create a function to check if there are active fees for a public key
 CREATE OR REPLACE FUNCTION check_active_fees_for_public_key()

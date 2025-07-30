@@ -5,6 +5,7 @@ import { Stack } from "components/Stack";
 import { Tag } from "components/Tag";
 import { useApp } from "hooks/useApp";
 import { FC, useEffect, useState } from "react";
+import { useTheme } from "styled-components";
 import { routeTree } from "utils/constants/routes";
 import { toCapitalizeFirst } from "utils/functions";
 import { isPluginInstalled } from "utils/services/marketplace";
@@ -25,6 +26,7 @@ export const PluginItem: FC<Plugin> = ({
   const [state, setState] = useState(initialState);
   const { isInstalled } = state;
   const { isConnected } = useApp();
+  const colors = useTheme();
 
   useEffect(() => {
     if (isConnected) {
@@ -39,7 +41,7 @@ export const PluginItem: FC<Plugin> = ({
   return (
     <Stack
       $style={{
-        backgroundColor: "bgSecondary",
+        backgroundColor: colors.bgSecondary.toHex(),
         borderRadius: "12px",
         flexDirection: "column",
         gap: "24px",
@@ -67,7 +69,7 @@ export const PluginItem: FC<Plugin> = ({
           </Stack>
           <Stack
             as="span"
-            $style={{ color: "textTertiary", lineHeight: "20px" }}
+            $style={{ color: colors.textTertiary.toHex(), lineHeight: "20px" }}
           >
             {description}
           </Stack>

@@ -155,6 +155,8 @@ const StyledButton = styled.div<ButtonProps>`
                 })}
 
                 &:hover {
+                  color: ${({ theme }) => theme.buttonText.toHex()};
+
                   ${match(status, {
                     default: () => css`
                       background-color: ${({ theme }) =>

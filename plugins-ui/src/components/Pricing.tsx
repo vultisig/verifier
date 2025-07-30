@@ -1,8 +1,11 @@
 import { Stack } from "components/Stack";
 import { FC } from "react";
+import { useTheme } from "styled-components";
 import { Plugin, PluginPricing } from "utils/types";
 
 export const Pricing: FC<Pick<Plugin, "pricing">> = ({ pricing }) => {
+  const colors = useTheme();
+
   const pricingText = ({ amount, frequency, type }: PluginPricing) => {
     switch (type) {
       case "once":
@@ -20,7 +23,7 @@ export const Pricing: FC<Pick<Plugin, "pricing">> = ({ pricing }) => {
     <Stack
       as="span"
       $style={{
-        color: "textTertiary",
+        color: colors.textTertiary.toHex(),
         flexDirection: "column",
         fontWeight: "500",
       }}

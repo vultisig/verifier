@@ -12,6 +12,7 @@ import { useGoBack } from "hooks/useGoBack";
 import { ChevronLeftIcon } from "icons/ChevronLeftIcon";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useTheme } from "styled-components";
 import { modalHash } from "utils/constants/core";
 import { routeTree } from "utils/constants/routes";
 import { toCapitalizeFirst } from "utils/functions";
@@ -39,6 +40,7 @@ export const PluginDetailsPage = () => {
   const [modalAPI, modalHolder] = Modal.useModal();
   const navigate = useNavigate();
   const goBack = useGoBack();
+  const colors = useTheme();
 
   const checkStatus = useCallback(() => {
     isPluginInstalled(id).then((isInstalled) => {
@@ -144,7 +146,7 @@ export const PluginDetailsPage = () => {
                   gap: "8px",
                   width: "fit-content",
                 }}
-                $hover={{ color: "textTertiary" }}
+                $hover={{ color: colors.textTertiary.toHex() }}
                 onClick={() => goBack(routeTree.plugins.path)}
               >
                 <ChevronLeftIcon fontSize={20} />

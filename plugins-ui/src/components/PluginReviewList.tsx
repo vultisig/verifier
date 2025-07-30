@@ -16,6 +16,7 @@ import dayjs from "dayjs";
 import { useApp } from "hooks/useApp";
 import { StarIcon } from "icons/StarIcon";
 import { FC, useCallback, useEffect, useState } from "react";
+import { useTheme } from "styled-components";
 import { addPluginReview, getPluginReviews } from "utils/services/marketplace";
 import { Plugin, Review, ReviewForm } from "utils/types";
 
@@ -47,6 +48,7 @@ export const PluginReviewList: FC<PluginReviewListProps> = ({
   const { address, connect, isConnected } = useApp();
   const [form] = Form.useForm<ReviewForm>();
   const { id } = plugin;
+  const colors = useTheme();
 
   const fetchReviews = useCallback(
     (skip: number) => {
@@ -99,7 +101,7 @@ export const PluginReviewList: FC<PluginReviewListProps> = ({
       <Col xs={24} lg={12} xl={10}>
         <Stack
           $style={{
-            backgroundColor: "bgSecondary",
+            backgroundColor: colors.bgSecondary.toHex(),
             borderRadius: "12px",
             flexDirection: "column",
             gap: "24px",
@@ -171,13 +173,13 @@ export const PluginReviewList: FC<PluginReviewListProps> = ({
                   <Stack
                     as="span"
                     $before={{
-                      backgroundColor: "warning",
+                      backgroundColor: colors.warning.toHex(),
                       height: "100%",
                       position: "absolute",
                       width: `${(count * 100) / plugin.rating.count}%`,
                     }}
                     $style={{
-                      backgroundColor: "bgTertiary",
+                      backgroundColor: colors.bgTertiary.toHex(),
                       borderRadius: "2px",
                       height: "8px",
                       overflow: "hidden",
@@ -206,7 +208,7 @@ export const PluginReviewList: FC<PluginReviewListProps> = ({
         >
           <Stack
             $style={{
-              backgroundColor: "bgSecondary",
+              backgroundColor: colors.bgSecondary.toHex(),
               borderRadius: "12px",
               flexDirection: "column",
               gap: "24px",
@@ -288,7 +290,7 @@ export const PluginReviewList: FC<PluginReviewListProps> = ({
               <Stack
                 key={id}
                 $style={{
-                  backgroundColor: "bgSecondary",
+                  backgroundColor: colors.bgSecondary.toHex(),
                   borderRadius: "12px",
                   flexDirection: "column",
                   gap: "12px",
@@ -307,7 +309,7 @@ export const PluginReviewList: FC<PluginReviewListProps> = ({
                 >
                   <Stack $style={{ gap: "12px" }}>
                     <MiddleTruncate text={address} width="110px" />
-                    <Stack $style={{ color: "textTertiary" }}>
+                    <Stack $style={{ color: colors.textTertiary.toHex() }}>
                       {dayjs(createdAt).format("MM/DD/YYYY")}
                     </Stack>
                   </Stack>
@@ -315,7 +317,7 @@ export const PluginReviewList: FC<PluginReviewListProps> = ({
                 </Stack>
                 <Stack
                   $style={{
-                    color: "textSecondary",
+                    color: colors.textSecondary.toHex(),
                     fontSize: "16px",
                     lineHeight: "24px",
                   }}

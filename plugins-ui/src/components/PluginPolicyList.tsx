@@ -73,6 +73,7 @@ export const PluginPolicyList: FC<Plugin> = (plugin) => {
           icon={<TrashIcon />}
           kind="link"
           onClick={() => handleDelete(record)}
+          status="danger"
         />
       ),
       align: "center",

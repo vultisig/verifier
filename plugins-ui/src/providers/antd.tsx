@@ -29,6 +29,7 @@ export const AntdProvider: FC<AntdProviderProps> = ({ children, theme }) => {
         colorBorderSecondary: colors.borderNormal.toHex(),
         colorPrimary: colors.buttonPrimary.toHex(),
         colorWarning: colors.warning.toHex(),
+        colorLinkHover: colors.textPrimary.toHex(),
       },
       components: {
         DatePicker: {

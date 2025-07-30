@@ -14,6 +14,7 @@ import { VultisigLogoIcon } from "icons/VultisigLogoIcon";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Outlet, useNavigate } from "react-router-dom";
+import { useTheme } from "styled-components";
 import { modalHash } from "utils/constants/core";
 import { languageNames } from "utils/constants/language";
 import { routeTree } from "utils/constants/routes";
@@ -33,6 +34,7 @@ export const DefaultLayout = () => {
   } = useApp();
   const [messageApi, messageHolder] = message.useMessage();
   const navigate = useNavigate();
+  const colors = useTheme();
 
   const dropdownMenu: MenuProps["items"] = [
     {
@@ -107,7 +109,7 @@ export const DefaultLayout = () => {
         $style={{
           alignItems: "center",
           borderBottom: "solid 1px",
-          borderColor: "borderLight",
+          borderColor: colors.borderLight.toHex(),
           justifyContent: "center",
           height: "64px",
           position: "sticky",
@@ -128,8 +130,12 @@ export const DefaultLayout = () => {
             as={Link}
             state={true}
             to={routeTree.root.path}
-            $style={{ alignItems: "center", color: "textPrimary", gap: "4px" }}
-            $hover={{ color: "textSecondary" }}
+            $style={{
+              alignItems: "center",
+              color: colors.textPrimary.toHex(),
+              gap: "4px",
+            }}
+            $hover={{ color: colors.textSecondary.toHex() }}
           >
             <VultisigLogoIcon fontSize={32} />
             <Stack

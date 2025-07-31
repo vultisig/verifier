@@ -93,6 +93,10 @@ export const toCamelCase = <T>(obj: T): T => {
   return obj;
 };
 
+export const toCapitalizeFirst = (value: string) => {
+  return value.length ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+};
+
 export const toKebabCase = <T>(obj: T): T => {
   if (isObject(obj)) {
     const result: Record<string, unknown> = {};
@@ -108,6 +112,16 @@ export const toKebabCase = <T>(obj: T): T => {
   }
 
   return obj;
+};
+
+export const toNumeralFormat = (value: number) => {
+  const formattedValue = value.toLocaleString("en-US", {
+    style: "decimal",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
+
+  return formattedValue;
 };
 
 export const toSnakeCase = <T>(obj: T): T => {

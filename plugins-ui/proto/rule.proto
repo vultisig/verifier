@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package types;
+
+import "constraint.proto";
+import "parameter_constraint.proto";
+
+option go_package = "github.com/vultisig/recipes/types";
+
+// Rule represents a single permission rule in the policy
+message Rule {
+  // Resource specifies what resource this rule applies to
+  string resource = 1;
+
+  // Effect determines whether the rule allows or denies access
+  Effect effect = 2;
+
+  // Description provides human-readable details about this rule
+  string description = 3;
+
+  // Constraints defines restrictions on the resource
+  map<string, Constraint> constraints = 4;
+
+  // Authorization defines how this should be authorized (if needed)
+  Authorization authorization = 5;
+
+  // Rule ID
+  string id = 6;
+
+  // Parameter constraints
+  repeated ParameterConstraint parameter_constraints = 7;
+}
+
+// Effect determines whether a rule allows or denies access
+enum Effect {
+  EFFECT_UNSPECIFIED = 0;
+  EFFECT_ALLOW = 1;
+  EFFECT_DENY = 2;
+}
+
+// Authorization represents how a transaction should be authorized
+message Authorization {
+  // Type of authorization (prompt, allow, deny)
+  string type = 1;
+
+  // Message to display when prompting the user
+  string message = 2;
+}

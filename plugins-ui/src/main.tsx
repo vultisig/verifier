@@ -1,4 +1,3 @@
-import "utils/prototypes";
 import "antd/dist/reset.css";
 
 import { App } from "App";

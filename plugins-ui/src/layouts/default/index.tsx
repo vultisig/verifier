@@ -80,7 +80,7 @@ export const DefaultLayout = () => {
         if (account) connect();
       });
     }, 200);
-  }, []);
+  }, [connect]);
 
   return (
     <Stack as={Layout} $style={{ flexDirection: "column", minHeight: "100%" }}>

@@ -7,10 +7,10 @@ import {
   Input,
   Rate,
   Row,
-  Spin,
 } from "antd";
 import { Button } from "components/Button";
 import { MiddleTruncate } from "components/MiddleTruncate";
+import { Spin } from "components/Spin";
 import { Stack } from "components/Stack";
 import dayjs from "dayjs";
 import { useApp } from "hooks/useApp";
@@ -230,17 +230,18 @@ export const PluginReviewList: FC<PluginReviewListProps> = ({
               >
                 Leave a review
               </Stack>
-              <Form.Item<ReviewForm>
-                name="rating"
-                rules={[{ required: true }]}
-                noStyle
+
+              <ConfigProvider
+                theme={{ components: { Rate: { starSize: 24 } } }}
               >
-                <ConfigProvider
-                  theme={{ components: { Rate: { starSize: 24 } } }}
+                <Form.Item<ReviewForm>
+                  name="rating"
+                  rules={[{ required: true }]}
+                  noStyle
                 >
                   <Rate character={<StarIcon />} count={5} />
-                </ConfigProvider>
-              </Form.Item>
+                </Form.Item>
+              </ConfigProvider>
             </Stack>
             <Form.Item<ReviewForm>
               name="comment"

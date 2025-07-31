@@ -60,5 +60,4 @@ func TestAddPluginPolicySync(t *testing.T) {
 	assert.NoError(t, tx1.Commit(ctx))
 
 	assert.NoError(t, db.DeletePluginPolicySync(ctx, syncID))
-
 }

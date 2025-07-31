@@ -1,7 +1,8 @@
-import { Col, Empty, Form, Layout, Row, Select, SelectProps, Spin } from "antd";
+import { Col, Empty, Form, Layout, Row, SelectProps, Spin } from "antd";
 import { SearchInput } from "components/InputSearch";
 import { PageHeading } from "components/PageHeading";
 import { PluginItem } from "components/PluginItem";
+import { Select } from "components/Select";
 import { Stack } from "components/Stack";
 import { useFilterParams } from "hooks/useFilterParams";
 import { debounce } from "lodash-es";
@@ -96,24 +97,16 @@ export const PluginsPage = () => {
             </Col>
             <Col xs={12} sm={6} xl={{ span: 4, offset: 8 }}>
               <Form.Item<PluginFilters> name="category" noStyle>
-                <Stack
-                  as={Select}
+                <Select
                   options={categoryOptions}
                   placeholder="Category"
                   allowClear
-                  $style={{ height: "44px" }}
                 />
               </Form.Item>
             </Col>
             <Col xs={12} sm={6} xl={4}>
               <Form.Item<PluginFilters> name="sort" noStyle>
-                <Stack
-                  as={Select}
-                  options={sortOptions}
-                  placeholder="Sort"
-                  allowClear
-                  $style={{ height: "44px" }}
-                />
+                <Select options={sortOptions} placeholder="Sort" allowClear />
               </Form.Item>
             </Col>
           </Row>

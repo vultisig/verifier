@@ -91,11 +91,6 @@ func (s *Signer) Sign(
 		return nil, fmt.Errorf("failed to wait for parties and start: %w", err)
 	}
 
-	var messages []string
-	for _, msg := range req.Messages {
-		messages = append(messages, msg.Message)
-	}
-
 	res, err := s.waitResult(ctx, req.SessionID, partyIDs, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to wait for result: %w", err)

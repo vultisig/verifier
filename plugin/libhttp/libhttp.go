@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	stdurl "net/url"
+	"time"
 )
 
 func Call[T comparable](
@@ -40,15 +41,18 @@ func Call[T comparable](
 		req.Header.Set(k, v)
 	}
 
-	res, err := http.DefaultClient.Do(req)
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+	res, err := client.Do(req)
 	if err != nil {
 		return *new(T), fmt.Errorf("failed to make http call: %w", err)
 	}
-
-	bodyBytes, err := io.ReadAll(res.Body)
 	defer func() {
 		_ = res.Body.Close()
 	}()
+
+	bodyBytes, err := io.ReadAll(res.Body)
 	if err != nil {
 		return *new(T), fmt.Errorf("failed to read response body: %w", err)
 	}
@@ -56,10 +60,10 @@ func Call[T comparable](
 		return *new(T), fmt.Errorf("failed to get successful response: status_code: %d, res_body: %s", res.StatusCode, string(bodyBytes))
 	}
 
-	_, isString := any(new(T)).(string)
+	bodyStr, isString := any(new(T)).(string)
 	if isString {
 		// for string response type no need to unmarshal JSON
-		return any(string(bodyBytes)).(T), nil
+		return any(bodyStr).(T), nil
 	}
 
 	var r T

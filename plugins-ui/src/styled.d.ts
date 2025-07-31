@@ -9,6 +9,8 @@ declare module "styled-components" {
     bgTertiary: ColorToken;
     borderLight: ColorToken;
     borderNormal: ColorToken;
+    buttonDisabled: ColorToken;
+    buttonTextDisabled: ColorToken;
     textPrimary: ColorToken;
     textSecondary: ColorToken;
     textTertiary: ColorToken;

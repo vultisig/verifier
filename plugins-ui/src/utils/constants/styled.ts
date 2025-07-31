@@ -89,13 +89,11 @@ export type SharedColors = {
   accentTwo: ColorToken;
   accentThree: ColorToken;
   accentFour: ColorToken;
-  buttonDisabled: ColorToken;
   buttonPrimary: ColorToken;
   buttonPrimaryHover: ColorToken;
   buttonSecondary: ColorToken;
   buttonSecondaryHover: ColorToken;
   buttonText: ColorToken;
-  buttonTextDisabled: ColorToken;
   error: ColorToken;
   info: ColorToken;
   success: ColorToken;
@@ -107,13 +105,11 @@ export const sharedColors: SharedColors = {
   accentTwo: new ColorToken(224, 96, 40), //hsla(224, 96%, 40%, 1)
   accentThree: new ColorToken(224, 75, 50), //hsla(224, 75%, 50%, 1)
   accentFour: new ColorToken(224, 98, 64), //hsla(224, 98%, 64%, 1)
-  buttonDisabled: new ColorToken(221, 68, 14), //hsla(221, 68%, 14%, 1)
   buttonPrimary: new ColorToken(224, 75, 50), //hsla(224, 75%, 50%, 1)
   buttonPrimaryHover: new ColorToken(215, 75, 47), //hsla(215, 75%, 47%, 1)
   buttonSecondary: new ColorToken(216, 81, 13), //hsla(216, 81%, 13%, 1)
   buttonSecondaryHover: new ColorToken(207, 64, 15), //hsla(207, 64%, 15%, 1)
   buttonText: new ColorToken(220, 67, 96), //hsla(220, 67%, 96%, 1)
-  buttonTextDisabled: new ColorToken(216, 15, 52), //hsla(216, 15%, 52%, 1)
   error: new ColorToken(0, 100, 68), //hsla(0, 100%, 68%, 1)
   info: new ColorToken(212, 100, 68), //hsla(212, 100%, 68%, 1)
   success: new ColorToken(166, 83, 43), //hsla(166, 83%, 43%, 1)
@@ -128,20 +124,24 @@ export const themes: Record<Theme, DefaultTheme> = {
     bgTertiary: new ColorToken(216, 63, 18), //hsla(216, 63%, 18%, 1)
     borderLight: new ColorToken(216, 63, 18), //hsla(216, 63%, 18%, 1)
     borderNormal: new ColorToken(215, 62, 28), //hsla(215, 62%, 28%, 1)
+    buttonDisabled: new ColorToken(221, 68, 14), //hsla(221, 68%, 14%, 1)
+    buttonTextDisabled: new ColorToken(216, 15, 52), //hsla(216, 15%, 52%, 1)
     textPrimary: new ColorToken(220, 67, 96), //hsla(220, 67%, 96%, 1)
     textSecondary: new ColorToken(215, 40, 85), //hsla(215, 40%, 85%, 1)
     textTertiary: new ColorToken(214, 21, 60), //hsla(214, 21%, 60%, 1)
   },
   light: {
     ...sharedColors,
-    bgPrimary: new ColorToken(226, 21, 97), //hsla(226, 21%, 97%, 1) *
-    bgSecondary: new ColorToken(0, 0, 100), //hsla(0, 0%, 100%, 1) *
-    bgTertiary: new ColorToken(240, 20, 97), //hsla(240, 20%, 97%, 1) *
-    borderLight: new ColorToken(0, 0, 0, 0.05), //hsla(0, 0%, 0%, 0.05) *
-    borderNormal: new ColorToken(0, 0, 0, 0.1), //hsla(0, 0%, 0%, 0.1) *
-    textPrimary: new ColorToken(217, 91, 9), //hsla(217, 91%, 9%, 1) *
-    textSecondary: new ColorToken(217, 55, 19), //hsla(217, 55%, 19%, 1) *
-    textTertiary: new ColorToken(215, 16, 52), //hsla(215, 16%, 52%, 1) *
+    bgPrimary: new ColorToken(226, 21, 97), //hsla(226, 21%, 97%, 1)
+    bgSecondary: new ColorToken(0, 0, 100), //hsla(0, 0%, 100%, 1)
+    bgTertiary: new ColorToken(240, 20, 97), //hsla(240, 20%, 97%, 1)
+    borderLight: new ColorToken(0, 0, 0, 0.05), //hsla(0, 0%, 0%, 0.05)
+    borderNormal: new ColorToken(0, 0, 0, 0.1), //hsla(0, 0%, 0%, 0.1)
+    buttonDisabled: new ColorToken(240, 20, 97), //hsla(240, 20%, 97%, 1)
+    buttonTextDisabled: new ColorToken(215, 16, 52), //hsla(215, 16%, 52%, 1)
+    textPrimary: new ColorToken(217, 91, 9), //hsla(217, 91%, 9%, 1)
+    textSecondary: new ColorToken(217, 55, 19), //hsla(217, 55%, 19%, 1)
+    textTertiary: new ColorToken(215, 16, 52), //hsla(215, 16%, 52%, 1)
   },
 } as const;
 

@@ -1,16 +1,23 @@
 package api
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
+	ecommon "github.com/ethereum/go-ethereum/common"
+	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
 	"github.com/microcosm-cc/bluemonday"
+	rcommon "github.com/vultisig/recipes/common"
+	"github.com/vultisig/recipes/engine"
+	"github.com/vultisig/recipes/ethereum"
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/internal/conv"
 	"github.com/vultisig/verifier/internal/types"
@@ -73,28 +80,64 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		}
 	}
 
-	// plugin will always send one message for now
-	for i, keysignMessage := range req.Messages {
-		// TODO: Unpack calldata and verify tx against the policy (same recipient, amount, etc.).
-		//  Current engine.Evaluate needs to be reworked — simplified and reimplemented to be universal
-		//  for all plugins / supported args without hardcoding or edge-cases + covered with unit-tests.
+	if len(req.Messages) == 0 {
+		return errors.New("no messages to sign")
+	}
+	if len(req.Messages) != 1 {
+		return errors.New("plugins must sign exactly 1 message")
+	}
 
-		txToTrack, err := s.txIndexerService.CreateTx(c.Request().Context(), storage.CreateTxDto{
-			PluginID:      ptypes.PluginID(req.PluginID),
-			ChainID:       keysignMessage.Chain,
-			PolicyID:      policy.ID,
-			FromPublicKey: req.PublicKey,
-			ProposedTxHex: req.Transaction,
-		})
-		if err != nil {
-			return fmt.Errorf("s.txIndexerService.CreateTx(: %w", err)
-		}
-		req.Messages[i].TxIndexerID = txToTrack.ID.String()
+	keysignMessage := req.Messages[0]
 
-		err = s.txIndexerService.SetStatus(c.Request().Context(), txToTrack.ID, storage.TxVerified)
-		if err != nil {
-			return fmt.Errorf("tx_id=%s, failed to set transaction status to verified: %w", txToTrack.ID, err)
-		}
+	evmID, err := keysignMessage.Chain.EvmID()
+	if err != nil {
+		return fmt.Errorf("evm chain id not found: %s", keysignMessage.Chain.String())
+	}
+
+	b, err := base64.StdEncoding.DecodeString(req.Transaction)
+	if err != nil {
+		return fmt.Errorf("failed to decode b64 proposed tx: %w", err)
+	}
+	txData, err := ethereum.DecodeUnsignedPayload(b)
+	if err != nil {
+		return fmt.Errorf("failed to decode evm payload: %w", err)
+	}
+
+	hashToSignFromTxObj := etypes.LatestSignerForChainID(evmID).Hash(etypes.NewTx(txData))
+	hashToSign := ecommon.HexToHash(keysignMessage.Message)
+	if hashToSignFromTxObj.Cmp(hashToSign) != 0 {
+		// req.Transaction — full tx to unpack and assert ERC20 args against policy
+		// keysignMessage.Message — is ECDSA hash to sign
+		//
+		// We must validate that plugin not cheating and
+		// hash from req.Transaction is the same as keysignMessage.Message,
+		return fmt.Errorf(
+			"hashToSign(%s) must be the same as computed hash from request.Transaction(%s)",
+			hashToSign.Hex(),
+			hashToSignFromTxObj.Hex(),
+		)
+	}
+
+	_, err = engine.NewEngine().Evaluate(recipe, rcommon.Chain(keysignMessage.Chain), b)
+	if err != nil {
+		return fmt.Errorf("tx not allowed to execute: %w", err)
+	}
+
+	txToTrack, err := s.txIndexerService.CreateTx(c.Request().Context(), storage.CreateTxDto{
+		PluginID:      ptypes.PluginID(req.PluginID),
+		ChainID:       keysignMessage.Chain,
+		PolicyID:      policy.ID,
+		FromPublicKey: req.PublicKey,
+		ProposedTxHex: req.Transaction,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create tx for tracking: %w", err)
+	}
+	req.Messages[0].TxIndexerID = txToTrack.ID.String()
+
+	err = s.txIndexerService.SetStatus(c.Request().Context(), txToTrack.ID, storage.TxVerified)
+	if err != nil {
+		return fmt.Errorf("tx_id=%s, failed to set transaction status to verified: %w", txToTrack.ID, err)
 	}
 
 	// Reuse existing signing logic

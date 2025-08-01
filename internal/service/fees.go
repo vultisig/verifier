@@ -249,18 +249,53 @@ func (s *FeeService) ValidateFees(ctx context.Context, req *ptypes.PluginKeysign
 		return fmt.Errorf("transaction must be sent to the configured usdc contract address")
 	}
 
-	feeInfo, err := s.PublicKeyGetFeeInfo(ctx, req.PublicKey)
-	if err != nil {
-		return fmt.Errorf("internal error")
+	customFields := req.Messages[0].CustomFields
+	if customFields == nil {
+		return fmt.Errorf("custom fields are required")
 	}
 
-	fpc := big.NewInt(0).SetUint64(feeInfo.FeesPendingCollection)
+	fidsI, ok := customFields["fee_ids"].([]interface{})
+	if !ok {
+		return fmt.Errorf("fee ids are required")
+	}
+
+	fids := make([]uuid.UUID, 0, len(fidsI))
+
+	for _, fidI := range fidsI {
+		fid, ok := fidI.(string)
+		if !ok {
+			return fmt.Errorf("fee ids are not a list of uuid")
+		}
+		id, err := uuid.Parse(fid)
+		if err != nil {
+			return fmt.Errorf("fee ids are not a list of uuid")
+		}
+		fids = append(fids, id)
+	}
+
+	fees, err := s.db.GetFees(ctx, fids...)
+	if err != nil {
+		return fmt.Errorf("failed to get fees: %w", err)
+	}
+
+	if len(fees) != len(fids) {
+		return fmt.Errorf("fee ids are not valid")
+	}
+
+	amountRequested := big.NewInt(0)
+	for _, fee := range fees {
+		if fee.CollectedAt != nil {
+			return fmt.Errorf("fee already collected")
+		}
+		amountRequested = amountRequested.Add(amountRequested, big.NewInt(0).SetUint64(fee.Amount))
+	}
+
 	amount, ok := args["value"].(*big.Int)
 	if !ok {
 		return fmt.Errorf("invalid amount")
 	}
 
-	if fpc.Cmp(amount) != 0 {
+	if amountRequested.Cmp(amount) != 0 {
 		return fmt.Errorf("fee amount incorrect")
 	}
 

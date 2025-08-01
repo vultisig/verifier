@@ -485,4 +485,3 @@ ALTER TABLE ONLY "reviews"
     ADD CONSTRAINT "reviews_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugins"("id") ON DELETE CASCADE;
 
 REVOKE USAGE ON SCHEMA "public" FROM PUBLIC;
-

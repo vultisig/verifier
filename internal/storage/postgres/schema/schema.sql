@@ -288,6 +288,11 @@ CREATE TABLE "reviews" (
     CONSTRAINT "reviews_rating_check" CHECK ((("rating" >= 1) AND ("rating" <= 5)))
 );
 
+CREATE TABLE "scheduler" (
+    "policy_id" "uuid" NOT NULL,
+    "next_execution" timestamp without time zone NOT NULL
+);
+
 CREATE TABLE "tags" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "name" character varying(100) NOT NULL,
@@ -356,6 +361,9 @@ ALTER TABLE ONLY "pricings"
 ALTER TABLE ONLY "reviews"
     ADD CONSTRAINT "reviews_pkey" PRIMARY KEY ("id");
 
+ALTER TABLE ONLY "scheduler"
+    ADD CONSTRAINT "scheduler_pkey" PRIMARY KEY ("policy_id");
+
 ALTER TABLE ONLY "tags"
     ADD CONSTRAINT "tags_name_key" UNIQUE ("name");
 
@@ -394,6 +402,8 @@ CREATE INDEX "idx_plugin_policy_sync_policy_id" ON "plugin_policy_sync" USING "b
 CREATE INDEX "idx_reviews_plugin_id" ON "reviews" USING "btree" ("plugin_id");
 
 CREATE INDEX "idx_reviews_public_key" ON "reviews" USING "btree" ("public_key");
+
+CREATE INDEX "idx_scheduler_next_execution" ON "scheduler" USING "btree" ("next_execution");
 
 CREATE INDEX "idx_tx_indexer_key" ON "tx_indexer" USING "btree" ("chain_id", "plugin_id", "policy_id", "token_id", "to_public_key", "created_at");
 
@@ -473,4 +483,6 @@ ALTER TABLE ONLY "pricings"
 
 ALTER TABLE ONLY "reviews"
     ADD CONSTRAINT "reviews_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugins"("id") ON DELETE CASCADE;
+
+REVOKE USAGE ON SCHEMA "public" FROM PUBLIC;
 

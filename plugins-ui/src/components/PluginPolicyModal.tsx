@@ -74,8 +74,18 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
   const goBack = useGoBack();
 
   const feeHardcodedValues = {
-    amount: "500000000",
-    recipient: "0x7d760c17d798a7A9a4c4AcAf311A02dC95972503",
+    amount: {
+      value : "500000000",
+      label: "Fee Max"
+    },
+    recipient: {
+      value : "1",
+      label: "Vultisig Treasury"
+    },
+    token : {
+      value : "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      label: "USDC"
+    }
   };
 
   const onFinishSuccess: FormProps<FieldType>["onFinish"] = (values) => {
@@ -244,9 +254,11 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
   useEffect(() => {
     if (isFeesPlugin && visible) {
       form.setFieldsValue({
-        amount: feeHardcodedValues.amount,
-        recipient: feeHardcodedValues.recipient,
+        amount: feeHardcodedValues.amount.value,
+        recipient: feeHardcodedValues.recipient.value,
+        token: feeHardcodedValues.token.value,
       });
+
     }
   }, [form, isFeesPlugin, visible]);
 

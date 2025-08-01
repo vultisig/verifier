@@ -21,8 +21,8 @@ import (
 	rtypes "github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/internal/conv"
-	"github.com/vultisig/verifier/internal/tasks"
 	"github.com/vultisig/verifier/internal/types"
+	"github.com/vultisig/verifier/plugin/tasks"
 	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
 	ptypes "github.com/vultisig/verifier/types"
 )
@@ -48,7 +48,8 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 
 	// Handle fee specific validations
 	if policy.PluginID == ptypes.PluginVultisigFees_feee {
-		if err := s.feeService.ValidateFees(c.Request().Context(), req); err != nil {
+		if err := s.feeService.ValidateFees(c.Request().Context(), &req); err != nil {
+			s.logger.WithError(err).Error("invalid fee keysign request")
 			return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid fee keysign request"))
 		}
 	}
@@ -238,7 +239,6 @@ func (s *Server) GetCategories(c echo.Context) error {
 			Name: types.PluginCategoryPlugin.String(),
 		},
 	}
-
 	return c.JSON(http.StatusOK, resp)
 }
 

@@ -1,7 +1,9 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -9,11 +11,16 @@ import (
 	"time"
 
 	abi "github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	reth "github.com/vultisig/recipes/ethereum"
+
 	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
+	resolver "github.com/vultisig/recipes/resolver"
+	rtypes "github.com/vultisig/recipes/types"
 
 	ecommon "github.com/ethereum/go-ethereum/common"
 	"github.com/vultisig/verifier/config"
@@ -128,7 +135,9 @@ type unsignedDynamicFeeTx struct {
 }
 
 func decodeTx(rawHex string) (*unsignedDynamicFeeTx, error) {
+	rawHex = strings.TrimPrefix(rawHex, "0x")
 	rawBytes, err := hex.DecodeString(rawHex)
+
 	if err != nil {
 		return nil, fmt.Errorf("hex decode failed: %w", err)
 	}
@@ -147,17 +156,40 @@ func decodeTx(rawHex string) (*unsignedDynamicFeeTx, error) {
 	return tx, nil
 }
 
-func (s *FeeService) ValidateFees(ctx context.Context, req ptypes.PluginKeysignRequest) error {
+func (s *FeeService) ValidateFees(ctx context.Context, req *ptypes.PluginKeysignRequest) error {
+	if req == nil {
+		return fmt.Errorf("request is nil")
+	}
+
 	if len(req.Messages) != 1 {
 		return fmt.Errorf("only one tx per fee run is supported")
 	}
 
-	txMessage := req.Messages[0].Message
+	b64DecodedMessage, err := base64.StdEncoding.DecodeString(strings.TrimSpace(req.Messages[0].Message))
+	if err != nil {
+		return fmt.Errorf("failed to decode message: %w", err)
+	}
+
+	txRawMessage := req.Messages[0].RawMessage
+	txData, err := hexutil.Decode(txRawMessage)
+	if err != nil {
+		return fmt.Errorf("failed to decode tx data: %w", err)
+	}
+
+	decodedTxData, err := reth.DecodeUnsignedPayload(txData)
+	if err != nil {
+		return fmt.Errorf("cannot decode raw tx: %w", err)
+	}
+
+	txHashToSign := etypes.LatestSignerForChainID(big.NewInt(1)).Hash(etypes.NewTx(decodedTxData))
+	if !bytes.Equal(txHashToSign.Bytes(), b64DecodedMessage) {
+		return fmt.Errorf("tx hash mismatch")
+	}
 
 	// Unmarshal the transaction (handles EIP-1559, legacy, etc.)
-	tx, err := decodeTx(txMessage)
+	tx, err := decodeTx((*req).Messages[0].RawMessage)
 	if err != nil {
-		return fmt.Errorf("failed to decode fee tx")
+		return fmt.Errorf("failed to decode fee tx: %w", err)
 	}
 
 	// Get the input data (calldata)
@@ -172,6 +204,9 @@ func (s *FeeService) ValidateFees(ctx context.Context, req ptypes.PluginKeysignR
 	}
 
 	contractAddress := tx.To.Hex()
+	if contractAddress != s.feeConfig.USDCAddress {
+		return fmt.Errorf("transaction must be sent to the configured usdc contract address")
+	}
 
 	// Parse the ERC20 transfer ABI
 	const transferABI = `[{"name":"transfer","type":"function","inputs":[{"name":"to","type":"address"},{"name":"value","type":"uint256"}],"outputs":[{"name":"","type":"bool"}]}]`
@@ -197,16 +232,16 @@ func (s *FeeService) ValidateFees(ctx context.Context, req ptypes.PluginKeysignR
 		return fmt.Errorf("invalid usdc address")
 	}
 
-	// Check recipient is whitelisted
-	recipientWhiteListed := false
-	for _, whiteListedRecipient := range s.feeConfig.RecipientWhiteList {
-		if strings.TrimPrefix(strings.ToLower(whiteListedRecipient), "0x") == strings.TrimPrefix(strings.ToLower(recipient.Hex()), "0x") {
-			recipientWhiteListed = true
-			break
-		}
+	treasuryResolver := resolver.NewDefaultTreasuryResolver()
+	treasuryConstant := rtypes.MagicConstant_VULTISIG_TREASURY
+	treasuryRecipientString, _, err := treasuryResolver.Resolve(treasuryConstant, "ethereum", "usdc")
+	treasuryRecipient := ecommon.HexToAddress(treasuryRecipientString)
+	if err != nil {
+		return fmt.Errorf("failed to resolve treasury")
 	}
-	if !recipientWhiteListed {
-		return fmt.Errorf("recipient is not whitelisted")
+
+	if recipient.Cmp(treasuryRecipient) != 0 {
+		return fmt.Errorf("recipient is not the treasury")
 	}
 
 	// Check valid usdc address

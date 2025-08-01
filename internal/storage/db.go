@@ -60,6 +60,7 @@ type FeeRepository interface {
 	UpdateFeeBatch(ctx context.Context, dbTx pgx.Tx, batchId uuid.UUID, txHash string, status types.FeeBatchStatus) error
 	GetFeeBatchAmount(ctx context.Context, batchId uuid.UUID) (uint64, error)
 	GetFeeBatchesByStateAndPublicKey(ctx context.Context, publicKey string, status types.FeeBatchStatus) ([]itypes.FeeBatchRequest, error)
+	CreateTreasuryLedgerRecord(ctx context.Context, tx pgx.Tx, feeAccountRecord types.TreasuryLedgerRecord) error
 }
 
 type PluginPolicySyncRepository interface {

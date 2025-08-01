@@ -14,6 +14,7 @@ import (
 	abi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	reth "github.com/vultisig/recipes/ethereum"
 
 	etypes "github.com/ethereum/go-ethereum/core/types"
@@ -145,6 +146,7 @@ func (s *FeeService) CreateFeeCollectionBatch(ctx context.Context, publicKey str
 	}, nil
 }
 
+<<<<<<< HEAD
 // If a batch is sent, simply update the state, if success - update state and insert treasury items, if failed - update state and insert a failed tx fee debit
 func (s *FeeService) UpdateFeeCollectionBatch(ctx context.Context, publicKey string, batchId uuid.UUID, txHash string, status types.FeeBatchStatus) error {
 
@@ -205,6 +207,105 @@ func (s *FeeService) UpdateFeeCollectionBatch(ctx context.Context, publicKey str
 	}
 
 	return tx.Commit(ctx)
+}
+
+func (s *FeeService) MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txHash string) ([]uuid.UUID, error) {
+	var err error
+	tx, err := s.db.Pool().Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin tx: %w", err)
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback(ctx)
+		}
+	}()
+
+	fees, err := s.db.GetFees(ctx, ids...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get fees: %w", err)
+	}
+
+	for _, fee := range fees {
+		if fee.CollectedAt != nil {
+			return nil, fmt.Errorf("fee already collected")
+		}
+	}
+
+	err = s.db.MarkFeesCollected(ctx, tx, collectedAt, ids, txHash)
+	if err != nil {
+		return nil, fmt.Errorf("db failed to mark fees as collected: %w", err)
+	}
+
+	for _, id := range ids {
+		fees, err := s.db.GetFees(ctx, id)
+		if err != nil || len(fees) != 1 {
+			return nil, fmt.Errorf("failed to get fee: %w", err)
+		}
+
+		fee := fees[0]
+		fee.CollectedAt = &collectedAt
+		err = s.createTreasuryLedgerRecord(ctx, tx, fee)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create treasury ledger record: %w", err)
+		}
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to commit tx: %w", err)
+	}
+	return ids, nil
+}
+
+// returns the amount that is kept by treasury, the amount sent to the developer is 1 - this value
+func (s *FeeService) getTreasurySplit(ctx context.Context, fee ptypes.Fee) (float64, uuid.UUID, error) {
+	pluginId := fee.PluginID
+	pluginId = pluginId
+	//TODO additional work can be done here to get the treasury split, for now it is hardcoded
+
+	return 0.3, uuid.Nil, nil
+}
+
+func (s *FeeService) createTreasuryLedgerRecord(ctx context.Context, tx pgx.Tx, fee ptypes.Fee) error {
+	if fee.CollectedAt == nil {
+		return fmt.Errorf("fee is not collected")
+	}
+
+	treasurySplit, developerId, err := s.getTreasurySplit(ctx, fee)
+	if err != nil {
+		return fmt.Errorf("failed to get treasury split: %w", err)
+	}
+
+	treasuryAmount := big.NewFloat(0).SetUint64(fee.Amount)
+	treasuryAmount = treasuryAmount.Mul(treasuryAmount, big.NewFloat(treasurySplit))
+	treasuryAmountUint64, _ := treasuryAmount.Uint64()
+	developerAmountUint64 := fee.Amount - treasuryAmountUint64
+
+	treasuryAccount := ptypes.TreasuryLedgerRecord{
+		Type:   ptypes.TreasuryLedgerEntryTypeFeeCredit,
+		Amount: treasuryAmountUint64,
+		FeeID:  &fee.ID,
+	}
+
+	developerAccount := ptypes.TreasuryLedgerRecord{
+		Type:        ptypes.TreasuryLedgerEntryTypeFeeCredit,
+		Amount:      developerAmountUint64,
+		FeeID:       &fee.ID,
+		DeveloperID: &developerId,
+	}
+
+	err = s.db.CreateTreasuryLedgerRecord(ctx, tx, treasuryAccount)
+	if err != nil {
+		return fmt.Errorf("failed to create treasury account record: %w", err)
+	}
+
+	err = s.db.CreateTreasuryLedgerRecord(ctx, tx, developerAccount)
+	if err != nil {
+		return fmt.Errorf("failed to create developer account record: %w", err)
+	}
+	return nil
 }
 
 type unsignedDynamicFeeTx struct {

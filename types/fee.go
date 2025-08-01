@@ -1,13 +1,17 @@
 package types
 
 import (
+<<<<<<< HEAD
 	"fmt"
+=======
+>>>>>>> 19a6210 (✨ Treasury Accounting Logic)
 	"time"
 
 	"github.com/google/uuid"
 	rtypes "github.com/vultisig/recipes/types"
 )
 
+<<<<<<< HEAD
 type FeeType string
 
 const (
@@ -74,6 +78,20 @@ type FeeBatch struct {
 type FeeBatchMembers struct {
 	FeeBatchID uuid.UUID `json:"fee_batch_id"` // Reference to the fee batch
 	FeeID      uuid.UUID `json:"fee_id"`       // Reference to the individual fee
+=======
+type Fee struct {
+	ID                    uuid.UUID  `json:"id"`                       // The unique id of the fee incurred
+	PublicKey             string     `json:"public_key"`               // The public key "account" connected to the fee
+	PluginID              PluginID   `json:"plugin_id"`                // The plugin ID that has incurred the fee
+	PolicyID              uuid.UUID  `json:"policy_id"`                // The policy ID that has incurred the fee
+	PluginPolicyBillingID uuid.UUID  `json:"plugin_policy_billing_id"` // The plugin policy billing ID that has incurred the fee. This is because a plugin policy may have several billing "rules" associated with it.
+	TransactionID         uuid.UUID  `json:"transaction_id"`           // The transaction ID that has incurred the fee
+	Amount                uint64     `json:"amount"`                   // The amount of the fee in the smallest unit, e.g., "1000000" for 0.01 VULTI
+	Type                  string     `json:"type"`                     // "tx", "recurring" or "once". Only availble on the fees_view table
+	CreatedAt             time.Time  `json:"created_at"`
+	ChargedAt             time.Time  `json:"charged_at"`
+	CollectedAt           *time.Time `json:"collected_at"`
+>>>>>>> 19a6210 (✨ Treasury Accounting Logic)
 }
 
 type BillingPolicyProto struct {
@@ -94,6 +112,7 @@ type BillingPolicy struct {
 	Asset     string            `json:"asset"`                      // The asset that the fee is denominated in, e.g., "usdc"
 }
 
+<<<<<<< HEAD
 // This is used to populate the Billing field of a PluginPolicy from the Recipe field. It does not validate this information against the plugin pricing.
 func (p *PluginPolicy) ParseBillingFromRecipe() error {
 
@@ -159,4 +178,27 @@ func (p *PluginPolicy) ParseBillingFromRecipe() error {
 		})
 	}
 	return nil
+=======
+type TreasuryLedgerEntryType string
+
+const (
+	TreasuryLedgerEntryTypeFeeCredit        TreasuryLedgerEntryType = "fee_credit"
+	TreasuryLedgerEntryTypeDeveloperPayout  TreasuryLedgerEntryType = "developer_payout"
+	TreasuryLedgerEntryTypeRefund           TreasuryLedgerEntryType = "refund"
+	TreasuryLedgerEntryTypeCreditAdjustment TreasuryLedgerEntryType = "credit_adjustment"
+	TreasuryLedgerEntryTypeDebitAdjustment  TreasuryLedgerEntryType = "debit_adjustment"
+)
+
+type TreasuryLedgerRecord struct {
+	ID     uuid.UUID               `json:"id" validate:"required"`
+	Amount uint64                  `json:"amount" validate:"required"` // Amount in the smallest unit, e.g., "1000000" for 0.01 VULTI
+	Type   TreasuryLedgerEntryType `json:"type" validate:"required"`
+
+	FeeID       *uuid.UUID `json:"fee_id"`
+	DeveloperID *uuid.UUID `json:"developer_id"`
+	TxHash      string     `json:"tx_id"`
+	Reference   string     `json:"reference"` //Used for any external references
+
+	CreatedAt time.Time `json:"created_at"`
+>>>>>>> 19a6210 (✨ Treasury Accounting Logic)
 }

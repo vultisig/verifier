@@ -183,6 +183,11 @@ func (m *MockDatabaseStorage) GetFeeCreditsByIds(ctx context.Context, ids []uuid
 	return args.Get(0).([]types.FeeCredit), args.Error(1)
 }
 
+func (m *MockDatabaseStorage) CreateTreasuryLedgerRecord(ctx context.Context, tx pgx.Tx, feeAccountRecord types.TreasuryLedgerRecord) error {
+	args := m.Called(ctx, tx, feeAccountRecord)
+	return args.Error(0)
+}
+
 func (m *MockDatabaseStorage) GetFeeDebitsByIds(ctx context.Context, ids []uuid.UUID) ([]types.FeeDebit, error) {
 	args := m.Called(ctx, ids)
 	if args.Get(0) == nil {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+<<<<<<< HEAD
 	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/types"
 )
@@ -15,6 +16,46 @@ import (
 // Extrapolate the public key from the policy ID and returns the output from `GetFeeDebitsByPublicKey“
 func (p *PostgresBackend) GetFeeDebitsByPolicyId(ctx context.Context, policyID uuid.UUID, since *time.Time) ([]types.FeeDebit, error) {
 	query := `SELECT public_key FROM plugin_policies WHERE id = $1`
+=======
+	"github.com/vultisig/verifier/types"
+)
+
+func (p *PostgresBackend) GetFees(ctx context.Context, ids ...uuid.UUID) ([]types.Fee, error) {
+	query := `SELECT id, public_key, plugin_id, policy_id, type, transaction_id, amount, charged_at, created_at, collected_at FROM fees_view WHERE id = ANY($1)`
+	rows, err := p.pool.Query(ctx, query, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	fees := []types.Fee{}
+	for rows.Next() {
+		var fee types.Fee
+		err := rows.Scan(
+			&fee.ID,
+			&fee.PublicKey,
+			&fee.PluginID,
+			&fee.PolicyID,
+			&fee.Type,
+			&fee.TransactionID,
+			&fee.Amount,
+			&fee.ChargedAt,
+			&fee.CreatedAt,
+			&fee.CollectedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		fees = append(fees, fee)
+	}
+	return fees, nil
+}
+
+func (p *PostgresBackend) GetAllFeesByPolicyId(ctx context.Context, policyID uuid.UUID) ([]types.Fee, error) {
+	fees := []types.Fee{}
+
+	query := `SELECT id, public_key, plugin_id, policy_id, type, transaction_id, amount, charged_at, created_at, collected_at FROM fees_view WHERE policy_id = $1`
+>>>>>>> 19a6210 (✨ Treasury Accounting Logic)
 	rows, err := p.pool.Query(ctx, query, policyID)
 	if err != nil {
 		return nil, err
@@ -68,6 +109,7 @@ func (p *PostgresBackend) GetFeeDebitsByPublicKey(ctx context.Context, publicKey
 	return fees, nil
 }
 
+<<<<<<< HEAD
 func (p *PostgresBackend) GetFeeCreditsByIds(ctx context.Context, ids []uuid.UUID) ([]types.FeeCredit, error) {
 	fees := []types.FeeCredit{}
 	query := `SELECT id, public_key, type, amount, created_at, ref FROM fee_credits WHERE id = ANY($1)`
@@ -313,10 +355,44 @@ func (p *PostgresBackend) GetFeeBatch(ctx context.Context, batchId uuid.UUID) (*
 
 func (p *PostgresBackend) UpdateFeeBatch(ctx context.Context, dbTx pgx.Tx, batchId uuid.UUID, txHash string, status types.FeeBatchStatus) error {
 	_, err := dbTx.Exec(ctx, `UPDATE fee_batch SET tx_hash = $1, status = $2 WHERE id = $3`, txHash, status, batchId)
+=======
+func (p *PostgresBackend) MarkFeesCollected(ctx context.Context, tx pgx.Tx, collectedAt time.Time, ids []uuid.UUID, txid string) error {
+	if txid == "" {
+		return fmt.Errorf("transaction hash cannot be empty")
+	}
+	for _, id := range ids {
+		query := `UPDATE fees SET collected_at = $1, transaction_hash = $2 WHERE id = $3`
+		_, err := tx.Exec(ctx, query, collectedAt, txid, id)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *PostgresBackend) CreateTreasuryLedgerRecord(ctx context.Context, tx pgx.Tx, feeAccountRecord types.TreasuryLedgerRecord) error {
+	query := `INSERT INTO treasury_ledger (
+		amount, 
+		type, 
+		fee_id,
+		developer_id,
+		tx_hash,
+		reference, 
+		created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	_, err := p.pool.Exec(ctx, query,
+		feeAccountRecord.Amount,
+		feeAccountRecord.Type,
+		feeAccountRecord.FeeID,
+		feeAccountRecord.DeveloperID,
+		feeAccountRecord.TxHash,
+		feeAccountRecord.Reference,
+		feeAccountRecord.CreatedAt)
+>>>>>>> 19a6210 (✨ Treasury Accounting Logic)
 	if err != nil {
 		return err
 	}
 	return nil
+<<<<<<< HEAD
 }
 
 func (p *PostgresBackend) GetFeeBatchAmount(ctx context.Context, batchId uuid.UUID) (uint64, error) {
@@ -373,4 +449,6 @@ func (p *PostgresBackend) GetFeeBatchesByStateAndPublicKey(ctx context.Context, 
 		batches = append(batches, batch)
 	}
 	return batches, nil
+=======
+>>>>>>> 19a6210 (✨ Treasury Accounting Logic)
 }

@@ -34,7 +34,7 @@ require (
 	github.com/vultisig/commondata v0.0.0-20250710214228-61d9ed8f7778
 	github.com/vultisig/go-wrappers v0.0.0-20250403041248-86911e8aa33f
 	github.com/vultisig/mobile-tss-lib v0.0.0-20250316003201-2e7e570a4a74
-	github.com/vultisig/recipes v0.0.0-20250728153454-a7ad629681a0
+	github.com/vultisig/recipes v0.0.0-20250801194834-dd26609d823a
 	github.com/vultisig/vultiserver v0.0.0-20250715212748-4b23f9849e4b
 	golang.org/x/crypto v0.36.0
 	golang.org/x/sync v0.14.0

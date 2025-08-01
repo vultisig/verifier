@@ -10,15 +10,14 @@ import (
 	"time"
 
 	ecommon "github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
 	"github.com/microcosm-cc/bluemonday"
+	rcommon "github.com/vultisig/recipes/common"
 	"github.com/vultisig/recipes/engine"
 	"github.com/vultisig/recipes/ethereum"
-	rtypes "github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/internal/conv"
 	"github.com/vultisig/verifier/internal/types"
@@ -119,23 +118,9 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		)
 	}
 
-	var engChain rtypes.Chain
-	switch keysignMessage.Chain {
-	case common.Ethereum:
-		// TODO rework ethereum.NewEthereum in recipes to support any EVM by evmChainID
-		engChain = ethereum.NewEthereum()
-	default:
-		return fmt.Errorf("chain not supported: %s", keysignMessage.Chain.String())
-	}
-
-	recipeTx, err := engChain.ParseTransaction(hexutil.Encode(b))
+	_, err = engine.NewEngine().Evaluate(recipe, rcommon.Chain(keysignMessage.Chain), b)
 	if err != nil {
-		return fmt.Errorf("failed to parse tx with recipe engine: %s", err)
-	}
-
-	allowed, _, err := engine.NewEngine().Evaluate(recipe, engChain, recipeTx)
-	if !allowed || err != nil {
-		return fmt.Errorf("tx not allowed to execute: allowed=%v, err=%w", allowed, err)
+		return fmt.Errorf("tx not allowed to execute: %w", err)
 	}
 
 	txToTrack, err := s.txIndexerService.CreateTx(c.Request().Context(), storage.CreateTxDto{

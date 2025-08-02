@@ -1,15 +1,6 @@
 import { create, toBinary } from "@bufbuild/protobuf";
 import { TimestampSchema } from "@bufbuild/protobuf/wkt";
-import {
-  Checkbox,
-  Divider,
-  Drawer,
-  Form,
-  FormProps,
-  List,
-  SelectProps,
-  Tag,
-} from "antd";
+import { Divider, Drawer, Form, FormProps, List, SelectProps, Tag } from "antd";
 import { Button } from "components/Button";
 import { DatePicker } from "components/DatePicker";
 import { Input } from "components/Input";
@@ -26,41 +17,33 @@ import {
   FeePolicySchema,
   FeeType,
   PolicySchema,
-  ScheduleSchema,
 } from "proto/policy_pb";
 import { RecipeSchema } from "proto/recipe_specification_pb";
 import { Effect, RuleSchema } from "proto/rule_pb";
-import { ScheduleFrequency } from "proto/scheduling_pb";
-import { FC, useEffect, useMemo, useState } from "react";
+import { FC, ReactNode, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { getVaultId } from "storage/vaultId";
-import {
-  modalHash,
-  scheduleFrequencyLabels,
-  scheduleFrequencyToSeconds,
-} from "utils/constants/core";
+import { modalHash } from "utils/constants/core";
 import { toCapitalizeFirst, toTimestamp } from "utils/functions";
 import { signPluginPolicy } from "utils/services/extension";
 import { addPluginPolicy } from "utils/services/marketplace";
-import { Plugin, PluginPolicy } from "utils/types";
+import { Configuration, Plugin, PluginPolicy } from "utils/types";
 import { v4 as uuidv4 } from "uuid";
 
 type FieldType = {
-  frequency: ScheduleFrequency;
   maxTxsPerWindow: number;
   rateLimitWindow: number;
-  schedulingEnabled: boolean;
-  startDate: Dayjs;
-  startFromNextMonth: boolean;
   supportedResource: number;
 } & {
-  [key: string]: string;
+  [key: string]: string | Dayjs;
 };
 
 interface PluginPolicyModalProps {
   onFinish: () => void;
   plugin: Plugin;
-  schema: RecipeSchema;
+  schema: Omit<RecipeSchema, "configuration"> & {
+    configuration?: Configuration;
+  };
 }
 
 interface InitialState {
@@ -82,15 +65,6 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
 
   const isFeesPlugin = useMemo(() => {
     return schema.pluginId === "vultisig-fees-feee";
-  }, [schema]);
-
-  const frequencyOptions: SelectProps["options"] = useMemo(() => {
-    return (
-      schema?.scheduling?.supportedFrequencies?.map((value) => ({
-        label: scheduleFrequencyLabels[value],
-        value,
-      })) || []
-    );
   }, [schema]);
 
   const resourceOptions: SelectProps["options"] = useMemo(() => {
@@ -157,7 +131,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
           period: "",
           required,
           type,
-          value: { case: "fixedValue", value: values[parameterName] },
+          value: { case: "fixedValue", value: values[parameterName] as string },
         });
 
         const parameterConstraint = create(ParameterConstraintSchema, {
@@ -178,20 +152,31 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
       resource: resourcePath?.full,
     });
 
-    const schedule = () => {
-      if (schema.scheduling?.supportsScheduling) {
-        const startDate = values.startFromNextMonth
-          ? dayjs().add(1, "month").startOf("month")
-          : values.startDate;
+    const configuration = () => {
+      if (schema.configuration) {
+        const configuration: Record<string, any> = {};
 
-        return {
-          schedule: create(ScheduleSchema, {
-            frequency: values.frequency,
-            interval: 0,
-            maxExecutions: 0,
-            startTime: create(TimestampSchema, toTimestamp(startDate)),
-          }),
-        };
+        Object.entries(schema.configuration.properties).forEach(
+          ([key, field]) => {
+            switch (field.format) {
+              case "date-time": {
+                if (values[key]) {
+                  configuration[key] = create(
+                    TimestampSchema,
+                    toTimestamp(values[key] as Dayjs)
+                  );
+                }
+                break;
+              }
+              default: {
+                configuration[key] = values[key];
+                break;
+              }
+            }
+          }
+        );
+
+        return { configuration };
       } else {
         return {};
       }
@@ -199,15 +184,14 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
 
     const jsonData = create(PolicySchema, {
       author: "",
+      ...configuration(),
       description: "",
       feePolicies,
       id: schema.pluginId,
       maxTxsPerWindow: values.maxTxsPerWindow,
       name: schema.pluginName,
       rules: [rule],
-      ...schedule(),
       rateLimitWindow: values.rateLimitWindow,
-      scheduleVersion: schema.scheduleVersion,
       version: schema.pluginVersion,
     });
 
@@ -250,27 +234,6 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
     errorInfo
   ) => {
     console.log("Failed:", errorInfo);
-  };
-
-  const onValuesChange: FormProps<FieldType>["onValuesChange"] = (
-    changedValues
-  ) => {
-    if ("frequency" in changedValues) {
-      const isTouched = form.isFieldTouched("rateLimitWindow");
-
-      if (!isTouched) {
-        form.setFields([
-          {
-            name: "rateLimitWindow",
-            value:
-              scheduleFrequencyToSeconds[
-                changedValues.frequency as ScheduleFrequency
-              ],
-            touched: false,
-          },
-        ]);
-      }
-    }
   };
 
   useEffect(() => {
@@ -324,7 +287,6 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
         }}
         onFinish={onFinishSuccess}
         onFinishFailed={onFinishFailed}
-        onValuesChange={onValuesChange}
       >
         {schema ? (
           <>
@@ -381,95 +343,6 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
               <Divider orientation="start" orientationMargin={0}>
                 Scheduling
               </Divider>
-              {schema.scheduling?.supportsScheduling ? (
-                <>
-                  <Form.Item<FieldType>
-                    name="startFromNextMonth"
-                    valuePropName="checked"
-                  >
-                    <Checkbox>Start from the beginning of next month</Checkbox>
-                  </Form.Item>
-                  <Form.Item
-                    shouldUpdate={(prevValues, currentValues) =>
-                      prevValues.startFromNextMonth !==
-                      currentValues.startFromNextMonth
-                    }
-                    noStyle
-                  >
-                    {({ getFieldsValue }) => {
-                      const { startFromNextMonth = false } = getFieldsValue();
-
-                      return startFromNextMonth ? (
-                        <></>
-                      ) : (
-                        <Form.Item<FieldType>
-                          name="startDate"
-                          label="Start Date"
-                          rules={[{ required: true }]}
-                        >
-                          <DatePicker
-                            disabledDate={(current) => {
-                              return (
-                                current && current.isBefore(dayjs(), "day")
-                              );
-                            }}
-                            format="YYYY-MM-DD HH:mm"
-                            showNow={false}
-                            showTime={{
-                              disabledHours: () => {
-                                const nextHour = dayjs()
-                                  .add(1, "hour")
-                                  .startOf("hour")
-                                  .hour();
-
-                                return Array.from(
-                                  { length: nextHour },
-                                  (_, i) => i
-                                );
-                              },
-                              format: "HH",
-                              showMinute: false,
-                              showSecond: false,
-                            }}
-                          />
-                        </Form.Item>
-                      );
-                    }}
-                  </Form.Item>
-                  <Form.Item<FieldType>
-                    name="schedulingEnabled"
-                    valuePropName="checked"
-                  >
-                    <Checkbox>Enable scheduled execution</Checkbox>
-                  </Form.Item>
-                  <Form.Item
-                    shouldUpdate={(prevValues, currentValues) =>
-                      prevValues.schedulingEnabled !==
-                      currentValues.schedulingEnabled
-                    }
-                    noStyle
-                  >
-                    {({ getFieldsValue }) => {
-                      const { schedulingEnabled = false } = getFieldsValue();
-
-                      return schedulingEnabled ? (
-                        <Form.Item<FieldType>
-                          name="frequency"
-                          label="Frequency"
-                          rules={[{ required: true }]}
-                          help={`Max ${schema.scheduling?.maxScheduledExecutions} scheduled executions`}
-                        >
-                          <Select options={frequencyOptions} />
-                        </Form.Item>
-                      ) : (
-                        <></>
-                      );
-                    }}
-                  </Form.Item>
-                </>
-              ) : (
-                <></>
-              )}
               <Form.Item<FieldType>
                 name="maxTxsPerWindow"
                 label="Max Txs Per Window"
@@ -483,6 +356,83 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
                 <InputNumber min={1} />
               </Form.Item>
             </Stack>
+            {schema.configuration ? (
+              <Stack $style={{ display: "block" }}>
+                <Divider orientation="start" orientationMargin={0}>
+                  Configuration
+                </Divider>
+                {Object.entries(schema.configuration.properties).map(
+                  ([key, field]) => {
+                    const required =
+                      schema.configuration?.required.includes(key);
+
+                    let element: ReactNode;
+
+                    if (field.enum) {
+                      element = (
+                        <Select
+                          disabled={isFeesPlugin}
+                          options={field.enum.map((value) => ({
+                            label: toCapitalizeFirst(value),
+                            value,
+                          }))}
+                        />
+                      );
+                    } else {
+                      switch (field.format) {
+                        case "date-time": {
+                          element = (
+                            <DatePicker
+                              disabledDate={(current) => {
+                                return (
+                                  current && current.isBefore(dayjs(), "day")
+                                );
+                              }}
+                              format="YYYY-MM-DD HH:mm"
+                              showNow={false}
+                              showTime={{
+                                disabledHours: () => {
+                                  const nextHour = dayjs()
+                                    .add(1, "hour")
+                                    .startOf("hour")
+                                    .hour();
+
+                                  return Array.from(
+                                    { length: nextHour },
+                                    (_, i) => i
+                                  );
+                                },
+                                format: "HH",
+                                showMinute: false,
+                                showSecond: false,
+                              }}
+                            />
+                          );
+                          break;
+                        }
+                        default: {
+                          element = <Input />;
+                          break;
+                        }
+                      }
+                    }
+
+                    return (
+                      <Form.Item
+                        key={key}
+                        name={key}
+                        label={toCapitalizeFirst(key)}
+                        rules={[{ required }]}
+                      >
+                        {element}
+                      </Form.Item>
+                    );
+                  }
+                )}
+              </Stack>
+            ) : (
+              <></>
+            )}
             <Stack $style={{ display: "block" }}>
               <Divider orientation="start" orientationMargin={0}>
                 Requirements

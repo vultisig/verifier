@@ -17,11 +17,15 @@ type ButtonProps = HTMLAttributes<HTMLElement> & {
   type?: ButtonHTMLAttributes<HTMLButtonElement>["type"];
 };
 
-const StyledButton = styled.div<ButtonProps>`
+const StyledButton = styled.div<{
+  $disabled: boolean;
+  $kind: Kind;
+  $status: Status;
+}>`
   display: flex;
   align-items: center;
   border-radius: 44px;
-  cursor: ${({ disabled }) => (disabled ? "default" : "pointer")};
+  cursor: ${({ $disabled }) => ($disabled ? "default" : "pointer")};
   font-weight: 500;
   gap: 8px;
   justify-content: center;
@@ -29,16 +33,16 @@ const StyledButton = styled.div<ButtonProps>`
   padding: 0 24px;
   transition: all 0.2s;
 
-  ${({ disabled = false, kind = "default", status = "default" }) =>
+  ${({ $disabled, $kind, $status }) =>
     css`
-      ${match(kind, {
+      ${match($kind, {
         default: () =>
-          disabled
+          $disabled
             ? css`
                 background-color: transparent;
                 color: ${({ theme }) => theme.buttonTextDisabled.toHex()};
 
-                ${match(status, {
+                ${match($status, {
                   default: () => css`
                     border: solid 1px
                       ${({ theme }) => theme.buttonPrimary.toRgba(0.6)};
@@ -60,7 +64,7 @@ const StyledButton = styled.div<ButtonProps>`
                 background-color: transparent;
                 color: ${({ theme }) => theme.textPrimary.toHex()};
 
-                ${match(status, {
+                ${match($status, {
                   default: () => css`
                     border: solid 1px
                       ${({ theme }) => theme.buttonPrimary.toHex()};
@@ -77,7 +81,7 @@ const StyledButton = styled.div<ButtonProps>`
                 })}
 
                 &:hover {
-                  ${match(status, {
+                  ${match($status, {
                     default: () => css`
                       background-color: ${({ theme }) =>
                         theme.buttonPrimary.toRgba(0.2)};
@@ -98,7 +102,7 @@ const StyledButton = styled.div<ButtonProps>`
                 }
               `,
         link: () =>
-          disabled
+          $disabled
             ? css`
                 background-color: transparent;
                 border: none;
@@ -110,7 +114,7 @@ const StyledButton = styled.div<ButtonProps>`
                 color: ${({ theme }) => theme.textPrimary.toHex()};
 
                 &:hover {
-                  ${match(status, {
+                  ${match($status, {
                     default: () => css`
                       color: ${({ theme }) => theme.buttonPrimary.toHex()};
                     `,
@@ -127,7 +131,7 @@ const StyledButton = styled.div<ButtonProps>`
                 }
               `,
         primary: () =>
-          disabled
+          $disabled
             ? css`
                 border: none;
                 background-color: ${({ theme }) =>
@@ -138,7 +142,7 @@ const StyledButton = styled.div<ButtonProps>`
                 border: none;
                 color: ${({ theme }) => theme.buttonText.toHex()};
 
-                ${match(status, {
+                ${match($status, {
                   default: () => css`
                     background-color: ${({ theme }) =>
                       theme.buttonPrimary.toHex()};
@@ -157,7 +161,7 @@ const StyledButton = styled.div<ButtonProps>`
                 &:hover {
                   color: ${({ theme }) => theme.buttonText.toHex()};
 
-                  ${match(status, {
+                  ${match($status, {
                     default: () => css`
                       background-color: ${({ theme }) =>
                         theme.buttonPrimaryHover.toHex()};
@@ -196,9 +200,9 @@ export const Button: FC<ButtonProps> = (props) => {
 
   return (
     <StyledButton
-      disabled={disabled}
-      kind={kind}
-      status={status}
+      $disabled={disabled}
+      $kind={kind}
+      $status={status}
       {...rest}
       {...(disabled
         ? { as: "span" }

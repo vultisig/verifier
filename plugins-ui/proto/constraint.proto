@@ -10,10 +10,7 @@ enum ConstraintType {
   CONSTRAINT_TYPE_FIXED = 1;
   CONSTRAINT_TYPE_MAX = 2;
   CONSTRAINT_TYPE_MIN = 3;
-  CONSTRAINT_TYPE_RANGE = 4;
-  CONSTRAINT_TYPE_WHITELIST = 5;
-  CONSTRAINT_TYPE_MAX_PER_PERIOD = 6;
-  CONSTRAINT_TYPE_MAGIC_CONSTANT = 7;
+  CONSTRAINT_TYPE_MAGIC_CONSTANT = 4;
 }
 
 enum MagicConstant {
@@ -42,14 +39,11 @@ message Constraint {
     string fixed_value = 2;
     string max_value = 3;
     string min_value = 4;
-    RangeValue range_value = 5;
-    WhitelistValues whitelist_values = 6;
-    int32 max_per_period_value = 7;
-    MagicConstant magic_constant_value = 11;
+    MagicConstant magic_constant_value = 5;
   }
 
   // Additional metadata for the constraint
-  string denominated_in = 8;
-  string period = 9;
-  bool required = 10;
+  string denominated_in = 6;
+  string period = 7;
+  bool required = 8;
 }

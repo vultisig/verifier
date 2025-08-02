@@ -2,10 +2,9 @@ syntax = "proto3";
 
 package types;
 
-import "google/protobuf/struct.proto";
 import "constraint.proto";
+import "google/protobuf/struct.proto";
 import "resource.proto";
-import "scheduling.proto";
 
 option go_package = "github.com/vultisig/recipes/types";
 
@@ -25,9 +24,6 @@ message RecipeSchema {
 
   // What resources this plugin can handle with their parameter constraints
   repeated ResourcePattern supported_resources = 6;
-
-  // What scheduling capabilities this plugin supports
-  SchedulingCapability scheduling = 7;
 
   // Plugin requirements
   PluginRequirements requirements = 8;

@@ -9,14 +9,13 @@ import { TrashIcon } from "icons/TrashIcon";
 import { Policy, PolicySchema } from "proto/policy_pb";
 import { RecipeSchema } from "proto/recipe_specification_pb";
 import { FC, useCallback, useEffect, useState } from "react";
-import { scheduleFrequencyLabels } from "utils/constants/core";
 import { toCapitalizeFirst, toNumeralFormat } from "utils/functions";
 import {
   delPluginPolicy,
   getPluginPolicies,
   getRecipeSpecification,
 } from "utils/services/marketplace";
-import { Plugin, PluginPolicy } from "utils/types";
+import { Configuration, Plugin, PluginPolicy } from "utils/types";
 
 interface ParsedPluginPolicy extends PluginPolicy {
   parsedRecipe: Policy;
@@ -25,7 +24,9 @@ interface ParsedPluginPolicy extends PluginPolicy {
 interface InitialState {
   loading: boolean;
   policies: ParsedPluginPolicy[];
-  schema?: RecipeSchema;
+  schema?: Omit<RecipeSchema, "configuration"> & {
+    configuration?: Configuration;
+  };
   totalCount: number;
 }
 
@@ -55,15 +56,6 @@ export const PluginPolicyList: FC<Plugin> = (plugin) => {
       dataIndex: "parsedRecipe",
       key: "resource",
       render: ({ rules: [{ resource }] }: Policy) => resource,
-    },
-    {
-      title: "Frequency",
-      dataIndex: "parsedRecipe",
-      key: "frequency",
-      render: ({ schedule }: Policy) =>
-        scheduleFrequencyLabels[schedule?.frequency || 0],
-      align: "center",
-      width: 120,
     },
     {
       title: "Action",

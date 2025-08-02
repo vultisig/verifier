@@ -10,7 +10,7 @@ import { Tag } from "components/Tag";
 import { useApp } from "hooks/useApp";
 import { useGoBack } from "hooks/useGoBack";
 import { ChevronLeftIcon } from "icons/ChevronLeftIcon";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTheme } from "styled-components";
 import { modalHash } from "utils/constants/core";
@@ -41,16 +41,17 @@ export const PluginDetailsPage = () => {
   const navigate = useNavigate();
   const goBack = useGoBack();
   const colors = useTheme();
+  const isMountedRef = useRef(true);
 
   const checkStatus = useCallback(() => {
     isPluginInstalled(id).then((isInstalled) => {
       if (isInstalled) {
         setState((prevState) => ({ ...prevState, isInstalled }));
-      } else {
+      } else if (isMountedRef.current) {
         setTimeout(checkStatus, 1000);
       }
     });
-  }, [id]);
+  }, [id, isMountedRef.current]);
 
   const handleUninstall = () => {
     modalAPI.confirm({
@@ -114,6 +115,14 @@ export const PluginDetailsPage = () => {
         goBack(routeTree.plugins.path);
       });
   }, [id, goBack]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   return (
     <>

@@ -51,7 +51,7 @@ export const PluginDetailsPage = () => {
         setTimeout(checkStatus, 1000);
       }
     });
-  }, [id, isMountedRef.current]);
+  }, [id]);
 
   const handleUninstall = () => {
     modalAPI.confirm({

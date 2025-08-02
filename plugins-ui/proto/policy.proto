@@ -1,0 +1,99 @@
+syntax = "proto3";
+
+package types;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "rule.proto";
+
+option go_package = "github.com/vultisig/recipes/types";
+
+// Enum representing fee types
+enum FeeType {
+  FEE_TYPE_UNSPECIFIED = 0;
+  RECURRING = 1;
+  ONCE = 2;
+  TRANSACTION = 3;
+}
+
+// Enum representing billing frequency
+enum BillingFrequency {
+  BILLING_FREQUENCY_UNSPECIFIED = 0;
+  DAILY = 1;
+  WEEKLY = 2;
+  BIWEEKLY = 3;
+  MONTHLY = 4;
+}
+
+// FeePolicy represents a single billing configuration
+message FeePolicy {
+  string id = 1;
+
+  FeeType type = 2;
+
+  // Frequency only applies to recurring types
+  BillingFrequency frequency = 3;
+
+  int64 amount = 4;
+
+  // When billing starts (optional)
+  google.protobuf.Timestamp start_date = 5;
+
+  // Optional description
+  string description = 6;
+}
+
+// Policy represents a set of rules that determine what a plugin is allowed to do
+message Policy {
+  // ID is a unique identifier for the policy
+  string id = 1;
+
+  // Name is a human-readable name for the policy
+  string name = 2;
+
+  // Description provides details about what the policy allows
+  string description = 3;
+
+  // Version is the policy version
+  int32 version = 4;
+
+  // Author is the identifier of the plugin developer
+  string author = 5;
+
+  // Rules is an ordered list of permission rules
+  repeated Rule rules = 6;
+
+  // CreatedAt is when the policy was created
+  google.protobuf.Timestamp created_at = 7;
+
+  // UpdatedAt is when the policy was last updated
+  google.protobuf.Timestamp updated_at = 8;
+
+  // FeePolicies defines the billing configuration for this policy
+  repeated FeePolicy fee_policies = 9;
+
+  // Plugin configuration
+  google.protobuf.Struct configuration = 10;
+
+  // MinExecWindow defines minimum allowed gap in seconds between policy txs batch executed
+  optional uint32 rate_limit_window = 11;
+
+  // MaxTxsPerWindow defines maximum txs count in batch, actually rules count in policy, for example:
+  // set 1 for erc20.transfer
+  // set 2 for erc20.approve + erc20.transferFrom
+  optional uint32 max_txs_per_window = 12;
+
+  // Transaction target address
+  Target target = 13;
+}
+
+enum TargetType {
+  TARGET_TYPE_UNSPECIFIED = 0;
+  TARGET_TYPE_ADDRESS = 1;
+  TARGET_TYPE_MAGIC_CONSTANT = 2;
+}
+
+message Target {
+  TargetType target_type = 1;
+  string target = 2;
+}

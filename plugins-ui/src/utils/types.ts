@@ -12,6 +12,18 @@ export type Category = {
   name: string;
 };
 
+export type Property = {
+  enum: string[];
+  format: string;
+  type: string;
+};
+
+export type Configuration = {
+  properties: Record<string, Property>;
+  required: string[];
+  type: "object";
+};
+
 export type Plugin = {
   categoryId: string;
   createdAt: string;

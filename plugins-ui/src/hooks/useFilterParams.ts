@@ -19,7 +19,7 @@ export const useFilterParams = <T extends Record<string, string>>() => {
     (newFilters: Partial<T>) => {
       const sanitized = Object.fromEntries(
         Object.entries(newFilters).filter(
-          ([_, v]) => v !== undefined && v !== null && v !== ""
+          ([, v]) => v !== undefined && v !== null && v !== ""
         )
       );
       setSearchParams(sanitized);

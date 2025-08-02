@@ -9,13 +9,13 @@ import { TrashIcon } from "icons/TrashIcon";
 import { Policy, PolicySchema } from "proto/policy_pb";
 import { RecipeSchema } from "proto/recipe_specification_pb";
 import { FC, useCallback, useEffect, useState } from "react";
-import { scheduleFrequencyLabels } from "utils/constants/core";
+import { toCapitalizeFirst, toNumeralFormat } from "utils/functions";
 import {
   delPluginPolicy,
   getPluginPolicies,
   getRecipeSpecification,
 } from "utils/services/marketplace";
-import { Plugin, PluginPolicy } from "utils/types";
+import { Configuration, Plugin, PluginPolicy } from "utils/types";
 
 interface ParsedPluginPolicy extends PluginPolicy {
   parsedRecipe: Policy;
@@ -24,7 +24,9 @@ interface ParsedPluginPolicy extends PluginPolicy {
 interface InitialState {
   loading: boolean;
   policies: ParsedPluginPolicy[];
-  schema?: RecipeSchema;
+  schema?: Omit<RecipeSchema, "configuration"> & {
+    configuration?: Configuration;
+  };
   totalCount: number;
 }
 
@@ -56,15 +58,6 @@ export const PluginPolicyList: FC<Plugin> = (plugin) => {
       render: ({ rules: [{ resource }] }: Policy) => resource,
     },
     {
-      title: "Frequency",
-      dataIndex: "parsedRecipe",
-      key: "frequency",
-      render: ({ schedule }: Policy) =>
-        scheduleFrequencyLabels[schedule?.frequency || 0],
-      align: "center",
-      width: 120,
-    },
-    {
       title: "Action",
       key: "action",
       render: (_, record) => (
@@ -72,6 +65,7 @@ export const PluginPolicyList: FC<Plugin> = (plugin) => {
           icon={<TrashIcon />}
           kind="link"
           onClick={() => handleDelete(record)}
+          status="danger"
         />
       ),
       align: "center",
@@ -156,17 +150,35 @@ export const PluginPolicyList: FC<Plugin> = (plugin) => {
         expandable={{
           expandedRowRender: ({
             parsedRecipe: {
+              maxTxsPerWindow,
+              rateLimitWindow,
               rules: [{ parameterConstraints }],
             },
           }) => (
             <List
-              dataSource={parameterConstraints.map(
-                ({ constraint, parameterName }) => ({
-                  case: constraint?.value.case,
-                  name: parameterName,
-                  value: constraint?.value.value,
-                })
-              )}
+              dataSource={[
+                ...parameterConstraints.map(
+                  ({ constraint, parameterName }) => ({
+                    case: constraint?.value.case,
+                    name: parameterName,
+                    value: constraint?.value.value,
+                  })
+                ),
+                {
+                  case: undefined,
+                  name: "Max Txs Per Window",
+                  value: maxTxsPerWindow
+                    ? toNumeralFormat(maxTxsPerWindow)
+                    : "-",
+                },
+                {
+                  case: "seconds",
+                  name: "Rate Limit Window",
+                  value: rateLimitWindow
+                    ? toNumeralFormat(rateLimitWindow)
+                    : "-",
+                },
+              ]}
               grid={{
                 gutter: [16, 16],
                 xs: 1,
@@ -190,11 +202,11 @@ export const PluginPolicyList: FC<Plugin> = (plugin) => {
                       title={
                         record.case ? (
                           <Stack $style={{ alignItems: "center", gap: "4px" }}>
-                            <span>{record.name.capitalizeFirst()}</span>
+                            <span>{toCapitalizeFirst(record.name)}</span>
                             <small>{`(${record.case})`}</small>
                           </Stack>
                         ) : (
-                          record.name.capitalizeFirst()
+                          toCapitalizeFirst(record.name)
                         )
                       }
                       description={description}

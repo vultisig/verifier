@@ -1,28 +1,23 @@
 import styled, { css } from "styled-components";
-import { ThemeColorKeys } from "utils/constants/styled";
-import { CSSColorProperties } from "utils/constants/styles";
 import { cssPropertiesToString } from "utils/functions";
 import { CSSProperties } from "utils/types";
 
 export const Stack = styled.div<StackProps>`
-  ${({ $after, $before, $hover, $style, theme }) => css`
+  ${({ $after, $before, $hover, $style }) => css`
     ${$style &&
-    cssPropertiesToString(
-      { ...$style, display: $style.display || "flex" },
-      theme
-    )}
+    cssPropertiesToString({ ...$style, display: $style.display || "flex" })}
     ${$before &&
     `
       &::before {
         content: "";
-        ${cssPropertiesToString($before, theme)}
+        ${cssPropertiesToString($before)}
       }
     `}
     ${$after &&
     `
       &::after {
         content: "";
-        ${cssPropertiesToString($after, theme)}
+        ${cssPropertiesToString($after)}
       }
     `}
     ${$hover &&
@@ -30,22 +25,15 @@ export const Stack = styled.div<StackProps>`
       transition: all .2s;
 
       &:hover {
-        ${cssPropertiesToString($hover, theme)}
+        ${cssPropertiesToString($hover)}
       }
     `}
   `}
 `;
 
-export type StackCSSProperties = Omit<CSSProperties, CSSColorProperties> & {
-  backgroundColor?: ThemeColorKeys;
-  borderColor?: ThemeColorKeys;
-  color?: ThemeColorKeys;
-  fill?: ThemeColorKeys;
-};
-
 export type StackProps = {
-  $after?: StackCSSProperties;
-  $before?: StackCSSProperties;
-  $hover?: StackCSSProperties;
-  $style?: StackCSSProperties;
+  $after?: CSSProperties;
+  $before?: CSSProperties;
+  $hover?: CSSProperties;
+  $style?: CSSProperties;
 };

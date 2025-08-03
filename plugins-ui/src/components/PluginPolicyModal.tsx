@@ -1,6 +1,16 @@
 import { create, toBinary } from "@bufbuild/protobuf";
 import { TimestampSchema } from "@bufbuild/protobuf/wkt";
-import { Divider, Drawer, Form, FormProps, List, SelectProps, Tag } from "antd";
+import {
+  Col,
+  Divider,
+  Drawer,
+  Form,
+  FormProps,
+  List,
+  Row,
+  SelectProps,
+  Tag,
+} from "antd";
 import { Button } from "components/Button";
 import { DatePicker } from "components/DatePicker";
 import { Input } from "components/Input";
@@ -276,14 +286,11 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
         initialValues={{
           maxTxsPerWindow: 2,
           supportedResource: 0,
-          ...() =>
-            isFeesPlugin
-              ? {
-                  amount: "500000000", // Fee Max
-                  recipient: "1", // Vultisig Treasury
-                  token: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // USDC
-                }
-              : {},
+          ...(isFeesPlugin && {
+            amount: "500000000", // Fee Max
+            recipient: "1", // Vultisig Treasury
+            token: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // USDC
+          }),
         }}
         onFinish={onFinishSuccess}
         onFinishFailed={onFinishFailed}
@@ -322,18 +329,21 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
                       <Divider orientation="start" orientationMargin={0}>
                         Parameters
                       </Divider>
-                      {parameterCapabilities.map(
-                        ({ parameterName, required }) => (
-                          <Form.Item
-                            key={parameterName}
-                            label={toCapitalizeFirst(parameterName)}
-                            name={parameterName}
-                            rules={[{ required }]}
-                          >
-                            <Input disabled={isFeesPlugin} />
-                          </Form.Item>
-                        )
-                      )}
+                      <Row gutter={16}>
+                        {parameterCapabilities.map(
+                          ({ parameterName, required }) => (
+                            <Col key={parameterName} xs={24} md={12} lg={8}>
+                              <Form.Item
+                                label={toCapitalizeFirst(parameterName)}
+                                name={parameterName}
+                                rules={[{ required }]}
+                              >
+                                <Input disabled={isFeesPlugin} />
+                              </Form.Item>
+                            </Col>
+                          )
+                        )}
+                      </Row>
                     </>
                   );
                 }}
@@ -343,18 +353,24 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
               <Divider orientation="start" orientationMargin={0}>
                 Scheduling
               </Divider>
-              <Form.Item<FieldType>
-                name="maxTxsPerWindow"
-                label="Max Txs Per Window"
-              >
-                <InputNumber min={1} />
-              </Form.Item>
-              <Form.Item<FieldType>
-                name="rateLimitWindow"
-                label="Rate Limit Window (seconds)"
-              >
-                <InputNumber min={1} />
-              </Form.Item>
+              <Row gutter={16}>
+                <Col xs={24} md={12} lg={8}>
+                  <Form.Item<FieldType>
+                    name="maxTxsPerWindow"
+                    label="Max Txs Per Window"
+                  >
+                    <InputNumber min={1} />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12} lg={8}>
+                  <Form.Item<FieldType>
+                    name="rateLimitWindow"
+                    label="Rate Limit Window (seconds)"
+                  >
+                    <InputNumber min={1} />
+                  </Form.Item>
+                </Col>
+              </Row>
             </Stack>
             {schema.configuration ? (
               <Stack $style={{ display: "block" }}>

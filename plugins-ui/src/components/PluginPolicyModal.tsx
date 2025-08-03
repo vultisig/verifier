@@ -168,19 +168,16 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
 
         Object.entries(schema.configuration.properties).forEach(
           ([key, field]) => {
-            switch (field.format) {
-              case "date-time": {
-                if (values[key]) {
-                  configuration[key] = create(
-                    TimestampSchema,
-                    toTimestamp(values[key] as Dayjs)
-                  );
+            if (values[key]) {
+              switch (field.format) {
+                case "date-time": {
+                  configuration[key] = (values[key] as Dayjs).utc().format();
+                  break;
                 }
-                break;
-              }
-              default: {
-                configuration[key] = values[key];
-                break;
+                default: {
+                  configuration[key] = values[key];
+                  break;
+                }
               }
             }
           }
@@ -204,6 +201,8 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
       rateLimitWindow: values.rateLimitWindow,
       version: schema.pluginVersion,
     });
+
+    console.log("jsonData", jsonData);
 
     const binaryData = toBinary(PolicySchema, jsonData);
 

@@ -1,13 +1,12 @@
 package tasks
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/hibiken/asynq"
 )
 
-const QUEUE_NAME = "vultisig-verifier"
+const QUEUE_NAME = "default_queue"
 const (
 	TypeRecurringFeeRecord = "fee:recurringRecord"
 	TypePluginTransaction  = "plugin:transaction"
@@ -23,16 +22,16 @@ func GetTaskResult(inspector *asynq.Inspector, taskID string) ([]byte, error) {
 	}
 
 	if task == nil {
-		return nil, errors.New("task not found")
+		return nil, fmt.Errorf("task not found")
 	}
 
 	if task.State == asynq.TaskStatePending {
-		return nil, errors.New("task is still in progress")
+		return nil, fmt.Errorf("task is still in progress")
 	}
 
 	if task.State == asynq.TaskStateCompleted {
 		return task.Result, nil
 	}
 
-	return nil, errors.New("task state is invalid")
+	return nil, fmt.Errorf("task state is invalid")
 }

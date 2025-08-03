@@ -90,21 +90,25 @@ export const App = () => {
   }, [initialState, messageApi]);
 
   const connect = useCallback(() => {
-    connectToExtension().then((address) => {
-      if (address) {
-        signMessage(address).then((done) => {
-          if (done) {
-            messageApi.success("Successfully authenticated!");
-          } else {
-            messageApi.error("Authentication failed");
-            clear();
-          }
-        });
-      } else {
-        messageApi.error("Connection failed");
-        clear();
-      }
-    });
+    connectToExtension()
+      .then((address) => {
+        if (address) {
+          signMessage(address).then((done) => {
+            if (done) {
+              messageApi.success("Successfully authenticated!");
+            } else {
+              messageApi.error("Authentication failed");
+              clear();
+            }
+          });
+        } else {
+          messageApi.error("Connection failed");
+          clear();
+        }
+      })
+      .catch((error: Error) => {
+        messageApi.error(error.message);
+      });
   }, [clear, messageApi]);
 
   const disconnect = () => {

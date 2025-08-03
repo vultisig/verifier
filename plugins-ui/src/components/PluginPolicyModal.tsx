@@ -7,6 +7,7 @@ import {
   Form,
   FormProps,
   List,
+  message,
   Row,
   SelectProps,
   Tag,
@@ -71,6 +72,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
   const { submitting, visible } = state;
   const { hash } = useLocation();
   const [form] = Form.useForm<FieldType>();
+  const [messageApi, messageHolder] = message.useMessage();
   const goBack = useGoBack();
 
   const isFeesPlugin = useMemo(() => {
@@ -202,8 +204,6 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
       version: schema.pluginVersion,
     });
 
-    console.log("jsonData", jsonData);
-
     const binaryData = toBinary(PolicySchema, jsonData);
 
     const base64Data = Buffer.from(binaryData).toString("base64");
@@ -230,19 +230,17 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
 
             onFinish();
           })
-          .catch(() => {
+          .catch((error: Error) => {
+            messageApi.error(error.message);
+
             setState((prevState) => ({ ...prevState, submitting: false }));
           });
       })
-      .catch(() => {
+      .catch((error: Error) => {
+        messageApi.error(error.message);
+
         setState((prevState) => ({ ...prevState, submitting: false }));
       });
-  };
-
-  const onFinishFailed: FormProps<FieldType>["onFinishFailed"] = (
-    errorInfo
-  ) => {
-    console.log("Failed:", errorInfo);
   };
 
   useEffect(() => {
@@ -256,219 +254,222 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
   }, [form, hash, visible]);
 
   return (
-    <Drawer
-      footer={
-        <Stack $style={{ gap: "8px", justifyContent: "end" }}>
-          <Button disabled={submitting} onClick={() => goBack()}>
-            Cancel
-          </Button>
-          <Button
-            kind="primary"
-            loading={submitting}
-            onClick={() => form.submit()}
-          >
-            Submit
-          </Button>
-        </Stack>
-      }
-      maskClosable={false}
-      onClose={() => goBack()}
-      open={visible}
-      style={{ minWidth: 400 }}
-      title={`Configure ${schema.pluginName}`}
-      width={992}
-    >
-      <Form
-        autoComplete="off"
-        form={form}
-        layout="vertical"
-        initialValues={{
-          maxTxsPerWindow: 2,
-          supportedResource: 0,
-          ...(isFeesPlugin && {
-            amount: "500000000", // Fee Max
-            recipient: "1", // Vultisig Treasury
-            token: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // USDC
-          }),
-        }}
-        onFinish={onFinishSuccess}
-        onFinishFailed={onFinishFailed}
+    <>
+      <Drawer
+        footer={
+          <Stack $style={{ gap: "8px", justifyContent: "end" }}>
+            <Button disabled={submitting} onClick={() => goBack()}>
+              Cancel
+            </Button>
+            <Button
+              kind="primary"
+              loading={submitting}
+              onClick={() => form.submit()}
+            >
+              Submit
+            </Button>
+          </Stack>
+        }
+        maskClosable={false}
+        onClose={() => goBack()}
+        open={visible}
+        style={{ minWidth: 400 }}
+        title={`Configure ${schema.pluginName}`}
+        width={992}
       >
-        {schema ? (
-          <>
-            <Stack $style={{ display: "block" }}>
-              <Divider orientation="start" orientationMargin={0}>
-                <Tag>{`v${schema.pluginVersion}`}</Tag>
-                {toCapitalizeFirst(schema.pluginId)}
-              </Divider>
-              <Form.Item<FieldType>
-                name="supportedResource"
-                label="Supported Resource"
-                rules={[{ required: true }]}
-              >
-                <Select disabled={isFeesPlugin} options={resourceOptions} />
-              </Form.Item>
-              <Form.Item
-                shouldUpdate={(prevValues, currentValues) =>
-                  prevValues.supportedResource !==
-                  currentValues.supportedResource
-                }
-                noStyle
-              >
-                {({ getFieldsValue }) => {
-                  const { supportedResource = 0 } = getFieldsValue();
-                  const { parameterCapabilities, resourcePath } =
-                    schema.supportedResources[supportedResource];
-
-                  return (
-                    <>
-                      <Tag>Chain: {resourcePath?.chainId}</Tag>
-                      <Tag>Protocol: {resourcePath?.protocolId}</Tag>
-                      <Tag>Function: {resourcePath?.functionId}</Tag>
-                      <Divider orientation="start" orientationMargin={0}>
-                        Parameters
-                      </Divider>
-                      <Row gutter={16}>
-                        {parameterCapabilities.map(
-                          ({ parameterName, required }) => (
-                            <Col key={parameterName} xs={24} md={12} lg={8}>
-                              <Form.Item
-                                label={toCapitalizeFirst(parameterName)}
-                                name={parameterName}
-                                rules={[{ required }]}
-                              >
-                                <Input disabled={isFeesPlugin} />
-                              </Form.Item>
-                            </Col>
-                          )
-                        )}
-                      </Row>
-                    </>
-                  );
-                }}
-              </Form.Item>
-            </Stack>
-            <Stack $style={{ display: "block" }}>
-              <Divider orientation="start" orientationMargin={0}>
-                Scheduling
-              </Divider>
-              <Row gutter={16}>
-                <Col xs={24} md={12} lg={8}>
-                  <Form.Item<FieldType>
-                    name="maxTxsPerWindow"
-                    label="Max Txs Per Window"
-                  >
-                    <InputNumber min={1} />
-                  </Form.Item>
-                </Col>
-                <Col xs={24} md={12} lg={8}>
-                  <Form.Item<FieldType>
-                    name="rateLimitWindow"
-                    label="Rate Limit Window (seconds)"
-                  >
-                    <InputNumber min={1} />
-                  </Form.Item>
-                </Col>
-              </Row>
-            </Stack>
-            {schema.configuration ? (
+        <Form
+          autoComplete="off"
+          form={form}
+          layout="vertical"
+          initialValues={{
+            maxTxsPerWindow: 2,
+            supportedResource: 0,
+            ...(isFeesPlugin && {
+              amount: "500000000", // Fee Max
+              recipient: "1", // Vultisig Treasury
+              token: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // USDC
+            }),
+          }}
+          onFinish={onFinishSuccess}
+        >
+          {schema ? (
+            <>
               <Stack $style={{ display: "block" }}>
                 <Divider orientation="start" orientationMargin={0}>
-                  Configuration
+                  <Tag>{`v${schema.pluginVersion}`}</Tag>
+                  {toCapitalizeFirst(schema.pluginId)}
                 </Divider>
-                {Object.entries(schema.configuration.properties).map(
-                  ([key, field]) => {
-                    const required =
-                      schema.configuration?.required.includes(key);
-
-                    let element: ReactNode;
-
-                    if (field.enum) {
-                      element = (
-                        <Select
-                          disabled={isFeesPlugin}
-                          options={field.enum.map((value) => ({
-                            label: toCapitalizeFirst(value),
-                            value,
-                          }))}
-                        />
-                      );
-                    } else {
-                      switch (field.format) {
-                        case "date-time": {
-                          element = (
-                            <DatePicker
-                              disabledDate={(current) => {
-                                return (
-                                  current && current.isBefore(dayjs(), "day")
-                                );
-                              }}
-                              format="YYYY-MM-DD HH:mm"
-                              showNow={false}
-                              showTime={{
-                                disabledHours: () => {
-                                  const nextHour = dayjs()
-                                    .add(1, "hour")
-                                    .startOf("hour")
-                                    .hour();
-
-                                  return Array.from(
-                                    { length: nextHour },
-                                    (_, i) => i
-                                  );
-                                },
-                                format: "HH",
-                                showMinute: false,
-                                showSecond: false,
-                              }}
-                            />
-                          );
-                          break;
-                        }
-                        default: {
-                          element = <Input />;
-                          break;
-                        }
-                      }
-                    }
+                <Form.Item<FieldType>
+                  name="supportedResource"
+                  label="Supported Resource"
+                  rules={[{ required: true }]}
+                >
+                  <Select disabled={isFeesPlugin} options={resourceOptions} />
+                </Form.Item>
+                <Form.Item
+                  shouldUpdate={(prevValues, currentValues) =>
+                    prevValues.supportedResource !==
+                    currentValues.supportedResource
+                  }
+                  noStyle
+                >
+                  {({ getFieldsValue }) => {
+                    const { supportedResource = 0 } = getFieldsValue();
+                    const { parameterCapabilities, resourcePath } =
+                      schema.supportedResources[supportedResource];
 
                     return (
-                      <Form.Item
-                        key={key}
-                        name={key}
-                        label={toCapitalizeFirst(key)}
-                        rules={[{ required }]}
-                      >
-                        {element}
-                      </Form.Item>
+                      <>
+                        <Tag>Chain: {resourcePath?.chainId}</Tag>
+                        <Tag>Protocol: {resourcePath?.protocolId}</Tag>
+                        <Tag>Function: {resourcePath?.functionId}</Tag>
+                        <Divider orientation="start" orientationMargin={0}>
+                          Parameters
+                        </Divider>
+                        <Row gutter={16}>
+                          {parameterCapabilities.map(
+                            ({ parameterName, required }) => (
+                              <Col key={parameterName} xs={24} md={12} lg={8}>
+                                <Form.Item
+                                  label={toCapitalizeFirst(parameterName)}
+                                  name={parameterName}
+                                  rules={[{ required }]}
+                                >
+                                  <Input disabled={isFeesPlugin} />
+                                </Form.Item>
+                              </Col>
+                            )
+                          )}
+                        </Row>
+                      </>
                     );
-                  }
-                )}
+                  }}
+                </Form.Item>
               </Stack>
-            ) : (
-              <></>
-            )}
-            <Stack $style={{ display: "block" }}>
-              <Divider orientation="start" orientationMargin={0}>
-                Requirements
-              </Divider>
-              <List
-                dataSource={[
-                  `Min Vultisig Version: ${schema.requirements?.minVultisigVersion}`,
-                  `Supported Chains: ${schema.requirements?.supportedChains.join(
-                    ", "
-                  )}`,
-                ]}
-                renderItem={(item) => <List.Item>{item}</List.Item>}
-              />
+              <Stack $style={{ display: "block" }}>
+                <Divider orientation="start" orientationMargin={0}>
+                  Scheduling
+                </Divider>
+                <Row gutter={16}>
+                  <Col xs={24} md={12} lg={8}>
+                    <Form.Item<FieldType>
+                      name="maxTxsPerWindow"
+                      label="Max Txs Per Window"
+                    >
+                      <InputNumber min={1} />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} md={12} lg={8}>
+                    <Form.Item<FieldType>
+                      name="rateLimitWindow"
+                      label="Rate Limit Window (seconds)"
+                    >
+                      <InputNumber min={1} />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              </Stack>
+              {schema.configuration ? (
+                <Stack $style={{ display: "block" }}>
+                  <Divider orientation="start" orientationMargin={0}>
+                    Configuration
+                  </Divider>
+                  {Object.entries(schema.configuration.properties).map(
+                    ([key, field]) => {
+                      const required =
+                        schema.configuration?.required.includes(key);
+
+                      let element: ReactNode;
+
+                      if (field.enum) {
+                        element = (
+                          <Select
+                            disabled={isFeesPlugin}
+                            options={field.enum.map((value) => ({
+                              label: toCapitalizeFirst(value),
+                              value,
+                            }))}
+                          />
+                        );
+                      } else {
+                        switch (field.format) {
+                          case "date-time": {
+                            element = (
+                              <DatePicker
+                                disabledDate={(current) => {
+                                  return (
+                                    current && current.isBefore(dayjs(), "day")
+                                  );
+                                }}
+                                format="YYYY-MM-DD HH:mm"
+                                showNow={false}
+                                showTime={{
+                                  disabledHours: () => {
+                                    const nextHour = dayjs()
+                                      .add(1, "hour")
+                                      .startOf("hour")
+                                      .hour();
+
+                                    return Array.from(
+                                      { length: nextHour },
+                                      (_, i) => i
+                                    );
+                                  },
+                                  format: "HH",
+                                  showMinute: false,
+                                  showSecond: false,
+                                }}
+                              />
+                            );
+                            break;
+                          }
+                          default: {
+                            element = <Input />;
+                            break;
+                          }
+                        }
+                      }
+
+                      return (
+                        <Form.Item
+                          key={key}
+                          name={key}
+                          label={toCapitalizeFirst(key)}
+                          rules={[{ required }]}
+                        >
+                          {element}
+                        </Form.Item>
+                      );
+                    }
+                  )}
+                </Stack>
+              ) : (
+                <></>
+              )}
+              <Stack $style={{ display: "block" }}>
+                <Divider orientation="start" orientationMargin={0}>
+                  Requirements
+                </Divider>
+                <List
+                  dataSource={[
+                    `Min Vultisig Version: ${schema.requirements?.minVultisigVersion}`,
+                    `Supported Chains: ${schema.requirements?.supportedChains.join(
+                      ", "
+                    )}`,
+                  ]}
+                  renderItem={(item) => <List.Item>{item}</List.Item>}
+                />
+              </Stack>
+            </>
+          ) : (
+            <Stack $style={{ alignItems: "center", justifyContent: "center" }}>
+              <Spin />
             </Stack>
-          </>
-        ) : (
-          <Stack $style={{ alignItems: "center", justifyContent: "center" }}>
-            <Spin />
-          </Stack>
-        )}
-      </Form>
-    </Drawer>
+          )}
+        </Form>
+      </Drawer>
+
+      {messageHolder}
+    </>
   );
 };

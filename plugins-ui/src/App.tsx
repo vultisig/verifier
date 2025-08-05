@@ -1,5 +1,6 @@
-import { ConfigProvider, message, Modal, Spin } from "antd";
+import { message, Modal } from "antd";
 import { GlobalStyle } from "components/GlobalStyle";
+import { Spin } from "components/Spin";
 import { AppContext } from "context/AppContext";
 import { hexlify, randomBytes } from "ethers";
 import { i18nInstance } from "i18n/config";
@@ -7,7 +8,9 @@ import { DefaultLayout } from "layouts/default";
 import { NotFoundPage } from "pages/not_found";
 import { PluginDetailsPage } from "pages/plugin_details";
 import { PluginsPage } from "pages/plugins";
-import { useState } from "react";
+import { AntdProvider } from "providers/antd";
+import { StyledProvider } from "providers/styled";
+import { useCallback, useMemo, useState } from "react";
 import { I18nextProvider } from "react-i18next";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { getChain, setChain as setChainStorage } from "storage/chain";
@@ -24,13 +27,10 @@ import {
 import { getTheme, setTheme as setThemeStorage } from "storage/theme";
 import { delToken, getToken, setToken } from "storage/token";
 import { delVaultId, getVaultId, setVaultId } from "storage/vaultId";
-import { ThemeProvider } from "styled-components";
-import { antdThemes } from "utils/constants/antd";
 import { Chain } from "utils/constants/chain";
 import { Currency } from "utils/constants/currency";
 import { Language } from "utils/constants/language";
 import { routeTree } from "utils/constants/routes";
-import { styledThemes } from "utils/constants/styled";
 import { Theme } from "utils/constants/theme";
 import {
   connect as connectToExtension,
@@ -53,14 +53,16 @@ interface InitialState {
 }
 
 export const App = () => {
-  const initialState: InitialState = {
-    chain: getChain(),
-    currency: getCurrency(),
-    isConnected: false,
-    language: getLanguage(),
-    loaded: true,
-    theme: getTheme(),
-  };
+  const initialState: InitialState = useMemo(() => {
+    return {
+      chain: getChain(),
+      currency: getCurrency(),
+      isConnected: false,
+      language: getLanguage(),
+      loaded: true,
+      theme: getTheme(),
+    };
+  }, []);
   const [state, setState] = useState(initialState);
   const {
     address,
@@ -75,7 +77,7 @@ export const App = () => {
   const [messageApi, messageHolder] = message.useMessage();
   const [modalAPI, modalHolder] = Modal.useModal();
 
-  const clear = () => {
+  const clear = useCallback(() => {
     disconnectFromExtension()
       .then(() => {
         delToken(getVaultId());
@@ -85,25 +87,29 @@ export const App = () => {
       .catch(() => {
         messageApi.error("Disconnection failed");
       });
-  };
+  }, [initialState, messageApi]);
 
-  const connect = () => {
-    connectToExtension().then((address) => {
-      if (address) {
-        signMessage(address).then((done) => {
-          if (done) {
-            messageApi.success("Successfully authenticated!");
-          } else {
-            messageApi.error("Authentication failed");
-            clear();
-          }
-        });
-      } else {
-        messageApi.error("Connection failed");
-        clear();
-      }
-    });
-  };
+  const connect = useCallback(() => {
+    connectToExtension()
+      .then((address) => {
+        if (address) {
+          signMessage(address).then((done) => {
+            if (done) {
+              messageApi.success("Successfully authenticated!");
+            } else {
+              messageApi.error("Authentication failed");
+              clear();
+            }
+          });
+        } else {
+          messageApi.error("Connection failed");
+          clear();
+        }
+      })
+      .catch((error: Error) => {
+        messageApi.error(error.message);
+      });
+  }, [clear, messageApi]);
 
   const disconnect = () => {
     modalAPI.confirm({
@@ -215,8 +221,8 @@ export const App = () => {
 
   return (
     <I18nextProvider i18n={i18nInstance}>
-      <ThemeProvider theme={styledThemes[theme]}>
-        <ConfigProvider theme={antdThemes[theme]}>
+      <StyledProvider theme={theme}>
+        <AntdProvider theme={theme}>
           <GlobalStyle />
 
           <AppContext.Provider
@@ -266,8 +272,8 @@ export const App = () => {
 
           {messageHolder}
           {modalHolder}
-        </ConfigProvider>
-      </ThemeProvider>
+        </AntdProvider>
+      </StyledProvider>
     </I18nextProvider>
   );
 };

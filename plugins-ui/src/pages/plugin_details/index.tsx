@@ -1,19 +1,21 @@
-import { Col, Layout, message, Modal, Row, Spin, Tabs } from "antd";
+import { Col, Layout, message, Modal, Row, Tabs } from "antd";
 import { Button } from "components/Button";
 import { PluginPolicyList } from "components/PluginPolicyList";
 import { PluginReviewList } from "components/PluginReviewList";
 import { Pricing } from "components/Pricing";
 import { Rate } from "components/Rate";
+import { Spin } from "components/Spin";
 import { Stack } from "components/Stack";
 import { Tag } from "components/Tag";
 import { useApp } from "hooks/useApp";
 import { useGoBack } from "hooks/useGoBack";
 import { ChevronLeftIcon } from "icons/ChevronLeftIcon";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTheme } from "styled-components";
 import { modalHash } from "utils/constants/core";
 import { routeTree } from "utils/constants/routes";
+import { toCapitalizeFirst } from "utils/functions";
 import { startReshareSession } from "utils/services/extension";
 import {
   getPlugin,
@@ -38,7 +40,18 @@ export const PluginDetailsPage = () => {
   const [modalAPI, modalHolder] = Modal.useModal();
   const navigate = useNavigate();
   const goBack = useGoBack();
-  const theme = useTheme();
+  const colors = useTheme();
+  const isMountedRef = useRef(true);
+
+  const checkStatus = useCallback(() => {
+    isPluginInstalled(id).then((isInstalled) => {
+      if (isInstalled) {
+        setState((prevState) => ({ ...prevState, isInstalled }));
+      } else if (isMountedRef.current) {
+        setTimeout(checkStatus, 1000);
+      }
+    });
+  }, [id]);
 
   const handleUninstall = () => {
     modalAPI.confirm({
@@ -76,18 +89,18 @@ export const PluginDetailsPage = () => {
   };
 
   const handleInstall = () => {
-    startReshareSession(id)
-      .then(() => {})
-      .catch(() => {});
+    startReshareSession(id);
   };
 
   useEffect(() => {
+    if (isInstalled === false) checkStatus();
+  }, [checkStatus, isInstalled]);
+
+  useEffect(() => {
     if (isConnected) {
-      isPluginInstalled(id)
-        .then((isInstalled) => {
-          setState((prevState) => ({ ...prevState, isInstalled }));
-        })
-        .catch(() => {});
+      isPluginInstalled(id).then((isInstalled) => {
+        setState((prevState) => ({ ...prevState, isInstalled }));
+      });
     } else {
       setState((prevState) => ({ ...prevState, isInstalled: undefined }));
     }
@@ -103,30 +116,19 @@ export const PluginDetailsPage = () => {
       });
   }, [id, goBack]);
 
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   return (
     <>
       {plugin ? (
         <Stack
           as={Layout.Content}
-          $after={{
-            backdropFilter: "blur(8px)",
-            background: `linear-gradient(transparent -300%, ${theme.backgroundPrimary} 100%)`,
-            height: "400px",
-            left: "0",
-            position: "absolute",
-            right: "0",
-            top: "0",
-          }}
-          $before={{
-            backgroundImage: `url(/plugins/${id}.jpg)`,
-            backgroundRepeat: "no-repeat",
-            backgroundSize: "cover",
-            height: "400px",
-            left: "0",
-            position: "absolute",
-            right: "0",
-            top: "0",
-          }}
           $style={{
             justifyContent: "center",
             padding: "16px 0",
@@ -153,7 +155,7 @@ export const PluginDetailsPage = () => {
                   gap: "8px",
                   width: "fit-content",
                 }}
-                $hover={{ color: "textExtraLight" }}
+                $hover={{ color: colors.textTertiary.toHex() }}
                 onClick={() => goBack(routeTree.plugins.path)}
               >
                 <ChevronLeftIcon fontSize={20} />
@@ -178,8 +180,8 @@ export const PluginDetailsPage = () => {
               >
                 <Stack $style={{ gap: "8px" }}>
                   <Tag
-                    color="alertSuccess"
-                    text={plugin.categoryId.capitalizeFirst()}
+                    color="success"
+                    text={toCapitalizeFirst(plugin.categoryId)}
                   />
                   {isInstalled && (
                     <Tag color="buttonPrimary" text="Installed" />

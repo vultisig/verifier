@@ -10,6 +10,7 @@ CREATE TYPE "plugin_category" AS ENUM (
 
 CREATE TYPE "plugin_id" AS ENUM (
     'vultisig-dca-0000',
+    'vultisig-copytrader-0000',
     'vultisig-payroll-0000',
     'vultisig-fees-feee'
 );

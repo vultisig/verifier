@@ -6,8 +6,8 @@ export const GlobalStyle = createGlobalStyle`
   }
 
   body {
-    background-color: ${({ theme }) => theme.backgroundPrimary};
-    color: ${({ theme }) => theme.textPrimary};
+    background-color: ${({ theme }) => theme.bgPrimary.toHex()};
+    color: ${({ theme }) => theme.textPrimary.toHex()};
     min-width: 360px;
   }
 

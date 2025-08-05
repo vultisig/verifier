@@ -1,11 +1,13 @@
-import { Col, Empty, Form, Layout, Row, Select, SelectProps, Spin } from "antd";
+import { Col, Empty, Form, Layout, Row, SelectProps } from "antd";
 import { SearchInput } from "components/InputSearch";
 import { PageHeading } from "components/PageHeading";
 import { PluginItem } from "components/PluginItem";
+import { Select } from "components/Select";
+import { Spin } from "components/Spin";
 import { Stack } from "components/Stack";
 import { useFilterParams } from "hooks/useFilterParams";
 import { debounce } from "lodash-es";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getPluginCategories, getPlugins } from "utils/services/marketplace";
 import { Plugin, PluginFilters } from "utils/types";
 
@@ -31,26 +33,31 @@ export const PluginsPage = () => {
   const [form] = Form.useForm<PluginFilters>();
   const { filters, setFilters } = useFilterParams<PluginFilters>();
 
-  const fetchPlugins = useCallback(
-    debounce((skip: number, filters: PluginFilters) => {
-      setState((prevState) => ({ ...prevState, loading: true }));
+  const fetchPlugins = useCallback((skip: number, filters: PluginFilters) => {
+    setState((prevState) => ({ ...prevState, loading: true }));
 
-      getPlugins(skip, filters)
-        .then(({ plugins }) => {
-          setState((prevState) => ({ ...prevState, loading: false, plugins }));
-        })
-        .catch(() => {
-          setState((prevState) => ({ ...prevState, loading: false }));
-        });
-    }, 500),
-    []
-  );
+    getPlugins(skip, filters)
+      .then(({ plugins }) => {
+        setState((prevState) => ({ ...prevState, loading: false, plugins }));
+      })
+      .catch(() => {
+        setState((prevState) => ({ ...prevState, loading: false }));
+      });
+  }, []);
 
   const handleChange = (_: unknown, values: PluginFilters) => {
     setFilters(values);
   };
 
-  useEffect(() => fetchPlugins(0, filters), [fetchPlugins, filters]);
+  const debouncedFetchPlugins = useMemo(
+    () => debounce(fetchPlugins, 500),
+    [fetchPlugins]
+  );
+
+  useEffect(
+    () => debouncedFetchPlugins(0, filters),
+    [debouncedFetchPlugins, filters]
+  );
 
   useEffect(() => {
     getPluginCategories()
@@ -89,31 +96,23 @@ export const PluginsPage = () => {
           onValuesChange={handleChange}
         >
           <Row gutter={[16, 16]}>
-            <Col xs={24} sm={12} xl={8}>
+            <Col xs={24} md={12} xl={8}>
               <Form.Item<PluginFilters> name="term" noStyle>
                 <SearchInput placeholder="Search by" />
               </Form.Item>
             </Col>
-            <Col xs={12} sm={6} xl={{ span: 4, offset: 8 }}>
+            <Col xs={12} md={6} xl={{ span: 4, offset: 8 }}>
               <Form.Item<PluginFilters> name="category" noStyle>
-                <Stack
-                  as={Select}
+                <Select
                   options={categoryOptions}
                   placeholder="Category"
                   allowClear
-                  $style={{ height: "44px" }}
                 />
               </Form.Item>
             </Col>
-            <Col xs={12} sm={6} xl={4}>
+            <Col xs={12} md={6} xl={4}>
               <Form.Item<PluginFilters> name="sort" noStyle>
-                <Stack
-                  as={Select}
-                  options={sortOptions}
-                  placeholder="Sort"
-                  allowClear
-                  $style={{ height: "44px" }}
-                />
+                <Select options={sortOptions} placeholder="Sort" allowClear />
               </Form.Item>
             </Col>
           </Row>
@@ -131,7 +130,7 @@ export const PluginsPage = () => {
         ) : plugins.length ? (
           <Row gutter={[16, 16]}>
             {plugins.map((plugin) => (
-              <Col key={plugin.id} xs={24} sm={12} xl={8}>
+              <Col key={plugin.id} xs={24} md={12} xl={8}>
                 <PluginItem {...plugin} />
               </Col>
             ))}

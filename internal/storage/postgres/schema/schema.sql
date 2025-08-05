@@ -35,6 +35,14 @@ CREATE TYPE "pricing_type" AS ENUM (
     'per-tx'
 );
 
+CREATE TYPE "treasury_ledger_entry_type" AS ENUM (
+    'fee_credit',
+    'developer_payout',
+    'refund',
+    'credit_adjustment',
+    'debit_adjustment'
+);
+
 CREATE TYPE "tx_indexer_status" AS ENUM (
     'PROPOSED',
     'VERIFIED',
@@ -70,6 +78,14 @@ BEGIN
     RETURN OLD;
 END;
 $$;
+
+CREATE FUNCTION "ledger_no_update_delete"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+    BEGIN
+        RAISE EXCEPTION 'treasury_ledger is append-only: updates and deletes are not allowed';
+    END;
+    $$;
 
 CREATE FUNCTION "prevent_billing_update_if_policy_deleted"() RETURNS "trigger"
     LANGUAGE "plpgsql"
@@ -294,6 +310,20 @@ CREATE TABLE "tags" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 
+CREATE TABLE "treasury_ledger" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "amount" bigint NOT NULL,
+    "type" "treasury_ledger_entry_type" NOT NULL,
+    "fee_id" "uuid",
+    "developer_id" "uuid",
+    "tx_hash" character varying(66),
+    "reference" character varying(255),
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "chk_developer_payout" CHECK ((("type" <> 'developer_payout'::"treasury_ledger_entry_type") OR (("developer_id" IS NOT NULL) AND ("tx_hash" IS NOT NULL)))),
+    CONSTRAINT "chk_fee_credit" CHECK ((("type" <> 'fee_credit'::"treasury_ledger_entry_type") OR ("fee_id" IS NOT NULL))),
+    CONSTRAINT "chk_refund" CHECK ((("type" <> 'refund'::"treasury_ledger_entry_type") OR ("tx_hash" IS NOT NULL)))
+);
+
 CREATE TABLE "tx_indexer" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "plugin_id" character varying(255) NOT NULL,
@@ -362,6 +392,9 @@ ALTER TABLE ONLY "tags"
 ALTER TABLE ONLY "tags"
     ADD CONSTRAINT "tags_pkey" PRIMARY KEY ("id");
 
+ALTER TABLE ONLY "treasury_ledger"
+    ADD CONSTRAINT "treasury_ledger_pkey" PRIMARY KEY ("id");
+
 ALTER TABLE ONLY "tx_indexer"
     ADD CONSTRAINT "tx_indexer_pkey" PRIMARY KEY ("id");
 
@@ -376,6 +409,12 @@ CREATE INDEX "idx_fees_billing_date" ON "fees" USING "btree" ("charged_at");
 CREATE INDEX "idx_fees_plugin_policy_billing_id" ON "fees" USING "btree" ("plugin_policy_billing_id");
 
 CREATE INDEX "idx_fees_transaction_id" ON "fees" USING "btree" ("transaction_id") WHERE ("transaction_id" IS NOT NULL);
+
+CREATE INDEX "idx_ledger_developer_id" ON "treasury_ledger" USING "btree" ("developer_id");
+
+CREATE INDEX "idx_ledger_fee_id" ON "treasury_ledger" USING "btree" ("fee_id");
+
+CREATE INDEX "idx_ledger_tx_hash" ON "treasury_ledger" USING "btree" ("tx_hash");
 
 CREATE INDEX "idx_plugin_apikey_apikey" ON "plugin_apikey" USING "btree" ("apikey");
 
@@ -429,6 +468,8 @@ CREATE OR REPLACE VIEW "billing_periods" AS
      LEFT JOIN "fees" "f" ON (("f"."plugin_policy_billing_id" = "ppb"."id")))
   WHERE ("ppb"."type" = 'recurring'::"pricing_type")
   GROUP BY "ppb"."id", "pp"."id";
+
+CREATE TRIGGER "ledger_no_update" BEFORE DELETE OR UPDATE ON "treasury_ledger" FOR EACH ROW EXECUTE FUNCTION "public"."ledger_no_update_delete"();
 
 CREATE TRIGGER "prevent_fees_policy_deletion_with_active_fees" BEFORE DELETE ON "plugin_policies" FOR EACH ROW EXECUTE FUNCTION "public"."check_active_fees_for_public_key"();
 

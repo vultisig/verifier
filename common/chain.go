@@ -1,9 +1,5 @@
 package common
 
-// TODO deprecated:
-// recipes have the same Chains list
-// consider remove from verifier
-
 import (
 	"database/sql/driver"
 	"encoding/json"

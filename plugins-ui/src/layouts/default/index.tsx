@@ -8,10 +8,13 @@ import { useApp } from "hooks/useApp";
 import { CircleDollarSignIcon } from "icons/CircleDollarSignIcon";
 import { LanguagesIcon } from "icons/LanguagesIcon";
 import { LogOutIcon } from "icons/LogOutIcon";
+import { MoonIcon } from "icons/MoonIcon";
+import { SunIcon } from "icons/SunIcon";
 import { VultisigLogoIcon } from "icons/VultisigLogoIcon";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Outlet, useNavigate } from "react-router-dom";
+import { useTheme } from "styled-components";
 import { modalHash } from "utils/constants/core";
 import { languageNames } from "utils/constants/language";
 import { routeTree } from "utils/constants/routes";
@@ -19,10 +22,19 @@ import { getAccount } from "utils/services/extension";
 
 export const DefaultLayout = () => {
   const { t } = useTranslation();
-  const { address, connect, currency, disconnect, isConnected, language } =
-    useApp();
+  const {
+    address,
+    connect,
+    currency,
+    disconnect,
+    isConnected,
+    language,
+    setTheme,
+    theme,
+  } = useApp();
   const [messageApi, messageHolder] = message.useMessage();
   const navigate = useNavigate();
+  const colors = useTheme();
 
   const dropdownMenu: MenuProps["items"] = [
     {
@@ -56,8 +68,16 @@ export const DefaultLayout = () => {
       },
     },
     {
-      danger: true,
       key: "3",
+      label: `Theme: ${theme === "light" ? "Dark" : "Light"}`,
+      icon: theme === "light" ? <MoonIcon /> : <SunIcon />,
+      onClick: () => {
+        setTheme(theme === "light" ? "dark" : "light");
+      },
+    },
+    {
+      danger: true,
+      key: "4",
       label: "Disconnect",
       icon: <LogOutIcon />,
       onClick: disconnect,
@@ -80,7 +100,7 @@ export const DefaultLayout = () => {
         if (account) connect();
       });
     }, 200);
-  }, []);
+  }, [connect]);
 
   return (
     <Stack as={Layout} $style={{ flexDirection: "column", minHeight: "100%" }}>
@@ -89,7 +109,7 @@ export const DefaultLayout = () => {
         $style={{
           alignItems: "center",
           borderBottom: "solid 1px",
-          borderColor: "borderLight",
+          borderColor: colors.borderLight.toHex(),
           justifyContent: "center",
           height: "64px",
           position: "sticky",
@@ -110,8 +130,12 @@ export const DefaultLayout = () => {
             as={Link}
             state={true}
             to={routeTree.root.path}
-            $style={{ alignItems: "center", color: "textPrimary", gap: "4px" }}
-            $hover={{ color: "textLight" }}
+            $style={{
+              alignItems: "center",
+              color: colors.textPrimary.toHex(),
+              gap: "4px",
+            }}
+            $hover={{ color: colors.textSecondary.toHex() }}
           >
             <VultisigLogoIcon fontSize={32} />
             <Stack

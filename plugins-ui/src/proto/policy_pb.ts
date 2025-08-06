@@ -14,7 +14,7 @@ import type { JsonObject, Message } from "@bufbuild/protobuf";
  * Describes the file policy.proto.
  */
 export const file_policy: GenFile = /*@__PURE__*/
-  fileDesc("Cgxwb2xpY3kucHJvdG8SBXR5cGVzIrYBCglGZWVQb2xpY3kSCgoCaWQYASABKAkSHAoEdHlwZRgCIAEoDjIOLnR5cGVzLkZlZVR5cGUSKgoJZnJlcXVlbmN5GAMgASgOMhcudHlwZXMuQmlsbGluZ0ZyZXF1ZW5jeRIOCgZhbW91bnQYBCABKAMSLgoKc3RhcnRfZGF0ZRgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEwoLZGVzY3JpcHRpb24YBiABKAkiuQMKBlBvbGljeRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEg8KB3ZlcnNpb24YBCABKAUSDgoGYXV0aG9yGAUgASgJEhoKBXJ1bGVzGAYgAygLMgsudHlwZXMuUnVsZRIuCgpjcmVhdGVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBImCgxmZWVfcG9saWNpZXMYCSADKAsyEC50eXBlcy5GZWVQb2xpY3kSLgoNY29uZmlndXJhdGlvbhgKIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3QSHgoRcmF0ZV9saW1pdF93aW5kb3cYCyABKA1IAIgBARIfChJtYXhfdHhzX3Blcl93aW5kb3cYDCABKA1IAYgBARIdCgZ0YXJnZXQYDSABKAsyDS50eXBlcy5UYXJnZXRCFAoSX3JhdGVfbGltaXRfd2luZG93QhUKE19tYXhfdHhzX3Blcl93aW5kb3ciQAoGVGFyZ2V0EiYKC3RhcmdldF90eXBlGAEgASgOMhEudHlwZXMuVGFyZ2V0VHlwZRIOCgZ0YXJnZXQYAiABKAkqTQoHRmVlVHlwZRIYChRGRUVfVFlQRV9VTlNQRUNJRklFRBAAEg0KCVJFQ1VSUklORxABEggKBE9OQ0UQAhIPCgtUUkFOU0FDVElPThADKmcKEEJpbGxpbmdGcmVxdWVuY3kSIQodQklMTElOR19GUkVRVUVOQ1lfVU5TUEVDSUZJRUQQABIJCgVEQUlMWRABEgoKBldFRUtMWRACEgwKCEJJV0VFS0xZEAMSCwoHTU9OVEhMWRAEKmIKClRhcmdldFR5cGUSGwoXVEFSR0VUX1RZUEVfVU5TUEVDSUZJRUQQABIXChNUQVJHRVRfVFlQRV9BRERSRVNTEAESHgoaVEFSR0VUX1RZUEVfTUFHSUNfQ09OU1RBTlQQAkIjWiFnaXRodWIuY29tL3Z1bHRpc2lnL3JlY2lwZXMvdHlwZXNiBnByb3RvMw", [file_google_protobuf_struct, file_google_protobuf_timestamp, file_rule]);
+  fileDesc("Cgxwb2xpY3kucHJvdG8SBXR5cGVzIrYBCglGZWVQb2xpY3kSCgoCaWQYASABKAkSHAoEdHlwZRgCIAEoDjIOLnR5cGVzLkZlZVR5cGUSKgoJZnJlcXVlbmN5GAMgASgOMhcudHlwZXMuQmlsbGluZ0ZyZXF1ZW5jeRIOCgZhbW91bnQYBCABKAMSLgoKc3RhcnRfZGF0ZRgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEwoLZGVzY3JpcHRpb24YBiABKAkimgMKBlBvbGljeRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEg8KB3ZlcnNpb24YBCABKAUSDgoGYXV0aG9yGAUgASgJEhoKBXJ1bGVzGAYgAygLMgsudHlwZXMuUnVsZRIuCgpjcmVhdGVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBImCgxmZWVfcG9saWNpZXMYCSADKAsyEC50eXBlcy5GZWVQb2xpY3kSLgoNY29uZmlndXJhdGlvbhgKIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3QSHgoRcmF0ZV9saW1pdF93aW5kb3cYCyABKA1IAIgBARIfChJtYXhfdHhzX3Blcl93aW5kb3cYDCABKA1IAYgBAUIUChJfcmF0ZV9saW1pdF93aW5kb3dCFQoTX21heF90eHNfcGVyX3dpbmRvdypNCgdGZWVUeXBlEhgKFEZFRV9UWVBFX1VOU1BFQ0lGSUVEEAASDQoJUkVDVVJSSU5HEAESCAoET05DRRACEg8KC1RSQU5TQUNUSU9OEAMqZwoQQmlsbGluZ0ZyZXF1ZW5jeRIhCh1CSUxMSU5HX0ZSRVFVRU5DWV9VTlNQRUNJRklFRBAAEgkKBURBSUxZEAESCgoGV0VFS0xZEAISDAoIQklXRUVLTFkQAxILCgdNT05USExZEARCI1ohZ2l0aHViLmNvbS92dWx0aXNpZy9yZWNpcGVzL3R5cGVzYgZwcm90bzM", [file_google_protobuf_struct, file_google_protobuf_timestamp, file_rule]);
 
 /**
  * FeePolicy represents a single billing configuration
@@ -157,13 +157,6 @@ export type Policy = Message<"types.Policy"> & {
    * @generated from field: optional uint32 max_txs_per_window = 12;
    */
   maxTxsPerWindow?: number;
-
-  /**
-   * Transaction target address
-   *
-   * @generated from field: types.Target target = 13;
-   */
-  target?: Target;
 };
 
 /**
@@ -172,28 +165,6 @@ export type Policy = Message<"types.Policy"> & {
  */
 export const PolicySchema: GenMessage<Policy> = /*@__PURE__*/
   messageDesc(file_policy, 1);
-
-/**
- * @generated from message types.Target
- */
-export type Target = Message<"types.Target"> & {
-  /**
-   * @generated from field: types.TargetType target_type = 1;
-   */
-  targetType: TargetType;
-
-  /**
-   * @generated from field: string target = 2;
-   */
-  target: string;
-};
-
-/**
- * Describes the message types.Target.
- * Use `create(TargetSchema)` to create a new message.
- */
-export const TargetSchema: GenMessage<Target> = /*@__PURE__*/
-  messageDesc(file_policy, 2);
 
 /**
  * Enum representing fee types
@@ -265,30 +236,4 @@ export enum BillingFrequency {
  */
 export const BillingFrequencySchema: GenEnum<BillingFrequency> = /*@__PURE__*/
   enumDesc(file_policy, 1);
-
-/**
- * @generated from enum types.TargetType
- */
-export enum TargetType {
-  /**
-   * @generated from enum value: TARGET_TYPE_UNSPECIFIED = 0;
-   */
-  UNSPECIFIED = 0,
-
-  /**
-   * @generated from enum value: TARGET_TYPE_ADDRESS = 1;
-   */
-  ADDRESS = 1,
-
-  /**
-   * @generated from enum value: TARGET_TYPE_MAGIC_CONSTANT = 2;
-   */
-  MAGIC_CONSTANT = 2,
-}
-
-/**
- * Describes the enum types.TargetType.
- */
-export const TargetTypeSchema: GenEnum<TargetType> = /*@__PURE__*/
-  enumDesc(file_policy, 2);
 

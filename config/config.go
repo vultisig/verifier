@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/spf13/viper"
+	"github.com/vultisig/verifier/plugin/config"
 
 	tx_indexer_config "github.com/vultisig/verifier/tx_indexer/pkg/config"
 	"github.com/vultisig/verifier/vault_config"
@@ -13,9 +14,9 @@ import (
 
 type WorkerConfig struct {
 	VaultService vault_config.Config       `mapstructure:"vault_service" json:"vault_service,omitempty"`
-	Redis        RedisConfig               `mapstructure:"redis" json:"redis,omitempty"`
+	Redis        config.Redis              `mapstructure:"redis" json:"redis,omitempty"`
 	BlockStorage vault_config.BlockStorage `mapstructure:"block_storage" json:"block_storage,omitempty"`
-	Database     DatabaseConfig            `mapstructure:"database" json:"database,omitempty"`
+	Database     config.DatabaseConfig     `mapstructure:"database" json:"database,omitempty"`
 	Plugin       struct {
 		PluginConfigs map[string]map[string]interface{} `mapstructure:"plugin_configs" json:"plugin_configs,omitempty"`
 	} `mapstructure:"plugin" json:"plugin,omitempty"`
@@ -29,8 +30,8 @@ type VerifierConfig struct {
 		Port      int64  `mapstructure:"port" json:"port,omitempty"`
 		JWTSecret string `mapstructure:"jwt_secret" json:"jwt_secret,omitempty"`
 	} `mapstructure:"server" json:"server"`
-	Database         DatabaseConfig            `mapstructure:"database" json:"database,omitempty"`
-	Redis            RedisConfig               `mapstructure:"redis" json:"redis,omitempty"`
+	Database         config.DatabaseConfig     `mapstructure:"database" json:"database,omitempty"`
+	Redis            config.Redis              `mapstructure:"redis" json:"redis,omitempty"`
 	BlockStorage     vault_config.BlockStorage `mapstructure:"block_storage" json:"block_storage,omitempty"`
 	Datadog          DatadogConfig             `mapstructure:"datadog" json:"datadog"`
 	EncryptionSecret string                    `mapstructure:"encryption_secret" json:"encryption_secret,omitempty"`
@@ -46,18 +47,6 @@ type VerifierConfig struct {
 type DatadogConfig struct {
 	Host string `mapstructure:"host" json:"host,omitempty"`
 	Port string `mapstructure:"port" json:"port,omitempty"`
-}
-
-type DatabaseConfig struct {
-	DSN string `mapstructure:"dsn" json:"dsn,omitempty"`
-}
-
-type RedisConfig struct {
-	Host     string `mapstructure:"host" json:"host,omitempty"`
-	Port     string `mapstructure:"port" json:"port,omitempty"`
-	User     string `mapstructure:"user" json:"user,omitempty"`
-	Password string `mapstructure:"password" json:"password,omitempty"`
-	DB       int    `mapstructure:"db" json:"db,omitempty"`
 }
 
 type FeesConfig struct {

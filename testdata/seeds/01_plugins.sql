@@ -17,6 +17,15 @@ INSERT INTO plugins (id, title, description, server_endpoint, category) VALUES
     'plugin'
 ),
 
+-- Copytrader Plugin with monthly pricing
+(
+    'vultisig-copytrader-0000',
+    'Vultisig Copytrader Plugin',
+    'Copytrader',
+    'http://copytrader-server:8080',
+    'plugin'
+),
+
 -- Fee Management Plugin with free pricing
 (
     'vultisig-fees-feee',

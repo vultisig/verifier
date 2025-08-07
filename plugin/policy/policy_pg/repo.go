@@ -1,4 +1,4 @@
-package policy
+package policy_pg
 
 import (
 	"context"

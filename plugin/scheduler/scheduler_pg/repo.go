@@ -1,4 +1,4 @@
-package scheduler
+package scheduler_pg
 
 import (
 	"context"

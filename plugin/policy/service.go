@@ -31,7 +31,7 @@ type Policy struct {
 	logger    *logrus.Logger
 }
 
-func NewPolicy(
+func NewPolicyService(
 	repo Storage,
 	scheduler scheduler.Service,
 	logger *logrus.Logger,
@@ -39,7 +39,7 @@ func NewPolicy(
 	return &Policy{
 		repo:      repo,
 		scheduler: scheduler,
-		logger:    logger,
+		logger:    logger.WithField("pkg", "policy").Logger,
 	}, nil
 }
 

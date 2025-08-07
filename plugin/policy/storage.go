@@ -8,7 +8,7 @@ import (
 	"github.com/vultisig/verifier/types"
 )
 
-type Storage[T any] interface {
+type Storage interface {
 	Tx() storage.Tx
 	GetPluginPolicy(ctx context.Context, id uuid.UUID) (*types.PluginPolicy, error)
 	GetAllPluginPolicies(

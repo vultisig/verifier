@@ -41,7 +41,7 @@ type Server struct {
 	client       *asynq.Client
 	inspector    *asynq.Inspector
 	sdClient     *statsd.Client
-	policy       policy.Policy
+	policy       policy.Service
 	spec         plugin.Spec
 	logger       *logrus.Logger
 	mode         string
@@ -50,7 +50,7 @@ type Server struct {
 // NewServer returns a new server.
 func NewServer(
 	cfg Config,
-	policy policy.Policy,
+	policy policy.Service,
 	redis *redis.Redis,
 	vaultStorage vault.Storage,
 	client *asynq.Client,

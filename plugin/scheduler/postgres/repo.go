@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vultisig/verifier/plugin/postgres"
 	"github.com/vultisig/verifier/plugin/scheduler"
+	"github.com/vultisig/verifier/plugin/storage"
 )
 
 type Repo struct {
@@ -21,7 +22,11 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 	}
 }
 
-func (r *Repo) CreateWithTx(ctx context.Context, policyID uuid.UUID, next time.Time) error {
+func (r *Repo) Tx() storage.Tx {
+	return r.tx
+}
+
+func (r *Repo) Create(ctx context.Context, policyID uuid.UUID, next time.Time) error {
 	_, err := r.tx.Try(ctx).Exec(ctx, `
 		INSERT INTO scheduler (policy_id, next_execution)
 		VALUES ($1, $2)
@@ -87,19 +92,7 @@ func (r *Repo) SetNext(ctx context.Context, policyID uuid.UUID, next time.Time) 
 	return nil
 }
 
-func (r *Repo) SetNextWithTx(ctx context.Context, policyID uuid.UUID, next time.Time) error {
-	_, err := r.tx.Try(ctx).Exec(ctx, `
-		UPDATE scheduler
-		SET next_execution = $2
-		WHERE policy_id = $1
-	`, policyID, next)
-	if err != nil {
-		return fmt.Errorf("failed to update next execution time: %w", err)
-	}
-	return nil
-}
-
-func (r *Repo) DeleteWithTx(ctx context.Context, policyID uuid.UUID) error {
+func (r *Repo) Delete(ctx context.Context, policyID uuid.UUID) error {
 	_, err := r.tx.Try(ctx).Exec(ctx, `
 		DELETE FROM scheduler
 		WHERE policy_id = $1

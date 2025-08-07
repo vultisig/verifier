@@ -13,7 +13,7 @@ type Scheduler struct {
 	NextExecution time.Time `json:"next_execution"`
 }
 
-type Storage[T any] interface {
+type Storage interface {
 	Tx() storage.Tx
 	GetByPolicy(ctx context.Context, policyID uuid.UUID) (Scheduler, error)
 	Create(ctx context.Context, policyID uuid.UUID, next time.Time) error

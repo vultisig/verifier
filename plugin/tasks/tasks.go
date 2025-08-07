@@ -8,8 +8,9 @@ import (
 
 const QUEUE_NAME = "default_queue"
 const (
-	TypeKeySignDKLS = "key:signDKLS"
-	TypeReshareDKLS = "key:reshareDKLS"
+	TypePluginTransaction = "plugin:transaction"
+	TypeKeySignDKLS       = "key:signDKLS"
+	TypeReshareDKLS       = "key:reshareDKLS"
 )
 
 func GetTaskResult(inspector *asynq.Inspector, taskID string) ([]byte, error) {

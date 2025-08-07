@@ -7,12 +7,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type StorageConstructor[T any] func(*pgxpool.Pool) T
-
 func WithMigrations[T any](
 	logger *logrus.Logger,
 	pool *pgxpool.Pool,
-	constructor StorageConstructor[T],
+	constructor func(*pgxpool.Pool) T,
 	migrationsDir string,
 ) (T, error) {
 	migrationManager := NewMigrationManager(logger, pool, migrationsDir)

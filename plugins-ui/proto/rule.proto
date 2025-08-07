@@ -29,6 +29,23 @@ message Rule {
 
   // Parameter constraints
   repeated ParameterConstraint parameter_constraints = 7;
+
+  // Transaction target address
+  Target target = 13;
+}
+
+enum TargetType {
+  TARGET_TYPE_UNSPECIFIED = 0;
+  TARGET_TYPE_ADDRESS = 1;
+  TARGET_TYPE_MAGIC_CONSTANT = 2;
+}
+
+message Target {
+  TargetType target_type = 1;
+  oneof target {
+    string address = 2;
+    MagicConstant magic_constant = 3;
+  }
 }
 
 // Effect determines whether a rule allows or denies access

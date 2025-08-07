@@ -1,4 +1,5 @@
-import "antd/dist/reset.css";
+import "styles/normalize.css";
+import "styles/brockmann.css";
 
 import { App } from "App";
 import dayjs from "dayjs";

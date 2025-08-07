@@ -1,0 +1,37 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+a {
+  color: currentColor;
+  text-decoration: none;
+}
+
+img {
+  border: none;
+}
+
+li {
+  list-style-type: none;
+}
+
+#root {
+  height: 100%;
+}
+
+body {
+  height: 100%;
+  user-select: none;
+}
+
+html {
+  height: 100%;
+  font-family: "Verdana", sans-serif;
+  font-size: 14px;
+}
+
+@-ms-viewport {
+  width: device-width;
+}

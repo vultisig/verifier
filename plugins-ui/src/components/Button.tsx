@@ -26,6 +26,7 @@ const StyledButton = styled.div<{
   align-items: center;
   border-radius: 44px;
   cursor: ${({ $disabled }) => ($disabled ? "default" : "pointer")};
+  font-family: inherit;
   font-weight: 500;
   gap: 8px;
   justify-content: center;

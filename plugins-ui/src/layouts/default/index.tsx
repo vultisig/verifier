@@ -1,10 +1,11 @@
-import { Avatar, Dropdown, Layout, MenuProps, message } from "antd";
+import { Avatar, Dropdown, MenuProps, message } from "antd";
 import { Button } from "components/Button";
 import { CurrencyModal } from "components/CurrencyModal";
 import { LanguageModal } from "components/LanguageModal";
 import { MiddleTruncate } from "components/MiddleTruncate";
 import { Stack } from "components/Stack";
 import { useApp } from "hooks/useApp";
+import { BoxIcon } from "icons/BoxIcon";
 import { CircleDollarSignIcon } from "icons/CircleDollarSignIcon";
 import { LanguagesIcon } from "icons/LanguagesIcon";
 import { LogOutIcon } from "icons/LogOutIcon";
@@ -103,15 +104,16 @@ export const DefaultLayout = () => {
   }, [connect]);
 
   return (
-    <Stack as={Layout} $style={{ flexDirection: "column", minHeight: "100%" }}>
+    <Stack $style={{ flexDirection: "column", minHeight: "100%" }}>
       <Stack
-        as={Layout.Header}
         $style={{
           alignItems: "center",
-          borderBottom: "solid 1px",
-          borderColor: colors.borderLight.toHex(),
+          backgroundColor: colors.bgPrimary.toHex(),
+          borderBottomColor: colors.borderLight.toHex(),
+          borderBottomStyle: "solid",
+          borderBottomWidth: "1px",
           justifyContent: "center",
-          height: "64px",
+          height: "72px",
           position: "sticky",
           top: "0",
           zIndex: "2",
@@ -133,19 +135,62 @@ export const DefaultLayout = () => {
             $style={{
               alignItems: "center",
               color: colors.textPrimary.toHex(),
-              gap: "4px",
+              gap: "10px",
             }}
             $hover={{ color: colors.textSecondary.toHex() }}
           >
-            <VultisigLogoIcon fontSize={32} />
+            <Stack $style={{ position: "relative" }}>
+              <BoxIcon color={colors.accentThree.toHex()} fontSize={40} />
+              <Stack
+                as={VultisigLogoIcon}
+                color={colors.bgSecondary.toHex()}
+                fontSize={24}
+                $style={{
+                  left: "50%",
+                  position: "absolute",
+                  top: "50%",
+                  transform: "translate(-50%, -50%)",
+                }}
+              />
+            </Stack>
             <Stack
               $style={{
-                fontSize: "32px",
+                fontSize: "22px",
                 fontWeight: "500",
-                lineHeight: "32px",
+                lineHeight: "40px",
               }}
             >
-              Vultisig
+              App Store
+            </Stack>
+          </Stack>
+          <Stack
+            $style={{
+              flexDirection: "row",
+              fontWeight: "500",
+              gap: "48px",
+              lineHeight: "20px",
+            }}
+          >
+            <Stack
+              as={Link}
+              to={routeTree.plugins.path}
+              $hover={{ color: colors.accentThree.toHex() }}
+            >
+              Marketplace
+            </Stack>
+            <Stack
+              as={Link}
+              to={routeTree.plugins.path}
+              $hover={{ color: colors.accentThree.toHex() }}
+            >
+              My Apps
+            </Stack>
+            <Stack
+              as={Link}
+              to={routeTree.plugins.path}
+              $hover={{ color: colors.accentThree.toHex() }}
+            >
+              FAQ
             </Stack>
           </Stack>
           {isConnected && address ? (
@@ -167,10 +212,16 @@ export const DefaultLayout = () => {
           )}
         </Stack>
       </Stack>
-      <Outlet />
+      <Stack $style={{ flexGrow: "1", justifyContent: "center" }}>
+        <Outlet />
+      </Stack>
 
-      <CurrencyModal />
-      <LanguageModal />
+      {isConnected && (
+        <>
+          <CurrencyModal />
+          <LanguageModal />
+        </>
+      )}
       {messageHolder}
     </Stack>
   );

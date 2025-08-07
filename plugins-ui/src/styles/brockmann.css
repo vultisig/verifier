@@ -1,0 +1,87 @@
+/* Regular */
+@font-face {
+  font-family: 'Brockmann';
+  src: url('/fonts/brockmann/brockmann-regular-webfont.woff2') format('woff2'),
+       url('/fonts/brockmann/brockmann-regular-webfont.woff') format('woff'),
+       url('/fonts/brockmann/brockmann-regular-webfont.ttf') format('truetype'),
+       url('/fonts/brockmann/brockmann-regular-webfont.eot');
+  font-weight: 400;
+  font-style: normal;
+}
+
+/* Regular Italic */
+@font-face {
+  font-family: 'Brockmann';
+  src: url('/fonts/brockmann/brockmann-regularitalic-webfont.woff2') format('woff2'),
+       url('/fonts/brockmann/brockmann-regularitalic-webfont.woff') format('woff'),
+       url('/fonts/brockmann/brockmann-regularitalic-webfont.ttf') format('truetype'),
+       url('/fonts/brockmann/brockmann-regularitalic-webfont.eot');
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* Medium */
+@font-face {
+  font-family: 'Brockmann';
+  src: url('/fonts/brockmann/brockmann-medium-webfont.woff2') format('woff2'),
+       url('/fonts/brockmann/brockmann-medium-webfont.woff') format('woff'),
+       url('/fonts/brockmann/brockmann-medium-webfont.ttf') format('truetype'),
+       url('/fonts/brockmann/brockmann-medium-webfont.eot');
+  font-weight: 500;
+  font-style: normal;
+}
+
+/* Medium Italic */
+@font-face {
+  font-family: 'Brockmann';
+  src: url('/fonts/brockmann/brockmann-mediumitalic-webfont.woff2') format('woff2'),
+       url('/fonts/brockmann/brockmann-mediumitalic-webfont.woff') format('woff'),
+       url('/fonts/brockmann/brockmann-mediumitalic-webfont.ttf') format('truetype'),
+       url('/fonts/brockmann/brockmann-mediumitalic-webfont.eot');
+  font-weight: 500;
+  font-style: italic;
+}
+
+/* Semibold */
+@font-face {
+  font-family: 'Brockmann';
+  src: url('/fonts/brockmann/brockmann-semibold-webfont.woff2') format('woff2'),
+       url('/fonts/brockmann/brockmann-semibold-webfont.woff') format('woff'),
+       url('/fonts/brockmann/brockmann-semibold-webfont.ttf') format('truetype'),
+       url('/fonts/brockmann/brockmann-semibold-webfont.eot');
+  font-weight: 600;
+  font-style: normal;
+}
+
+/* Semibold Italic */
+@font-face {
+  font-family: 'Brockmann';
+  src: url('/fonts/brockmann/brockmann-semibolditalic-webfont.woff2') format('woff2'),
+       url('/fonts/brockmann/brockmann-semibolditalic-webfont.woff') format('woff'),
+       url('/fonts/brockmann/brockmann-semibolditalic-webfont.ttf') format('truetype'),
+       url('/fonts/brockmann/brockmann-semibolditalic-webfont.eot');
+  font-weight: 600;
+  font-style: italic;
+}
+
+/* Bold */
+@font-face {
+  font-family: 'Brockmann';
+  src: url('/fonts/brockmann/brockmann-bold-webfont.woff2') format('woff2'),
+       url('/fonts/brockmann/brockmann-bold-webfont.woff') format('woff'),
+       url('/fonts/brockmann/brockmann-bold-webfont.ttf') format('truetype'),
+       url('/fonts/brockmann/brockmann-bold-webfont.eot');
+  font-weight: 700;
+  font-style: normal;
+}
+
+/* Bold Italic */
+@font-face {
+  font-family: 'Brockmann';
+  src: url('/fonts/brockmann/brockmann-bolditalic-webfont.woff2') format('woff2'),
+       url('/fonts/brockmann/brockmann-bolditalic-webfont.woff') format('woff'),
+       url('/fonts/brockmann/brockmann-bolditalic-webfont.ttf') format('truetype'),
+       url('/fonts/brockmann/brockmann-bolditalic-webfont.eot');
+  font-weight: 700;
+  font-style: italic;
+}

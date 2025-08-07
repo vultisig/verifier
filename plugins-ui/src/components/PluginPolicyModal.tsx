@@ -21,7 +21,7 @@ import { Spin } from "components/Spin";
 import { Stack } from "components/Stack";
 import dayjs, { Dayjs } from "dayjs";
 import { useGoBack } from "hooks/useGoBack";
-import { ConstraintSchema } from "proto/constraint_pb";
+import { ConstraintSchema, MagicConstant } from "proto/constraint_pb";
 import { ParameterConstraintSchema } from "proto/parameter_constraint_pb";
 import {
   BillingFrequency,
@@ -30,7 +30,7 @@ import {
   PolicySchema,
 } from "proto/policy_pb";
 import { RecipeSchema } from "proto/recipe_specification_pb";
-import { Effect, RuleSchema, TargetSchema } from "proto/rule_pb";
+import { Effect, RuleSchema, TargetSchema, TargetType } from "proto/rule_pb";
 import { FC, ReactNode, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { getVaultId } from "storage/vaultId";
@@ -158,7 +158,12 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
 
     const target = create(TargetSchema, {
       targetType,
-      target: { case: undefined, value: undefined },
+      target:
+        targetType === TargetType.ADDRESS
+          ? { case: "address", value: values["recipient"] as string }
+          : targetType === TargetType.MAGIC_CONSTANT
+          ? { case: "magicConstant", value: MagicConstant.VULTISIG_TREASURY }
+          : { case: undefined, value: undefined },
     });
 
     const rule = create(RuleSchema, {

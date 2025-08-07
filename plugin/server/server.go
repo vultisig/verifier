@@ -12,15 +12,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DataDog/datadog-go/statsd"
 	"github.com/eager7/dogd/btcec"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-	"github.com/labstack/gommon/log"
 	"github.com/sirupsen/logrus"
 	v1 "github.com/vultisig/commondata/go/vultisig/vault/v1"
 	"github.com/vultisig/mobile-tss-lib/tss"
@@ -40,11 +37,10 @@ type Server struct {
 	vaultStorage vault.Storage
 	client       *asynq.Client
 	inspector    *asynq.Inspector
-	sdClient     *statsd.Client
 	policy       policy.Service
 	spec         plugin.Spec
 	logger       *logrus.Logger
-	mode         string
+	middlewares  []echo.MiddlewareFunc
 }
 
 // NewServer returns a new server.
@@ -55,34 +51,26 @@ func NewServer(
 	vaultStorage vault.Storage,
 	client *asynq.Client,
 	inspector *asynq.Inspector,
-	sdClient *statsd.Client,
 	spec plugin.Spec,
+	middlewares []echo.MiddlewareFunc,
 ) *Server {
 	return &Server{
 		cfg:          cfg,
 		redis:        redis,
 		client:       client,
 		inspector:    inspector,
-		sdClient:     sdClient,
 		vaultStorage: vaultStorage,
 		spec:         spec,
 		logger:       logrus.WithField("pkg", "server").Logger,
 		policy:       policy,
+		middlewares:  middlewares,
 	}
 }
 
-func (s *Server) StartServer() error {
+func (s *Server) Start() error {
 	e := echo.New()
-	e.Logger.SetLevel(log.DEBUG)
-	e.Use(middleware.Logger())
-	e.Use(middleware.Recover())
-	e.Use(middleware.BodyLimit("2M"))
-	e.Use(s.statsdMiddleware)
-	e.Use(middleware.CORS())
-	limiterStore := middleware.NewRateLimiterMemoryStoreWithConfig(
-		middleware.RateLimiterMemoryStoreConfig{Rate: 5, Burst: 30, ExpiresIn: 5 * time.Minute},
-	)
-	e.Use(middleware.RateLimiter(limiterStore))
+
+	e.Use(s.middlewares...)
 
 	e.Validator = &vv.VultisigValidator{Validator: validator.New()}
 
@@ -104,23 +92,8 @@ func (s *Server) StartServer() error {
 	return e.Start(fmt.Sprintf(":%d", s.cfg.Port))
 }
 
-func (s *Server) statsdMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		start := time.Now()
-		err := next(c)
-		duration := time.Since(start).Milliseconds()
-
-		// Send metrics to statsd
-		_ = s.sdClient.Incr("http.requests", []string{"path:" + c.Path()}, 1)
-		_ = s.sdClient.Timing("http.response_time", time.Duration(duration)*time.Millisecond, []string{"path:" + c.Path()}, 1)
-		_ = s.sdClient.Incr("http.status."+fmt.Sprint(c.Response().Status), []string{"path:" + c.Path(), "method:" + c.Request().Method}, 1)
-
-		return err
-	}
-}
-
 func (s *Server) Healthz(c echo.Context) error {
-	return c.String(http.StatusOK, "Payroll & DCA Plugin server is running")
+	return c.String(http.StatusOK, "Plugin server is running")
 }
 
 // ReshareVault is a handler to reshare a vault

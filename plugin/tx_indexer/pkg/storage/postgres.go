@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/vultisig/verifier/tx_indexer/pkg/rpc"
+	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
 )
 
 type PostgresTxIndexStore struct {

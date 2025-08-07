@@ -10,8 +10,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/mobile-tss-lib/tss"
 	"github.com/vultisig/verifier/common"
-	"github.com/vultisig/verifier/tx_indexer/pkg/rpc"
-	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
+	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
+	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
 	"golang.org/x/sync/errgroup"
 )
 

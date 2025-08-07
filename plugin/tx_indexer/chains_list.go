@@ -8,8 +8,8 @@ import (
 	"github.com/vultisig/recipes/ethereum"
 	rtypes "github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/common"
-	"github.com/vultisig/verifier/tx_indexer/pkg/config"
-	"github.com/vultisig/verifier/tx_indexer/pkg/rpc"
+	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/config"
+	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
 )
 
 // Single place to add new chains for tx indexer

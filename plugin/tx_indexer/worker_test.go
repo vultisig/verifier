@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/config"
-	"github.com/vultisig/verifier/tx_indexer/pkg/conv"
-	"github.com/vultisig/verifier/tx_indexer/pkg/rpc"
-	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
+	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/conv"
+	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
+	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
 )
 
 func createWorker() (*Worker, context.CancelFunc, storage.TxIndexerRepo, error) {

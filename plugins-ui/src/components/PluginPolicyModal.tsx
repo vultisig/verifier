@@ -45,6 +45,7 @@ type FieldType = {
   maxTxsPerWindow: number;
   rateLimitWindow: number;
   supportedResource: number;
+  target: string;
 } & {
   [key: string]: string | Dayjs;
 };
@@ -160,7 +161,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
       targetType,
       target:
         targetType === TargetType.ADDRESS
-          ? { case: "address", value: values["recipient"] as string }
+          ? { case: "address", value: values["target"] as string }
           : targetType === TargetType.MAGIC_CONSTANT
           ? { case: "magicConstant", value: MagicConstant.VULTISIG_TREASURY }
           : { case: undefined, value: undefined },
@@ -327,7 +328,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
                 >
                   {({ getFieldsValue }) => {
                     const { supportedResource = 0 } = getFieldsValue();
-                    const { parameterCapabilities, resourcePath } =
+                    const { parameterCapabilities, resourcePath, target } =
                       schema.supportedResources[supportedResource];
 
                     return (
@@ -351,6 +352,17 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
                                 </Form.Item>
                               </Col>
                             )
+                          )}
+                          {target === TargetType.ADDRESS && (
+                            <Col xs={24} md={12} lg={8}>
+                              <Form.Item
+                                label="Target"
+                                name="target"
+                                rules={[{ required: true }]}
+                              >
+                                <Input />
+                              </Form.Item>
+                            </Col>
                           )}
                         </Row>
                       </>

@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
+	"github.com/vultisig/verifier/tx_indexer/pkg/rpc"
 )
 
 type PostgresTxIndexStore struct {
@@ -21,6 +21,23 @@ func NewRepo(pool *pgxpool.Pool) *PostgresTxIndexStore {
 	return &PostgresTxIndexStore{
 		pool: pool,
 	}
+}
+
+func NewPostgresTxIndexStore(c context.Context, dsn string) (*PostgresTxIndexStore, error) {
+	ctx, cancel := context.WithTimeout(c, defaultTimeout)
+	defer cancel()
+
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		return nil, fmt.Errorf("pgxpool.New: %w", err)
+	}
+
+	err = pool.Ping(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("pool.Ping: %w", err)
+	}
+
+	return NewRepo(pool), nil
 }
 
 func (p *PostgresTxIndexStore) createTx(ctx context.Context, tx Tx) error {

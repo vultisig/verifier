@@ -1,14 +1,14 @@
 package server
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -29,6 +29,7 @@ import (
 	"github.com/vultisig/verifier/plugin/tasks"
 	vtypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/verifier/vault"
+	"golang.org/x/sync/errgroup"
 )
 
 type Server struct {
@@ -67,37 +68,59 @@ func NewServer(
 	}
 }
 
-func (s *Server) Start() error {
+func (s *Server) Start(ctx context.Context) error {
 	e := echo.New()
 
 	e.Use(s.middlewares...)
 
 	e.Validator = &vv.VultisigValidator{Validator: validator.New()}
 
-	e.GET("/healthz", s.Healthz)
+	e.GET("/healthz", s.handleHealthz)
 
 	vlt := e.Group("/vault")
-	vlt.POST("/reshare", s.ReshareVault)
-	vlt.GET("/get/:pluginId/:publicKeyECDSA", s.GetVault)
-	vlt.GET("/exist/:pluginId/:publicKeyECDSA", s.ExistVault)
-	vlt.GET("/sign/response/:taskId", s.GetKeysignResult)
-	vlt.DELETE("/:pluginId/:publicKeyECDSA", s.DeleteVault)
+	vlt.POST("/reshare", s.handleReshareVault)
+	vlt.GET("/get/:pluginId/:publicKeyECDSA", s.handleGetVault)
+	vlt.GET("/exist/:pluginId/:publicKeyECDSA", s.handleExistVault)
+	vlt.GET("/sign/response/:taskId", s.handleGetKeysignResult)
+	vlt.DELETE("/:pluginId/:publicKeyECDSA", s.handleDeleteVault)
 
 	plg := e.Group("/plugin")
-	plg.POST("/policy", s.CreatePluginPolicy)
-	plg.PUT("/policy", s.UpdatePluginPolicyById)
-	plg.GET("/recipe-specification", s.GetRecipeSpecification)
-	plg.DELETE("/policy/:policyId", s.DeletePluginPolicyById)
+	plg.POST("/policy", s.handleCreatePluginPolicy)
+	plg.PUT("/policy", s.handleUpdatePluginPolicyById)
+	plg.GET("/recipe-specification", s.handleGetRecipeSpecification)
+	plg.DELETE("/policy/:policyId", s.handleDeletePluginPolicyById)
 
-	return e.Start(fmt.Sprintf(":%d", s.cfg.Port))
+	eg := &errgroup.Group{}
+	eg.Go(func() error {
+		err := e.Start(fmt.Sprintf(":%d", s.cfg.Port))
+		if errors.Is(err, http.ErrServerClosed) {
+			return nil
+		}
+		return fmt.Errorf("failed to start server: %w", err)
+	})
+	eg.Go(func() error {
+		<-ctx.Done()
+		s.logger.Info("shutting down server...")
+
+		c, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+
+		err := e.Shutdown(c)
+		if err != nil {
+			return fmt.Errorf("failed to shutdown server: %w", err)
+		}
+		return nil
+	})
+
+	return eg.Wait()
 }
 
-func (s *Server) Healthz(c echo.Context) error {
-	return c.String(http.StatusOK, "Plugin server is running")
+func (s *Server) handleHealthz(c echo.Context) error {
+	return c.String(http.StatusOK, "plugin server is running")
 }
 
 // ReshareVault is a handler to reshare a vault
-func (s *Server) ReshareVault(c echo.Context) error {
+func (s *Server) handleReshareVault(c echo.Context) error {
 	var req vtypes.ReshareRequest
 	if err := c.Bind(&req); err != nil {
 		return fmt.Errorf("fail to parse request, err: %w", err)
@@ -128,7 +151,7 @@ func (s *Server) ReshareVault(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-func (s *Server) GetVault(c echo.Context) error {
+func (s *Server) handleGetVault(c echo.Context) error {
 	publicKeyECDSA := c.Param("publicKeyECDSA")
 	if publicKeyECDSA == "" {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("public key is required"))
@@ -164,63 +187,8 @@ func (s *Server) GetVault(c echo.Context) error {
 	})
 }
 
-// SignMessages is a handler to process Keysing request
-func (s *Server) SignMessages(c echo.Context) error {
-	s.logger.Debug("VERIFIER SERVER: SIGN MESSAGES")
-	var req vtypes.KeysignRequest
-	if err := c.Bind(&req); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
-	}
-	if err := req.IsValid(); err != nil {
-		return fmt.Errorf("invalid request, err: %w", err)
-	}
-	if !s.isValidHash(req.PublicKey) {
-		return c.NoContent(http.StatusBadRequest)
-	}
-	result, err := s.redis.Get(c.Request().Context(), req.SessionID)
-	if err == nil && result != "" {
-		return c.NoContent(http.StatusOK)
-	}
-
-	if err := s.redis.Set(c.Request().Context(), req.SessionID, req.SessionID, 30*time.Minute); err != nil {
-		s.logger.Errorf("fail to set session, err: %v", err)
-	}
-
-	filePathName := vcommon.GetVaultBackupFilename(req.PublicKey, req.PluginID)
-	content, err := s.vaultStorage.GetVault(filePathName)
-	if err != nil {
-		wrappedErr := fmt.Errorf("fail to read file in SignMessages, err: %w", err)
-		s.logger.Infof("fail to read file in SignMessages, err: %v", err)
-		s.logger.Error(wrappedErr)
-		return wrappedErr
-	}
-
-	_, err = vcommon.DecryptVaultFromBackup(s.cfg.EncryptionSecret, content)
-	if err != nil {
-		return fmt.Errorf("fail to decrypt vault from the backup, err: %w", err)
-	}
-	buf, err := json.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("fail to marshal to json, err: %w", err)
-	}
-
-	ti, err := s.client.EnqueueContext(c.Request().Context(),
-		asynq.NewTask(tasks.TypeKeySignDKLS, buf),
-		asynq.MaxRetry(-1),
-		asynq.Timeout(2*time.Minute),
-		asynq.Retention(5*time.Minute),
-		asynq.Queue(tasks.QUEUE_NAME))
-
-	if err != nil {
-		return fmt.Errorf("fail to enqueue task, err: %w", err)
-	}
-
-	return c.JSON(http.StatusOK, ti.ID)
-
-}
-
 // GetKeysignResult is a handler to get the keysign response
-func (s *Server) GetKeysignResult(c echo.Context) error {
+func (s *Server) handleGetKeysignResult(c echo.Context) error {
 	taskID := c.Param("taskId")
 	if taskID == "" {
 		return fmt.Errorf("task id is required")
@@ -235,7 +203,8 @@ func (s *Server) GetKeysignResult(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, result)
 }
-func (s *Server) DeleteVault(c echo.Context) error {
+
+func (s *Server) handleDeleteVault(c echo.Context) error {
 	publicKeyECDSA := c.Param("publicKeyECDSA")
 	if publicKeyECDSA == "" {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("public key is required"))
@@ -263,7 +232,7 @@ func (s *Server) isValidHash(hash string) bool {
 	return err == nil
 }
 
-func (s *Server) ExistVault(c echo.Context) error {
+func (s *Server) handleExistVault(c echo.Context) error {
 	publicKeyECDSA := c.Param("publicKeyECDSA")
 	if publicKeyECDSA == "" {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("public key is required"))
@@ -284,76 +253,27 @@ func (s *Server) ExistVault(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-func (s *Server) GetPluginPolicyById(c echo.Context) error {
-	policyID := c.Param("policyId")
-	if policyID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid policy ID"))
-	}
-	uPolicyID, err := uuid.Parse(policyID)
-	if err != nil {
-		s.logger.WithError(err).
-			WithField("policy_id", policyID).
-			Error("failed to parse policy ID")
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid policy ID"))
-	}
-	policy, err := s.policy.GetPluginPolicy(c.Request().Context(), uPolicyID)
-	if err != nil {
-		s.logger.WithError(err).
-			WithField("policy_id", policyID).
-			Error("fail to get policy from database")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get policy"))
-	}
-
-	return c.JSON(http.StatusOK, policy)
-}
-
-func (s *Server) GetAllPluginPolicies(c echo.Context) error {
-	publicKey := c.Request().Header.Get("public_key")
-	if publicKey == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("missing required header: public_key"))
-	}
-
-	pluginID := c.Request().Header.Get("plugin_id")
-	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("missing required header: plugin_id"))
-	}
-
-	policies, err := s.policy.GetPluginPolicies(c.Request().Context(), vtypes.PluginID(pluginID), publicKey, true)
-	if err != nil {
-		s.logger.WithError(err).WithFields(
-			logrus.Fields{
-				"public_key": publicKey,
-				"plugin_id":  pluginID,
-			}).Error("failed to get policies")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get policies"))
-	}
-
-	return c.JSON(http.StatusOK, policies)
-}
-
-func (s *Server) CreatePluginPolicy(c echo.Context) error {
-	var policy vtypes.PluginPolicy
-	if err := c.Bind(&policy); err != nil {
+func (s *Server) handleCreatePluginPolicy(c echo.Context) error {
+	var pol vtypes.PluginPolicy
+	if err := c.Bind(&pol); err != nil {
 		return fmt.Errorf("fail to parse request, err: %w", err)
 	}
 
-	// We re-init spec as verification server doesn't have spec defined
-
-	if err := s.spec.ValidatePluginPolicy(policy); err != nil {
+	if err := s.spec.ValidatePluginPolicy(pol); err != nil {
 		s.logger.WithError(err).Error("failed to validate spec policy")
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to validate policy"))
 	}
 
-	if policy.ID.String() == "" {
-		policy.ID = uuid.New()
+	if pol.ID.String() == "" {
+		pol.ID = uuid.New()
 	}
 
-	if !s.verifyPolicySignature(policy) {
+	if !s.verifyPolicySignature(pol) {
 		s.logger.Error("invalid policy signature")
 		return c.JSON(http.StatusForbidden, NewErrorResponse("Invalid policy signature"))
 	}
 
-	newPolicy, err := s.policy.CreatePolicy(c.Request().Context(), policy)
+	newPolicy, err := s.policy.CreatePolicy(c.Request().Context(), pol)
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to create spec policy")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to create policy"))
@@ -362,26 +282,26 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 	return c.JSON(http.StatusOK, newPolicy)
 }
 
-func (s *Server) UpdatePluginPolicyById(c echo.Context) error {
-	var policy vtypes.PluginPolicy
-	if err := c.Bind(&policy); err != nil {
+func (s *Server) handleUpdatePluginPolicyById(c echo.Context) error {
+	var pol vtypes.PluginPolicy
+	if err := c.Bind(&pol); err != nil {
 		return fmt.Errorf("fail to parse request, err: %w", err)
 	}
 
-	if err := s.spec.ValidatePluginPolicy(policy); err != nil {
+	if err := s.spec.ValidatePluginPolicy(pol); err != nil {
 		s.logger.WithError(err).
-			WithField("plugin_id", policy.PluginID).
-			WithField("policy_id", policy.ID).
+			WithField("plugin_id", pol.PluginID).
+			WithField("policy_id", pol.ID).
 			Error("Failed to validate spec policy")
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to validate policy"))
 	}
 
-	if !s.verifyPolicySignature(policy) {
+	if !s.verifyPolicySignature(pol) {
 		s.logger.Error("invalid policy signature")
 		return c.JSON(http.StatusForbidden, NewErrorResponse("Invalid policy signature"))
 	}
 
-	updatedPolicy, err := s.policy.UpdatePolicy(c.Request().Context(), policy)
+	updatedPolicy, err := s.policy.UpdatePolicy(c.Request().Context(), pol)
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to update spec policy")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to update policy"))
@@ -390,7 +310,7 @@ func (s *Server) UpdatePluginPolicyById(c echo.Context) error {
 	return c.JSON(http.StatusOK, updatedPolicy)
 }
 
-func (s *Server) DeletePluginPolicyById(c echo.Context) error {
+func (s *Server) handleDeletePluginPolicyById(c echo.Context) error {
 	var reqBody struct {
 		Signature string `json:"signature"`
 	}
@@ -437,29 +357,7 @@ func (s *Server) DeletePluginPolicyById(c echo.Context) error {
 	})
 }
 
-func (s *Server) GetPolicySchema(c echo.Context) error {
-	pluginID := c.Request().Header.Get("plugin_id") // this is a unique identifier; this won't be needed once the DCA and Payroll are separate services
-	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse("missing required header: plugin_id"))
-	}
-
-	// TODO: need to deal with both DCA and Payroll plugins
-	keyPath := filepath.Join("spec", pluginID, "dcaPluginUiSchema.json")
-	jsonData, err := os.ReadFile(keyPath)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to read spec schema"))
-	}
-
-	var data map[string]interface{}
-	jsonErr := json.Unmarshal(jsonData, &data)
-	if jsonErr != nil {
-		s.logger.WithError(jsonErr).Error("Failed to parse spec schema")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to parse spec schema"))
-	}
-	return c.JSON(http.StatusOK, data)
-}
-
-func (s *Server) GetRecipeSpecification(c echo.Context) error {
+func (s *Server) handleGetRecipeSpecification(c echo.Context) error {
 	recipeSpec, err := s.spec.GetRecipeSpecification()
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get recipe spec")

@@ -1,6 +1,6 @@
 package config
 
-type DatabaseConfig struct {
+type Database struct {
 	DSN string `mapstructure:"dsn" json:"dsn,omitempty"`
 }
 

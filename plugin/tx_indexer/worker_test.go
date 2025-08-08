@@ -7,10 +7,11 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/kelseyhightower/envconfig"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"github.com/vultisig/verifier/common"
-	"github.com/vultisig/verifier/config"
+	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/config"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/conv"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
@@ -21,9 +22,10 @@ func createWorker() (*Worker, context.CancelFunc, storage.TxIndexerRepo, error) 
 
 	logger := logrus.New()
 
-	cfg, err := config.ReadTxIndexerConfig()
+	var cfg config.Config
+	err := envconfig.Process("", &cfg)
 	if err != nil {
-		return nil, stop, nil, fmt.Errorf("config.ReadTxIndexerConfig: %w", err)
+		return nil, stop, nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
 	db, err := storage.NewPostgresTxIndexStore(ctx, cfg.Database.DSN)

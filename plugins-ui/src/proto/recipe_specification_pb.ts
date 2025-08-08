@@ -9,13 +9,15 @@ import { file_constraint } from "./constraint_pb";
 import { file_google_protobuf_struct } from "@bufbuild/protobuf/wkt";
 import type { ResourcePath } from "./resource_pb";
 import { file_resource } from "./resource_pb";
+import type { TargetType } from "./rule_pb";
+import { file_rule } from "./rule_pb";
 import type { JsonObject, Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file recipe_specification.proto.
  */
 export const file_recipe_specification: GenFile = /*@__PURE__*/
-  fileDesc("ChpyZWNpcGVfc3BlY2lmaWNhdGlvbi5wcm90bxIFdHlwZXMijwIKDFJlY2lwZVNjaGVtYRIPCgd2ZXJzaW9uGAEgASgFEhgKEHNjaGVkdWxlX3ZlcnNpb24YAiABKAUSEQoJcGx1Z2luX2lkGAMgASgJEhMKC3BsdWdpbl9uYW1lGAQgASgJEhYKDnBsdWdpbl92ZXJzaW9uGAUgASgFEjMKE3N1cHBvcnRlZF9yZXNvdXJjZXMYBiADKAsyFi50eXBlcy5SZXNvdXJjZVBhdHRlcm4SLwoMcmVxdWlyZW1lbnRzGAggASgLMhkudHlwZXMuUGx1Z2luUmVxdWlyZW1lbnRzEi4KDWNvbmZpZ3VyYXRpb24YCSABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0IpUBCg9SZXNvdXJjZVBhdHRlcm4SKgoNcmVzb3VyY2VfcGF0aBgBIAEoCzITLnR5cGVzLlJlc291cmNlUGF0aBJEChZwYXJhbWV0ZXJfY2FwYWJpbGl0aWVzGAIgAygLMiQudHlwZXMuUGFyYW1ldGVyQ29uc3RyYWludENhcGFiaWxpdHkSEAoIcmVxdWlyZWQYAyABKAgieQodUGFyYW1ldGVyQ29uc3RyYWludENhcGFiaWxpdHkSFgoOcGFyYW1ldGVyX25hbWUYASABKAkSLgoPc3VwcG9ydGVkX3R5cGVzGAIgAygOMhUudHlwZXMuQ29uc3RyYWludFR5cGUSEAoIcmVxdWlyZWQYAyABKAgiTAoSUGx1Z2luUmVxdWlyZW1lbnRzEhwKFG1pbl92dWx0aXNpZ192ZXJzaW9uGAEgASgFEhgKEHN1cHBvcnRlZF9jaGFpbnMYAiADKAlCI1ohZ2l0aHViLmNvbS92dWx0aXNpZy9yZWNpcGVzL3R5cGVzYgZwcm90bzM", [file_constraint, file_google_protobuf_struct, file_resource]);
+  fileDesc("ChpyZWNpcGVfc3BlY2lmaWNhdGlvbi5wcm90bxIFdHlwZXMi9QEKDFJlY2lwZVNjaGVtYRIPCgd2ZXJzaW9uGAEgASgFEhEKCXBsdWdpbl9pZBgDIAEoCRITCgtwbHVnaW5fbmFtZRgEIAEoCRIWCg5wbHVnaW5fdmVyc2lvbhgFIAEoBRIzChNzdXBwb3J0ZWRfcmVzb3VyY2VzGAYgAygLMhYudHlwZXMuUmVzb3VyY2VQYXR0ZXJuEi8KDHJlcXVpcmVtZW50cxgIIAEoCzIZLnR5cGVzLlBsdWdpblJlcXVpcmVtZW50cxIuCg1jb25maWd1cmF0aW9uGAkgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdCK4AQoPUmVzb3VyY2VQYXR0ZXJuEioKDXJlc291cmNlX3BhdGgYASABKAsyEy50eXBlcy5SZXNvdXJjZVBhdGgSRAoWcGFyYW1ldGVyX2NhcGFiaWxpdGllcxgCIAMoCzIkLnR5cGVzLlBhcmFtZXRlckNvbnN0cmFpbnRDYXBhYmlsaXR5EhAKCHJlcXVpcmVkGAMgASgIEiEKBnRhcmdldBgEIAEoDjIRLnR5cGVzLlRhcmdldFR5cGUieQodUGFyYW1ldGVyQ29uc3RyYWludENhcGFiaWxpdHkSFgoOcGFyYW1ldGVyX25hbWUYASABKAkSLgoPc3VwcG9ydGVkX3R5cGVzGAIgASgOMhUudHlwZXMuQ29uc3RyYWludFR5cGUSEAoIcmVxdWlyZWQYAyABKAgiTAoSUGx1Z2luUmVxdWlyZW1lbnRzEhwKFG1pbl92dWx0aXNpZ192ZXJzaW9uGAEgASgFEhgKEHN1cHBvcnRlZF9jaGFpbnMYAiADKAlCI1ohZ2l0aHViLmNvbS92dWx0aXNpZy9yZWNpcGVzL3R5cGVzYgZwcm90bzM", [file_constraint, file_google_protobuf_struct, file_resource, file_rule]);
 
 /**
  * RecipeSchema defines what types of recipes/policies a plugin can handle
@@ -30,13 +32,6 @@ export type RecipeSchema = Message<"types.RecipeSchema"> & {
    * @generated from field: int32 version = 1;
    */
   version: number;
-
-  /**
-   * Scheduling specification version this plugin supports
-   *
-   * @generated from field: int32 schedule_version = 2;
-   */
-  scheduleVersion: number;
 
   /**
    * Plugin identification
@@ -110,6 +105,13 @@ export type ResourcePattern = Message<"types.ResourcePattern"> & {
    * @generated from field: bool required = 3;
    */
   required: boolean;
+
+  /**
+   * Tx 'to'
+   *
+   * @generated from field: types.TargetType target = 4;
+   */
+  target: TargetType;
 };
 
 /**
@@ -135,9 +137,9 @@ export type ParameterConstraintCapability = Message<"types.ParameterConstraintCa
   /**
    * Supported constraint types for this parameter
    *
-   * @generated from field: repeated types.ConstraintType supported_types = 2;
+   * @generated from field: types.ConstraintType supported_types = 2;
    */
-  supportedTypes: ConstraintType[];
+  supportedTypes: ConstraintType;
 
   /**
    * Whether this parameter must be constrained

@@ -16,7 +16,7 @@ type WorkerConfig struct {
 	VaultService vault_config.Config       `mapstructure:"vault_service" json:"vault_service,omitempty"`
 	Redis        config.Redis              `mapstructure:"redis" json:"redis,omitempty"`
 	BlockStorage vault_config.BlockStorage `mapstructure:"block_storage" json:"block_storage,omitempty"`
-	Database     config.DatabaseConfig     `mapstructure:"database" json:"database,omitempty"`
+	Database     config.Database           `mapstructure:"database" json:"database,omitempty"`
 	Plugin       struct {
 		PluginConfigs map[string]map[string]interface{} `mapstructure:"plugin_configs" json:"plugin_configs,omitempty"`
 	} `mapstructure:"plugin" json:"plugin,omitempty"`
@@ -30,7 +30,7 @@ type VerifierConfig struct {
 		Port      int64  `mapstructure:"port" json:"port,omitempty"`
 		JWTSecret string `mapstructure:"jwt_secret" json:"jwt_secret,omitempty"`
 	} `mapstructure:"server" json:"server"`
-	Database         config.DatabaseConfig     `mapstructure:"database" json:"database,omitempty"`
+	Database         config.Database           `mapstructure:"database" json:"database,omitempty"`
 	Redis            config.Redis              `mapstructure:"redis" json:"redis,omitempty"`
 	BlockStorage     vault_config.BlockStorage `mapstructure:"block_storage" json:"block_storage,omitempty"`
 	Datadog          DatadogConfig             `mapstructure:"datadog" json:"datadog"`

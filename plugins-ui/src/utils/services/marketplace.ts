@@ -33,6 +33,8 @@ export const getAuthToken = async (data: AuthTokenForm): Promise<string> =>
     ({ token }) => token
   );
 
+export const getFAQ = () => get<{ data: string[] }>(`${baseUrl}/faq`);
+
 export const getPlugin = async (id: string) =>
   get<Plugin>(`${baseUrl}/plugins/${id}`).then((plugin) => {
     const count =

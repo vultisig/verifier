@@ -1,6 +1,5 @@
-import { Col, Divider, Empty, Form, Row, SelectProps } from "antd";
-import { SearchInput } from "components/InputSearch";
-import { PageHeading } from "components/PageHeading";
+import { Col, Empty, Row, SelectProps } from "antd";
+import { Divider } from "components/Divider";
 import { PluginItem } from "components/PluginItem";
 import { Select } from "components/Select";
 import { Spin } from "components/Spin";
@@ -10,10 +9,10 @@ import { debounce } from "lodash-es";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTheme } from "styled-components";
 import { getPluginCategories, getPlugins } from "utils/services/marketplace";
-import { Plugin, PluginFilters } from "utils/types";
+import { Category, Plugin, PluginFilters } from "utils/types";
 
 type InitialState = {
-  categoryOptions: NonNullable<SelectProps["options"]>;
+  categories: Category[];
   loading: boolean;
   plugins: Plugin[];
   sortOptions: NonNullable<SelectProps["options"]>;
@@ -21,7 +20,7 @@ type InitialState = {
 
 export const PluginsPage = () => {
   const initialState: InitialState = {
-    categoryOptions: [],
+    categories: [],
     loading: true,
     plugins: [],
     sortOptions: [
@@ -30,10 +29,10 @@ export const PluginsPage = () => {
     ],
   };
   const [state, setState] = useState(initialState);
-  const { categoryOptions, loading, plugins, sortOptions } = state;
-  const [form] = Form.useForm<PluginFilters>();
+  const { categories, loading, plugins, sortOptions } = state;
   const { filters, setFilters } = useFilterParams<PluginFilters>();
   const colors = useTheme();
+  const [newPlugin] = plugins;
 
   const fetchPlugins = useCallback((skip: number, filters: PluginFilters) => {
     setState((prevState) => ({ ...prevState, loading: true }));
@@ -46,10 +45,6 @@ export const PluginsPage = () => {
         setState((prevState) => ({ ...prevState, loading: false }));
       });
   }, []);
-
-  const handleChange = (_: unknown, values: PluginFilters) => {
-    setFilters(values);
-  };
 
   const debouncedFetchPlugins = useMemo(
     () => debounce(fetchPlugins, 500),
@@ -64,11 +59,7 @@ export const PluginsPage = () => {
   useEffect(() => {
     getPluginCategories()
       .then((categories) => {
-        const categoryOptions: SelectProps["options"] = categories.map(
-          ({ id, name }) => ({ value: id, label: name })
-        );
-
-        setState((prevState) => ({ ...prevState, categoryOptions }));
+        setState((prevState) => ({ ...prevState, categories }));
       })
       .catch(() => {});
   }, []);
@@ -93,7 +84,7 @@ export const PluginsPage = () => {
         }}
       />
 
-      <Stack $style={{ flexDirection: "column", gap: "32px" }}>
+      <Stack $style={{ flexDirection: "column", flexGrow: "1", gap: "32px" }}>
         <Stack $style={{ flexDirection: "column", gap: "24px" }}>
           <Stack
             as="span"
@@ -101,66 +92,118 @@ export const PluginsPage = () => {
               fontSize: "40px",
               fontWeight: "500",
               lineHeight: "42px",
-              margin: "0",
             }}
           >
             Discover Apps
           </Stack>
-          <Stack
-            as="span"
-            $style={{
-              backgroundColor: colors.borderLight.toHex(),
-              height: "1px",
-            }}
-          />
-          <Form
-            form={form}
-            initialValues={filters}
-            layout="vertical"
-            onValuesChange={handleChange}
-          >
-            <Row gutter={[16, 16]}>
-              <Col xs={24} md={12} xl={8}>
-                <Form.Item<PluginFilters> name="term" noStyle>
-                  <SearchInput placeholder="Search by" />
-                </Form.Item>
-              </Col>
-              <Col xs={12} md={6} xl={{ span: 4, offset: 8 }}>
-                <Form.Item<PluginFilters> name="category" noStyle>
-                  <Select
-                    options={categoryOptions}
-                    placeholder="Category"
-                    allowClear
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={12} md={6} xl={4}>
-                <Form.Item<PluginFilters> name="sort" noStyle>
-                  <Select options={sortOptions} placeholder="Sort" allowClear />
-                </Form.Item>
-              </Col>
-            </Row>
-          </Form>
+          <Divider />
+          <Stack $style={{ flexDirection: "row", gap: "12px" }}>
+            <Stack
+              $style={{ flexDirection: "row", flexGrow: "1", gap: "12px" }}
+            >
+              {categories.map(({ id, name }) => (
+                <Stack
+                  as="span"
+                  key={id}
+                  onClick={() => setFilters({ ...filters, category: id })}
+                  $hover={{
+                    backgroundColor: colors.textSecondary.toHex(),
+                    color: colors.buttonText.toHex(),
+                  }}
+                  $style={{
+                    alignItems: "center",
+                    backgroundColor:
+                      filters.category === id
+                        ? colors.textSecondary.toHex()
+                        : colors.bgSecondary.toHex(),
+                    border: `solid 1px ${colors.borderNormal.toHex()}`,
+                    borderRadius: "8px",
+                    color:
+                      filters.category === id
+                        ? colors.buttonText.toHex()
+                        : colors.textPrimary.toHex(),
+                    cursor: "pointer",
+                    flexDirection: "column",
+                    fontSize: "12px",
+                    fontWeight: "500",
+                    gap: "8px",
+                    justifyContent: "center",
+                    height: "40px",
+                    padding: "0 24px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {name}
+                </Stack>
+              ))}
+            </Stack>
+            <Stack
+              $style={{
+                alignItems: "center",
+                flexDirection: "row",
+                gap: "12px",
+                width: "200px",
+              }}
+            >
+              <Stack as="span" $style={{ whiteSpace: "nowrap" }}>
+                Sort By
+              </Stack>
+              <Select options={sortOptions} value={filters.sort} allowClear />
+            </Stack>
+          </Stack>
         </Stack>
 
         {loading ? (
           <Stack
+            as={Spin}
             $style={{
               alignItems: "center",
               flexGrow: "1",
               justifyContent: "center",
             }}
-          >
-            <Spin />
-          </Stack>
+          />
         ) : plugins.length ? (
-          <Row gutter={[16, 16]}>
-            {plugins.map((plugin) => (
-              <Col key={plugin.id} xs={24} md={12} xl={8}>
-                <PluginItem {...plugin} />
-              </Col>
-            ))}
-          </Row>
+          <>
+            {newPlugin ? (
+              <>
+                <Stack $style={{ flexDirection: "column", gap: "16px" }}>
+                  <Stack
+                    as="span"
+                    $style={{
+                      fontSize: "17px",
+                      fontWeight: "500",
+                      lineHeight: "20px",
+                    }}
+                  >
+                    New
+                  </Stack>
+                  <PluginItem plugin={newPlugin} horizontal />
+                </Stack>
+                <Divider />
+              </>
+            ) : (
+              <></>
+            )}
+            <Stack $style={{ flexDirection: "column", gap: "16px" }}>
+              <Stack
+                as="span"
+                $style={{
+                  fontSize: "17px",
+                  fontWeight: "500",
+                  lineHeight: "20px",
+                }}
+              >
+                All Apps
+              </Stack>
+              <Row gutter={[32, 32]}>
+                {plugins.map((plugin) => (
+                  <Col key={plugin.id} xs={12} xl={8}>
+                    <PluginItem plugin={plugin} />
+                  </Col>
+                ))}
+              </Row>
+            </Stack>
+          </>
         ) : (
           <Empty />
         )}

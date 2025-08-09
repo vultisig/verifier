@@ -1,4 +1,5 @@
 export const routeKeys = [
+  "faq",
   "notFound",
   "plugins",
   "pluginDetails",
@@ -8,6 +9,7 @@ export const routeKeys = [
 export type RouteKey = (typeof routeKeys)[number];
 
 export const routeTree = {
+  faq: { path: "/faq" },
   notFound: { path: "*" },
   plugins: { path: "/plugins" },
   pluginDetails: {

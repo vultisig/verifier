@@ -3,7 +3,11 @@ import { FC } from "react";
 import { useTheme } from "styled-components";
 import { Plugin, PluginPricing } from "utils/types";
 
-export const Pricing: FC<Pick<Plugin, "pricing">> = ({ pricing }) => {
+type PricingProps = Pick<Plugin, "pricing"> & {
+  center?: boolean;
+};
+
+export const Pricing: FC<PricingProps> = ({ center, pricing }) => {
   const colors = useTheme();
 
   const pricingText = ({ amount, frequency, type }: PluginPricing) => {
@@ -23,8 +27,10 @@ export const Pricing: FC<Pick<Plugin, "pricing">> = ({ pricing }) => {
     <Stack
       as="span"
       $style={{
-        color: colors.textTertiary.toHex(),
+        alignItems: center ? "center" : "normal",
+        color: colors.textSecondary.toHex(),
         flexDirection: "column",
+        flexGrow: "1",
         fontWeight: "500",
       }}
     >

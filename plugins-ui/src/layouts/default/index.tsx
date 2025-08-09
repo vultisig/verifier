@@ -178,16 +178,18 @@ export const DefaultLayout = () => {
             >
               Marketplace
             </Stack>
+            {isConnected && (
+              <Stack
+                as={Link}
+                to={routeTree.plugins.path}
+                $hover={{ color: colors.accentThree.toHex() }}
+              >
+                My Apps
+              </Stack>
+            )}
             <Stack
               as={Link}
-              to={routeTree.plugins.path}
-              $hover={{ color: colors.accentThree.toHex() }}
-            >
-              My Apps
-            </Stack>
-            <Stack
-              as={Link}
-              to={routeTree.plugins.path}
+              to={routeTree.faq.path}
               $hover={{ color: colors.accentThree.toHex() }}
             >
               FAQ

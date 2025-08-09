@@ -5,6 +5,7 @@ import { AppContext } from "context/AppContext";
 import { hexlify, randomBytes } from "ethers";
 import { i18nInstance } from "i18n/config";
 import { DefaultLayout } from "layouts/default";
+import { FaqPage } from "pages/faq";
 import { NotFoundPage } from "pages/not_found";
 import { PluginDetailsPage } from "pages/plugin_details";
 import { PluginsPage } from "pages/plugins";
@@ -255,9 +256,10 @@ export const App = () => {
                       path={routeTree.plugins.path}
                     />
                     <Route
-                      path={routeTree.pluginDetails.path}
                       element={<PluginDetailsPage />}
+                      path={routeTree.pluginDetails.path}
                     />
+                    <Route element={<FaqPage />} path={routeTree.faq.path} />
                   </Route>
                   <Route
                     path={routeTree.notFound.path}

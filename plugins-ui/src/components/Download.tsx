@@ -1,25 +1,21 @@
 import { Stack } from "components/Stack";
-import { StarIcon } from "icons/StarIcon";
+import { CircleArrowDownIcon } from "icons/CircleArrowDownIcon";
 import { FC } from "react";
 import { useTheme } from "styled-components";
+import { toNumeralFormat } from "utils/functions";
 
-type RateProps = {
-  count: number;
+type DownloadProps = {
   value: number;
 };
 
-export const Rate: FC<RateProps> = ({ count, value }) => {
+export const Download: FC<DownloadProps> = ({ value }) => {
   const colors = useTheme();
 
   return (
     <Stack $style={{ alignItems: "center", gap: "2px" }}>
       <Stack
-        as={StarIcon}
-        $style={{
-          color: colors.warning.toHex(),
-          fill: colors.warning.toHex(),
-          fontSize: "14px",
-        }}
+        as={CircleArrowDownIcon}
+        $style={{ color: colors.textTertiary.toHex(), fontSize: "16px" }}
       />
       <Stack
         as="span"
@@ -29,7 +25,9 @@ export const Rate: FC<RateProps> = ({ count, value }) => {
           fontWeight: "500",
           lineHeight: "16px",
         }}
-      >{`${value}/5 (${count})`}</Stack>
+      >
+        {toNumeralFormat(value)}
+      </Stack>
     </Stack>
   );
 };

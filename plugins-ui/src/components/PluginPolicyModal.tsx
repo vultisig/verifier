@@ -306,7 +306,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
                 >
                   <Select disabled={isFeesPlugin} options={resourceOptions} />
                 </Form.Item>
-                <Form.Item
+                <Form.Item<FieldType>
                   shouldUpdate={(prevValues, currentValues) =>
                     prevValues.supportedResource !==
                     currentValues.supportedResource

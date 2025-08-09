@@ -39,6 +39,10 @@ export const AntdProvider: FC<AntdProviderProps> = ({ children, theme }) => {
           activeShadow: "none",
           hoverBorderColor: colors.borderNormal.toHex(),
         },
+        Collapse: {
+          contentPadding: 0,
+          headerPadding: 0,
+        },
         Dropdown: {
           fontSize: 16,
           fontSizeSM: 20,

@@ -2,14 +2,11 @@ import { Button } from "components/Button";
 import { Pricing } from "components/Pricing";
 import { Rate } from "components/Rate";
 import { Stack } from "components/Stack";
-import { Tag } from "components/Tag";
-import { useApp } from "hooks/useApp";
-import { FC, useEffect, useState } from "react";
+import { FC } from "react";
 import { useTheme } from "styled-components";
 import { routeTree } from "utils/constants/routes";
-import { toCapitalizeFirst } from "utils/functions";
-import { isPluginInstalled } from "utils/services/marketplace";
 import { Plugin } from "utils/types";
+
 import { Download } from "./Download";
 
 type PluginItemProps = {
@@ -17,27 +14,9 @@ type PluginItemProps = {
   horizontal?: boolean;
 };
 
-type InitialState = {
-  isInstalled?: boolean;
-};
-
 export const PluginItem: FC<PluginItemProps> = ({ horizontal, plugin }) => {
-  const initialState: InitialState = {};
-  const [state, setState] = useState(initialState);
-  const { isInstalled } = state;
-  const { categoryId, description, id, pricing, title } = plugin;
-  const { isConnected } = useApp();
+  const { description, id, pricing, title } = plugin;
   const colors = useTheme();
-
-  // useEffect(() => {
-  //   if (isConnected) {
-  //     isPluginInstalled(id).then((isInstalled) => {
-  //       setState((prevState) => ({ ...prevState, isInstalled }));
-  //     });
-  //   } else {
-  //     setState((prevState) => ({ ...prevState, isInstalled: undefined }));
-  //   }
-  // }, [id, isConnected]);
 
   return (
     <Stack

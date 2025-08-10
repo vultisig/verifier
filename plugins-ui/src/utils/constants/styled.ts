@@ -132,8 +132,8 @@ export const themes: Record<Theme, DefaultTheme> = {
   },
   light: {
     ...sharedColors,
-    bgPrimary: new ColorToken(226, 21, 97), //hsla(226, 21%, 97%, 1)
-    bgSecondary: new ColorToken(0, 0, 100), //hsla(0, 0%, 100%, 1)
+    bgPrimary: new ColorToken(0, 0, 100), //hsla(0, 0%, 100%, 1)
+    bgSecondary: new ColorToken(226, 21, 97), //hsla(226, 21%, 97%, 1)
     bgTertiary: new ColorToken(240, 20, 97), //hsla(240, 20%, 97%, 1)
     borderLight: new ColorToken(0, 0, 0, 0.05), //hsla(0, 0%, 0%, 0.05)
     borderNormal: new ColorToken(0, 0, 0, 0.1), //hsla(0, 0%, 0%, 0.1)

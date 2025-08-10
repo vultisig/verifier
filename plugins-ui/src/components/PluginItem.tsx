@@ -1,13 +1,13 @@
 import { Button } from "components/Button";
 import { Pricing } from "components/Pricing";
-import { Rate } from "components/Rate";
 import { Stack } from "components/Stack";
+import { CircleArrowDownIcon } from "icons/CircleArrowDownIcon";
+import { StarIcon } from "icons/StarIcon";
 import { FC } from "react";
 import { useTheme } from "styled-components";
 import { routeTree } from "utils/constants/routes";
+import { toNumeralFormat } from "utils/functions";
 import { Plugin } from "utils/types";
-
-import { Download } from "./Download";
 
 type PluginItemProps = {
   plugin: Plugin;
@@ -77,7 +77,26 @@ export const PluginItem: FC<PluginItemProps> = ({ horizontal, plugin }) => {
                 gap: "8px",
               }}
             >
-              <Download value={1258} />
+              <Stack $style={{ alignItems: "center", gap: "2px" }}>
+                <Stack
+                  as={CircleArrowDownIcon}
+                  $style={{
+                    color: colors.textTertiary.toHex(),
+                    fontSize: "16px",
+                  }}
+                />
+                <Stack
+                  as="span"
+                  $style={{
+                    color: colors.textTertiary.toHex(),
+                    fontSize: "12px",
+                    fontWeight: "500",
+                    lineHeight: "16px",
+                  }}
+                >
+                  {toNumeralFormat(1258)}
+                </Stack>
+              </Stack>
               <Stack
                 $style={{
                   backgroundColor: colors.borderLight.toHex(),
@@ -85,7 +104,25 @@ export const PluginItem: FC<PluginItemProps> = ({ horizontal, plugin }) => {
                   width: "3px",
                 }}
               />
-              <Rate count={128} value={4.5} />
+              <Stack $style={{ alignItems: "center", gap: "2px" }}>
+                <Stack
+                  as={StarIcon}
+                  $style={{
+                    color: colors.warning.toHex(),
+                    fill: colors.warning.toHex(),
+                    fontSize: "14px",
+                  }}
+                />
+                <Stack
+                  as="span"
+                  $style={{
+                    color: colors.textTertiary.toHex(),
+                    fontSize: "12px",
+                    fontWeight: "500",
+                    lineHeight: "16px",
+                  }}
+                >{`${4.5}/5 (${128})`}</Stack>
+              </Stack>
             </Stack>
           </Stack>
         </Stack>

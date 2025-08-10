@@ -1,4 +1,4 @@
-import { Col, Empty, Row, SelectProps } from "antd";
+import { Empty, SelectProps } from "antd";
 import { Divider } from "components/Divider";
 import { PluginItem } from "components/PluginItem";
 import { Select } from "components/Select";
@@ -154,14 +154,7 @@ export const PluginsPage = () => {
         </Stack>
 
         {loading ? (
-          <Stack
-            as={Spin}
-            $style={{
-              alignItems: "center",
-              flexGrow: "1",
-              justifyContent: "center",
-            }}
-          />
+          <Spin />
         ) : plugins.length ? (
           <>
             {newPlugin ? (
@@ -195,13 +188,20 @@ export const PluginsPage = () => {
               >
                 All Apps
               </Stack>
-              <Row gutter={[32, 32]}>
+              <Stack
+                $style={{
+                  display: "grid",
+                  gap: "32px",
+                  gridTemplateColumns: "repeat(2, 1fr)",
+                }}
+                $media={{
+                  xl: { $style: { gridTemplateColumns: "repeat(3, 1fr)" } },
+                }}
+              >
                 {plugins.map((plugin) => (
-                  <Col key={plugin.id} xs={12} xl={8}>
-                    <PluginItem plugin={plugin} />
-                  </Col>
+                  <PluginItem key={plugin.id} plugin={plugin} />
                 ))}
-              </Row>
+              </Stack>
             </Stack>
           </>
         ) : (

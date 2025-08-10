@@ -462,9 +462,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
               </Stack>
             </>
           ) : (
-            <Stack $style={{ alignItems: "center", justifyContent: "center" }}>
-              <Spin />
-            </Stack>
+            <Spin />
           )}
         </Form>
       </Drawer>

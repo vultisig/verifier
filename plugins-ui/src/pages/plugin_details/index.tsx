@@ -1,21 +1,23 @@
-import { Col, Layout, message, Modal, Row, Tabs } from "antd";
+import { Menu, message, Modal, Tooltip } from "antd";
 import { Button } from "components/Button";
 import { PluginPolicyList } from "components/PluginPolicyList";
 import { PluginReviewList } from "components/PluginReviewList";
 import { Pricing } from "components/Pricing";
-import { Rate } from "components/Rate";
 import { Spin } from "components/Spin";
 import { Stack } from "components/Stack";
-import { Tag } from "components/Tag";
 import { useApp } from "hooks/useApp";
 import { useGoBack } from "hooks/useGoBack";
+import { BadgeCheckIcon } from "icons/BadgeCheckIcon";
 import { ChevronLeftIcon } from "icons/ChevronLeftIcon";
+import { CircleArrowDownIcon } from "icons/CircleArrowDownIcon";
+import { CircleInfoIcon } from "icons/CircleInfoIcon";
+import { ShieldCheckIcon } from "icons/ShieldCheckIcon";
+import { StarIcon } from "icons/StarIcon";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useTheme } from "styled-components";
-import { modalHash } from "utils/constants/core";
 import { routeTree } from "utils/constants/routes";
-import { toCapitalizeFirst } from "utils/functions";
+import { toNumeralFormat } from "utils/functions";
 import { startReshareSession } from "utils/services/extension";
 import {
   getPlugin,
@@ -38,7 +40,6 @@ export const PluginDetailsPage = () => {
   const { connect, isConnected } = useApp();
   const [messageApi, messageHolder] = message.useMessage();
   const [modalAPI, modalHolder] = Modal.useModal();
-  const navigate = useNavigate();
   const goBack = useGoBack();
   const colors = useTheme();
   const isMountedRef = useRef(true);
@@ -128,180 +129,326 @@ export const PluginDetailsPage = () => {
     <>
       {plugin ? (
         <Stack
-          as={Layout.Content}
           $style={{
-            justifyContent: "center",
-            padding: "16px 0",
-            position: "relative",
+            flexDirection: "column",
+            gap: "64px",
+            maxWidth: "1200px",
+            padding: "0 16px",
+            width: "100%",
           }}
+          $media={{ xl: { $style: { flexDirection: "row" } } }}
         >
           <Stack
             $style={{
               flexDirection: "column",
-              gap: "16px",
-              maxWidth: "1200px",
-              padding: "0 16px",
-              position: "relative",
-              width: "100%",
-              zIndex: "1",
+              gap: "32px",
+              paddingTop: "24px",
+            }}
+            $media={{
+              xl: { $style: { flexGrow: "1", paddingBottom: "24px" } },
             }}
           >
-            <Stack>
+            <Stack $style={{ flexDirection: "column", gap: "24px" }}>
               <Stack
                 as="span"
                 $style={{
                   alignItems: "center",
+                  border: `solid 1px ${colors.borderNormal.toHex()}`,
+                  borderRadius: "18px",
                   cursor: "pointer",
-                  gap: "8px",
+                  fontSize: "12px",
+                  fontWeight: "500",
+                  gap: "4px",
+                  height: "36px",
+                  padding: "0 12px",
                   width: "fit-content",
                 }}
                 $hover={{ color: colors.textTertiary.toHex() }}
                 onClick={() => goBack(routeTree.plugins.path)}
               >
-                <ChevronLeftIcon fontSize={20} />
-                Back to All Plugins
+                <ChevronLeftIcon fontSize={16} />
+                Go back
               </Stack>
-            </Stack>
-            <Row gutter={[16, 16]}>
-              <Col xs={24} lg={12} xl={10}>
-                <Stack
-                  as="img"
-                  alt={plugin.title}
-                  src={`/plugins/${id}.jpg`}
-                  $style={{ borderRadius: "12px", width: "100%" }}
-                />
-              </Col>
               <Stack
-                as={Col}
-                xs={24}
-                lg={12}
-                xl={14}
-                $style={{ flexDirection: "column", gap: "16px" }}
+                $style={{
+                  backgroundColor: colors.bgTertiary.toHex(),
+                  borderRadius: "32px",
+                  flexDirection: "column",
+                  padding: "16px",
+                }}
               >
-                <Stack $style={{ gap: "8px" }}>
-                  <Tag
-                    color="success"
-                    text={toCapitalizeFirst(plugin.categoryId)}
-                  />
-                  {isInstalled && (
-                    <Tag color="buttonPrimary" text="Installed" />
-                  )}
-                </Stack>
                 <Stack
                   $style={{
-                    flexDirection: "column",
-                    flexGrow: "1",
-                    gap: "8px",
+                    backgroundColor: colors.bgPrimary.toHex(),
+                    border: `solid 1px ${colors.borderNormal.toHex()}`,
+                    borderRadius: "24px",
+                    justifyContent: "space-between",
+                    padding: "24px",
                   }}
                 >
                   <Stack
-                    as="span"
                     $style={{
-                      fontSize: "40px",
-                      fontWeight: "500",
-                      lineHeight: "42px",
+                      alignItems: "center",
+                      flexDirection: "row",
+                      gap: "16px",
                     }}
                   >
-                    {plugin.title}
-                  </Stack>
-                  <Stack
-                    as="span"
-                    $style={{ flexGrow: "1", lineHeight: "20px" }}
-                  >
-                    {plugin.description}
-                  </Stack>
-                </Stack>
-                <Stack $style={{ flexDirection: "column", gap: "24px" }}>
-                  <Stack
-                    $style={{
-                      alignItems: "end",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <Rate
-                      count={plugin.rating.count}
-                      value={plugin.rating.rate}
+                    <Stack
+                      as="img"
+                      alt={plugin.title}
+                      src={`/plugins/payroll.png`}
+                      $style={{ height: "72px", width: "72px" }}
                     />
-                    <Pricing pricing={plugin.pricing} />
-                  </Stack>
-                  <Stack $style={{ gap: "16px" }}>
-                    {isConnected ? (
-                      <>
-                        {isInstalled === undefined ? (
-                          <Button kind="primary" disabled loading>
-                            Checking
-                          </Button>
-                        ) : isInstalled ? (
-                          <>
-                            <Button
-                              loading={loading}
-                              onClick={handleUninstall}
-                              status="danger"
-                            >
-                              Uninstall
-                            </Button>
-                            <Button
-                              disabled={loading}
-                              kind="primary"
-                              onClick={() =>
-                                navigate(modalHash.policy, { state: true })
-                              }
-                            >
-                              View Policy Schema
-                            </Button>
-                          </>
-                        ) : (
-                          <Button
-                            kind="primary"
-                            loading={loading}
-                            onClick={handleInstall}
+                    <Stack
+                      $style={{
+                        flexDirection: "column",
+                        gap: "8px",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Stack
+                        as="span"
+                        $style={{
+                          fontSize: "22px",
+                          fontWeight: "500",
+                          lineHeight: "24px",
+                        }}
+                      >
+                        {plugin.title}
+                      </Stack>
+                      <Stack
+                        $style={{
+                          alignItems: "center",
+                          flexDirection: "row",
+                          gap: "8px",
+                        }}
+                      >
+                        <Stack $style={{ alignItems: "center", gap: "2px" }}>
+                          <Stack
+                            as={CircleArrowDownIcon}
+                            $style={{
+                              color: colors.textTertiary.toHex(),
+                              fontSize: "16px",
+                            }}
+                          />
+                          <Stack
+                            as="span"
+                            $style={{
+                              color: colors.textTertiary.toHex(),
+                              fontWeight: "500",
+                              lineHeight: "20px",
+                            }}
                           >
-                            Install
-                          </Button>
-                        )}
-                      </>
+                            {toNumeralFormat(1258)}
+                          </Stack>
+                        </Stack>
+                        <Stack
+                          $style={{
+                            backgroundColor: colors.borderLight.toHex(),
+                            height: "3px",
+                            width: "3px",
+                          }}
+                        />
+                        <Stack $style={{ alignItems: "center", gap: "2px" }}>
+                          <Stack
+                            as={StarIcon}
+                            $style={{
+                              color: colors.warning.toHex(),
+                              fill: colors.warning.toHex(),
+                              fontSize: "16px",
+                            }}
+                          />
+                          <Stack
+                            as="span"
+                            $style={{
+                              color: colors.textTertiary.toHex(),
+                              fontWeight: "500",
+                              lineHeight: "20px",
+                            }}
+                          >
+                            {plugin.rating.count
+                              ? `${plugin.rating.rate}/5 (${plugin.rating.count})`
+                              : "No Rating yet"}
+                          </Stack>
+                        </Stack>
+                      </Stack>
+                    </Stack>
+                  </Stack>
+                  <Stack
+                    $style={{
+                      flexDirection: "column",
+                      gap: "16px",
+                    }}
+                  >
+                    {isConnected ? (
+                      isInstalled === undefined ? (
+                        <Button kind="primary" disabled loading>
+                          Checking
+                        </Button>
+                      ) : isInstalled ? (
+                        <Button
+                          loading={loading}
+                          onClick={handleUninstall}
+                          status="danger"
+                        >
+                          Uninstall
+                        </Button>
+                      ) : (
+                        <Button
+                          kind="primary"
+                          loading={loading}
+                          onClick={handleInstall}
+                        >
+                          Install
+                        </Button>
+                      )
                     ) : (
                       <Button kind="primary" onClick={connect}>
                         Connect
                       </Button>
                     )}
+                    <Pricing pricing={plugin.pricing} />
                   </Stack>
                 </Stack>
               </Stack>
-            </Row>
-            <Tabs
+            </Stack>
+
+            <Stack
+              as={Menu}
               items={[
-                {
-                  key: "1",
-                  label: "Overview",
-                  children: <PluginPolicyList {...plugin} />,
-                },
-                {
-                  key: "2",
-                  label: "Reviews and Ratings",
-                  children: (
-                    <PluginReviewList
-                      isInstalled={isInstalled}
-                      onInstall={handleInstall}
-                      plugin={plugin}
-                    />
-                  ),
-                },
+                { key: "1", label: "Overview" },
+                { key: "2", label: "Reviews and Ratings" },
               ]}
+              mode="horizontal"
+              selectedKeys={["1"]}
+              $style={{ position: "sticky", top: "72px", zIndex: "2" }}
             />
+
+            <Stack as="span">
+              Set and forget payroll for your team. Automate recurring team
+              payments with confidence. This plugin makes it easy to set,
+              schedule, and manage payroll so you can focus on building while
+              your contributors get paid on time.
+            </Stack>
+            <PluginPolicyList {...plugin} />
+            <PluginReviewList
+              isInstalled={isInstalled}
+              onInstall={handleInstall}
+              plugin={plugin}
+            />
+          </Stack>
+          <Stack
+            as="span"
+            $style={{
+              backgroundColor: colors.borderLight.toHex(),
+              height: "1px",
+            }}
+            $media={{ xl: { $style: { height: "auto", width: "1px" } } }}
+          />
+          <Stack
+            $style={{ flexDirection: "column", paddingBottom: "24px" }}
+            $media={{
+              xl: {
+                $style: {
+                  flex: "none",
+                  paddingTop: "84px",
+                  width: "322px",
+                },
+              },
+            }}
+          >
+            <Stack
+              $style={{ flexDirection: "column", gap: "20px" }}
+              $media={{ xl: { $style: { position: "sticky", top: "96px" } } }}
+            >
+              <Stack
+                $style={{
+                  border: `solid 1px ${colors.borderNormal.toHex()}`,
+                  borderRadius: "24px",
+                  flexDirection: "column",
+                  gap: "12px",
+                  padding: "32px",
+                }}
+              >
+                <Stack
+                  as="span"
+                  $style={{
+                    fontSize: "16px",
+                    fontWeight: "500",
+                    lineHeight: "24px",
+                  }}
+                >
+                  App Permissions
+                </Stack>
+                {[
+                  "Access to transaction signing",
+                  "Fee deduction authorization",
+                  "Vault balance visibility",
+                ].map((item, index) => (
+                  <Stack key={index} $style={{ gap: "8px" }}>
+                    <ShieldCheckIcon
+                      color={colors.warning.toHex()}
+                      fontSize={16}
+                    />
+                    <Stack
+                      as="span"
+                      $style={{
+                        color: colors.textSecondary.toHex(),
+                        fontWeight: "500",
+                        lineHeight: "18px",
+                      }}
+                    >
+                      {item}
+                    </Stack>
+                    <Tooltip title="Required to securely approve and route plugin payment transactions through your vault.">
+                      <CircleInfoIcon />
+                    </Tooltip>
+                  </Stack>
+                ))}
+              </Stack>
+              <Stack
+                $style={{
+                  border: `solid 1px ${colors.borderNormal.toHex()}`,
+                  borderRadius: "24px",
+                  flexDirection: "column",
+                  gap: "12px",
+                  padding: "32px",
+                }}
+              >
+                <Stack
+                  as="span"
+                  $style={{
+                    fontSize: "16px",
+                    fontWeight: "500",
+                    lineHeight: "24px",
+                  }}
+                >
+                  Audit
+                </Stack>
+                {["Fully audited, check the certificate"].map((item, index) => (
+                  <Stack key={index} $style={{ gap: "8px" }}>
+                    <BadgeCheckIcon
+                      color={colors.success.toHex()}
+                      fontSize={16}
+                    />
+                    <Stack
+                      as="span"
+                      $style={{
+                        color: colors.textSecondary.toHex(),
+                        fontWeight: "500",
+                        lineHeight: "18px",
+                      }}
+                    >
+                      {item}
+                    </Stack>
+                  </Stack>
+                ))}
+              </Stack>
+            </Stack>
           </Stack>
         </Stack>
       ) : (
-        <Stack
-          as={Layout.Content}
-          $style={{
-            alignItems: "center",
-            flexGrow: "1",
-            justifyContent: "center",
-          }}
-        >
-          <Spin />
-        </Stack>
+        <Spin />
       )}
 
       {messageHolder}

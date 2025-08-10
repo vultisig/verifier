@@ -1,13 +1,21 @@
 ﻿import { Stack } from "components/Stack";
+import { FC } from "react";
 import { useTheme } from "styled-components";
 
-export const Divider = () => {
+type DividerProps = {
+  vertical?: boolean;
+};
+
+export const Divider: FC<DividerProps> = ({ vertical }) => {
   const colors = useTheme();
 
   return (
     <Stack
       as="span"
-      $style={{ backgroundColor: colors.borderLight.toHex(), height: "1px" }}
+      $style={{
+        backgroundColor: colors.borderLight.toHex(),
+        ...(vertical ? { width: "1px" } : { height: "1px" }),
+      }}
     />
   );
 };

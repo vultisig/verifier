@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
 	rtypes "github.com/vultisig/recipes/types"
+	"github.com/vultisig/verifier/plugin/libhttp"
 
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/types"
@@ -21,6 +22,11 @@ type Plugin interface {
 	GetPluginWithRating(ctx context.Context, pluginId string) (*types.PluginWithRatings, error)
 	CreatePluginReviewWithRating(ctx context.Context, reviewDto types.ReviewCreateDto, pluginId string) (*types.ReviewDto, error)
 	GetPluginRecipeSpecification(ctx context.Context, pluginID string) (*rtypes.RecipeSchema, error)
+	GetPluginRecipeSpecificationSuggest(
+		ctx context.Context,
+		pluginID string,
+		configuration map[string]any,
+	) (*rtypes.PolicySuggest, error)
 }
 
 type PluginServiceStorage interface {
@@ -201,6 +207,63 @@ func (s *PluginService) GetPluginRecipeSpecification(ctx context.Context, plugin
 			s.logger.WithError(err).Warnf("Failed to cache recipe spec for plugin %s", pluginID)
 		}
 		s.logger.Debugf("[GetPluginRecipeSpecification] Cached recipe spec for plugin %s\n", pluginID)
+	}
+
+	return recipeSpec, nil
+}
+
+// GetPluginRecipeSpecificationSuggest fetches recipe suggest from plugin server with caching
+func (s *PluginService) GetPluginRecipeSpecificationSuggest(
+	ctx context.Context,
+	pluginID string,
+	configuration map[string]any,
+) (*rtypes.PolicySuggest, error) {
+	cacheKey := fmt.Sprintf("recipe_suggest:%s", pluginID)
+
+	if s.redis != nil {
+		cached, err := s.redis.Get(ctx, cacheKey)
+		if err == nil && cached != "" {
+			cachedSpec := &rtypes.PolicySuggest{}
+			if err := json.Unmarshal([]byte(cached), cachedSpec); err == nil {
+				s.logger.Debugf("[GetPluginRecipeSpecificationSuggest] Cache hit for plugin %s\n", pluginID)
+				return cachedSpec, nil
+			}
+		}
+	}
+
+	plugin, err := s.db.FindPluginById(ctx, nil, ptypes.PluginID(pluginID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to find plugin: %w", err)
+	}
+
+	type req struct {
+		Configuration map[string]any `json:"configuration"`
+	}
+
+	recipeSpec, err := libhttp.Call[*rtypes.PolicySuggest](
+		ctx,
+		http.MethodGet,
+		plugin.ServerEndpoint+"/plugin/recipe-specification/suggest",
+		map[string]string{
+			"Content-Type": "application/json",
+		},
+		req{
+			Configuration: configuration,
+		},
+		map[string]string{},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recipe spec: %w", err)
+	}
+
+	// Cache the result for 2 hours
+	if s.redis != nil {
+		specBytes, _ := json.Marshal(recipeSpec)
+		_ = s.redis.Set(ctx, cacheKey, string(specBytes), 2*time.Hour)
+		if err := s.redis.Set(ctx, cacheKey, string(specBytes), 2*time.Hour); err != nil {
+			s.logger.WithError(err).Warnf("Failed to cache recipe spec for plugin %s", pluginID)
+		}
+		s.logger.Debugf("[GetPluginRecipeSpecificationSuggest] Cached recipe spec for plugin %s\n", pluginID)
 	}
 
 	return recipeSpec, nil

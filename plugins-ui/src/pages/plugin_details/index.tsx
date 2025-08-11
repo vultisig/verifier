@@ -14,8 +14,9 @@ import { CircleInfoIcon } from "icons/CircleInfoIcon";
 import { ShieldCheckIcon } from "icons/ShieldCheckIcon";
 import { StarIcon } from "icons/StarIcon";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useTheme } from "styled-components";
+import { modalHash } from "utils/constants/core";
 import { routeTree } from "utils/constants/routes";
 import { toNumeralFormat } from "utils/functions";
 import { startReshareSession } from "utils/services/extension";
@@ -40,6 +41,7 @@ export const PluginDetailsPage = () => {
   const { connect, isConnected } = useApp();
   const [messageApi, messageHolder] = message.useMessage();
   const [modalAPI, modalHolder] = Modal.useModal();
+  const navigate = useNavigate();
   const goBack = useGoBack();
   const colors = useTheme();
   const isMountedRef = useRef(true);
@@ -286,13 +288,24 @@ export const PluginDetailsPage = () => {
                           Checking
                         </Button>
                       ) : isInstalled ? (
-                        <Button
-                          loading={loading}
-                          onClick={handleUninstall}
-                          status="danger"
-                        >
-                          Uninstall
-                        </Button>
+                        <>
+                          <Button
+                            disabled={loading}
+                            kind="primary"
+                            onClick={() =>
+                              navigate(modalHash.policy, { state: true })
+                            }
+                          >
+                            Add recipeint
+                          </Button>
+                          <Button
+                            loading={loading}
+                            onClick={handleUninstall}
+                            status="danger"
+                          >
+                            Uninstall
+                          </Button>
+                        </>
                       ) : (
                         <Button
                           kind="primary"
@@ -307,7 +320,7 @@ export const PluginDetailsPage = () => {
                         Connect
                       </Button>
                     )}
-                    <Pricing pricing={plugin.pricing} />
+                    <Pricing pricing={plugin.pricing} center />
                   </Stack>
                 </Stack>
               </Stack>

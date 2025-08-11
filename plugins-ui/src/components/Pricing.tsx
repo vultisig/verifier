@@ -36,10 +36,12 @@ export const Pricing: FC<PricingProps> = ({ center, pricing }) => {
     >
       {pricing.length ? (
         pricing.map((price, index) => (
-          <Stack key={index}>{pricingText(price)}</Stack>
+          <Stack as="span" key={index}>
+            {pricingText(price)}
+          </Stack>
         ))
       ) : (
-        <Stack>This plugin is free</Stack>
+        <Stack as="span">This plugin is free</Stack>
       )}
     </Stack>
   );

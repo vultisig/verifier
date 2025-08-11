@@ -229,7 +229,7 @@ func (s *PluginService) GetPluginRecipeSpecificationSuggest(
 
 	recipeSpec, err := libhttp.Call[*rtypes.PolicySuggest](
 		ctx,
-		http.MethodGet,
+		http.MethodPost,
 		plugin.ServerEndpoint+"/plugin/recipe-specification/suggest",
 		map[string]string{
 			"Content-Type": "application/json",

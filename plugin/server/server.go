@@ -88,7 +88,7 @@ func (s *Server) Start(ctx context.Context) error {
 	plg.POST("/policy", s.handleCreatePluginPolicy)
 	plg.PUT("/policy", s.handleUpdatePluginPolicyById)
 	plg.GET("/recipe-specification", s.handleGetRecipeSpecification)
-	plg.GET("/recipe-specification/suggest", s.handleGetRecipeSpecificationSuggest)
+	plg.POST("/recipe-specification/suggest", s.handleGetRecipeSpecificationSuggest)
 	plg.DELETE("/policy/:policyId", s.handleDeletePluginPolicyById)
 
 	eg := &errgroup.Group{}

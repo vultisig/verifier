@@ -69,14 +69,14 @@ func (t *DKLSTssService) ProcessDKLSKeygen(req types.VaultCreateRequest) (string
 	defer cancel()
 
 	partiesJoined, err := relayClient.WaitForSessionStart(ctx, req.SessionID)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to wait for session start: %w", err)
+	}
 	t.logger.WithFields(logrus.Fields{
 		"sessionID":      req.SessionID,
 		"parties_joined": partiesJoined,
 	}).Info("Session started")
 
-	if err != nil {
-		return "", "", fmt.Errorf("failed to wait for session start: %w", err)
-	}
 	// create ECDSA key
 	publicKeyECDSA, chainCodeECDSA, err := t.keygenWithRetry(req.SessionID, req.HexEncryptionKey, req.LocalPartyId, false, partiesJoined)
 	if err != nil {

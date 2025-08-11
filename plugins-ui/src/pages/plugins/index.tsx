@@ -148,7 +148,12 @@ export const PluginsPage = () => {
               <Stack as="span" $style={{ whiteSpace: "nowrap" }}>
                 Sort By
               </Stack>
-              <Select options={sortOptions} value={filters.sort} allowClear />
+              <Select
+                options={sortOptions}
+                value={filters.sort}
+                onChange={(sort) => setFilters({ ...filters, sort })}
+                allowClear
+              />
             </Stack>
           </Stack>
         </Stack>

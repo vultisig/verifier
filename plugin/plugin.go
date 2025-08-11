@@ -1,6 +1,8 @@
 package plugin
 
 import (
+	"errors"
+
 	rtypes "github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/types"
 )
@@ -16,13 +18,13 @@ type Unimplemented struct {
 }
 
 func (*Unimplemented) GetRecipeSpecification() (*rtypes.RecipeSchema, error) {
-	return nil, nil
+	return nil, errors.New("not implemented")
 }
 
 func (*Unimplemented) ValidatePluginPolicy(_ types.PluginPolicy) error {
-	return nil
+	return errors.New("not implemented")
 }
 
 func (*Unimplemented) Suggest(map[string]any) (*rtypes.PolicySuggest, error) {
-	return nil, nil
+	return nil, errors.New("not implemented")
 }

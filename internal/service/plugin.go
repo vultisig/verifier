@@ -218,19 +218,6 @@ func (s *PluginService) GetPluginRecipeSpecificationSuggest(
 	pluginID string,
 	configuration map[string]any,
 ) (*rtypes.PolicySuggest, error) {
-	cacheKey := fmt.Sprintf("recipe_suggest:%s", pluginID)
-
-	if s.redis != nil {
-		cached, err := s.redis.Get(ctx, cacheKey)
-		if err == nil && cached != "" {
-			cachedSpec := &rtypes.PolicySuggest{}
-			if err := json.Unmarshal([]byte(cached), cachedSpec); err == nil {
-				s.logger.Debugf("[GetPluginRecipeSpecificationSuggest] Cache hit for plugin %s\n", pluginID)
-				return cachedSpec, nil
-			}
-		}
-	}
-
 	plugin, err := s.db.FindPluginById(ctx, nil, ptypes.PluginID(pluginID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to find plugin: %w", err)
@@ -254,16 +241,6 @@ func (s *PluginService) GetPluginRecipeSpecificationSuggest(
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get recipe spec: %w", err)
-	}
-
-	// Cache the result for 2 hours
-	if s.redis != nil {
-		specBytes, _ := json.Marshal(recipeSpec)
-		_ = s.redis.Set(ctx, cacheKey, string(specBytes), 2*time.Hour)
-		if err := s.redis.Set(ctx, cacheKey, string(specBytes), 2*time.Hour); err != nil {
-			s.logger.WithError(err).Warnf("Failed to cache recipe spec for plugin %s", pluginID)
-		}
-		s.logger.Debugf("[GetPluginRecipeSpecificationSuggest] Cached recipe spec for plugin %s\n", pluginID)
 	}
 
 	return recipeSpec, nil

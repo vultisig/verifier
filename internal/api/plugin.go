@@ -360,3 +360,32 @@ func (s *Server) GetPluginRecipeSpecification(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, recipeSpec)
 }
+
+func (s *Server) GetPluginRecipeSpecificationSuggest(c echo.Context) error {
+	pluginID := c.Param("pluginId")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("plugin id is required"))
+	}
+
+	type reqBody struct {
+		Configuration map[string]any `json:"configuration"`
+	}
+	var req reqBody
+	err := c.Bind(&req)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to parse request")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to parse request"))
+	}
+
+	recipeSpec, err := s.pluginService.GetPluginRecipeSpecificationSuggest(
+		c.Request().Context(),
+		pluginID,
+		req.Configuration,
+	)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to get plugin recipe suggest")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get recipe suggest"))
+	}
+
+	return c.JSON(http.StatusOK, recipeSpec)
+}

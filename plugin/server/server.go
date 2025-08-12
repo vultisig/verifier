@@ -88,6 +88,7 @@ func (s *Server) Start(ctx context.Context) error {
 	plg.POST("/policy", s.handleCreatePluginPolicy)
 	plg.PUT("/policy", s.handleUpdatePluginPolicyById)
 	plg.GET("/recipe-specification", s.handleGetRecipeSpecification)
+	plg.POST("/recipe-specification/suggest", s.handleGetRecipeSpecificationSuggest)
 	plg.DELETE("/policy/:policyId", s.handleDeletePluginPolicyById)
 
 	eg := &errgroup.Group{}
@@ -362,6 +363,25 @@ func (s *Server) handleGetRecipeSpecification(c echo.Context) error {
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get recipe spec")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get recipe spec"))
+	}
+	return c.JSON(http.StatusOK, recipeSpec)
+}
+
+func (s *Server) handleGetRecipeSpecificationSuggest(c echo.Context) error {
+	type reqBody struct {
+		Configuration map[string]any `json:"configuration"`
+	}
+	var req reqBody
+	err := c.Bind(&req)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to parse request")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to parse request"))
+	}
+
+	recipeSpec, err := s.spec.Suggest(req.Configuration)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to suggest recipe spec")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to suggest recipe spec"))
 	}
 	return c.JSON(http.StatusOK, recipeSpec)
 }

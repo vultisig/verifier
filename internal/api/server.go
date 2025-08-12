@@ -166,6 +166,7 @@ func (s *Server) StartServer() error {
 	pluginsGroup.GET("/:pluginId/reviews", s.GetReviews)
 	pluginsGroup.POST("/:pluginId/reviews", s.CreateReview, s.AuthMiddleware)
 	pluginsGroup.GET("/:pluginId/recipe-specification", s.GetPluginRecipeSpecification)
+	pluginsGroup.POST("/:pluginId/recipe-specification/suggest", s.GetPluginRecipeSpecificationSuggest)
 
 	categoriesGroup := e.Group("/categories")
 	categoriesGroup.GET("", s.GetCategories)

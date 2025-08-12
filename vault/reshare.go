@@ -44,13 +44,14 @@ func (t *DKLSTssService) ProcessReshare(vault *vaultType.Vault,
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	partiesJoined, err := client.WaitForSessionStart(ctx, sessionID)
+	if err != nil {
+		return fmt.Errorf("failed to wait for session start: %w", err)
+	}
 	t.logger.WithFields(logrus.Fields{
 		"session":        sessionID,
 		"parties_joined": partiesJoined,
 	}).Info("Session started")
-	if err != nil {
-		return fmt.Errorf("failed to wait for session start: %w", err)
-	}
+
 	if len(partiesJoined) == 0 {
 		return fmt.Errorf("keygen committee is empty")
 	}

@@ -1,10 +1,10 @@
-import { Spin } from "antd";
-import { Stack, StackProps } from "components/Stack";
+import { Spin } from "components/Spin";
 import { ButtonHTMLAttributes, FC, HTMLAttributes, ReactNode } from "react";
 import { Link } from "react-router-dom";
+import styled, { css } from "styled-components";
+import { match } from "utils/functions";
 
 type Kind = "default" | "primary" | "link";
-type Size = "sm" | "md";
 type Status = "default" | "danger" | "success" | "warning";
 
 type ButtonProps = HTMLAttributes<HTMLElement> & {
@@ -13,207 +13,197 @@ type ButtonProps = HTMLAttributes<HTMLElement> & {
   icon?: ReactNode;
   kind?: Kind;
   loading?: boolean;
-  size?: Size;
   status?: Status;
   type?: ButtonHTMLAttributes<HTMLButtonElement>["type"];
 };
 
-const activeProps: Record<Kind, Record<Status, StackProps>> = {
-  default: {
-    default: {
-      $style: {
-        borderColor: "buttonPrimary",
-        borderStyle: "solid",
-        borderWidth: "1px",
-        color: "textPrimary",
-      },
-      $hover: {
-        color: "buttonPrimary",
-      },
-    },
-    danger: {
-      $style: {
-        borderColor: "alertError",
-        borderStyle: "solid",
-        borderWidth: "1px",
-        color: "textPrimary",
-      },
-      $hover: {
-        color: "alertError",
-      },
-    },
-    success: {
-      $style: {
-        borderColor: "alertSuccess",
-        borderStyle: "solid",
-        borderWidth: "1px",
-        color: "textPrimary",
-      },
-      $hover: {
-        color: "alertSuccess",
-      },
-    },
-    warning: {
-      $style: {
-        borderColor: "alertWarning",
-        borderStyle: "solid",
-        borderWidth: "1px",
-        color: "textPrimary",
-      },
-      $hover: {
-        color: "alertWarning",
-      },
-    },
-  },
-  link: {
-    default: {
-      $style: {
-        borderColor: "transparent",
-        borderStyle: "solid",
-        borderWidth: "1px",
-        color: "textPrimary",
-      },
-      $hover: {
-        borderColor: "buttonPrimary",
-      },
-    },
-    danger: {
-      $style: {
-        borderColor: "transparent",
-        borderStyle: "solid",
-        borderWidth: "1px",
-        color: "alertError",
-      },
-      $hover: {
-        borderColor: "alertError",
-      },
-    },
-    success: {
-      $style: {
-        borderColor: "transparent",
-        borderStyle: "solid",
-        borderWidth: "1px",
-        color: "alertSuccess",
-      },
-      $hover: {
-        borderColor: "alertSuccess",
-      },
-    },
-    warning: {
-      $style: {
-        borderColor: "transparent",
-        borderStyle: "solid",
-        borderWidth: "1px",
-        color: "alertWarning",
-      },
-      $hover: {
-        borderColor: "alertWarning",
-      },
-    },
-  },
-  primary: {
-    default: {
-      $style: {
-        backgroundColor: "buttonPrimary",
-        color: "textPrimary",
-      },
-      $hover: {
-        backgroundColor: "buttonPrimaryHover",
-        color: "textPrimary",
-      },
-    },
-    danger: {
-      $style: {
-        backgroundColor: "alertError",
-        color: "textPrimary",
-      },
-      $hover: {
-        backgroundColor: "alertError",
-        color: "textPrimary",
-      },
-    },
-    success: {
-      $style: {
-        backgroundColor: "alertSuccess",
-        color: "textPrimary",
-      },
-      $hover: {
-        backgroundColor: "alertSuccess",
-        color: "textPrimary",
-      },
-    },
-    warning: {
-      $style: {
-        backgroundColor: "alertWarning",
-        color: "textPrimary",
-      },
-      $hover: {
-        backgroundColor: "alertWarning",
-        color: "textPrimary",
-      },
-    },
-  },
-};
+const StyledButton = styled.div<{
+  $disabled: boolean;
+  $kind: Kind;
+  $status: Status;
+}>`
+  display: flex;
+  align-items: center;
+  border-radius: 44px;
+  cursor: ${({ $disabled }) => ($disabled ? "default" : "pointer")};
+  font-weight: 500;
+  gap: 8px;
+  justify-content: center;
+  height: 44px;
+  padding: 0 24px;
+  transition: all 0.2s;
 
-const disabledProps: Record<Kind, StackProps> = {
-  default: {
-    $style: {
-      borderColor: "buttonBackgroundDisabled",
-      color: "buttonTextDisabled",
-    },
-  },
-  link: {
-    $style: {
-      color: "buttonTextDisabled",
-    },
-  },
-  primary: {
-    $style: {
-      backgroundColor: "buttonBackgroundDisabled",
-      color: "buttonTextDisabled",
-    },
-  },
-};
+  ${({ $disabled, $kind, $status }) =>
+    css`
+      ${match($kind, {
+        default: () =>
+          $disabled
+            ? css`
+                background-color: transparent;
+                color: ${({ theme }) => theme.buttonTextDisabled.toHex()};
 
-export const Button: FC<ButtonProps> = ({
-  children,
-  disabled = false,
-  href,
-  icon,
-  kind = "default",
-  loading = false,
-  size = "md",
-  status = "default",
-  type = "button",
-  ...buttonProps
-}) => {
-  const stackProps: StackProps = {
-    $style: {
-      alignItems: "center",
-      backgroundColor: "transparent",
-      border: "none",
-      borderRadius: "44px",
-      cursor: disabled ? "default" : "pointer",
-      fontWeight: "500",
-      gap: "8px",
-      justifyContent: "center",
-      height: "44px",
-      padding: children ? "0 24px" : "0",
-      ...(disabled
-        ? disabledProps[kind].$style
-        : activeProps[kind][status].$style),
-    },
-    $hover: {
-      ...(disabled
-        ? disabledProps[kind].$hover
-        : activeProps[kind][status].$hover),
-    },
-  };
+                ${match($status, {
+                  default: () => css`
+                    border: solid 1px
+                      ${({ theme }) => theme.buttonPrimary.toRgba(0.6)};
+                  `,
+                  danger: () => css`
+                    border: solid 1px ${({ theme }) => theme.error.toRgba(0.6)};
+                  `,
+                  success: () => css`
+                    border: solid 1px
+                      ${({ theme }) => theme.success.toRgba(0.6)};
+                  `,
+                  warning: () => css`
+                    border: solid 1px
+                      ${({ theme }) => theme.warning.toRgba(0.6)};
+                  `,
+                })}
+              `
+            : css`
+                background-color: transparent;
+                color: ${({ theme }) => theme.textPrimary.toHex()};
+
+                ${match($status, {
+                  default: () => css`
+                    border: solid 1px
+                      ${({ theme }) => theme.buttonPrimary.toHex()};
+                  `,
+                  danger: () => css`
+                    border: solid 1px ${({ theme }) => theme.error.toHex()};
+                  `,
+                  success: () => css`
+                    border: solid 1px ${({ theme }) => theme.success.toHex()};
+                  `,
+                  warning: () => css`
+                    border: solid 1px ${({ theme }) => theme.warning.toHex()};
+                  `,
+                })}
+
+                &:hover {
+                  ${match($status, {
+                    default: () => css`
+                      background-color: ${({ theme }) =>
+                        theme.buttonPrimary.toRgba(0.2)};
+                    `,
+                    danger: () => css`
+                      background-color: ${({ theme }) =>
+                        theme.error.toRgba(0.2)};
+                    `,
+                    success: () => css`
+                      background-color: ${({ theme }) =>
+                        theme.success.toRgba(0.2)};
+                    `,
+                    warning: () => css`
+                      background-color: ${({ theme }) =>
+                        theme.warning.toRgba(0.2)};
+                    `,
+                  })}
+                }
+              `,
+        link: () =>
+          $disabled
+            ? css`
+                background-color: transparent;
+                border: none;
+                color: ${({ theme }) => theme.buttonTextDisabled.toHex()};
+              `
+            : css`
+                background-color: transparent;
+                border: none;
+                color: ${({ theme }) => theme.textPrimary.toHex()};
+
+                &:hover {
+                  ${match($status, {
+                    default: () => css`
+                      color: ${({ theme }) => theme.buttonPrimary.toHex()};
+                    `,
+                    danger: () => css`
+                      color: ${({ theme }) => theme.error.toHex()};
+                    `,
+                    success: () => css`
+                      color: ${({ theme }) => theme.success.toHex()};
+                    `,
+                    warning: () => css`
+                      color: ${({ theme }) => theme.warning.toHex()};
+                    `,
+                  })}
+                }
+              `,
+        primary: () =>
+          $disabled
+            ? css`
+                border: none;
+                background-color: ${({ theme }) =>
+                  theme.buttonDisabled.toHex()};
+                color: ${({ theme }) => theme.buttonTextDisabled.toHex()};
+              `
+            : css`
+                border: none;
+                color: ${({ theme }) => theme.buttonText.toHex()};
+
+                ${match($status, {
+                  default: () => css`
+                    background-color: ${({ theme }) =>
+                      theme.buttonPrimary.toHex()};
+                  `,
+                  danger: () => css`
+                    background-color: ${({ theme }) => theme.error.toHex()};
+                  `,
+                  success: () => css`
+                    background-color: ${({ theme }) => theme.success.toHex()};
+                  `,
+                  warning: () => css`
+                    background-color: ${({ theme }) => theme.warning.toHex()};
+                  `,
+                })}
+
+                &:hover {
+                  color: ${({ theme }) => theme.buttonText.toHex()};
+
+                  ${match($status, {
+                    default: () => css`
+                      background-color: ${({ theme }) =>
+                        theme.buttonPrimaryHover.toHex()};
+                    `,
+                    danger: () => css`
+                      background-color: ${({ theme }) =>
+                        theme.error.lighten(10).toHex()};
+                    `,
+                    success: () => css`
+                      background-color: ${({ theme }) =>
+                        theme.success.lighten(10).toHex()};
+                    `,
+                    warning: () => css`
+                      background-color: ${({ theme }) =>
+                        theme.warning.lighten(10).toHex()};
+                    `,
+                  })}
+                }
+              `,
+      })}
+    `}
+`;
+
+export const Button: FC<ButtonProps> = (props) => {
+  const {
+    children,
+    disabled = false,
+    href,
+    icon,
+    kind = "default",
+    loading = false,
+    status = "default",
+    type = "button",
+    ...rest
+  } = props;
 
   return (
-    <Stack
-      {...stackProps}
-      {...buttonProps}
+    <StyledButton
+      $disabled={disabled}
+      $kind={kind}
+      $status={status}
+      {...rest}
       {...(disabled
         ? { as: "span" }
         : href
@@ -222,6 +212,6 @@ export const Button: FC<ButtonProps> = ({
     >
       {loading ? <Spin size="small" /> : icon}
       {children}
-    </Stack>
+    </StyledButton>
   );
 };

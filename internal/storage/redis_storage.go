@@ -6,17 +6,16 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/vultisig/verifier/plugin/config"
 	"github.com/vultisig/vultiserver/contexthelper"
-
-	"github.com/vultisig/verifier/config"
 )
 
 type RedisStorage struct {
-	cfg    config.RedisConfig
+	cfg    config.Redis
 	client *redis.Client
 }
 
-func NewRedisStorage(cfg config.RedisConfig) (*RedisStorage, error) {
+func NewRedisStorage(cfg config.Redis) (*RedisStorage, error) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     cfg.Host + ":" + cfg.Port,
 		Username: cfg.User,

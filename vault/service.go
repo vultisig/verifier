@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/vultisig/mobile-tss-lib/tss"
 
-	"github.com/vultisig/verifier/tx_indexer"
+	"github.com/vultisig/verifier/plugin/tx_indexer"
 	"github.com/vultisig/verifier/vault_config"
 
 	"github.com/DataDog/datadog-go/statsd"

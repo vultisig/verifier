@@ -83,7 +83,9 @@ api.interceptors.response.use(
       if (publicKey) delToken(publicKey);
     }
 
-    return Promise.reject(error);
+    return Promise.reject(
+      new Error(error.response?.data?.error?.message || error.message)
+    );
   }
 );
 

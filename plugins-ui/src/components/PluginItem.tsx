@@ -5,7 +5,9 @@ import { Stack } from "components/Stack";
 import { Tag } from "components/Tag";
 import { useApp } from "hooks/useApp";
 import { FC, useEffect, useState } from "react";
+import { useTheme } from "styled-components";
 import { routeTree } from "utils/constants/routes";
+import { toCapitalizeFirst } from "utils/functions";
 import { isPluginInstalled } from "utils/services/marketplace";
 import { Plugin } from "utils/types";
 
@@ -24,14 +26,13 @@ export const PluginItem: FC<Plugin> = ({
   const [state, setState] = useState(initialState);
   const { isInstalled } = state;
   const { isConnected } = useApp();
+  const colors = useTheme();
 
   useEffect(() => {
     if (isConnected) {
-      isPluginInstalled(id)
-        .then((isInstalled) => {
-          setState((prevState) => ({ ...prevState, isInstalled }));
-        })
-        .catch(() => {});
+      isPluginInstalled(id).then((isInstalled) => {
+        setState((prevState) => ({ ...prevState, isInstalled }));
+      });
     } else {
       setState((prevState) => ({ ...prevState, isInstalled: undefined }));
     }
@@ -40,7 +41,7 @@ export const PluginItem: FC<Plugin> = ({
   return (
     <Stack
       $style={{
-        backgroundColor: "backgroundSecondary",
+        backgroundColor: colors.bgSecondary.toHex(),
         borderRadius: "12px",
         flexDirection: "column",
         gap: "24px",
@@ -56,7 +57,7 @@ export const PluginItem: FC<Plugin> = ({
           $style={{ borderRadius: "6px", width: "100%" }}
         />
         <Stack $style={{ gap: "8px" }}>
-          <Tag color="alertSuccess" text={categoryId.capitalizeFirst()} />
+          <Tag color="success" text={toCapitalizeFirst(categoryId)} />
           {isInstalled && <Tag color="buttonPrimary" text="Installed" />}
         </Stack>
         <Stack $style={{ flexDirection: "column", gap: "4px" }}>
@@ -68,7 +69,7 @@ export const PluginItem: FC<Plugin> = ({
           </Stack>
           <Stack
             as="span"
-            $style={{ color: "textExtraLight", lineHeight: "20px" }}
+            $style={{ color: colors.textTertiary.toHex(), lineHeight: "20px" }}
           >
             {description}
           </Stack>

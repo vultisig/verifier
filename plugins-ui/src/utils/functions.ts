@@ -1,7 +1,4 @@
 import { Dayjs } from "dayjs";
-import { DefaultTheme } from "styled-components";
-import { ThemeColorKeys } from "utils/constants/styled";
-import { CSSColorProperties, cssColorProperties } from "utils/constants/styles";
 import { CSSProperties, PluginPolicy } from "utils/types";
 
 const isArray = (arr: any): arr is any[] => {
@@ -26,19 +23,9 @@ const toSnake = (value: string): string => {
   return value.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 };
 
-export const cssPropertiesToString = (
-  styles: CSSProperties,
-  theme: DefaultTheme
-): string => {
+export const cssPropertiesToString = (styles: CSSProperties): string => {
   return Object.entries(styles)
-    .map(
-      ([key, value]) =>
-        `${toKebab(key)}: ${
-          cssColorProperties.includes(key as CSSColorProperties)
-            ? theme[value as ThemeColorKeys]
-            : value
-        };`
-    )
+    .map(([key, value]) => `${toKebab(key)}: ${value};`)
     .join("\n");
 };
 
@@ -48,6 +35,15 @@ export const getErrorMessage = (error: any, message: string) => {
 
 export const isUndefined = (val: any): val is undefined => {
   return typeof val === "undefined";
+};
+
+export const match = <T extends string | number | symbol, V>(
+  value: T,
+  handlers: { [key in T]: () => V }
+): V => {
+  const handler = handlers[value];
+
+  return handler();
 };
 
 export const policyToHexMessage = ({
@@ -72,10 +68,6 @@ export const policyToHexMessage = ({
   return fields.join(delimiter);
 };
 
-export const formatSize = (value: number | string) => {
-  return typeof value === "number" ? `${value}px` : value;
-};
-
 export const toCamelCase = <T>(obj: T): T => {
   if (isObject(obj)) {
     const result: Record<string, unknown> = {};
@@ -93,6 +85,10 @@ export const toCamelCase = <T>(obj: T): T => {
   return obj;
 };
 
+export const toCapitalizeFirst = (value: string) => {
+  return value.length ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+};
+
 export const toKebabCase = <T>(obj: T): T => {
   if (isObject(obj)) {
     const result: Record<string, unknown> = {};
@@ -108,6 +104,16 @@ export const toKebabCase = <T>(obj: T): T => {
   }
 
   return obj;
+};
+
+export const toNumeralFormat = (value: number) => {
+  const formattedValue = value.toLocaleString("en-US", {
+    style: "decimal",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
+
+  return formattedValue;
 };
 
 export const toSnakeCase = <T>(obj: T): T => {

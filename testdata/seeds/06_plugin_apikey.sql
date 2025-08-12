@@ -8,6 +8,14 @@ INSERT INTO plugin_apikey (id, plugin_id, apikey, created_at, expires_at, status
  1
 ),
 (
+    gen_random_uuid(),
+    'vultisig-copytrader-0000',
+    'localhost-apikey-copytrading',
+    now(),
+    null,
+    1
+),
+(
  gen_random_uuid(),
  'vultisig-fees-feee',
  'localhost-fee-apikey',

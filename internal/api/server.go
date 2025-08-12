@@ -25,6 +25,7 @@ import (
 
 	"github.com/vultisig/verifier/address"
 	"github.com/vultisig/verifier/common"
+	vv "github.com/vultisig/verifier/common/vultisig_validator"
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/clientutil"
 	"github.com/vultisig/verifier/internal/service"
@@ -32,7 +33,6 @@ import (
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/internal/syncer"
-	vv "github.com/vultisig/verifier/internal/vultisig_validator"
 	"github.com/vultisig/verifier/plugin/tasks"
 	tv "github.com/vultisig/verifier/types"
 	"github.com/vultisig/verifier/vault"
@@ -167,6 +167,7 @@ func (s *Server) StartServer() error {
 	pluginsGroup.GET("/:pluginId/reviews", s.GetReviews)
 	pluginsGroup.POST("/:pluginId/reviews", s.CreateReview, s.AuthMiddleware)
 	pluginsGroup.GET("/:pluginId/recipe-specification", s.GetPluginRecipeSpecification)
+	pluginsGroup.POST("/:pluginId/recipe-specification/suggest", s.GetPluginRecipeSpecificationSuggest)
 
 	categoriesGroup := e.Group("/categories")
 	categoriesGroup.GET("", s.GetCategories)

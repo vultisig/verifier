@@ -6,6 +6,7 @@ import { del, get, post } from "utils/services/api";
 import {
   AuthTokenForm,
   Category,
+  Configuration,
   Plugin,
   PluginFilters,
   PluginPolicy,
@@ -108,7 +109,9 @@ export const getPluginReviews = async (
   ).then(({ reviews, totalCount }) => ({ reviews: reviews || [], totalCount }));
 
 export const getRecipeSpecification = async (pluginId: string) =>
-  get<RecipeSchema>(`${baseUrl}/plugins/${pluginId}/recipe-specification`);
+  get<Omit<RecipeSchema, "configuration"> & { configuration?: Configuration }>(
+    `${baseUrl}/plugins/${pluginId}/recipe-specification`
+  );
 
 export const isPluginInstalled = async (id: string) =>
   get(`${baseUrl}/vault/exist/${id}/${getVaultId()}`)

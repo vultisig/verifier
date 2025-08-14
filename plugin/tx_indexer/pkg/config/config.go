@@ -16,8 +16,17 @@ type DatabaseConfig struct {
 }
 
 type RpcConfig struct {
-	Bitcoin  RpcItem `mapstructure:"bitcoin" json:"bitcoin,omitempty"`
-	Ethereum RpcItem `mapstructure:"ethereum" json:"ethereum,omitempty"`
+	Bitcoin   RpcItem `mapstructure:"bitcoin" json:"bitcoin,omitempty"`
+	Ethereum  RpcItem `mapstructure:"ethereum" json:"ethereum,omitempty"`
+	Avalanche RpcItem `mapstructure:"avalanche" json:"avalanche,omitempty"`
+	BscChain  RpcItem `mapstructure:"bsc" json:"bsc,omitempty"`
+	Arbitrum  RpcItem `mapstructure:"arbitrum" json:"arbitrum,omitempty"`
+	Base      RpcItem `mapstructure:"base" json:"base,omitempty"`
+	Optimism  RpcItem `mapstructure:"optimism" json:"optimism,omitempty"`
+	Polygon   RpcItem `mapstructure:"polygon" json:"polygon,omitempty"`
+	Blast     RpcItem `mapstructure:"blast" json:"blast,omitempty"`
+	Cronos    RpcItem `mapstructure:"cronos" json:"cronos,omitempty"`
+	Zksync    RpcItem `mapstructure:"zksync" json:"zksync,omitempty"`
 }
 
 type RpcItem struct {

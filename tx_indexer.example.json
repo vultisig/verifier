@@ -8,6 +8,33 @@
     },
     "ethereum": {
       "url": "https://ethereum-rpc.publicnode.com"
+    },
+    "avalanche": {
+      "url": "https://avalanche-c-chain-rpc.publicnode.com"
+    },
+    "bsc": {
+      "url": "https://bsc-rpc.publicnode.com"
+    },
+    "arbitrum": {
+      "url": "https://arbitrum-one-rpc.publicnode.com"
+    },
+    "base": {
+      "url": "https://base-rpc.publicnode.com"
+    },
+    "optimism": {
+      "url": "https://optimism-rpc.publicnode.com"
+    },
+    "polygon": {
+      "url": "https://polygon-bor-rpc.publicnode.com"
+    },
+    "blast": {
+      "url": "https://blast-rpc.publicnode.com"
+    },
+    "cronos": {
+      "url": "https://cronos-evm-rpc.publicnode.com"
+    },
+    "zksync": {
+      "url": "https://zksync-era-rpc.publicnode.com"
     }
   },
   "interval": "10s",

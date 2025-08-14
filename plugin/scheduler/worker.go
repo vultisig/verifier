@@ -126,6 +126,14 @@ func (w *Worker) enqueue() error {
 				return fmt.Errorf("failed to enqueue task: %w", er)
 			}
 
+			if next.IsZero() {
+				e := w.repo.Delete(ctx, task.PolicyID)
+				if e != nil {
+					return fmt.Errorf("failed to delete schedule: %w", e)
+				}
+				return nil
+			}
+
 			er = w.repo.SetNext(ctx, task.PolicyID, next)
 			if er != nil {
 				return fmt.Errorf("failed to set next: %w", er)

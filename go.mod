@@ -31,7 +31,7 @@ require (
 	github.com/vultisig/mobile-tss-lib v0.0.0-20250316003201-2e7e570a4a74
 	github.com/vultisig/recipes v0.0.0-20250811174115-368ae4bab6f6
 	github.com/vultisig/vultiserver v0.0.0-20250715212748-4b23f9849e4b
-	github.com/vultisig/vultisig-go v0.0.0-20250812045650-c34139be60b8
+	github.com/vultisig/vultisig-go v0.0.0-20250815075627-265cef7c643c
 	golang.org/x/sync v0.14.0
 	google.golang.org/protobuf v1.36.6
 	sigs.k8s.io/yaml v1.3.0
@@ -58,7 +58,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.20.0 // indirect
 	github.com/bnb-chain/tss-lib/v2 v2.0.2 // indirect
-	github.com/btcsuite/btcd/btcec/v2 v2.3.4 // indirect
+	github.com/btcsuite/btcd/btcec/v2 v2.3.3 // indirect
 	github.com/btcsuite/btcd/btcutil v1.1.6 // indirect
 	github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect

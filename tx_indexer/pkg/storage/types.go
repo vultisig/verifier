@@ -7,10 +7,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/tx_indexer/pkg/conv"
 	"github.com/vultisig/verifier/tx_indexer/pkg/rpc"
 	"github.com/vultisig/verifier/types"
+	"github.com/vultisig/vultisig-go/common"
 )
 
 type TxIndexerRepo interface {

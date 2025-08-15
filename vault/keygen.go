@@ -21,8 +21,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/types"
+	"github.com/vultisig/vultisig-go/common"
 )
 
 var TssKeyGenTimeout = errors.New("keygen timeout")

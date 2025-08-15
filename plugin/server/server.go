@@ -21,7 +21,6 @@ import (
 	"github.com/sirupsen/logrus"
 	v1 "github.com/vultisig/commondata/go/vultisig/vault/v1"
 	"github.com/vultisig/mobile-tss-lib/tss"
-	vcommon "github.com/vultisig/verifier/common"
 	vv "github.com/vultisig/verifier/common/vultisig_validator"
 	"github.com/vultisig/verifier/plugin"
 	"github.com/vultisig/verifier/plugin/policy"
@@ -29,6 +28,7 @@ import (
 	"github.com/vultisig/verifier/plugin/tasks"
 	vtypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/verifier/vault"
+	vcommon "github.com/vultisig/vultisig-go/common"
 	"golang.org/x/sync/errgroup"
 )
 

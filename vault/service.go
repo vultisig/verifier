@@ -20,8 +20,8 @@ import (
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
 	"github.com/vultisig/vultiserver/contexthelper"
 
-	vcommon "github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/types"
+	vcommon "github.com/vultisig/vultisig-go/common"
 )
 
 const EmailVaultBackupTypeName = "key:email"

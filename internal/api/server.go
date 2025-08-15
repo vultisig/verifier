@@ -23,8 +23,6 @@ import (
 
 	ecommon "github.com/ethereum/go-ethereum/common"
 
-	"github.com/vultisig/verifier/address"
-	"github.com/vultisig/verifier/common"
 	vv "github.com/vultisig/verifier/common/vultisig_validator"
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/clientutil"
@@ -36,6 +34,8 @@ import (
 	"github.com/vultisig/verifier/plugin/tasks"
 	tv "github.com/vultisig/verifier/types"
 	"github.com/vultisig/verifier/vault"
+	"github.com/vultisig/vultisig-go/address"
+	"github.com/vultisig/vultisig-go/common"
 )
 
 type Server struct {

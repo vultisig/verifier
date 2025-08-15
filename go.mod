@@ -35,7 +35,7 @@ require (
 	github.com/swaggo/swag v1.16.4
 	github.com/ulikunitz/xz v0.5.12
 	github.com/vultisig/commondata v0.0.0-20250710214228-61d9ed8f7778
-	github.com/vultisig/go-wrappers v0.0.0-20250403041248-86911e8aa33f
+	github.com/vultisig/go-wrappers v0.0.0-20250716071337-34a5c0f4d6e0
 	github.com/vultisig/mobile-tss-lib v0.0.0-20250316003201-2e7e570a4a74
 	github.com/vultisig/recipes v0.0.0-20250811174115-368ae4bab6f6
 	github.com/vultisig/vultiserver v0.0.0-20250715212748-4b23f9849e4b
@@ -66,7 +66,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.20.0 // indirect
 	github.com/bnb-chain/tss-lib/v2 v2.0.2 // indirect
-	github.com/btcsuite/btcd/btcec/v2 v2.3.3 // indirect
+	github.com/btcsuite/btcd/btcec/v2 v2.3.4 // indirect
 	github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/btcsuite/go-socks v0.0.0-20170105172521-4720035b7bfd // indirect
@@ -192,6 +192,7 @@ require (
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
+	github.com/vultisig/vultisig-go v0.0.0-20250812045650-c34139be60b8 // indirect
 	go.etcd.io/bbolt v1.3.8 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect

@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/chain"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/config"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
+	"github.com/vultisig/vultisig-go/common"
 )
 
 type (

@@ -18,12 +18,12 @@ import (
 	rcommon "github.com/vultisig/recipes/common"
 	"github.com/vultisig/recipes/engine"
 	"github.com/vultisig/recipes/ethereum"
-	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/internal/conv"
 	"github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/plugin/tasks"
 	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
 	ptypes "github.com/vultisig/verifier/types"
+	"github.com/vultisig/vultisig-go/common"
 )
 
 func (s *Server) SignPluginMessages(c echo.Context) error {

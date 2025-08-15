@@ -29,6 +29,7 @@ import (
 	vtypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/verifier/vault"
 	vcommon "github.com/vultisig/vultisig-go/common"
+	vgtypes "github.com/vultisig/vultisig-go/types"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -179,7 +180,7 @@ func (s *Server) handleGetVault(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("fail to get vault"))
 	}
 
-	return c.JSON(http.StatusOK, vtypes.VaultGetResponse{
+	return c.JSON(http.StatusOK, vgtypes.VaultGetResponse{
 		Name:           v.Name,
 		PublicKeyEcdsa: v.PublicKeyEcdsa,
 		PublicKeyEddsa: v.PublicKeyEddsa,

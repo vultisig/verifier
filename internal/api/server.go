@@ -32,10 +32,11 @@ import (
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/internal/syncer"
 	"github.com/vultisig/verifier/plugin/tasks"
-	tv "github.com/vultisig/verifier/types"
+	vtypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/verifier/vault"
 	"github.com/vultisig/vultisig-go/address"
 	"github.com/vultisig/vultisig-go/common"
+	vgtypes "github.com/vultisig/vultisig-go/types"
 )
 
 type Server struct {
@@ -188,7 +189,7 @@ func (s *Server) Ping(c echo.Context) error {
 func (s *Server) ReshareVault(c echo.Context) error {
 	s.logger.Info("ReshareVault: Starting reshare vault request")
 
-	var req tv.ReshareRequest
+	var req vtypes.ReshareRequest
 	if err := c.Bind(&req); err != nil {
 		s.logger.WithError(err).Error("ReshareVault: Failed to parse request body")
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Failed to parse request body"))
@@ -241,9 +242,9 @@ func (s *Server) ReshareVault(c echo.Context) error {
 }
 
 // notifyPluginServerReshare sends the reshare request to the plugin server
-func (s *Server) notifyPluginServerReshare(ctx context.Context, req tv.ReshareRequest) error {
+func (s *Server) notifyPluginServerReshare(ctx context.Context, req vtypes.ReshareRequest) error {
 	// Look up plugin server endpoint
-	plugin, err := s.db.FindPluginById(ctx, nil, tv.PluginID(req.PluginID))
+	plugin, err := s.db.FindPluginById(ctx, nil, vtypes.PluginID(req.PluginID))
 	if err != nil {
 		return fmt.Errorf("failed to find plugin: %w", err)
 	}
@@ -307,7 +308,7 @@ func (s *Server) GetVault(c echo.Context) error {
 		return fmt.Errorf("fail to decrypt vault from the backup, err: %w", err)
 	}
 
-	return c.JSON(http.StatusOK, tv.VaultGetResponse{
+	return c.JSON(http.StatusOK, vgtypes.VaultGetResponse{
 		Name:           v.Name,
 		PublicKeyEcdsa: v.PublicKeyEcdsa,
 		PublicKeyEddsa: v.PublicKeyEddsa,
@@ -581,7 +582,7 @@ func (s *Server) GetActiveTokens(c echo.Context) error {
 }
 
 // notifyPluginServerDeletePlugin user would like to delete a plugin, we need to notify the plugin server
-func (s *Server) notifyPluginServerDeletePlugin(ctx context.Context, id tv.PluginID, publicKeyEcdsa string) error {
+func (s *Server) notifyPluginServerDeletePlugin(ctx context.Context, id vtypes.PluginID, publicKeyEcdsa string) error {
 	// Look up plugin server endpoint
 	plugin, err := s.db.FindPluginById(ctx, nil, id)
 	if err != nil {
@@ -627,12 +628,12 @@ func (s *Server) DeletePlugin(c echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to get vault public key"))
 	}
-	if err := s.notifyPluginServerDeletePlugin(c.Request().Context(), tv.PluginID(pluginID), publicKey); err != nil {
+	if err := s.notifyPluginServerDeletePlugin(c.Request().Context(), vtypes.PluginID(pluginID), publicKey); err != nil {
 		s.logger.WithError(err).Errorf("Failed to notify plugin server for deletion of plugin %s", pluginID)
 		return c.JSON(http.StatusServiceUnavailable, NewErrorResponseWithMessage("Plugin server is currently unavailable"))
 	}
 	// remove plugin policies
-	if err := s.policyService.DeleteAllPolicies(c.Request().Context(), tv.PluginID(pluginID), publicKey); err != nil {
+	if err := s.policyService.DeleteAllPolicies(c.Request().Context(), vtypes.PluginID(pluginID), publicKey); err != nil {
 		s.logger.Errorf("Failed to delete plugin policies: %v", err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to delete plugin policies"))
 	}

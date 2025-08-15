@@ -9,9 +9,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/mobile-tss-lib/tss"
-	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/tx_indexer/pkg/rpc"
 	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
+	"github.com/vultisig/vultisig-go/common"
 	"golang.org/x/sync/errgroup"
 )
 

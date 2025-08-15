@@ -22,8 +22,8 @@ import (
 	"github.com/vultisig/vultiserver/relay"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/types"
+	"github.com/vultisig/vultisig-go/common"
 )
 
 func (t *DKLSTssService) GetExistingVault(vaultFileName, password string) (*vaultType.Vault, error) {

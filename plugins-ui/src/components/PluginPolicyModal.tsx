@@ -181,7 +181,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
       if (schema.configuration) {
         const configuration: Record<string, any> = {};
 
-        Object.entries(schema.configuration.properties).forEach(
+        Object.entries(schema?.configuration?.properties || {}).forEach(
           ([key, field]) => {
             if (values[key]) {
               switch (field.format) {

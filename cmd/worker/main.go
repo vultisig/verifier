@@ -12,8 +12,8 @@ import (
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/plugin/tasks"
-	"github.com/vultisig/verifier/tx_indexer"
-	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
+	"github.com/vultisig/verifier/plugin/tx_indexer"
+	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
 	"github.com/vultisig/verifier/vault"
 )
 
@@ -74,10 +74,15 @@ func main() {
 		panic(fmt.Sprintf("storage.NewPostgresTxIndexStore: %v", err))
 	}
 
+	chains, err := tx_indexer.Chains()
+	if err != nil {
+		panic(fmt.Errorf("failed to initialize supported chains: %w", err))
+	}
+
 	txIndexerService := tx_indexer.NewService(
 		logger,
 		txIndexerStore,
-		tx_indexer.Chains(),
+		chains,
 	)
 
 	vaultMgmService, err := vault.NewManagementService(

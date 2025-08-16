@@ -60,14 +60,13 @@ func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[strin
 	defer cancel()
 
 	partiesJoined, err := relayClient.WaitForSessionStart(ctx, req.SessionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to wait for session start: %w", err)
+	}
 	t.logger.WithFields(logrus.Fields{
 		"session":        req.SessionID,
 		"parties_joined": partiesJoined,
 	}).Info("Session started")
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to wait for session start: %w", err)
-	}
 
 	// start to do keysign
 	for _, msg := range req.Messages {

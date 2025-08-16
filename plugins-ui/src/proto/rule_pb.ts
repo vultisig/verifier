@@ -4,7 +4,7 @@
 
 import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Constraint } from "./constraint_pb";
+import type { Constraint, MagicConstant } from "./constraint_pb";
 import { file_constraint } from "./constraint_pb";
 import type { ParameterConstraint } from "./parameter_constraint_pb";
 import { file_parameter_constraint } from "./parameter_constraint_pb";
@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file rule.proto.
  */
 export const file_rule: GenFile = /*@__PURE__*/
-  fileDesc("CgpydWxlLnByb3RvEgV0eXBlcyK6AgoEUnVsZRIQCghyZXNvdXJjZRgBIAEoCRIdCgZlZmZlY3QYAiABKA4yDS50eXBlcy5FZmZlY3QSEwoLZGVzY3JpcHRpb24YAyABKAkSMQoLY29uc3RyYWludHMYBCADKAsyHC50eXBlcy5SdWxlLkNvbnN0cmFpbnRzRW50cnkSKwoNYXV0aG9yaXphdGlvbhgFIAEoCzIULnR5cGVzLkF1dGhvcml6YXRpb24SCgoCaWQYBiABKAkSOQoVcGFyYW1ldGVyX2NvbnN0cmFpbnRzGAcgAygLMhoudHlwZXMuUGFyYW1ldGVyQ29uc3RyYWludBpFChBDb25zdHJhaW50c0VudHJ5EgsKA2tleRgBIAEoCRIgCgV2YWx1ZRgCIAEoCzIRLnR5cGVzLkNvbnN0cmFpbnQ6AjgBIi4KDUF1dGhvcml6YXRpb24SDAoEdHlwZRgBIAEoCRIPCgdtZXNzYWdlGAIgASgJKkMKBkVmZmVjdBIWChJFRkZFQ1RfVU5TUEVDSUZJRUQQABIQCgxFRkZFQ1RfQUxMT1cQARIPCgtFRkZFQ1RfREVOWRACQiNaIWdpdGh1Yi5jb20vdnVsdGlzaWcvcmVjaXBlcy90eXBlc2IGcHJvdG8z", [file_constraint, file_parameter_constraint]);
+  fileDesc("CgpydWxlLnByb3RvEgV0eXBlcyLZAgoEUnVsZRIQCghyZXNvdXJjZRgBIAEoCRIdCgZlZmZlY3QYAiABKA4yDS50eXBlcy5FZmZlY3QSEwoLZGVzY3JpcHRpb24YAyABKAkSMQoLY29uc3RyYWludHMYBCADKAsyHC50eXBlcy5SdWxlLkNvbnN0cmFpbnRzRW50cnkSKwoNYXV0aG9yaXphdGlvbhgFIAEoCzIULnR5cGVzLkF1dGhvcml6YXRpb24SCgoCaWQYBiABKAkSOQoVcGFyYW1ldGVyX2NvbnN0cmFpbnRzGAcgAygLMhoudHlwZXMuUGFyYW1ldGVyQ29uc3RyYWludBIdCgZ0YXJnZXQYDSABKAsyDS50eXBlcy5UYXJnZXQaRQoQQ29uc3RyYWludHNFbnRyeRILCgNrZXkYASABKAkSIAoFdmFsdWUYAiABKAsyES50eXBlcy5Db25zdHJhaW50OgI4ASJ9CgZUYXJnZXQSJgoLdGFyZ2V0X3R5cGUYASABKA4yES50eXBlcy5UYXJnZXRUeXBlEhEKB2FkZHJlc3MYAiABKAlIABIuCg5tYWdpY19jb25zdGFudBgDIAEoDjIULnR5cGVzLk1hZ2ljQ29uc3RhbnRIAEIICgZ0YXJnZXQiLgoNQXV0aG9yaXphdGlvbhIMCgR0eXBlGAEgASgJEg8KB21lc3NhZ2UYAiABKAkqYgoKVGFyZ2V0VHlwZRIbChdUQVJHRVRfVFlQRV9VTlNQRUNJRklFRBAAEhcKE1RBUkdFVF9UWVBFX0FERFJFU1MQARIeChpUQVJHRVRfVFlQRV9NQUdJQ19DT05TVEFOVBACKkMKBkVmZmVjdBIWChJFRkZFQ1RfVU5TUEVDSUZJRUQQABIQCgxFRkZFQ1RfQUxMT1cQARIPCgtFRkZFQ1RfREVOWRACQiNaIWdpdGh1Yi5jb20vdnVsdGlzaWcvcmVjaXBlcy90eXBlc2IGcHJvdG8z", [file_constraint, file_parameter_constraint]);
 
 /**
  * Rule represents a single permission rule in the policy
@@ -70,6 +70,13 @@ export type Rule = Message<"types.Rule"> & {
    * @generated from field: repeated types.ParameterConstraint parameter_constraints = 7;
    */
   parameterConstraints: ParameterConstraint[];
+
+  /**
+   * Transaction target address
+   *
+   * @generated from field: types.Target target = 13;
+   */
+  target?: Target;
 };
 
 /**
@@ -78,6 +85,40 @@ export type Rule = Message<"types.Rule"> & {
  */
 export const RuleSchema: GenMessage<Rule> = /*@__PURE__*/
   messageDesc(file_rule, 0);
+
+/**
+ * @generated from message types.Target
+ */
+export type Target = Message<"types.Target"> & {
+  /**
+   * @generated from field: types.TargetType target_type = 1;
+   */
+  targetType: TargetType;
+
+  /**
+   * @generated from oneof types.Target.target
+   */
+  target: {
+    /**
+     * @generated from field: string address = 2;
+     */
+    value: string;
+    case: "address";
+  } | {
+    /**
+     * @generated from field: types.MagicConstant magic_constant = 3;
+     */
+    value: MagicConstant;
+    case: "magicConstant";
+  } | { case: undefined; value?: undefined };
+};
+
+/**
+ * Describes the message types.Target.
+ * Use `create(TargetSchema)` to create a new message.
+ */
+export const TargetSchema: GenMessage<Target> = /*@__PURE__*/
+  messageDesc(file_rule, 1);
 
 /**
  * Authorization represents how a transaction should be authorized
@@ -105,7 +146,33 @@ export type Authorization = Message<"types.Authorization"> & {
  * Use `create(AuthorizationSchema)` to create a new message.
  */
 export const AuthorizationSchema: GenMessage<Authorization> = /*@__PURE__*/
-  messageDesc(file_rule, 1);
+  messageDesc(file_rule, 2);
+
+/**
+ * @generated from enum types.TargetType
+ */
+export enum TargetType {
+  /**
+   * @generated from enum value: TARGET_TYPE_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: TARGET_TYPE_ADDRESS = 1;
+   */
+  ADDRESS = 1,
+
+  /**
+   * @generated from enum value: TARGET_TYPE_MAGIC_CONSTANT = 2;
+   */
+  MAGIC_CONSTANT = 2,
+}
+
+/**
+ * Describes the enum types.TargetType.
+ */
+export const TargetTypeSchema: GenEnum<TargetType> = /*@__PURE__*/
+  enumDesc(file_rule, 0);
 
 /**
  * Effect determines whether a rule allows or denies access
@@ -133,5 +200,5 @@ export enum Effect {
  * Describes the enum types.Effect.
  */
 export const EffectSchema: GenEnum<Effect> = /*@__PURE__*/
-  enumDesc(file_rule, 0);
+  enumDesc(file_rule, 1);
 

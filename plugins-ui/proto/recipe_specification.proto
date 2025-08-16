@@ -5,6 +5,7 @@ package types;
 import "constraint.proto";
 import "google/protobuf/struct.proto";
 import "resource.proto";
+import "rule.proto";
 
 option go_package = "github.com/vultisig/recipes/types";
 
@@ -13,9 +14,6 @@ option go_package = "github.com/vultisig/recipes/types";
 message RecipeSchema {
   // Schema version for future compatibility
   int32 version = 1;
-
-  // Scheduling specification version this plugin supports
-  int32 schedule_version = 2;
 
   // Plugin identification
   string plugin_id = 3;
@@ -42,6 +40,9 @@ message ResourcePattern {
 
   // Whether this resource is required by the plugin
   bool required = 3;
+
+  // Tx 'to'
+  TargetType target = 4;
 }
 
 // ParameterConstraintCapability defines what constraint types a parameter supports
@@ -50,7 +51,7 @@ message ParameterConstraintCapability {
   string parameter_name = 1;
 
   // Supported constraint types for this parameter
-  repeated ConstraintType supported_types = 2;
+  ConstraintType supported_types = 2;
 
   // Whether this parameter must be constrained
   bool required = 3;

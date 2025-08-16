@@ -21,7 +21,7 @@ import { Spin } from "components/Spin";
 import { Stack } from "components/Stack";
 import dayjs, { Dayjs } from "dayjs";
 import { useGoBack } from "hooks/useGoBack";
-import { ConstraintSchema } from "proto/constraint_pb";
+import { ConstraintSchema, MagicConstant } from "proto/constraint_pb";
 import { ParameterConstraintSchema } from "proto/parameter_constraint_pb";
 import {
   BillingFrequency,
@@ -30,7 +30,7 @@ import {
   PolicySchema,
 } from "proto/policy_pb";
 import { RecipeSchema } from "proto/recipe_specification_pb";
-import { Effect, RuleSchema } from "proto/rule_pb";
+import { Effect, RuleSchema, TargetSchema, TargetType } from "proto/rule_pb";
 import { FC, ReactNode, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { getVaultId } from "storage/vaultId";
@@ -45,6 +45,7 @@ type FieldType = {
   maxTxsPerWindow: number;
   rateLimitWindow: number;
   supportedResource: number;
+  target: string;
 } & {
   [key: string]: string | Dayjs;
 };
@@ -89,8 +90,11 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
   const onFinishSuccess: FormProps<FieldType>["onFinish"] = (values) => {
     setState((prevState) => ({ ...prevState, submitting: true }));
 
-    const { parameterCapabilities, resourcePath } =
-      schema.supportedResources[values.supportedResource];
+    const {
+      parameterCapabilities,
+      resourcePath,
+      target: targetType,
+    } = schema.supportedResources[values.supportedResource];
 
     const feePolicies = plugin.pricing.map((price) => {
       let frequency = BillingFrequency.BILLING_FREQUENCY_UNSPECIFIED;
@@ -135,14 +139,12 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
 
     const parameterConstraints = parameterCapabilities.map(
       ({ parameterName, required, supportedTypes }) => {
-        const [type] = supportedTypes;
-
         const constraint = create(ConstraintSchema, {
           denominatedIn:
             resourcePath?.chainId.toLowerCase() === "ethereum" ? "wei" : "",
           period: "",
           required,
-          type,
+          type: supportedTypes,
           value: { case: "fixedValue", value: values[parameterName] as string },
         });
 
@@ -155,6 +157,16 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
       }
     );
 
+    const target = create(TargetSchema, {
+      targetType,
+      target:
+        targetType === TargetType.ADDRESS
+          ? { case: "address", value: values["target"] as string }
+          : targetType === TargetType.MAGIC_CONSTANT
+          ? { case: "magicConstant", value: MagicConstant.VULTISIG_TREASURY }
+          : { case: undefined, value: undefined },
+    });
+
     const rule = create(RuleSchema, {
       constraints: {},
       description: "",
@@ -162,6 +174,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
       id: "",
       parameterConstraints,
       resource: resourcePath?.full,
+      target,
     });
 
     const configuration = () => {
@@ -315,7 +328,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
                 >
                   {({ getFieldsValue }) => {
                     const { supportedResource = 0 } = getFieldsValue();
-                    const { parameterCapabilities, resourcePath } =
+                    const { parameterCapabilities, resourcePath, target } =
                       schema.supportedResources[supportedResource];
 
                     return (
@@ -339,6 +352,17 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
                                 </Form.Item>
                               </Col>
                             )
+                          )}
+                          {target === TargetType.ADDRESS && (
+                            <Col xs={24} md={12} lg={8}>
+                              <Form.Item
+                                label="Target"
+                                name="target"
+                                rules={[{ required: true }]}
+                              >
+                                <Input />
+                              </Form.Item>
+                            </Col>
                           )}
                         </Row>
                       </>

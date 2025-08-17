@@ -22,7 +22,7 @@ import (
 
 	vtypes "github.com/vultisig/verifier/types"
 	vcommon "github.com/vultisig/vultisig-go/common"
-	"github.com/vultisig/vultisig-go/types"
+	vgtypes "github.com/vultisig/vultisig-go/types"
 )
 
 const EmailVaultBackupTypeName = "key:email"
@@ -85,7 +85,7 @@ func (s *ManagementService) HandleKeyGenerationDKLS(ctx context.Context, t *asyn
 		return err
 	}
 	defer s.measureTime("worker.vault.create.latency", time.Now(), []string{})
-	var req types.VaultCreateRequest
+	var req vgtypes.VaultCreateRequest
 	if err := json.Unmarshal(t.Payload(), &req); err != nil {
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
 	}

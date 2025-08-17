@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/vultisig/verifier/types"
 )
 
@@ -42,13 +43,17 @@ func (p *PostgresBackend) GetAllFeesByPolicyId(ctx context.Context, policyID uui
 	return fees, nil
 }
 
-func (p *PostgresBackend) GetFeesByPublicKey(ctx context.Context, publicKey string, includeCollected bool) ([]types.Fee, error) {
+func (p *PostgresBackend) GetFeesByPublicKey(ctx context.Context, publicKey string, since *time.Time) ([]types.Fee, error) {
 	fees := []types.Fee{}
-	query := `SELECT id, public_key, plugin_id, policy_id, type, transaction_id, amount, charged_at, created_at, collected_at FROM fees_view WHERE public_key = $1 AND collected_at IS NULL`
-	if includeCollected {
-		query = `SELECT id, public_key, plugin_id, policy_id, type, transaction_id, amount, charged_at, created_at, collected_at FROM fees_view WHERE public_key = $1`
+	var rows pgx.Rows
+	var err error
+	if since != nil {
+		query := `SELECT id, public_key, plugin_id, policy_id, type, transaction_id, amount, charged_at, created_at, collected_at FROM fees_view WHERE public_key = $1 AND created_at >= $2`
+		rows, err = p.pool.Query(ctx, query, publicKey, since)
+	} else {
+		query := `SELECT id, public_key, plugin_id, policy_id, type, transaction_id, amount, charged_at, created_at, collected_at FROM fees_view WHERE public_key = $1 AND collected_at IS NULL`
+		rows, err = p.pool.Query(ctx, query, publicKey)
 	}
-	rows, err := p.pool.Query(ctx, query, publicKey)
 	if err != nil {
 		return []types.Fee{}, err
 	}

@@ -183,8 +183,8 @@ func (m *MockDatabaseStorage) MarkFeesCollected(ctx context.Context, collectedAt
 	return args.Get(0).([]types.Fee), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetFeesByPublicKey(ctx context.Context, publicKey string, includeCollected bool) ([]types.Fee, error) {
-	args := m.Called(ctx, publicKey, includeCollected)
+func (m *MockDatabaseStorage) GetFeesByPublicKey(ctx context.Context, publicKey string, since *time.Time) ([]types.Fee, error) {
+	args := m.Called(ctx, publicKey, since)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

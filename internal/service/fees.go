@@ -30,7 +30,7 @@ import (
 )
 
 type Fees interface {
-	PublicKeyGetFeeInfo(ctx context.Context, publicKey string) (*itypes.FeeHistoryDto, error)
+	PublicKeyGetFeeInfo(ctx context.Context, publicKey string, since *time.Time) (*itypes.FeeHistoryDto, error)
 	MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txHash string) ([]itypes.FeeDto, error)
 }
 
@@ -56,9 +56,9 @@ func NewFeeService(db storage.DatabaseStorage,
 	}, nil
 }
 
-func (s *FeeService) PublicKeyGetFeeInfo(ctx context.Context, publicKey string) (*itypes.FeeHistoryDto, error) {
+func (s *FeeService) PublicKeyGetFeeInfo(ctx context.Context, publicKey string, since *time.Time) (*itypes.FeeHistoryDto, error) {
 
-	fees, err := s.db.GetFeesByPublicKey(ctx, publicKey, true)
+	fees, err := s.db.GetFeesByPublicKey(ctx, publicKey, since)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get fees: %w", err)
 	}
@@ -249,7 +249,7 @@ func (s *FeeService) ValidateFees(ctx context.Context, req *ptypes.PluginKeysign
 		return fmt.Errorf("transaction must be sent to the configured usdc contract address")
 	}
 
-	feeInfo, err := s.PublicKeyGetFeeInfo(ctx, req.PublicKey)
+	feeInfo, err := s.PublicKeyGetFeeInfo(ctx, req.PublicKey, nil)
 	if err != nil {
 		return fmt.Errorf("internal error")
 	}

@@ -88,23 +88,24 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	}
 
 	keysignMessage := req.Messages[0]
+	km, err := base64.StdEncoding.DecodeString(keysignMessage.Message)
+	if err != nil {
+		return fmt.Errorf("failed to decode b64 proposed tx: %w", err)
+	}
 
 	evmID, err := keysignMessage.Chain.EvmID()
 	if err != nil {
 		return fmt.Errorf("evm chain id not found: %s", keysignMessage.Chain.String())
 	}
 
-	b, err := base64.StdEncoding.DecodeString(req.Transaction)
-	if err != nil {
-		return fmt.Errorf("failed to decode b64 proposed tx: %w", err)
-	}
+	b := ecommon.Hex2Bytes(req.Transaction)
 	txData, err := ethereum.DecodeUnsignedPayload(b)
 	if err != nil {
 		return fmt.Errorf("failed to decode evm payload: %w", err)
 	}
 
 	hashToSignFromTxObj := etypes.LatestSignerForChainID(evmID).Hash(etypes.NewTx(txData))
-	hashToSign := ecommon.HexToHash(keysignMessage.Message)
+	hashToSign := ecommon.BytesToHash(km)
 	if hashToSignFromTxObj.Cmp(hashToSign) != 0 {
 		// req.Transaction — full tx to unpack and assert ERC20 args against policy
 		// keysignMessage.Message — is ECDSA hash to sign

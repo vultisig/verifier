@@ -10,9 +10,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/vultisig/verifier/common"
 	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/types"
+	"github.com/vultisig/vultisig-go/common"
 )
 
 const PLUGINS_TABLE = "plugins"

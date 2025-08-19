@@ -20,8 +20,9 @@ import (
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
 	"github.com/vultisig/vultiserver/contexthelper"
 
-	vcommon "github.com/vultisig/verifier/common"
-	"github.com/vultisig/verifier/types"
+	vtypes "github.com/vultisig/verifier/types"
+	vcommon "github.com/vultisig/vultisig-go/common"
+	vgtypes "github.com/vultisig/vultisig-go/types"
 )
 
 const EmailVaultBackupTypeName = "key:email"
@@ -84,7 +85,7 @@ func (s *ManagementService) HandleKeyGenerationDKLS(ctx context.Context, t *asyn
 		return err
 	}
 	defer s.measureTime("worker.vault.create.latency", time.Now(), []string{})
-	var req types.VaultCreateRequest
+	var req vgtypes.VaultCreateRequest
 	if err := json.Unmarshal(t.Payload(), &req); err != nil {
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
 	}
@@ -139,7 +140,7 @@ func (s *ManagementService) HandleKeySignDKLS(ctx context.Context, t *asynq.Task
 	if err := contexthelper.CheckCancellation(ctx); err != nil {
 		return err
 	}
-	var p types.KeysignRequest
+	var p vtypes.KeysignRequest
 	if err := json.Unmarshal(t.Payload(), &p); err != nil {
 		s.logger.WithError(err).Error("json.Unmarshal failed")
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
@@ -215,7 +216,7 @@ func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task
 	if err := contexthelper.CheckCancellation(ctx); err != nil {
 		return err
 	}
-	var req types.ReshareRequest
+	var req vtypes.ReshareRequest
 	if err := json.Unmarshal(t.Payload(), &req); err != nil {
 		s.logger.WithError(err).Error("json.Unmarshal failed")
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)

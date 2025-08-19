@@ -15,6 +15,7 @@ import (
 
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/types"
+	"github.com/vultisig/verifier/internal/util"
 	ptypes "github.com/vultisig/verifier/types"
 )
 
@@ -271,6 +272,9 @@ func (s *PluginService) fetchRecipeSpecificationFromPlugin(ctx context.Context, 
 	recipeSpec := &rtypes.RecipeSchema{}
 	if err := json.NewDecoder(resp.Body).Decode(recipeSpec); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	if err := util.ValidateRecipeSchema(*recipeSpec); err != nil {
+		return nil, fmt.Errorf("invalid recipe schema: %w", err)
 	}
 
 	return recipeSpec, nil

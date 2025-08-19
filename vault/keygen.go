@@ -21,8 +21,9 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/vultisig/verifier/common"
-	"github.com/vultisig/verifier/types"
+	vtypes "github.com/vultisig/verifier/types"
+	"github.com/vultisig/vultisig-go/common"
+	vgtypes "github.com/vultisig/vultisig-go/types"
 )
 
 var TssKeyGenTimeout = errors.New("keygen timeout")
@@ -56,7 +57,7 @@ func (t *DKLSTssService) GetMPCKeygenWrapper(isEdDSA bool) *MPCWrapperImp {
 	return NewMPCWrapperImp(isEdDSA)
 }
 
-func (t *DKLSTssService) ProcessDKLSKeygen(req types.VaultCreateRequest) (string, string, error) {
+func (t *DKLSTssService) ProcessDKLSKeygen(req vgtypes.VaultCreateRequest) (string, string, error) {
 	serverURL := t.cfg.Relay.Server
 	relayClient := relay.NewRelayClient(serverURL)
 
@@ -185,7 +186,7 @@ func (t *DKLSTssService) SaveVaultToStorage(vault *vaultType.Vault, email, plugi
 	base64VaultContent := base64.StdEncoding.EncodeToString(vaultBackupData)
 
 	if t.cfg.QueueEmailTask && len(email) != 0 {
-		emailRequest := types.EmailRequest{
+		emailRequest := vtypes.EmailRequest{
 			Email:       email,
 			FileName:    common.GetVaultName(vault),
 			FileContent: base64VaultContent,

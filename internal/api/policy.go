@@ -18,11 +18,11 @@ import (
 	rtypes "github.com/vultisig/recipes/types"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/vultisig/verifier/address"
-	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/internal/sigutil"
 	"github.com/vultisig/verifier/types"
 	vtypes "github.com/vultisig/verifier/types"
+	"github.com/vultisig/vultisig-go/address"
+	"github.com/vultisig/vultisig-go/common"
 )
 
 func (s *Server) validatePluginPolicy(ctx context.Context, policy types.PluginPolicy) error {

@@ -388,11 +388,18 @@ func (s *Server) handleGetRecipeSpecificationSuggest(c echo.Context) error {
 
 	b, err := protojson.Marshal(recipeSpec)
 	if err != nil {
-		s.logger.WithError(err).Error("Failed to marshal recipe spec")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to marshal recipe spec"))
+		s.logger.WithError(err).Error("Failed to proto-marshal recipe spec")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to proto-marshal recipe spec"))
 	}
 
-	return c.JSON(http.StatusOK, b)
+	var r map[string]interface{}
+	err = json.Unmarshal(b, &r)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to unmarshal recipe spec")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to unmarshal recipe spec"))
+	}
+
+	return c.JSON(http.StatusOK, r)
 }
 
 func (s *Server) verifyPolicySignature(policy vtypes.PluginPolicy) bool {

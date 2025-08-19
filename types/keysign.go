@@ -67,7 +67,7 @@ type PluginKeysignRequest struct {
 	TransactionType string `json:"transaction_type"`
 }
 
-func NewPluginKeysignRequest(policy PluginPolicy, txToTrack string, chain vgcommon.Chain, tx []byte) (
+func NewPluginKeysignRequestEvm(policy PluginPolicy, txToTrack string, chain vgcommon.Chain, tx []byte) (
 	*PluginKeysignRequest, error) {
 	ethEvmID, err := chain.EvmID()
 	if err != nil {

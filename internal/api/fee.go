@@ -12,13 +12,23 @@ import (
 
 func (s *Server) GetPublicKeyFees(c echo.Context) error {
 	pluginId := fmt.Sprint(c.Get("plugin_id"))
+	since := c.QueryParam("since")
+	var sinceTime *time.Time
+	if since != "" {
+		st, err := time.Parse(time.RFC3339, since)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid since time"))
+		}
+		sinceTime = &st
+	}
+
 	if pluginId != string(types.PluginVultisigFees_feee) {
 		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("unauthorized"))
 	}
 
 	publicKey := c.Param("publicKey")
 
-	history, err := s.feeService.PublicKeyGetFeeInfo(c.Request().Context(), publicKey)
+	history, err := s.feeService.PublicKeyGetFeeInfo(c.Request().Context(), publicKey, sinceTime)
 	if err != nil {
 		s.logger.WithError(err).Errorf("Failed to get fees for public key: %s", publicKey)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get fees"))

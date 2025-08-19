@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -155,26 +156,31 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 		return nil, fmt.Errorf("failed to insert policy: %w", err)
 	}
 
-	//// Create one-time fee records within the transaction
-	//for _, billingPolicy := range newPolicy.Billing {
-	//	if billingPolicy.Type == types.PricingTypeOnce {
-	//		// Create fee record for one-time billing
-	//		fee, err := s.db.InsertFee(ctx, tx, types.Fee{
-	//			PluginPolicyBillingID: billingPolicy.ID,
-	//			Amount:                billingPolicy.Amount,
-	//		})
-	//		if err != nil {
-	//			return nil, fmt.Errorf("failed to insert fee for billing policy %s: %w", billingPolicy.ID, err)
-	//		}
-	//
-	//		s.logger.WithFields(logrus.Fields{
-	//			"plugin_policy_id":         newPolicy.ID,
-	//			"plugin_policy_billing_id": billingPolicy.ID,
-	//			"fee_id":                   fee.ID,
-	//			"amount":                   fee.Amount,
-	//		}).Info("Inserted one-time fee record")
-	//	}
-	//}
+	// Create one-time fee records within the transaction
+	for _, billingPolicy := range newPolicy.Billing {
+		if billingPolicy.Type == types.PricingTypeOnce {
+			// Create fee record for one-time billing
+			fee, err := s.db.InsertFeeDebitTx(ctx, tx, types.FeeDebit{
+				Fee: types.Fee{
+					Amount:    billingPolicy.Amount,
+					PublicKey: policy.PublicKey,
+				},
+				PluginPolicyBillingID: billingPolicy.ID,
+				Type:                  types.FeeDebitTypeFee,
+				ChargedAt:             time.Now(),
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to insert fee for billing policy %s: %w", billingPolicy.ID, err)
+			}
+
+			s.logger.WithFields(logrus.Fields{
+				"plugin_policy_id":         newPolicy.ID,
+				"plugin_policy_billing_id": billingPolicy.ID,
+				"fee_id":                   fee.ID,
+				"amount":                   fee.Amount,
+			}).Info("Inserted one-time fee record")
+		}
+	}
 
 	// Sync policy synchronously - if this fails, the entire operation fails
 	if err := s.syncer.CreatePolicySync(ctx, policy); err != nil {

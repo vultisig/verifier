@@ -23,7 +23,6 @@ import (
 	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
 	ptypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/vultisig-go/common"
-	vgcommon "github.com/vultisig/vultisig-go/common"
 )
 
 func (s *Server) SignPluginMessages(c echo.Context) error {
@@ -88,7 +87,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	}
 
 	keysignMessage := req.Messages[0]
-	km, err := base64.StdEncoding.DecodeString(keysignMessage.Message)
+	kmBytes, err := base64.StdEncoding.DecodeString(keysignMessage.Message)
 	if err != nil {
 		return fmt.Errorf("failed to decode b64 proposed tx: %w", err)
 	}
@@ -98,14 +97,17 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		return fmt.Errorf("evm chain id not found: %s", keysignMessage.Chain.String())
 	}
 
-	b := ecommon.Hex2Bytes(req.Transaction)
+	b, err := base64.StdEncoding.DecodeString(req.Transaction)
+	if err != nil {
+		return fmt.Errorf("failed to decode b64 proposed tx: %w", err)
+	}
 	txData, err := ethereum.DecodeUnsignedPayload(b)
 	if err != nil {
 		return fmt.Errorf("failed to decode evm payload: %w", err)
 	}
 
 	hashToSignFromTxObj := etypes.LatestSignerForChainID(evmID).Hash(etypes.NewTx(txData))
-	hashToSign := ecommon.BytesToHash(km)
+	hashToSign := ecommon.BytesToHash(kmBytes)
 	if hashToSignFromTxObj.Cmp(hashToSign) != 0 {
 		// req.Transaction — full tx to unpack and assert ERC20 args against policy
 		// keysignMessage.Message — is ECDSA hash to sign
@@ -119,7 +121,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		)
 	}
 
-	_, err = engine.NewEngine().Evaluate(recipe, vgcommon.Chain(keysignMessage.Chain), b)
+	_, err = engine.NewEngine().Evaluate(recipe, keysignMessage.Chain, b)
 	if err != nil {
 		return fmt.Errorf("tx not allowed to execute: %w", err)
 	}

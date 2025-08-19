@@ -10,7 +10,7 @@ import (
 	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/vultisig/recipes/ethereum"
-	"github.com/vultisig/verifier/common"
+	vgcommon "github.com/vultisig/vultisig-go/common"
 )
 
 type HashFunction string
@@ -30,12 +30,12 @@ type KeysignRequest struct {
 }
 
 type KeysignMessage struct {
-	TxIndexerID  string       `json:"tx_indexer_id"` // Tx indexer uuid
-	RawMessage   string       `json:"raw_message"`   // Raw message, used to decode the transaction
-	Message      string       `json:"message"`
-	Hash         string       `json:"hash"`
-	HashFunction HashFunction `json:"hash_function"`
-	Chain        common.Chain `json:"chain"`
+	TxIndexerID  string         `json:"tx_indexer_id"` // Tx indexer uuid
+	RawMessage   string         `json:"raw_message"`   // Raw message, used to decode the transaction
+	Message      string         `json:"message"`
+	Hash         string         `json:"hash"`
+	HashFunction HashFunction   `json:"hash_function"`
+	Chain        vgcommon.Chain `json:"chain"`
 }
 
 // IsValid checks if the keysign request is valid
@@ -68,7 +68,7 @@ type PluginKeysignRequest struct {
 	TransactionType string `json:"transaction_type"`
 }
 
-func NewPluginKeysignRequest(policy PluginPolicy, txToTrack string, chain common.Chain, tx []byte) (
+func NewPluginKeysignRequest(policy PluginPolicy, txToTrack string, chain vgcommon.Chain, tx []byte) (
 	*PluginKeysignRequest, error) {
 	ethEvmID, err := chain.EvmID()
 	if err != nil {
@@ -98,6 +98,6 @@ func NewPluginKeysignRequest(policy PluginPolicy, txToTrack string, chain common
 			PolicyID: policy.ID,
 			PluginID: policy.PluginID.String(),
 		},
-		Transaction: txHex,
+		Transaction: base64.StdEncoding.EncodeToString(tx),
 	}, nil
 }

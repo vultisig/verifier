@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	ecommon "github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/vultisig/recipes/ethereum"
@@ -75,7 +74,6 @@ func NewPluginKeysignRequest(policy PluginPolicy, txToTrack string, chain vgcomm
 		return nil, fmt.Errorf("failed to get EVM ID for chain %s: %w", chain, err)
 	}
 
-	txHex := ecommon.Bytes2Hex(tx)
 	txData, e := ethereum.DecodeUnsignedPayload(tx)
 	if e != nil {
 		return nil, fmt.Errorf("ethereum.DecodeUnsignedPayload: %w", e)

@@ -31,6 +31,7 @@ import (
 	vcommon "github.com/vultisig/vultisig-go/common"
 	vgtypes "github.com/vultisig/vultisig-go/types"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type Server struct {
@@ -384,7 +385,14 @@ func (s *Server) handleGetRecipeSpecificationSuggest(c echo.Context) error {
 		s.logger.WithError(err).Error("Failed to suggest recipe spec")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to suggest recipe spec"))
 	}
-	return c.JSON(http.StatusOK, recipeSpec)
+
+	b, err := protojson.Marshal(recipeSpec)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to marshal recipe spec")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to marshal recipe spec"))
+	}
+
+	return c.JSON(http.StatusOK, b)
 }
 
 func (s *Server) verifyPolicySignature(policy vtypes.PluginPolicy) bool {

@@ -29,9 +29,9 @@ require (
 	github.com/vultisig/commondata v0.0.0-20250710214228-61d9ed8f7778
 	github.com/vultisig/go-wrappers v0.0.0-20250716071337-34a5c0f4d6e0
 	github.com/vultisig/mobile-tss-lib v0.0.0-20250316003201-2e7e570a4a74
-	github.com/vultisig/recipes v0.0.0-20250811174115-368ae4bab6f6
+	github.com/vultisig/recipes v0.0.0-20250818151719-db3f03c3254c
 	github.com/vultisig/vultiserver v0.0.0-20250715212748-4b23f9849e4b
-	github.com/vultisig/vultisig-go v0.0.0-20250815075627-265cef7c643c
+	github.com/vultisig/vultisig-go v0.0.0-20250818095937-af97443fcbbe
 	golang.org/x/sync v0.14.0
 	google.golang.org/protobuf v1.36.6
 	sigs.k8s.io/yaml v1.3.0

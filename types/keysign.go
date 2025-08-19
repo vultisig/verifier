@@ -1,11 +1,15 @@
 package types
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
+	"fmt"
 
+	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
-
-	"github.com/vultisig/vultisig-go/common"
+	"github.com/vultisig/recipes/ethereum"
+	vgcommon "github.com/vultisig/vultisig-go/common"
 )
 
 type HashFunction string
@@ -25,12 +29,12 @@ type KeysignRequest struct {
 }
 
 type KeysignMessage struct {
-	TxIndexerID  string       `json:"tx_indexer_id"` // Tx indexer uuid
-	RawMessage   string       `json:"raw_message"`   // Raw message, used to decode the transaction
-	Message      string       `json:"message"`
-	Hash         string       `json:"hash"`
-	HashFunction HashFunction `json:"hash_function"`
-	Chain        common.Chain `json:"chain"`
+	TxIndexerID  string         `json:"tx_indexer_id"` // Tx indexer uuid
+	RawMessage   string         `json:"raw_message"`   // Raw message, used to decode the transaction
+	Message      string         `json:"message"`
+	Hash         string         `json:"hash"`
+	HashFunction HashFunction   `json:"hash_function"`
+	Chain        vgcommon.Chain `json:"chain"`
 }
 
 // IsValid checks if the keysign request is valid
@@ -40,6 +44,12 @@ func (r KeysignRequest) IsValid() error {
 	}
 	if len(r.Messages) == 0 {
 		return errors.New("invalid messages")
+	}
+	for _, m := range r.Messages {
+		_, err := base64.StdEncoding.DecodeString(m.Message)
+		if err != nil {
+			return errors.New("message is not base64 encoded")
+		}
 	}
 	if r.SessionID == "" {
 		return errors.New("invalid session")
@@ -55,4 +65,37 @@ type PluginKeysignRequest struct {
 	KeysignRequest
 	Transaction     string `json:"transactions"`
 	TransactionType string `json:"transaction_type"`
+}
+
+func NewPluginKeysignRequestEvm(policy PluginPolicy, txToTrack string, chain vgcommon.Chain, tx []byte) (
+	*PluginKeysignRequest, error) {
+	ethEvmID, err := chain.EvmID()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get EVM ID for chain %s: %w", chain, err)
+	}
+
+	txData, e := ethereum.DecodeUnsignedPayload(tx)
+	if e != nil {
+		return nil, fmt.Errorf("ethereum.DecodeUnsignedPayload: %w", e)
+	}
+	txHashToSign := etypes.LatestSignerForChainID(ethEvmID).Hash(etypes.NewTx(txData))
+	msgHash := sha256.Sum256(txHashToSign.Bytes())
+
+	return &PluginKeysignRequest{
+		KeysignRequest: KeysignRequest{
+			PublicKey: policy.PublicKey,
+			Messages: []KeysignMessage{
+				{
+					TxIndexerID:  txToTrack,
+					Message:      base64.StdEncoding.EncodeToString(txHashToSign.Bytes()),
+					Chain:        chain,
+					Hash:         base64.StdEncoding.EncodeToString(msgHash[:]),
+					HashFunction: HashFunction_SHA256,
+				},
+			},
+			PolicyID: policy.ID,
+			PluginID: policy.PluginID.String(),
+		},
+		Transaction: base64.StdEncoding.EncodeToString(tx),
+	}, nil
 }

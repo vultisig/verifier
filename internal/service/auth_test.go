@@ -167,28 +167,28 @@ func (m *MockDatabaseStorage) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx
 	return args.Get(0).(*types.PluginPolicy), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetAllFeesByPolicyId(ctx context.Context, policyId uuid.UUID) ([]types.Fee, error) {
-	args := m.Called(ctx, policyId)
+func (m *MockDatabaseStorage) GetFeeDebitsByPolicyId(ctx context.Context, policyId uuid.UUID, since *time.Time) ([]types.FeeDebit, error) {
+	args := m.Called(ctx, policyId, since)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]types.Fee), args.Error(1)
+	return args.Get(0).([]types.FeeDebit), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txHash string) ([]types.Fee, error) {
+func (m *MockDatabaseStorage) MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txHash string) (*types.FeeCredit, error) {
 	args := m.Called(ctx, collectedAt, ids, txHash)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]types.Fee), args.Error(1)
+	return args.Get(0).(*types.FeeCredit), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetFeesByPublicKey(ctx context.Context, publicKey string, since *time.Time) ([]types.Fee, error) {
+func (m *MockDatabaseStorage) GetFeeDebitsByPublicKey(ctx context.Context, publicKey string, since *time.Time) ([]types.FeeDebit, error) {
 	args := m.Called(ctx, publicKey, since)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]types.Fee), args.Error(1)
+	return args.Get(0).([]types.FeeDebit), args.Error(1)
 }
 
 func (m *MockDatabaseStorage) GetAllFeesByPublicKey(ctx context.Context, includeCollected bool) ([]types.Fee, error) {
@@ -199,12 +199,29 @@ func (m *MockDatabaseStorage) GetAllFeesByPublicKey(ctx context.Context, include
 	return args.Get(0).([]types.Fee), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) InsertFee(ctx context.Context, dbTx pgx.Tx, fee types.Fee) (*types.Fee, error) {
+func (m *MockDatabaseStorage) GetFeesOwed(ctx context.Context, publicKey string) (uint64, error) {
+	args := m.Called(ctx, publicKey)
+	if args.Get(0) == nil {
+		return 0, args.Error(1)
+	}
+	return args.Get(0).(uint64), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) InsertFeeCreditTx(ctx context.Context, dbTx pgx.Tx, fee types.FeeCredit) (*types.FeeCredit, error) {
 	args := m.Called(ctx, dbTx, fee)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*types.Fee), args.Error(1)
+	return args.Get(0).(*types.FeeCredit), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) InsertFeeDebitTx(ctx context.Context, dbTx pgx.Tx, fee types.FeeDebit) (*types.FeeDebit, error) {
+
+	args := m.Called(ctx, dbTx, fee)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*types.FeeDebit), args.Error(1)
 }
 
 func (m *MockDatabaseStorage) FindPricingById(ctx context.Context, id uuid.UUID) (*types.Pricing, error) {

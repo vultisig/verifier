@@ -15,15 +15,15 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
 	"github.com/microcosm-cc/bluemonday"
-	rcommon "github.com/vultisig/recipes/common"
 	"github.com/vultisig/recipes/engine"
 	"github.com/vultisig/recipes/ethereum"
-	"github.com/vultisig/verifier/common"
 	"github.com/vultisig/verifier/internal/conv"
 	"github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/plugin/tasks"
 	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
 	ptypes "github.com/vultisig/verifier/types"
+	"github.com/vultisig/vultisig-go/common"
+	vgcommon "github.com/vultisig/vultisig-go/common"
 )
 
 func (s *Server) SignPluginMessages(c echo.Context) error {
@@ -118,7 +118,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		)
 	}
 
-	_, err = engine.NewEngine().Evaluate(recipe, rcommon.Chain(keysignMessage.Chain), b)
+	_, err = engine.NewEngine().Evaluate(recipe, vgcommon.Chain(keysignMessage.Chain), b)
 	if err != nil {
 		return fmt.Errorf("tx not allowed to execute: %w", err)
 	}

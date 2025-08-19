@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/vultisig/verifier/common"
+	"github.com/vultisig/vultisig-go/common"
 )
 
 type HashFunction string

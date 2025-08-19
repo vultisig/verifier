@@ -1,10 +1,16 @@
 package types
 
 import (
+	"encoding/hex"
 	"fmt"
 
 	"github.com/google/uuid"
 )
+
+func isValidHexString(s string) bool {
+	buf, err := hex.DecodeString(s)
+	return err == nil && len(buf) == 32
+}
 
 // ReshareRequest is a struct that represents a request to reshare a vault
 type ReshareRequest struct {

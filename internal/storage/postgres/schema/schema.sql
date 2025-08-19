@@ -3,6 +3,15 @@ CREATE TYPE "billing_asset" AS ENUM (
     'usdc'
 );
 
+CREATE TYPE "fee_credit_type" AS ENUM (
+    'fee_transacted'
+);
+
+CREATE TYPE "fee_debit_type" AS ENUM (
+    'fee',
+    'failed_tx'
+);
+
 CREATE TYPE "plugin_category" AS ENUM (
     'ai-agent',
     'plugin'
@@ -70,6 +79,22 @@ BEGIN
     END IF;
     
     RETURN OLD;
+END;
+$$;
+
+CREATE FUNCTION "enforce_fees_append_only"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+    IF TG_OP = 'UPDATE' THEN
+        RAISE EXCEPTION 'UPDATE operations are not allowed on fees table (append-only)';
+    END IF;
+    
+    IF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION 'DELETE operations are not allowed on fees table (append-only)';
+    END IF;
+    
+    RETURN NULL;
 END;
 $$;
 
@@ -151,6 +176,25 @@ BEGIN
 END;
 $$;
 
+CREATE FUNCTION "validate_fee_public_key"("fee_public_key" character varying, "billing_id" "uuid") RETURNS boolean
+    LANGUAGE "plpgsql" STABLE
+    AS $$
+BEGIN
+    -- If billing_id is NULL, validation passes (for other inherited tables)
+    IF billing_id IS NULL THEN
+        RETURN TRUE;
+    END IF;
+    
+    -- Otherwise, check that public keys match
+    RETURN EXISTS (
+        SELECT 1 
+        FROM plugin_policy_billing ppb
+        JOIN plugin_policies pp ON ppb.plugin_policy_id = pp.id
+        WHERE ppb.id = billing_id AND pp.public_key = fee_public_key
+    );
+END;
+$$;
+
 CREATE VIEW "billing_periods" AS
 SELECT
     NULL::"uuid" AS "plugin_policy_id",
@@ -165,14 +209,55 @@ SELECT
 
 CREATE TABLE "fees" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "plugin_policy_billing_id" "uuid" NOT NULL,
-    "transaction_id" "uuid",
-    "transaction_hash" character varying(66),
     "amount" bigint NOT NULL,
+    "public_key" character varying(66) NOT NULL,
     "created_at" timestamp without time zone DEFAULT "now"() NOT NULL,
-    "charged_at" "date" DEFAULT "now"() NOT NULL,
-    "collected_at" timestamp without time zone
+    "ref" "text",
+    CONSTRAINT "fee_positive_amount" CHECK (("amount" > 0))
 );
+
+CREATE TABLE "fee_credits" (
+    "type" "fee_credit_type" NOT NULL,
+    "transaction_hash" character varying(66)
+)
+INHERITS ("fees");
+
+CREATE TABLE "fee_debits" (
+    "type" "fee_debit_type" NOT NULL,
+    "plugin_policy_billing_id" "uuid" NOT NULL,
+    "charged_at" "date" DEFAULT "now"() NOT NULL,
+    CONSTRAINT "fee_debits_public_key_match" CHECK ("validate_fee_public_key"("public_key", "plugin_policy_billing_id"))
+)
+INHERITS ("fees");
+
+CREATE VIEW "fees_joined" AS
+ SELECT "fc"."id",
+    "fc"."public_key",
+    'credit'::"text" AS "type",
+    ("fc"."type")::"text" AS "subtype",
+    "fc"."created_at",
+    "fc"."amount"
+   FROM "fee_credits" "fc"
+UNION ALL
+ SELECT "fd"."id",
+    "fd"."public_key",
+    'debit'::"text" AS "type",
+    ("fd"."type")::"text" AS "subtype",
+    "fd"."created_at",
+    "fd"."amount"
+   FROM "fee_debits" "fd";
+
+CREATE VIEW "fee_balance" AS
+ SELECT "fees_joined"."public_key",
+    "sum"(
+        CASE
+            WHEN ("fees_joined"."type" = 'credit'::"text") THEN (- "fees_joined"."amount")
+            ELSE "fees_joined"."amount"
+        END) AS "total_owed",
+    "count"(*) FILTER (WHERE ("fees_joined"."type" = 'debit'::"text")) AS "total_debits",
+    "count"(*) FILTER (WHERE ("fees_joined"."type" = 'credit'::"text")) AS "total_credits"
+   FROM "fees_joined"
+  GROUP BY "fees_joined"."public_key";
 
 CREATE TABLE "plugin_policies" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
@@ -199,23 +284,21 @@ CREATE TABLE "plugin_policy_billing" (
     CONSTRAINT "frequency_check" CHECK (((("type" = 'recurring'::"pricing_type") AND ("frequency" IS NOT NULL)) OR (("type" = ANY (ARRAY['per-tx'::"public"."pricing_type", 'once'::"public"."pricing_type"])) AND ("frequency" IS NULL))))
 );
 
-CREATE VIEW "fees_view" AS
+CREATE VIEW "fee_debits_view" AS
  SELECT "pp"."id" AS "policy_id",
     "pp"."plugin_id",
     "ppb"."id" AS "billing_id",
-    "pp"."public_key",
+    "f"."public_key",
     "ppb"."type",
     "f"."id",
-    "f"."plugin_policy_billing_id",
-    "f"."transaction_id",
-    "f"."transaction_hash",
     "f"."amount",
     "f"."created_at",
-    "f"."charged_at",
-    "f"."collected_at"
+    "f"."type" AS "fee_type",
+    "f"."plugin_policy_billing_id",
+    "f"."charged_at"
    FROM (("plugin_policies" "pp"
      JOIN "plugin_policy_billing" "ppb" ON (("ppb"."plugin_policy_id" = "pp"."id")))
-     JOIN "fees" "f" ON (("f"."plugin_policy_billing_id" = "ppb"."id")));
+     JOIN "fee_debits" "f" ON (("f"."plugin_policy_billing_id" = "ppb"."id")));
 
 CREATE TABLE "plugin_apikey" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
@@ -325,6 +408,20 @@ CREATE TABLE "vault_tokens" (
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 
+ALTER TABLE ONLY "fee_credits" ALTER COLUMN "id" SET DEFAULT "gen_random_uuid"();
+
+ALTER TABLE ONLY "fee_credits" ALTER COLUMN "created_at" SET DEFAULT "now"();
+
+ALTER TABLE ONLY "fee_debits" ALTER COLUMN "id" SET DEFAULT "gen_random_uuid"();
+
+ALTER TABLE ONLY "fee_debits" ALTER COLUMN "created_at" SET DEFAULT "now"();
+
+ALTER TABLE ONLY "fee_credits"
+    ADD CONSTRAINT "fee_credits_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "fee_debits"
+    ADD CONSTRAINT "fee_debits_pkey" PRIMARY KEY ("id");
+
 ALTER TABLE ONLY "fees"
     ADD CONSTRAINT "fees_pkey" PRIMARY KEY ("id");
 
@@ -373,11 +470,13 @@ ALTER TABLE ONLY "vault_tokens"
 ALTER TABLE ONLY "vault_tokens"
     ADD CONSTRAINT "vault_tokens_token_id_key" UNIQUE ("token_id");
 
-CREATE INDEX "idx_fees_billing_date" ON "fees" USING "btree" ("charged_at");
+CREATE INDEX "idx_fee_credits_transaction_hash" ON "fee_credits" USING "btree" ("transaction_hash") WHERE ("transaction_hash" IS NOT NULL);
 
-CREATE INDEX "idx_fees_plugin_policy_billing_id" ON "fees" USING "btree" ("plugin_policy_billing_id");
+CREATE INDEX "idx_fee_debits_billing_date" ON "fee_debits" USING "btree" ("charged_at");
 
-CREATE INDEX "idx_fees_transaction_id" ON "fees" USING "btree" ("transaction_id") WHERE ("transaction_id" IS NOT NULL);
+CREATE INDEX "idx_fee_debits_plugin_policy_billing_id" ON "fee_debits" USING "btree" ("plugin_policy_billing_id");
+
+CREATE INDEX "idx_fees_created_at" ON "fees" USING "btree" ("created_at");
 
 CREATE INDEX "idx_plugin_apikey_apikey" ON "plugin_apikey" USING "btree" ("apikey");
 
@@ -428,9 +527,11 @@ CREATE OR REPLACE VIEW "billing_periods" AS
         END) AS "next_billing_date"
    FROM (("plugin_policy_billing" "ppb"
      JOIN "plugin_policies" "pp" ON (("ppb"."plugin_policy_id" = "pp"."id")))
-     LEFT JOIN "fees" "f" ON (("f"."plugin_policy_billing_id" = "ppb"."id")))
+     LEFT JOIN "fee_debits" "f" ON (("f"."plugin_policy_billing_id" = "ppb"."id")))
   WHERE ("ppb"."type" = 'recurring'::"pricing_type")
   GROUP BY "ppb"."id", "pp"."id";
+
+CREATE TRIGGER "fees_append_only_trigger" BEFORE DELETE OR UPDATE ON "fees" FOR EACH ROW EXECUTE FUNCTION "public"."enforce_fees_append_only"();
 
 CREATE TRIGGER "prevent_fees_policy_deletion_with_active_fees" BEFORE DELETE ON "plugin_policies" FOR EACH ROW EXECUTE FUNCTION "public"."check_active_fees_for_public_key"();
 
@@ -446,7 +547,7 @@ CREATE TRIGGER "trg_prevent_update_if_policy_deleted" BEFORE UPDATE ON "plugin_p
 
 CREATE TRIGGER "trg_set_policy_inactive_on_delete" BEFORE INSERT OR UPDATE ON "plugin_policies" FOR EACH ROW WHEN (("new"."deleted" = true)) EXECUTE FUNCTION "public"."set_policy_inactive_on_delete"();
 
-ALTER TABLE ONLY "fees"
+ALTER TABLE ONLY "fee_debits"
     ADD CONSTRAINT "fk_billing" FOREIGN KEY ("plugin_policy_billing_id") REFERENCES "plugin_policy_billing"("id") ON DELETE CASCADE;
 
 ALTER TABLE ONLY "plugin_policy_billing"

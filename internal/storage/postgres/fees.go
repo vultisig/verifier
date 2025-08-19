@@ -11,131 +11,53 @@ import (
 	"github.com/vultisig/verifier/types"
 )
 
-func (p *PostgresBackend) GetAllFeesByPolicyId(ctx context.Context, policyID uuid.UUID) ([]types.Fee, error) {
-	fees := []types.Fee{}
-
-	query := `SELECT id, public_key, plugin_id, policy_id, type, transaction_id, amount, charged_at, created_at, collected_at FROM fees_view WHERE policy_id = $1`
+// Extrapolate the public key from the policy ID and returns the output from `GetFeeDebitsByPublicKey“
+func (p *PostgresBackend) GetFeeDebitsByPolicyId(ctx context.Context, policyID uuid.UUID, since *time.Time) ([]types.FeeDebit, error) {
+	query := `SELECT public_key FROM plugin_policies WHERE id = $1`
 	rows, err := p.pool.Query(ctx, query, policyID)
-	if err != nil {
-		return []types.Fee{}, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var fee types.Fee
-		err := rows.Scan(
-			&fee.ID,
-			&fee.PublicKey,
-			&fee.PluginID,
-			&fee.PolicyID,
-			&fee.Type,
-			&fee.TransactionID,
-			&fee.Amount,
-			&fee.ChargedAt,
-			&fee.CreatedAt,
-			&fee.CollectedAt,
-		)
-		if err != nil {
-			return []types.Fee{}, err
-		}
-		fees = append(fees, fee)
-	}
-	return fees, nil
-}
-
-func (p *PostgresBackend) GetFeesByPublicKey(ctx context.Context, publicKey string, since *time.Time) ([]types.Fee, error) {
-	fees := []types.Fee{}
-	var rows pgx.Rows
-	var err error
-	if since != nil {
-		query := `SELECT id, public_key, plugin_id, policy_id, type, transaction_id, amount, charged_at, created_at, collected_at FROM fees_view WHERE public_key = $1 AND created_at >= $2`
-		rows, err = p.pool.Query(ctx, query, publicKey, since)
-	} else {
-		query := `SELECT id, public_key, plugin_id, policy_id, type, transaction_id, amount, charged_at, created_at, collected_at FROM fees_view WHERE public_key = $1 AND collected_at IS NULL`
-		rows, err = p.pool.Query(ctx, query, publicKey)
-	}
-	if err != nil {
-		return []types.Fee{}, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var fee types.Fee
-		err := rows.Scan(
-			&fee.ID,
-			&fee.PublicKey,
-			&fee.PluginID,
-			&fee.PolicyID,
-			&fee.Type,
-			&fee.TransactionID,
-			&fee.Amount,
-			&fee.ChargedAt,
-			&fee.CreatedAt,
-			&fee.CollectedAt,
-		)
-		if err != nil {
-			return []types.Fee{}, err
-		}
-		fees = append(fees, fee)
-	}
-	return fees, nil
-}
-
-func (p *PostgresBackend) GetAllFeesByPublicKey(ctx context.Context, includeCollected bool) ([]types.Fee, error) {
-	fees := []types.Fee{}
-	query := `SELECT id, public_key, plugin_id, policy_id, type, transaction_id, amount, charged_at, created_at, collected_at FROM fees_view WHERE collected_at IS NULL ORDER BY public_key, created_at`
-	if includeCollected {
-		query = `SELECT id, public_key, plugin_id, policy_id, type, transaction_id, amount, charged_at, created_at, collected_at FROM fees_view ORDER BY public_key, created_at`
-	}
-	rows, err := p.pool.Query(ctx, query)
-	if err != nil {
-		return []types.Fee{}, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var fee types.Fee
-		err := rows.Scan(
-			&fee.ID,
-			&fee.PublicKey,
-			&fee.PluginID,
-			&fee.PolicyID,
-			&fee.Type,
-			&fee.TransactionID,
-			&fee.Amount,
-			&fee.ChargedAt,
-			&fee.CreatedAt,
-			&fee.CollectedAt,
-		)
-		if err != nil {
-			return []types.Fee{}, err
-		}
-		fees = append(fees, fee)
-	}
-	return fees, nil
-}
-
-func (p *PostgresBackend) GetFeesByIds(ctx context.Context, ids []uuid.UUID) ([]types.Fee, error) {
-	fees := []types.Fee{}
-	query := `SELECT id, public_key, plugin_id, policy_id, type, transaction_id, amount, charged_at, created_at, collected_at FROM fees_view WHERE id = ANY($1)`
-	rows, err := p.pool.Query(ctx, query, ids)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+
+	if rows.Next() {
+		var publicKey string
+		err := rows.Scan(&publicKey)
+		if err != nil {
+			return nil, err
+		}
+		return p.GetFeeDebitsByPublicKey(ctx, publicKey, since)
+	} else {
+		return nil, fmt.Errorf("no public key found for policy %s", policyID)
+	}
+}
+
+func (p *PostgresBackend) GetFeeDebitsByPublicKey(ctx context.Context, publicKey string, since *time.Time) ([]types.FeeDebit, error) {
+	fees := []types.FeeDebit{}
+	var rows pgx.Rows
+	var err error
+	if since != nil {
+		query := `SELECT id, public_key, type, amount, plugin_policy_billing_id, charged_at, created_at FROM fee_debits WHERE public_key = $1 AND created_at >= $2`
+		rows, err = p.pool.Query(ctx, query, publicKey, since)
+	} else {
+		query := `SELECT id, public_key, type, amount, plugin_policy_billing_id, charged_at, created_at FROM fee_debits WHERE public_key = $1`
+		rows, err = p.pool.Query(ctx, query, publicKey)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
 	for rows.Next() {
-		var fee types.Fee
+		var fee types.FeeDebit
 		err := rows.Scan(
 			&fee.ID,
 			&fee.PublicKey,
-			&fee.PluginID,
-			&fee.PolicyID,
 			&fee.Type,
-			&fee.TransactionID,
 			&fee.Amount,
+			&fee.PluginPolicyBillingID,
 			&fee.ChargedAt,
 			&fee.CreatedAt,
-			&fee.CollectedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -145,38 +67,112 @@ func (p *PostgresBackend) GetFeesByIds(ctx context.Context, ids []uuid.UUID) ([]
 	return fees, nil
 }
 
-func (p *PostgresBackend) MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txid string) ([]types.Fee, error) {
-	if txid == "" {
-		return nil, fmt.Errorf("transaction hash cannot be empty")
-	}
-
-	var err error
-	tx, err := p.pool.Begin(ctx)
+func (p *PostgresBackend) GetFeeCreditsByIds(ctx context.Context, ids []uuid.UUID) ([]types.FeeCredit, error) {
+	fees := []types.FeeCredit{}
+	query := `SELECT id, public_key, type, amount, created_at, transaction_hash FROM fee_credits WHERE id = ANY($1)`
+	rows, err := p.pool.Query(ctx, query, ids)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
+	defer rows.Close()
+	for rows.Next() {
+		var fee types.FeeCredit
+		err := rows.Scan(
+			&fee.ID,
+			&fee.PublicKey,
+			&fee.Type,
+			&fee.Amount,
+			&fee.CreatedAt,
+			&fee.TransactionHash,
+		)
 		if err != nil {
-			tx.Rollback(ctx)
+			return nil, err
 		}
-	}()
+		fees = append(fees, fee)
+	}
+	return fees, nil
+}
 
-	query := `UPDATE fees SET collected_at = $1, transaction_hash = $2 WHERE id = ANY($3)`
-	result, err := tx.Exec(ctx, query, collectedAt, txid, ids)
+func (p *PostgresBackend) GetFeeDebitsByIds(ctx context.Context, ids []uuid.UUID) ([]types.FeeDebit, error) {
+	fees := []types.FeeDebit{}
+	query := `SELECT id, public_key, type, amount, created_at, plugin_policy_billing_id, charged_at FROM fee_debits WHERE id = ANY($1)`
+	rows, err := p.pool.Query(ctx, query, ids)
 	if err != nil {
 		return nil, err
 	}
-
-	// Check if all specified fees were updated
-	rowsAffected := result.RowsAffected()
-	if rowsAffected != int64(len(ids)) {
-		return nil, fmt.Errorf("expected to update %d fees, but only updated %d", len(ids), rowsAffected)
+	defer rows.Close()
+	for rows.Next() {
+		var fee types.FeeDebit
+		err := rows.Scan(
+			&fee.ID,
+			&fee.PublicKey,
+			&fee.Type,
+			&fee.Amount,
+			&fee.CreatedAt,
+			&fee.PluginPolicyBillingID,
+			&fee.ChargedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		fees = append(fees, fee)
 	}
+	return fees, nil
+}
 
-	err = tx.Commit(ctx)
+func (p *PostgresBackend) GetFeesOwed(ctx context.Context, publicKey string) (uint64, error) {
+	query := `SELECT SUM(amount) FROM fees WHERE public_key = $1`
+	row := p.pool.QueryRow(ctx, query, publicKey)
+	var amount uint64
+	err := row.Scan(&amount)
 	if err != nil {
-		return nil, err
+		return 0, err
+	}
+	return amount, nil
+}
+
+// InsertFee inserts a fee record for a billing policy within a transaction
+func (p *PostgresBackend) InsertFeeCreditTx(ctx context.Context, dbTx pgx.Tx, fee types.FeeCredit) (*types.FeeCredit, error) {
+	if fee.ID == uuid.Nil {
+		fee.ID = uuid.New()
+	}
+	if fee.Amount <= 0 {
+		return nil, fmt.Errorf("amount must be greater than 0")
 	}
 
-	return p.GetFeesByIds(ctx, ids)
+	err := dbTx.QueryRow(ctx,
+		`INSERT INTO fee_credits (id, public_key, type, amount, transaction_hash) VALUES ($1, $2, $3, $4, $5) RETURNING id, public_key, type, amount, transaction_hash, created_at`,
+		fee.ID, fee.PublicKey, fee.Type, fee.Amount, fee.TransactionHash,
+	).Scan(&fee.ID, &fee.PublicKey, &fee.Type, &fee.Amount, &fee.TransactionHash, &fee.CreatedAt)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert fee record for public_key %s: %w", fee.PublicKey, err)
+	}
+
+	return &fee, nil
+}
+
+func (p *PostgresBackend) InsertFeeDebitTx(ctx context.Context, dbTx pgx.Tx, fee types.FeeDebit) (*types.FeeDebit, error) {
+	if fee.ID == uuid.Nil {
+		fee.ID = uuid.New()
+	}
+	if fee.Amount <= 0 {
+		return nil, fmt.Errorf("amount must be greater than 0")
+	}
+
+	err := dbTx.QueryRow(ctx,
+		`INSERT INTO fee_debits (id, public_key, type, amount, plugin_policy_billing_id, charged_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, public_key, type, amount, plugin_policy_billing_id, charged_at, created_at`,
+		fee.ID, fee.PublicKey, fee.Type, fee.Amount, fee.PluginPolicyBillingID, fee.ChargedAt,
+	).Scan(&fee.ID, &fee.PublicKey, &fee.Type, &fee.Amount, &fee.PluginPolicyBillingID, &fee.ChargedAt, &fee.CreatedAt)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert fee record for billing policy %s: %w", fee.PluginPolicyBillingID, err)
+	}
+
+	return &fee, nil
+}
+
+// TODO this function will be replaced with one that marks a fee as failed rather than collected in a subsequent PR
+func (p *PostgresBackend) MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txid string) (*types.FeeCredit, error) {
+	return nil, nil
 }

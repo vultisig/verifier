@@ -47,11 +47,12 @@ type PolicyRepository interface {
 }
 
 type FeeRepository interface {
-	GetAllFeesByPolicyId(ctx context.Context, policyId uuid.UUID) ([]types.Fee, error)
-	GetFeesByPublicKey(ctx context.Context, publicKey string, since *time.Time) ([]types.Fee, error)
-	GetAllFeesByPublicKey(ctx context.Context, includeCollected bool) ([]types.Fee, error)
-	InsertFee(ctx context.Context, dbTx pgx.Tx, fee types.Fee) (*types.Fee, error)
-	MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txid string) ([]types.Fee, error)
+	GetFeeDebitsByPolicyId(ctx context.Context, policyId uuid.UUID, since *time.Time) ([]types.FeeDebit, error)
+	GetFeeDebitsByPublicKey(ctx context.Context, publicKey string, since *time.Time) ([]types.FeeDebit, error)
+	InsertFeeCreditTx(ctx context.Context, dbTx pgx.Tx, fee types.FeeCredit) (*types.FeeCredit, error)
+	InsertFeeDebitTx(ctx context.Context, dbTx pgx.Tx, fee types.FeeDebit) (*types.FeeDebit, error)
+	GetFeesOwed(ctx context.Context, publicKey string) (uint64, error)
+	MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txid string) (*types.FeeCredit, error)
 }
 
 type PluginPolicySyncRepository interface {

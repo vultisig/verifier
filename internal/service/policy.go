@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -159,9 +160,14 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 	for _, billingPolicy := range newPolicy.Billing {
 		if billingPolicy.Type == types.PricingTypeOnce {
 			// Create fee record for one-time billing
-			fee, err := s.db.InsertFee(ctx, tx, types.Fee{
+			fee, err := s.db.InsertFeeDebitTx(ctx, tx, types.FeeDebit{
+				Fee: types.Fee{
+					Amount:    billingPolicy.Amount,
+					PublicKey: policy.PublicKey,
+				},
 				PluginPolicyBillingID: billingPolicy.ID,
-				Amount:                billingPolicy.Amount,
+				Type:                  types.FeeDebitTypeFee,
+				ChargedAt:             time.Now(),
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to insert fee for billing policy %s: %w", billingPolicy.ID, err)

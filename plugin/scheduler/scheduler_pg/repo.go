@@ -56,9 +56,9 @@ func (r *Repo) GetPending(ctx context.Context) ([]scheduler.Scheduler, error) {
 	rows, err := r.tx.Try(ctx).Query(ctx, `
 		SELECT policy_id, next_execution
 		FROM scheduler
-		WHERE next_execution <= NOW()
+		WHERE next_execution <= $1
 		ORDER BY next_execution
-	`)
+	`, time.Now())
 	if err != nil {
 		return nil, fmt.Errorf("failed to query pending scheduler entries: %w", err)
 	}

@@ -2,7 +2,7 @@ package tx_indexer
 
 import (
 	"context"
-	"encoding/hex"
+	"encoding/base64"
 	"fmt"
 	"time"
 
@@ -95,7 +95,7 @@ func (t *Service) SetSignedAndBroadcasted(
 		return fmt.Errorf("client for chain not found: %s", chainID)
 	}
 
-	body, err := hex.DecodeString(tx.ProposedTxHex)
+	body, err := base64.StdEncoding.DecodeString(tx.ProposedTxHex)
 	if err != nil {
 		return fmt.Errorf("failed to decode proposed tx: %w", err)
 	}

@@ -13,7 +13,7 @@ import (
 
 	abi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/jackc/pgx/v5"
+	"github.com/google/uuid"
 	reth "github.com/vultisig/recipes/ethereum"
 
 	etypes "github.com/ethereum/go-ethereum/core/types"
@@ -26,6 +26,7 @@ import (
 	ecommon "github.com/ethereum/go-ethereum/common"
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/storage"
+	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/types"
 	ptypes "github.com/vultisig/verifier/types"
 )
@@ -86,50 +87,57 @@ func (s *FeeService) GetFeeBalanceUnlocked(ctx context.Context, publicKey string
 	return feesOwed, nil
 }
 
-func (s *FeeService) CreateFeeCredit(ctx context.Context, tx *pgx.Tx, feeCredit types.FeeCredit) error {
-	var err error
-	if tx == nil {
-		*tx, err = s.db.Pool().Begin(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to begin transaction: %w", err)
-		}
-		defer func() {
-			if err != nil {
-				(*tx).Rollback(ctx)
-				return
-			}
-			(*tx).Commit(ctx)
-		}()
-	}
+// Get all unclaimed fees for a public key and create a batch and then creates a fee credit for the batch
+func (s *FeeService) CreateFeeCollectionBatch(ctx context.Context, publicKey string) (*itypes.FeeBatchRequest, error) {
 
-	_, err = s.db.InsertFeeCreditTx(ctx, *tx, feeCredit)
+	tx, err := s.db.Pool().Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to insert fee credit: %w", err)
-	}
-	return nil
-}
-
-func (s *FeeService) CreateFeeDebit(ctx context.Context, tx *pgx.Tx, feeDebit types.FeeDebit) error {
-	var err error
-	if tx == nil {
-		*tx, err = s.db.Pool().Begin(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to begin transaction: %w", err)
-		}
-		defer func() {
-			if err != nil {
-				(*tx).Rollback(ctx)
-				return
-			}
-			(*tx).Commit(ctx)
-		}()
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	_, err = s.db.InsertFeeDebitTx(ctx, *tx, feeDebit)
+	fees, err := s.db.GetUnclaimedFeeMembers(ctx, publicKey)
 	if err != nil {
-		return fmt.Errorf("failed to insert fee debit: %w", err)
+		return nil, fmt.Errorf("failed to get unclaimed fees: %w", err)
 	}
-	return nil
+
+	feeIds := []uuid.UUID{}
+	for _, fee := range fees {
+		feeIds = append(feeIds, fee.ID)
+	}
+
+	batchId := uuid.New()
+
+	err = s.db.CreateFeeBatchWithMembers(ctx, tx, batchId, feeIds...)
+	if err != nil {
+		tx.Rollback(ctx)
+		return nil, fmt.Errorf("failed to create fee batch: %w", err)
+	}
+
+	totalAmount, err := s.db.GetFeesOwed(ctx, publicKey, feeIds...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get fees owed: %w", err)
+	}
+
+	feesCredit := types.FeeCredit{
+		Fee: types.Fee{
+			PublicKey: publicKey,
+			Amount:    uint64(totalAmount),
+			Ref:       fmt.Sprintf("batch:%s", batchId.String()),
+		},
+		Subtype: types.FeeCreditSubtypeTypeFeeTransacted,
+	}
+
+	_, err = s.db.InsertFeeCreditTx(ctx, tx, feesCredit)
+	if err != nil {
+		tx.Rollback(ctx)
+		return nil, fmt.Errorf("failed to create fee credit: %w", err)
+	}
+
+	return &itypes.FeeBatchRequest{
+		PublicKey: publicKey,
+		Amount:    uint64(totalAmount),
+		BatchID:   batchId,
+	}, nil
 }
 
 type unsignedDynamicFeeTx struct {

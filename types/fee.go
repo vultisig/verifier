@@ -13,6 +13,7 @@ type Fee struct {
 	PublicKey string    `json:"public_key"` // The public key "account" connected to the fee
 	Amount    uint64    `json:"amount"`     // The amount of the fee in the smallest unit, e.g., "1000000" for 0.01 VULTI
 	CreatedAt time.Time `json:"created_at"`
+	Ref       string    `json:"ref"` // Reference to the external or internal reference, comma separated list of format: "type:id"
 }
 
 // FeeDebitType represents the type of fee debit

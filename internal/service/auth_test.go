@@ -207,8 +207,8 @@ func (m *MockDatabaseStorage) GetAllFeesByPublicKey(ctx context.Context, include
 	return args.Get(0).([]types.Fee), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetFeesOwed(ctx context.Context, publicKey string) (int64, error) {
-	args := m.Called(ctx, publicKey)
+func (m *MockDatabaseStorage) GetFeesOwed(ctx context.Context, publicKey string, ids ...uuid.UUID) (int64, error) {
+	args := m.Called(ctx, publicKey, ids)
 	if args.Get(0) == nil {
 		return 0, args.Error(1)
 	}
@@ -230,6 +230,27 @@ func (m *MockDatabaseStorage) InsertFeeDebitTx(ctx context.Context, dbTx pgx.Tx,
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*types.FeeDebit), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) GetUnclaimedFeeMembers(ctx context.Context, publicKey string) ([]types.Fee, error) {
+	args := m.Called(ctx, publicKey)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]types.Fee), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) CreateFeeBatchWithMembers(ctx context.Context, dbTx pgx.Tx, batchId uuid.UUID, members ...uuid.UUID) error {
+	args := m.Called(ctx, dbTx, batchId, members)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) GetCreditTxByBatchId(ctx context.Context, batchId uuid.UUID) (*types.FeeCredit, error) {
+	args := m.Called(ctx, batchId)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*types.FeeCredit), args.Error(1)
 }
 
 func (m *MockDatabaseStorage) FindPricingById(ctx context.Context, id uuid.UUID) (*types.Pricing, error) {

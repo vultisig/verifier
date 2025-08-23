@@ -8,42 +8,63 @@ import (
 	rtypes "github.com/vultisig/recipes/types"
 )
 
+type FeeType string
+
+const (
+	FeeTypeDebit  FeeType = "debit"
+	FeeTypeCredit FeeType = "credit"
+)
+
 type Fee struct {
 	ID        uuid.UUID `json:"id"`         // The unique id of the fee incurred
 	PublicKey string    `json:"public_key"` // The public key "account" connected to the fee
 	Amount    uint64    `json:"amount"`     // The amount of the fee in the smallest unit, e.g., "1000000" for 0.01 VULTI
-	CreatedAt time.Time `json:"created_at"`
-	Ref       string    `json:"ref"` // Reference to the external or internal reference, comma separated list of format: "type:id"
+	CreatedAt time.Time `json:"created_at"` // The date and time the fee was created
+	Ref       string    `json:"ref"`        // Reference to the external or internal reference, comma separated list of format: "type:id"
+	Type      FeeType   `json:"type"`       // The type of fee (debit or credit)
 }
 
 // FeeDebitType represents the type of fee debit
-type FeeDebitType string
+type FeeDebitSubtypeType string
 
 const (
-	FeeDebitTypeFee      FeeDebitType = "fee"
-	FeeDebitTypeFailedTx FeeDebitType = "failed_tx"
+	FeeDebitSubtypeTypeFee      FeeDebitSubtypeType = "fee"
+	FeeDebitSubtypeTypeFailedTx FeeDebitSubtypeType = "failed_tx"
 )
 
 // FeeDebit represents a fee debit record - charges incurred by users
 type FeeDebit struct {
-	Fee                                // Inherits base fee fields
-	Type                  FeeDebitType `json:"type"`                     // Type of debit (fee, failed_tx)
-	PluginPolicyBillingID uuid.UUID    `json:"plugin_policy_billing_id"` // Reference to billing policy
-	ChargedAt             time.Time    `json:"charged_at"`               // Date when the fee was charged
+	Fee                                       // Inherits base fee fields
+	Subtype               FeeDebitSubtypeType `json:"subtype"`                  // Type of debit (fee, failed_tx)
+	PluginPolicyBillingID uuid.UUID           `json:"plugin_policy_billing_id"` // Reference to billing policy
+	ChargedAt             time.Time           `json:"charged_at"`               // Date when the fee was charged
 }
 
 // FeeCreditsType represents the type of fee credit
-type FeeCreditType string
+type FeeCreditSubtypeType string
 
 const (
-	FeeCreditTypeFeeTransacted FeeCreditType = "fee_transacted"
+	FeeCreditSubtypeTypeFeeTransacted FeeCreditSubtypeType = "fee_transacted"
 )
 
 // FeeCredit represents a fee credit record - refunds or payments to users
 type FeeCredit struct {
-	Fee                           // Inherits base fee fields
-	Type            FeeCreditType `json:"type"`             // Type of credit (fee_transacted)
-	TransactionHash *string       `json:"transaction_hash"` // Hash of transaction that collected the fee (optional)
+	Fee                                  // Inherits base fee fields
+	Subtype         FeeCreditSubtypeType `json:"subtype"`          // Type of credit (fee_transacted)
+	TransactionHash *string              `json:"transaction_hash"` // Hash of transaction that collected the fee (optional)
+}
+
+// FeeBatch represents a batch of fees collected in a single transaction
+type FeeBatch struct {
+	ID        uuid.UUID `json:"id"`         // Unique identifier for the batch
+	CreatedAt time.Time `json:"created_at"` // When the batch was created
+	TxHash    string    `json:"tx_hash"`    // Transaction hash where fees were collected
+}
+
+// FeeBatchMembers represents the many-to-many relationship between fee batches and individual fees
+type FeeBatchMembers struct {
+	FeeBatchID uuid.UUID `json:"fee_batch_id"` // Reference to the fee batch
+	FeeID      uuid.UUID `json:"fee_id"`       // Reference to the individual fee
 }
 
 type BillingPolicyProto struct {

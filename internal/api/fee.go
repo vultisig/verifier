@@ -56,39 +56,52 @@ func (s *Server) RevertFeeTransaction(c echo.Context) error {
 	s.feeService.SignRequestMutex.Lock()
 	defer s.feeService.SignRequestMutex.Unlock()
 
-	pluginId := fmt.Sprint(c.Get("plugin_id"))
 	batchIdString := c.Param("batch_id")
-	if pluginId != string(types.PluginVultisigFees_feee) {
-		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("unauthorized"))
-	}
 
 	batchId, err := uuid.Parse(batchIdString)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid batch id"))
 	}
 
-	fees, err := s.db.GetFeeCreditsByIds(c.Request().Context(), []uuid.UUID{batchId})
+	creditFee, err := s.db.GetCreditTxByBatchId(c.Request().Context(), batchId)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get fees"))
 	}
-	if len(fees) != 1 {
+
+	if creditFee == nil {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid batch id"))
 	}
 
-	revertAmount := fees[0].Amount
+	revertAmount := creditFee.Amount
 
 	debitId := uuid.New()
-	err = s.feeService.CreateFeeDebit(c.Request().Context(), nil, types.FeeDebit{
+	dbTx, err := s.db.Pool().Begin(c.Request().Context())
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to begin transaction"))
+	}
+
+	_, err = s.db.InsertFeeDebitTx(c.Request().Context(), dbTx, types.FeeDebit{
 		Fee: types.Fee{
 			ID:        debitId,
 			Amount:    revertAmount,
-			PublicKey: fees[0].PublicKey,
+			PublicKey: creditFee.PublicKey,
 			Ref:       fmt.Sprintf("batch_id:%s", batchId),
+			Type:      types.FeeTypeDebit,
 		},
-		Type: types.FeeDebitTypeFailedTx,
+		Subtype: types.FeeDebitSubtypeTypeFailedTx,
 	})
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to create fee debit"))
+	}
+
+	if err != nil {
+		dbTx.Rollback(c.Request().Context())
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to insert fee debit"))
+	}
+
+	if err := dbTx.Commit(c.Request().Context()); err != nil {
+		dbTx.Rollback(c.Request().Context())
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to commit transaction"))
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, map[string]string{
@@ -97,14 +110,12 @@ func (s *Server) RevertFeeTransaction(c echo.Context) error {
 
 }
 
-func (s *Server) CreateFeeCredit(c echo.Context) error {
+func (s *Server) CreateFeeCollectionBatch(c echo.Context) error {
 	s.feeService.SignRequestMutex.Lock()
 	defer s.feeService.SignRequestMutex.Unlock()
 
 	type request struct {
-		Amount    int64     `json:"amount"`
-		PublicKey string    `json:"public_key"`
-		ID        uuid.UUID `json:"id"`
+		PublicKey string `json:"public_key"`
 	}
 	var req request
 
@@ -112,28 +123,10 @@ func (s *Server) CreateFeeCredit(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid request"))
 	}
 
-	feesOwed, err := s.feeService.GetFeeBalanceUnlocked(c.Request().Context(), req.PublicKey)
+	feesOwed, err := s.feeService.CreateFeeCollectionBatch(c.Request().Context(), req.PublicKey)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get fee balance"))
 	}
 
-	if feesOwed < req.Amount {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("insufficient balance"))
-	}
-
-	if err := s.feeService.CreateFeeCredit(c.Request().Context(), nil, types.FeeCredit{
-		Fee: types.Fee{
-			ID:        req.ID,
-			Amount:    uint64(req.Amount),
-			PublicKey: req.PublicKey,
-		},
-		Type: types.FeeCreditTypeFeeTransacted,
-	}); err != nil {
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to create fee credit"))
-	}
-
-	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, map[string]string{
-		"id": req.ID.String(),
-	}))
-
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, feesOwed))
 }

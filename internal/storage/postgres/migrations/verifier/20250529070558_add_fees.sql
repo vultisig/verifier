@@ -4,6 +4,7 @@
 CREATE TYPE billing_asset AS ENUM ('usdc');
 CREATE TYPE fee_debit_type as ENUM ('fee', 'failed_tx');
 CREATE TYPE fee_credit_type as ENUM ('fee_transacted');
+CREATE TYPE fee_type as ENUM ('debit', 'credit');
 
 -- Stores info about charging frequencies
 CREATE TABLE IF NOT EXISTS plugin_policy_billing(
@@ -24,6 +25,7 @@ CREATE TABLE IF NOT EXISTS plugin_policy_billing(
 --base table for all fees (append-only)
 CREATE TABLE IF NOT EXISTS fees(
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    type fee_type NOT NULL,
     amount BIGINT NOT NULL,
     public_key VARCHAR(66) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -74,19 +76,38 @@ END;
 $$ LANGUAGE plpgsql STABLE;
 
 CREATE TABLE IF NOT EXISTS fee_debits(
-    type fee_debit_type NOT NULL,
+    subtype fee_debit_type NOT NULL,
     plugin_policy_billing_id uuid NOT NULL,
     charged_at DATE NOT NULL DEFAULT now(),
     CONSTRAINT fee_debits_pkey PRIMARY KEY (id),
     CONSTRAINT fk_billing FOREIGN KEY (plugin_policy_billing_id) REFERENCES plugin_policy_billing(id) ON DELETE CASCADE,
-    CONSTRAINT fee_debits_public_key_match CHECK (validate_fee_public_key(public_key, plugin_policy_billing_id))
+    CONSTRAINT fee_debits_public_key_match CHECK (validate_fee_public_key(public_key, plugin_policy_billing_id)),
+    CONSTRAINT fee_debits_type_check CHECK (type = 'debit'),
+    type fee_type NOT NULL DEFAULT 'debit'
 ) INHERITS (fees);
 
 CREATE TABLE IF NOT EXISTS fee_credits(
-    type fee_credit_type NOT NULL,
-    transaction_hash VARCHAR(66), -- The hash of the transaction that collected the fee
-    CONSTRAINT fee_credits_pkey PRIMARY KEY (id)
+    subtype fee_credit_type NOT NULL,
+    CONSTRAINT fee_credits_pkey PRIMARY KEY (id),
+    CONSTRAINT fee_credits_type_check CHECK (type = 'credit'),
+    type fee_type NOT NULL DEFAULT 'credit'
 ) INHERITS (fees);
+
+CREATE TABLE IF NOT EXISTS fee_batch(
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP NOT NULL DEFAULT now(),
+    tx_hash VARCHAR(66) NOT NULL,
+    CONSTRAINT fee_batch_tx_hash_unique UNIQUE (tx_hash)
+);
+
+CREATE TABLE IF NOT EXISTS fee_batch_members(
+    fee_batch_id uuid NOT NULL,
+    fee_id uuid NOT NULL,
+    CONSTRAINT fee_batch_members_pkey PRIMARY KEY (fee_batch_id, fee_id),
+    CONSTRAINT fee_batch_members_fee_id_unique UNIQUE (fee_id),
+    CONSTRAINT fk_fee_batch FOREIGN KEY (fee_batch_id) REFERENCES fee_batch(id) ON DELETE CASCADE,
+    CONSTRAINT fk_fee FOREIGN KEY (fee_id) REFERENCES fees(id) ON DELETE CASCADE
+);
 
 CREATE VIEW billing_periods AS 
     SELECT pp.id as plugin_policy_id,
@@ -118,9 +139,9 @@ CREATE VIEW fee_debits_view AS
     JOIN fee_debits f ON f.plugin_policy_billing_id = ppb.id;
 
 CREATE VIEW fees_joined AS
-    SELECT id, public_key, 'credit' as "type", type::text as "subtype", created_at, amount FROM fee_credits fc 
+    SELECT id, public_key, "type", "subtype"::text as "subtype", created_at, amount FROM fee_credits fc 
     UNION ALL
-    SELECT id, public_key, 'debit' as "type", type::text as "subtype", created_at, amount FROM fee_debits fd;
+    SELECT id, public_key, "type", "subtype"::text as "subtype", created_at, amount FROM fee_debits fd;
 
 CREATE VIEW fee_balance AS
     SELECT public_key, SUM(
@@ -141,7 +162,7 @@ CREATE INDEX idx_fees_created_at ON fees(created_at);
 CREATE INDEX idx_fee_debits_plugin_policy_billing_id ON fee_debits(plugin_policy_billing_id);
 CREATE INDEX idx_fee_debits_billing_date ON fee_debits(charged_at);
 
-CREATE INDEX idx_fee_credits_transaction_hash ON fee_credits(transaction_hash) WHERE transaction_hash IS NOT NULL;
+CREATE INDEX idx_fee_batch_transaction_hash ON fee_batch(tx_hash) WHERE tx_hash IS NOT NULL;
 
 -- +goose StatementEnd
 -- +goose Down
@@ -164,7 +185,7 @@ DROP INDEX IF EXISTS idx_plugin_policy_billing_id;
 DROP INDEX IF EXISTS idx_fees_created_at;
 DROP INDEX IF EXISTS idx_fee_debits_plugin_policy_billing_id;
 DROP INDEX IF EXISTS idx_fee_debits_billing_date;
-DROP INDEX IF EXISTS idx_fee_credits_transaction_hash;
+DROP INDEX IF EXISTS idx_fee_batch_transaction_hash;
 
 -- +goose StatementEnd
 

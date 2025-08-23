@@ -181,7 +181,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
       if (schema.configuration) {
         const configuration: Record<string, any> = {};
 
-        Object.entries(schema.configuration.properties).forEach(
+        Object.entries(schema?.configuration?.properties || {}).forEach(
           ([key, field]) => {
             if (values[key]) {
               switch (field.format) {
@@ -398,7 +398,7 @@ export const PluginPolicyModal: FC<PluginPolicyModalProps> = ({
                   <Divider orientation="start" orientationMargin={0}>
                     Configuration
                   </Divider>
-                  {Object.entries(schema.configuration.properties).map(
+                  {Object.entries(schema.configuration.properties || {}).map(
                     ([key, field]) => {
                       const required =
                         schema.configuration?.required.includes(key);

@@ -218,6 +218,7 @@ func (t *DKLSTssService) processQcOutbound(handle Handle,
 	defer func() {
 		t.logger.Infof("finish processQcOutbound")
 	}()
+	var startTime *time.Time
 	for {
 		outbound, err := mpcKeygenWrapper.QcSessionOutputMessage(handle)
 		if err != nil {
@@ -225,6 +226,16 @@ func (t *DKLSTssService) processQcOutbound(handle Handle,
 		}
 		if len(outbound) == 0 {
 			if t.isKeygenFinished.Load() {
+				// even when the local party is finished , we better to wait for a little while to guarantee the outbound message is sent
+				if startTime == nil {
+					n := time.Now()
+					startTime = &n
+					continue
+				}
+
+				if time.Since(*startTime) < time.Second {
+					continue
+				}
 				// we are finished
 				return nil
 			}

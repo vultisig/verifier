@@ -126,14 +126,24 @@ func (p *PostgresBackend) GetFeeDebitsByIds(ctx context.Context, ids []uuid.UUID
 func (p *PostgresBackend) GetFeesOwed(ctx context.Context, publicKey string, ids ...uuid.UUID) (int64, error) {
 	var row pgx.Row
 	if len(ids) == 0 {
+		// Use the original view for all fees
 		query := `SELECT public_key, total_owed FROM fee_balance WHERE public_key = $1`
 		row = p.pool.QueryRow(ctx, query, publicKey)
 	} else {
-		query := `SELECT public_key, total_owed FROM fee_balance WHERE public_key = $1 AND id = ANY($2)`
-		row = p.pool.QueryRow(ctx, query, publicKey, ids)
+		// Use the function for specific fee IDs
+		if publicKey != "" {
+			// Filter by both public key and fee IDs
+			query := `SELECT public_key, total_owed FROM fee_balance_for_ids($1) WHERE public_key = $2`
+			row = p.pool.QueryRow(ctx, query, ids, publicKey)
+		} else {
+			// Sum all results from the function (multiple public keys possible)
+			query := `SELECT public_key, COALESCE(SUM(total_owed), 0) FROM fee_balance_for_ids($1) WHERE public_key = $2 group by public_key`
+			row = p.pool.QueryRow(ctx, query, ids)
+		}
 	}
+	var scannedPublicKey string
 	var totalOwed int64
-	err := row.Scan(&publicKey, &totalOwed)
+	err := row.Scan(&scannedPublicKey, &totalOwed)
 	if err != nil {
 		return 0, err
 	}
@@ -184,7 +194,7 @@ func (p *PostgresBackend) InsertFeeDebitTx(ctx context.Context, dbTx pgx.Tx, fee
 // Return a slice of all fees that are not in a batch
 func (p *PostgresBackend) GetUnclaimedFeeMembers(ctx context.Context, publicKey string) ([]types.Fee, error) {
 	query := `SELECT id, public_key, type, amount FROM fees WHERE public_key = $1 AND id NOT IN (SELECT fee_id FROM fee_batch_members)`
-	rows, err := p.pool.Query(ctx, query)
+	rows, err := p.pool.Query(ctx, query, publicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -234,4 +244,48 @@ func (p *PostgresBackend) GetCreditTxByBatchId(ctx context.Context, batchId uuid
 		return nil, err
 	}
 	return &fee, nil
+}
+
+func (p *PostgresBackend) GetFeeBatch(ctx context.Context, batchId uuid.UUID) (*types.FeeBatch, error) {
+	query := `SELECT id, created_at, tx_hash, status FROM fee_batch WHERE id = $1`
+	row := p.pool.QueryRow(ctx, query, batchId)
+	var batch types.FeeBatch
+	err := row.Scan(&batch.ID, &batch.CreatedAt, &batch.TxHash, &batch.Status)
+	if err != nil {
+		return nil, err
+	}
+	return &batch, nil
+}
+
+func (p *PostgresBackend) UpdateFeeBatch(ctx context.Context, dbTx pgx.Tx, batchId uuid.UUID, txHash string, status types.FeeBatchStatus) error {
+	_, err := dbTx.Exec(ctx, `UPDATE fee_batch SET tx_hash = $1, status = $2 WHERE id = $3`, txHash, status, batchId)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *PostgresBackend) GetFeeBatchAmount(ctx context.Context, batchId uuid.UUID) (uint64, error) {
+	query := `SELECT fee_id FROM fee_batch_members WHERE fee_batch_id = $1`
+	rows, err := p.pool.Query(ctx, query, batchId)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	ids := []uuid.UUID{}
+	for rows.Next() {
+		var feeId uuid.UUID
+		err := rows.Scan(&feeId)
+		if err != nil {
+			return 0, err
+		}
+		ids = append(ids, feeId)
+	}
+
+	amount, err := p.GetFeesOwed(ctx, "", ids...)
+	if err != nil {
+		return 0, err
+	}
+	return uint64(amount), nil
 }

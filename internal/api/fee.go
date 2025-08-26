@@ -130,3 +130,33 @@ func (s *Server) CreateFeeCollectionBatch(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, feesOwed))
 }
+
+func (s *Server) UpdateFeeCollectionBatch(c echo.Context) error {
+	s.feeService.SignRequestMutex.Lock()
+	defer s.feeService.SignRequestMutex.Unlock()
+
+	type request struct {
+		BatchID   uuid.UUID            `json:"batch_id"`
+		TxHash    string               `json:"tx_hash"`
+		Status    types.FeeBatchStatus `json:"status"`
+		PublicKey string               `json:"public_key"`
+	}
+	var req request
+
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid request"))
+	}
+
+	err := s.feeService.UpdateFeeCollectionBatch(c.Request().Context(), req.PublicKey, req.BatchID, req.TxHash, req.Status)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to update fee collection batch"))
+	}
+
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, map[string]string{
+		"batch_id":   req.BatchID.String(),
+		"tx_hash":    req.TxHash,
+		"status":     string(req.Status),
+		"public_key": req.PublicKey,
+	}))
+
+}

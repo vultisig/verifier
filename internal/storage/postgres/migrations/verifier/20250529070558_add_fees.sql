@@ -2,6 +2,8 @@
 -- +goose StatementBegin
 
 CREATE TYPE billing_asset AS ENUM ('usdc');
+CREATE TYPE fee_debit_type as ENUM ('fee', 'failed_tx');
+CREATE TYPE fee_credit_type as ENUM ('fee_transacted');
 
 -- Stores info about charging frequencies
 CREATE TABLE IF NOT EXISTS plugin_policy_billing(
@@ -19,17 +21,72 @@ CREATE TABLE IF NOT EXISTS plugin_policy_billing(
     )
 );
 
+--base table for all fees (append-only)
 CREATE TABLE IF NOT EXISTS fees(
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    plugin_policy_billing_id uuid NOT NULL, -- used for recurring fees
-    transaction_id uuid, -- used for tx based fees only
-    transaction_hash VARCHAR(66), -- The hash of the transaction that collected the fee
     amount BIGINT NOT NULL,
+    public_key VARCHAR(66) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now(),
-    charged_at DATE NOT NULL DEFAULT now(),
-    collected_at TIMESTAMP,
-    CONSTRAINT fk_billing FOREIGN KEY (plugin_policy_billing_id) REFERENCES plugin_policy_billing(id) ON DELETE CASCADE
+    CONSTRAINT fee_positive_amount CHECK (amount > 0),
+    ref TEXT --used to store external or internal references, comma separated list of format: "type:id"
 );
+
+-- Function to enforce append-only behavior on fees table
+CREATE OR REPLACE FUNCTION enforce_fees_append_only()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'UPDATE' THEN
+        RAISE EXCEPTION 'UPDATE operations are not allowed on fees table (append-only)';
+    END IF;
+    
+    IF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION 'DELETE operations are not allowed on fees table (append-only)';
+    END IF;
+    
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to enforce append-only behavior on fees table
+CREATE TRIGGER fees_append_only_trigger
+    BEFORE UPDATE OR DELETE ON fees
+    FOR EACH ROW
+    EXECUTE FUNCTION enforce_fees_append_only();
+
+-- Function to validate that fee public_key matches the plugin_policy public_key
+-- Only validates when billing_id is not null (for fee_debits table)
+CREATE OR REPLACE FUNCTION validate_fee_public_key(fee_public_key VARCHAR(66), billing_id uuid)
+RETURNS BOOLEAN AS $$
+BEGIN
+    -- If billing_id is NULL, validation passes (for other inherited tables)
+    IF billing_id IS NULL THEN
+        RETURN TRUE;
+    END IF;
+    
+    -- Otherwise, check that public keys match
+    RETURN EXISTS (
+        SELECT 1 
+        FROM plugin_policy_billing ppb
+        JOIN plugin_policies pp ON ppb.plugin_policy_id = pp.id
+        WHERE ppb.id = billing_id AND pp.public_key = fee_public_key
+    );
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+CREATE TABLE IF NOT EXISTS fee_debits(
+    type fee_debit_type NOT NULL,
+    plugin_policy_billing_id uuid NOT NULL,
+    charged_at DATE NOT NULL DEFAULT now(),
+    CONSTRAINT fee_debits_pkey PRIMARY KEY (id),
+    CONSTRAINT fk_billing FOREIGN KEY (plugin_policy_billing_id) REFERENCES plugin_policy_billing(id) ON DELETE CASCADE,
+    CONSTRAINT fee_debits_public_key_match CHECK (validate_fee_public_key(public_key, plugin_policy_billing_id))
+) INHERITS (fees);
+
+CREATE TABLE IF NOT EXISTS fee_credits(
+    type fee_credit_type NOT NULL,
+    transaction_hash VARCHAR(66), -- The hash of the transaction that collected the fee
+    CONSTRAINT fee_credits_pkey PRIMARY KEY (id)
+) INHERITS (fees);
 
 CREATE VIEW billing_periods AS 
     SELECT pp.id as plugin_policy_id,
@@ -47,35 +104,67 @@ CREATE VIEW billing_periods AS
         WHEN 'biweekly' THEN interval '2 weeks'
         WHEN 'monthly' THEN INTERVAL '1 month'
     END AS next_billing_date
-    from plugin_policy_billing ppb 
-    join plugin_policies pp on ppb.plugin_policy_id = pp.id
-    LEFT JOIN fees f ON f.plugin_policy_billing_id = ppb.id
+    FROM plugin_policy_billing ppb 
+    JOIN plugin_policies pp on ppb.plugin_policy_id = pp.id
+    LEFT JOIN fee_debits f ON f.plugin_policy_billing_id = ppb.id
     WHERE ppb."type" = 'recurring'
     GROUP BY (ppb.id, pp.id);
 
-CREATE VIEW fees_view AS 
-    SELECT pp.id AS policy_id, pp.plugin_id AS plugin_id, ppb.id AS billing_id, pp.public_key AS public_key, ppb."type", f.* 
+CREATE VIEW fee_debits_view AS 
+    SELECT pp.id AS policy_id, pp.plugin_id AS plugin_id, ppb.id AS billing_id, f.public_key, ppb."type", 
+           f.id, f.amount, f.created_at, f.type AS fee_type, f.plugin_policy_billing_id, f.charged_at
     FROM plugin_policies pp 
     JOIN plugin_policy_billing ppb ON ppb.plugin_policy_id = pp.id 
-    JOIN fees f ON f.plugin_policy_billing_id = ppb.id;
+    JOIN fee_debits f ON f.plugin_policy_billing_id = ppb.id;
 
-CREATE INDEX idx_fees_plugin_policy_billing_id ON fees(plugin_policy_billing_id);
+CREATE VIEW fees_joined AS
+    SELECT id, public_key, 'credit' as "type", type::text as "subtype", created_at, amount FROM fee_credits fc 
+    UNION ALL
+    SELECT id, public_key, 'debit' as "type", type::text as "subtype", created_at, amount FROM fee_debits fd;
+
+CREATE VIEW fee_balance AS
+    SELECT public_key, SUM(
+    CASE 
+        WHEN type = 'credit' THEN -amount
+        ELSE amount
+    END
+    ) AS total_owed, 
+    COUNT(*) FILTER (WHERE type = 'debit') AS total_debits,
+    COUNT(*) FILTER (WHERE type = 'credit') AS total_credits
+    FROM fees_joined GROUP BY public_key ;
+
+
 CREATE INDEX idx_plugin_policy_billing_id ON plugin_policy_billing(id);
-CREATE INDEX idx_fees_transaction_id ON fees(transaction_id) WHERE transaction_id IS NOT NULL;
-CREATE INDEX idx_fees_billing_date ON fees(charged_at);
+
+CREATE INDEX idx_fees_created_at ON fees(created_at);
+
+CREATE INDEX idx_fee_debits_plugin_policy_billing_id ON fee_debits(plugin_policy_billing_id);
+CREATE INDEX idx_fee_debits_billing_date ON fee_debits(charged_at);
+
+CREATE INDEX idx_fee_credits_transaction_hash ON fee_credits(transaction_hash) WHERE transaction_hash IS NOT NULL;
 
 -- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin
+DROP VIEW IF EXISTS fee_balance;
+DROP VIEW IF EXISTS fees_joined;
+DROP VIEW IF EXISTS fee_debits_view;
+DROP TRIGGER IF EXISTS fees_append_only_trigger ON fees;
+DROP TABLE IF EXISTS fee_credits;
+DROP TABLE IF EXISTS fee_debits;
 DROP TABLE IF EXISTS fees;
 DROP TABLE IF EXISTS plugin_policy_billing;
 DROP VIEW IF EXISTS billing_periods;
-DROP VIEW IF EXISTS fees_view;
-DROP TYPE IF EXISTS billing_frequency;
-DROP TYPE IF EXISTS fee_type;
-DROP INDEX IF EXISTS idx_fees_plugin_policy_billing_id;
-DROP INDEX IF EXISTS idx_fees_transaction_id;
-DROP INDEX IF EXISTS idx_fees_billing_date;
+DROP FUNCTION IF EXISTS enforce_fees_append_only();
+DROP FUNCTION IF EXISTS validate_fee_public_key(VARCHAR(66), uuid);
+DROP TYPE IF EXISTS fee_debit_type;
+DROP TYPE IF EXISTS fee_credit_type;
+DROP TYPE IF EXISTS billing_asset;
+DROP INDEX IF EXISTS idx_plugin_policy_billing_id;
+DROP INDEX IF EXISTS idx_fees_created_at;
+DROP INDEX IF EXISTS idx_fee_debits_plugin_policy_billing_id;
+DROP INDEX IF EXISTS idx_fee_debits_billing_date;
+DROP INDEX IF EXISTS idx_fee_credits_transaction_hash;
 
 -- +goose StatementEnd
 

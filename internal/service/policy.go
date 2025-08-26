@@ -166,7 +166,7 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 					PublicKey: policy.PublicKey,
 					Type:      types.FeeTypeDebit,
 				},
-				PluginPolicyBillingID: billingPolicy.ID,
+				PluginPolicyBillingID: &billingPolicy.ID,
 				Subtype:               types.FeeDebitSubtypeTypeFee,
 				ChargedAt:             time.Now(),
 			})

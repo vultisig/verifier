@@ -107,7 +107,7 @@ func (s *FeeService) CreateFeeCollectionBatch(ctx context.Context, publicKey str
 
 	batchId := uuid.New()
 
-	err = s.db.CreateFeeBatchWithMembers(ctx, tx, batchId, feeIds...)
+	err = s.db.CreateFeeBatchWithMembers(ctx, tx, publicKey, batchId, feeIds...)
 	if err != nil {
 		tx.Rollback(ctx)
 		return nil, fmt.Errorf("failed to create fee batch: %w", err)
@@ -133,11 +133,78 @@ func (s *FeeService) CreateFeeCollectionBatch(ctx context.Context, publicKey str
 		return nil, fmt.Errorf("failed to create fee credit: %w", err)
 	}
 
+	err = tx.Commit(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
 	return &itypes.FeeBatchRequest{
 		PublicKey: publicKey,
 		Amount:    uint64(totalAmount),
 		BatchID:   batchId,
 	}, nil
+}
+
+// If a batch is sent, simply update the state, if success - update state and insert treasury items, if failed - update state and insert a failed tx fee debit
+func (s *FeeService) UpdateFeeCollectionBatch(ctx context.Context, publicKey string, batchId uuid.UUID, txHash string, status types.FeeBatchStatus) error {
+
+	batch, err := s.db.GetFeeBatch(ctx, batchId)
+	if err != nil {
+		return fmt.Errorf("failed to get fee batch: %w", err)
+	}
+
+	if batch.Status == types.FeeBatchStatusCompleted {
+		return fmt.Errorf("fee batch already completed or failed, can't update")
+	}
+
+	// no update needed
+	if batch.Status == status && (batch.TxHash == nil || *batch.TxHash == txHash) {
+		return nil
+	}
+
+	tx, err := s.db.Pool().Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	if status == types.FeeBatchStatusSent {
+		if err := s.db.UpdateFeeBatch(ctx, tx, batchId, txHash, status); err != nil {
+			tx.Rollback(ctx)
+			return fmt.Errorf("failed to update fee batch: %w", err)
+		}
+	}
+
+	if status == types.FeeBatchStatusFailed {
+		amount, err := s.db.GetFeeBatchAmount(ctx, batchId)
+		if err != nil {
+			tx.Rollback(ctx)
+			return fmt.Errorf("failed to get fee batch amount: %w", err)
+		}
+
+		_, err = s.db.InsertFeeDebitTx(ctx, tx, types.FeeDebit{
+			Fee: types.Fee{
+				PublicKey: publicKey,
+				Amount:    amount,
+				Ref:       fmt.Sprintf("batch:%s", batchId.String()),
+			},
+			Subtype: types.FeeDebitSubtypeTypeFailedTx,
+		})
+		if err != nil {
+			tx.Rollback(ctx)
+			return fmt.Errorf("failed to insert fee debit: %w", err)
+		}
+
+		if err := s.db.UpdateFeeBatch(ctx, tx, batchId, txHash, status); err != nil {
+			tx.Rollback(ctx)
+			return fmt.Errorf("failed to update fee batch: %w", err)
+		}
+	}
+
+	if status == types.FeeBatchStatusCompleted {
+		// TODO insert treasury items
+	}
+
+	return tx.Commit(ctx)
 }
 
 type unsignedDynamicFeeTx struct {
@@ -309,19 +376,29 @@ func (s *FeeService) ValidateFees(ctx context.Context, req *ptypes.PluginKeysign
 	}
 
 	// Validate fee amount against what's due
-	feesDueInt64, err := s.GetFeeBalanceUnlocked(ctx, req.PublicKey)
+	batchIdValue, ok := req.Messages[0].CustomData["batch_id"]
+	batchIdString, ok := batchIdValue.(string)
+	if !ok {
+		return fmt.Errorf("batch_id is not a string")
+	}
+	batchId, err := uuid.Parse(batchIdString)
 	if err != nil {
-		return fmt.Errorf("failed to get fee balance: %w", err)
+		return fmt.Errorf("failed to parse batch id: %w", err)
+	}
+
+	feesDue, err := s.db.GetFeeBatchAmount(ctx, batchId)
+	if err != nil {
+		return fmt.Errorf("failed to get fee batch amount: %w", err)
 	}
 
 	//TODO could add a nominal amount here to prevent collecting tiny fees that would cost more than they're worth in gas
-	if feesDueInt64 <= 0 {
-		return fmt.Errorf("fees negative or zero")
+	if feesDue == 0 {
+		return fmt.Errorf("fees zero")
 	}
 
-	feesDue := big.NewInt(0).SetInt64(feesDueInt64)
+	feesDueBI := big.NewInt(0).SetUint64(feesDue)
 
-	if amount.Cmp(feesDue) > 0 {
+	if amount.Cmp(feesDueBI) > 0 {
 		return fmt.Errorf("fee amount exceeds fees due")
 	}
 

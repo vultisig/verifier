@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/mobile-tss-lib/tss"
 	"github.com/vultisig/verifier/types"
-	"github.com/vultisig/vultiserver/relay"
+	"github.com/vultisig/vultisig-go/relay"
 )
 
 // Emitter

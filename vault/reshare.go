@@ -14,6 +14,7 @@ import (
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
 	"github.com/vultisig/vultiserver/common"
 	"github.com/vultisig/vultiserver/relay"
+	vgrelay "github.com/vultisig/vultisig-go/relay"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -35,7 +36,7 @@ func (t *DKLSTssService) ProcessReshare(vault *vaultType.Vault,
 		return fmt.Errorf("plugin id is empty")
 	}
 	localPartyID := vault.LocalPartyId
-	client := relay.NewRelayClient(t.cfg.Relay.Server)
+	client := vgrelay.NewRelayClient(t.cfg.Relay.Server)
 	// Let's register session here
 	if err := client.RegisterSession(sessionID, vault.LocalPartyId); err != nil {
 		return fmt.Errorf("failed to register session: %w", err)
@@ -286,7 +287,7 @@ func (t *DKLSTssService) processQcInbound(handle Handle,
 	defer wg.Done()
 	var messageCache sync.Map
 	mpcWrapper := t.GetMPCKeygenWrapper(isEdDSA)
-	relayClient := relay.NewRelayClient(t.cfg.Relay.Server)
+	relayClient := vgrelay.NewRelayClient(t.cfg.Relay.Server)
 	start := time.Now()
 	for {
 		select {

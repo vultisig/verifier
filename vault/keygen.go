@@ -18,6 +18,7 @@ import (
 	keygen "github.com/vultisig/commondata/go/vultisig/keygen/v1"
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
 	"github.com/vultisig/vultiserver/relay"
+	vgrelay "github.com/vultisig/vultisig-go/relay"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -59,7 +60,7 @@ func (t *DKLSTssService) GetMPCKeygenWrapper(isEdDSA bool) *MPCWrapperImp {
 
 func (t *DKLSTssService) ProcessDKLSKeygen(req vgtypes.VaultCreateRequest) (string, string, error) {
 	serverURL := t.cfg.Relay.Server
-	relayClient := relay.NewRelayClient(serverURL)
+	relayClient := vgrelay.NewRelayClient(serverURL)
 
 	// Let's register session here
 	if err := relayClient.RegisterSession(req.SessionID, req.LocalPartyId); err != nil {
@@ -244,7 +245,7 @@ func (t *DKLSTssService) keygen(sessionID string,
 		"attempt":          attempt,
 	}).Info("Keygen")
 	t.isKeygenFinished.Store(false)
-	relayClient := relay.NewRelayClient(t.cfg.Relay.Server)
+	relayClient := vgrelay.NewRelayClient(t.cfg.Relay.Server)
 	mpcKeygenWrapper := t.GetMPCKeygenWrapper(isEdDSA)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
@@ -342,7 +343,7 @@ func (t *DKLSTssService) processKeygenInbound(handle Handle,
 	defer wg.Done()
 	var messageCache sync.Map
 	mpcKeygenWrapper := t.GetMPCKeygenWrapper(isEdDSA)
-	relayClient := relay.NewRelayClient(t.cfg.Relay.Server)
+	relayClient := vgrelay.NewRelayClient(t.cfg.Relay.Server)
 	start := time.Now()
 	for {
 		select {

@@ -57,6 +57,9 @@ type FeeRepository interface {
 	GetUnclaimedFeeMembers(ctx context.Context, publicKey string) ([]types.Fee, error)
 	CreateFeeBatchWithMembers(ctx context.Context, dbTx pgx.Tx, batchId uuid.UUID, members ...uuid.UUID) error
 	GetCreditTxByBatchId(ctx context.Context, batchId uuid.UUID) (*types.FeeCredit, error)
+	GetFeeBatch(ctx context.Context, batchId uuid.UUID) (*types.FeeBatch, error)
+	UpdateFeeBatch(ctx context.Context, dbTx pgx.Tx, batchId uuid.UUID, txHash string, status types.FeeBatchStatus) error
+	GetFeeBatchAmount(ctx context.Context, batchId uuid.UUID) (uint64, error)
 }
 
 type PluginPolicySyncRepository interface {

@@ -299,3 +299,47 @@ func (p *PostgresBackend) GetFeeBatchesByStateAndPublicKey(ctx context.Context, 
 	}
 	return batches, nil
 }
+
+func (p *PostgresBackend) GetFeeBatch(ctx context.Context, batchId uuid.UUID) (*types.FeeBatch, error) {
+	query := `SELECT id, created_at, tx_hash, status FROM fee_batch WHERE id = $1`
+	row := p.pool.QueryRow(ctx, query, batchId)
+	var batch types.FeeBatch
+	err := row.Scan(&batch.ID, &batch.CreatedAt, &batch.TxHash, &batch.Status)
+	if err != nil {
+		return nil, err
+	}
+	return &batch, nil
+}
+
+func (p *PostgresBackend) UpdateFeeBatch(ctx context.Context, dbTx pgx.Tx, batchId uuid.UUID, txHash string, status types.FeeBatchStatus) error {
+	_, err := dbTx.Exec(ctx, `UPDATE fee_batch SET tx_hash = $1, status = $2 WHERE id = $3`, txHash, status, batchId)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *PostgresBackend) GetFeeBatchAmount(ctx context.Context, batchId uuid.UUID) (uint64, error) {
+	query := `SELECT fee_id FROM fee_batch_members WHERE fee_batch_id = $1`
+	rows, err := p.pool.Query(ctx, query, batchId)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	ids := []uuid.UUID{}
+	for rows.Next() {
+		var feeId uuid.UUID
+		err := rows.Scan(&feeId)
+		if err != nil {
+			return 0, err
+		}
+		ids = append(ids, feeId)
+	}
+
+	amount, err := p.GetFeesOwed(ctx, "", ids...)
+	if err != nil {
+		return 0, err
+	}
+	return uint64(amount), nil
+}

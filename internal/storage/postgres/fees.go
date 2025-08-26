@@ -123,9 +123,15 @@ func (p *PostgresBackend) GetFeeDebitsByIds(ctx context.Context, ids []uuid.UUID
 	return fees, nil
 }
 
-func (p *PostgresBackend) GetFeesOwed(ctx context.Context, publicKey string) (int64, error) {
-	query := `SELECT public_key, total_owed FROM fee_balance WHERE public_key = $1`
-	row := p.pool.QueryRow(ctx, query, publicKey)
+func (p *PostgresBackend) GetFeesOwed(ctx context.Context, publicKey string, ids ...uuid.UUID) (int64, error) {
+	var row pgx.Row
+	if len(ids) == 0 {
+		query := `SELECT public_key, total_owed FROM fee_balance WHERE public_key = $1`
+		row = p.pool.QueryRow(ctx, query, publicKey)
+	} else {
+		query := `SELECT public_key, total_owed FROM fee_balance WHERE public_key = $1 AND id = ANY($2)`
+		row = p.pool.QueryRow(ctx, query, publicKey, ids)
+	}
 	var totalOwed int64
 	err := row.Scan(&publicKey, &totalOwed)
 	if err != nil {
@@ -144,9 +150,9 @@ func (p *PostgresBackend) InsertFeeCreditTx(ctx context.Context, dbTx pgx.Tx, fe
 	}
 
 	err := dbTx.QueryRow(ctx,
-		`INSERT INTO fee_credits (id, public_key, type, amount, transaction_hash, ref) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, public_key, type, amount, transaction_hash, ref, created_at`,
-		fee.ID, fee.PublicKey, fee.Type, fee.Amount, fee.TransactionHash, fee.Ref,
-	).Scan(&fee.ID, &fee.PublicKey, &fee.Type, &fee.Amount, &fee.TransactionHash, &fee.Ref, &fee.CreatedAt)
+		`INSERT INTO fee_credits (id, public_key, subtype, amount, ref) VALUES ($1, $2, $3, $4, $5) RETURNING id, public_key, type, subtype, amount, ref, created_at`,
+		fee.ID, fee.PublicKey, fee.Subtype, fee.Amount, fee.Ref,
+	).Scan(&fee.ID, &fee.PublicKey, &fee.Type, &fee.Subtype, &fee.Amount, &fee.Ref, &fee.CreatedAt)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert fee record for public_key %s: %w", fee.PublicKey, err)
@@ -164,13 +170,68 @@ func (p *PostgresBackend) InsertFeeDebitTx(ctx context.Context, dbTx pgx.Tx, fee
 	}
 
 	err := dbTx.QueryRow(ctx,
-		`INSERT INTO fee_debits (id, public_key, type, amount, plugin_policy_billing_id, charged_at, ref) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, public_key, type, amount, plugin_policy_billing_id, charged_at, ref, created_at`,
-		fee.ID, fee.PublicKey, fee.Type, fee.Amount, fee.PluginPolicyBillingID, fee.ChargedAt, fee.Ref,
-	).Scan(&fee.ID, &fee.PublicKey, &fee.Type, &fee.Amount, &fee.PluginPolicyBillingID, &fee.ChargedAt, &fee.Ref, &fee.CreatedAt)
+		`INSERT INTO fee_debits (id, public_key, subtype, amount, plugin_policy_billing_id, charged_at, ref) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, public_key, type, subtype, amount, plugin_policy_billing_id, charged_at, ref, created_at`,
+		fee.ID, fee.PublicKey, fee.Subtype, fee.Amount, fee.PluginPolicyBillingID, fee.ChargedAt, fee.Ref,
+	).Scan(&fee.ID, &fee.PublicKey, &fee.Type, &fee.Subtype, &fee.Amount, &fee.PluginPolicyBillingID, &fee.ChargedAt, &fee.Ref, &fee.CreatedAt)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert fee record for billing policy %s: %w", fee.PluginPolicyBillingID, err)
 	}
 
+	return &fee, nil
+}
+
+// Return a slice of all fees that are not in a batch
+func (p *PostgresBackend) GetUnclaimedFeeMembers(ctx context.Context, publicKey string) ([]types.Fee, error) {
+	query := `SELECT id, public_key, type, amount FROM fees WHERE public_key = $1 AND id NOT IN (SELECT fee_id FROM fee_batch_members)`
+	rows, err := p.pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	fees := []types.Fee{}
+	for rows.Next() {
+		var fee types.Fee
+		err := rows.Scan(&fee.ID, &fee.PublicKey, &fee.Type, &fee.Amount)
+		if err != nil {
+			return nil, err
+		}
+		fees = append(fees, fee)
+	}
+	return fees, nil
+}
+
+func (p *PostgresBackend) CreateFeeBatchWithMembers(ctx context.Context, dbTx pgx.Tx, batchId uuid.UUID, members ...uuid.UUID) error {
+
+	if len(members) == 0 {
+		return fmt.Errorf("no members provided")
+	}
+
+	_, err := dbTx.Exec(ctx, `INSERT INTO fee_batch (id) VALUES ($1)`, batchId)
+	if err != nil {
+		dbTx.Rollback(ctx)
+		return err
+	}
+
+	for _, member := range members {
+		_, err := dbTx.Exec(ctx, `INSERT INTO fee_batch_members (fee_batch_id, fee_id) VALUES ($1, $2)`, batchId, member)
+		if err != nil {
+			dbTx.Rollback(ctx)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (p *PostgresBackend) GetCreditTxByBatchId(ctx context.Context, batchId uuid.UUID) (*types.FeeCredit, error) {
+	batchRef := fmt.Sprintf("batch:%s", batchId.String())
+	query := `SELECT id, public_key, type, amount, created_at, transaction_hash, ref FROM fee_credits WHERE ref LIKE '%' || $1 || '%'`
+	row := p.pool.QueryRow(ctx, query, batchRef)
+	var fee types.FeeCredit
+	err := row.Scan(&fee.ID, &fee.PublicKey, &fee.Type, &fee.Amount, &fee.CreatedAt, &fee.TransactionHash, &fee.Ref)
+	if err != nil {
+		return nil, err
+	}
 	return &fee, nil
 }

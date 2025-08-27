@@ -171,7 +171,7 @@ func (t *DKLSTssService) reshare(vault *vaultType.Vault,
 		}()
 	}
 	localPartyID := vault.LocalPartyId
-	client := relay.NewRelayClient(t.cfg.Relay.Server)
+	client := vgrelay.NewRelayClient(t.cfg.Relay.Server)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	// retrieve the setup Message

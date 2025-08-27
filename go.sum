@@ -778,8 +778,6 @@ github.com/vultisig/recipes v0.0.0-20250818151719-db3f03c3254c h1:oebbFeSAG8zGjC
 github.com/vultisig/recipes v0.0.0-20250818151719-db3f03c3254c/go.mod h1:f2XBQu8WO5jwTeWCGiuogg6y9y2dBdjLRqHR7z1f5es=
 github.com/vultisig/vultiserver v0.0.0-20250825042420-c6e6ac281110 h1:7WDQ92FAdu08Byjgm3RNS8Sok49sK521PzPcbRpbzCE=
 github.com/vultisig/vultiserver v0.0.0-20250825042420-c6e6ac281110/go.mod h1:HwP2IgW6Mcu/gX8paFuKvfibrGE9UmPgkOFTub6dskM=
-github.com/vultisig/vultisig-go v0.0.0-20250826055050-a7c2e5363bad h1:E7cDUTANSzaCrMkqwS+wlpXDnVSpQHuKwC58SdgfM8U=
-github.com/vultisig/vultisig-go v0.0.0-20250826055050-a7c2e5363bad/go.mod h1:jOf+2n1Eo/XZjiUbHjTfraPMw4HAZZ0Sw9Z6+vpQrU4=
 github.com/vultisig/vultisig-go v0.0.0-20250826134334-ddbbadd76c86 h1:ZwRz6CFgyC9zhIpRGLbvdooNUhv3xmtwAO87iGsHZbk=
 github.com/vultisig/vultisig-go v0.0.0-20250826134334-ddbbadd76c86/go.mod h1:jOf+2n1Eo/XZjiUbHjTfraPMw4HAZZ0Sw9Z6+vpQrU4=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=

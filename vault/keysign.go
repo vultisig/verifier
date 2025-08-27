@@ -429,7 +429,7 @@ func (t *DKLSTssService) processKeysignInbound(
 ) error {
 	var messageCache sync.Map
 	mpcWrapper := t.GetMPCKeygenWrapper(isEdDSA)
-	relayClient := relay.NewRelayClient(t.cfg.Relay.Server)
+	relayClient := vgrelay.NewRelayClient(t.cfg.Relay.Server)
 	start := time.Now()
 	for {
 		select {

@@ -20,6 +20,7 @@ import (
 	"github.com/vultisig/mobile-tss-lib/tss"
 	vcommon "github.com/vultisig/vultiserver/common"
 	"github.com/vultisig/vultiserver/relay"
+	vgrelay "github.com/vultisig/vultisig-go/relay"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/vultisig/verifier/types"
@@ -51,7 +52,7 @@ func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[strin
 	localStateAccessor := NewLocalStateAccessorImp(vault)
 	t.localStateAccessor = localStateAccessor
 	localPartyID := localStateAccessor.Vault.LocalPartyId
-	relayClient := relay.NewRelayClient(t.cfg.Relay.Server)
+	relayClient := vgrelay.NewRelayClient(t.cfg.Relay.Server)
 	if err := relayClient.RegisterSession(req.SessionID, localPartyID); err != nil {
 		return nil, fmt.Errorf("failed to start session: %w", err)
 	}
@@ -132,7 +133,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 		return nil, fmt.Errorf("keysign committee is empty")
 	}
 	t.isKeysignFinished.Store(false)
-	relayClient := relay.NewRelayClient(t.cfg.Relay.Server)
+	relayClient := vgrelay.NewRelayClient(t.cfg.Relay.Server)
 	mpcWrapper := t.GetMPCKeygenWrapper(isEdDSA)
 	t.logger.WithFields(logrus.Fields{
 		"session_id":        sessionID,
@@ -428,7 +429,7 @@ func (t *DKLSTssService) processKeysignInbound(
 ) error {
 	var messageCache sync.Map
 	mpcWrapper := t.GetMPCKeygenWrapper(isEdDSA)
-	relayClient := relay.NewRelayClient(t.cfg.Relay.Server)
+	relayClient := vgrelay.NewRelayClient(t.cfg.Relay.Server)
 	start := time.Now()
 	for {
 		select {

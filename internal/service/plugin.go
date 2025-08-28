@@ -228,7 +228,6 @@ func (s *PluginService) GetPluginRecipeSpecificationSuggest(
 	type req struct {
 		Configuration map[string]any `json:"configuration"`
 	}
-	plugin.ServerEndpoint = "https://dca.vultisigplugin.app"
 
 	policySuggestStr, err := libhttp.Call[string](
 		ctx,

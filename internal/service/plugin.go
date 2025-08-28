@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	rtypes "github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/plugin/libhttp"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/types"
@@ -228,7 +229,7 @@ func (s *PluginService) GetPluginRecipeSpecificationSuggest(
 		Configuration map[string]any `json:"configuration"`
 	}
 
-	recipeSpec, err := libhttp.Call[*rtypes.PolicySuggest](
+	policySuggestStr, err := libhttp.Call[string](
 		ctx,
 		http.MethodPost,
 		plugin.ServerEndpoint+"/plugin/recipe-specification/suggest",
@@ -243,8 +244,12 @@ func (s *PluginService) GetPluginRecipeSpecificationSuggest(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get recipe spec: %w", err)
 	}
-
-	return recipeSpec, nil
+	var policySuggest rtypes.PolicySuggest
+	err = protojson.Unmarshal([]byte(policySuggestStr), &policySuggest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal recipe spec: %w", err)
+	}
+	return &policySuggest, nil
 }
 
 // Helper method to call plugin server

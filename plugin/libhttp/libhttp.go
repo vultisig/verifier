@@ -60,10 +60,8 @@ func Call[T comparable](
 		return *new(T), fmt.Errorf("failed to get successful response: status_code: %d, res_body: %s", res.StatusCode, string(bodyBytes))
 	}
 
-	bodyStr, isString := any(new(T)).(string)
-	if isString {
-		// for string response type no need to unmarshal JSON
-		return any(bodyStr).(T), nil
+	if _, ok := any(*new(T)).(string); ok {
+		return any(string(bodyBytes)).(T), nil
 	}
 
 	var r T

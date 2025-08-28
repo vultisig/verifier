@@ -23,6 +23,7 @@ import (
 	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
 	ptypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/vultisig-go/common"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func (s *Server) SignPluginMessages(c echo.Context) error {
@@ -390,5 +391,18 @@ func (s *Server) GetPluginRecipeSpecificationSuggest(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get recipe suggest"))
 	}
 
-	return c.JSON(http.StatusOK, recipeSpec)
+	b, err := protojson.Marshal(recipeSpec)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to proto marshal")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to proto marshal"))
+	}
+
+	var res map[string]any
+	err = json.Unmarshal(b, &res)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to json marshal")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to json marshal"))
+	}
+
+	return c.JSON(http.StatusOK, res)
 }

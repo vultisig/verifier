@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func Call[T comparable](
+func Call[T any](
 	ctx context.Context,
 	method, url string,
 	headers map[string]string,

@@ -12,7 +12,8 @@ CREATE TYPE "plugin_id" AS ENUM (
     'vultisig-dca-0000',
     'vultisig-payroll-0000',
     'vultisig-fees-feee',
-    'vultisig-copytrader-0000'
+    'vultisig-copytrader-0000',
+    'nbits-labs-merkle-e93d'
 );
 
 CREATE TYPE "pricing_asset" AS ENUM (

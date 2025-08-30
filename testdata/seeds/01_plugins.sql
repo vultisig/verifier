@@ -33,4 +33,13 @@ INSERT INTO plugins (id, title, description, server_endpoint, category) VALUES
     'Fee collection and management system. Track, calculate, and distribute fees across different protocols and services.',
     'http://fee-server:8080',
     'plugin'
+),
+
+-- NBits Labs Merkle Plugin with free pricing
+(
+    'nbits-labs-merkle-e93d',
+    'NBits Labs Merkle Plugin',
+    'Merkle tree implementation for efficient data storage and retrieval.',
+    'http://localhost:8089',
+    'plugin'
 ) ON CONFLICT (id) DO NOTHING;

@@ -320,7 +320,7 @@ func (p *PostgresBackend) UpdateFeeBatch(ctx context.Context, dbTx pgx.Tx, batch
 }
 
 func (p *PostgresBackend) GetFeeBatchAmount(ctx context.Context, batchId uuid.UUID) (uint64, error) {
-	query := `SELECT fee_id FROM fee_batch_members WHERE fee_batch_id = $1`
+	query := `SELECT fb.public_key, fbm.fee_id from fee_batch fb join fee_batch_members fbm on fb.id = fbm.fee_batch_id WHERE fb.id = $1`
 	rows, err := p.pool.Query(ctx, query, batchId)
 	if err != nil {
 		return 0, err
@@ -328,18 +328,49 @@ func (p *PostgresBackend) GetFeeBatchAmount(ctx context.Context, batchId uuid.UU
 	defer rows.Close()
 
 	ids := []uuid.UUID{}
+	var publicKey string
 	for rows.Next() {
 		var feeId uuid.UUID
-		err := rows.Scan(&feeId)
+		var pk string
+		err := rows.Scan(&pk, &feeId)
 		if err != nil {
 			return 0, err
 		}
+		if publicKey != "" && pk != publicKey {
+			return 0, fmt.Errorf("fee batch public key mismatch")
+		}
+		publicKey = pk
 		ids = append(ids, feeId)
 	}
 
-	amount, err := p.GetFeesOwed(ctx, "", ids...)
+	amount, err := p.GetFeesOwed(ctx, publicKey, ids...)
 	if err != nil {
 		return 0, err
 	}
 	return uint64(amount), nil
+}
+
+func (p *PostgresBackend) GetFeeBatchesByStateAndPublicKey(ctx context.Context, publicKey string, status types.FeeBatchStatus) ([]itypes.FeeBatchRequest, error) {
+	query := `SELECT id, public_key, status FROM fee_batch WHERE public_key = $1 AND status = $2`
+	rows, err := p.pool.Query(ctx, query, publicKey, status)
+	if err != nil {
+		return nil, err
+	}
+	batches := []itypes.FeeBatchRequest{}
+	defer rows.Close()
+	for rows.Next() {
+		var batchStatus types.FeeBatchStatus
+		var batch itypes.FeeBatchRequest
+		err := rows.Scan(&batch.BatchID, &batch.PublicKey, &batchStatus)
+		if err != nil {
+			return nil, err
+		}
+		amount, err := p.GetFeeBatchAmount(ctx, batch.BatchID)
+		if err != nil {
+			return nil, err
+		}
+		batch.Amount = amount
+		batches = append(batches, batch)
+	}
+	return batches, nil
 }

@@ -47,6 +47,8 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 
 	// Handle fee specific validations
 	if policy.PluginID == ptypes.PluginVultisigFees_feee {
+		s.feeService.SignRequestMutex.Lock()
+		defer s.feeService.SignRequestMutex.Unlock()
 		if err := s.feeService.ValidateFees(c.Request().Context(), &req); err != nil {
 			s.logger.WithError(err).Error("invalid fee keysign request")
 			return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid fee keysign request"))

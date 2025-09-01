@@ -164,9 +164,10 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 				Fee: types.Fee{
 					Amount:    billingPolicy.Amount,
 					PublicKey: policy.PublicKey,
+					Type:      types.FeeTypeDebit,
 				},
 				PluginPolicyBillingID: billingPolicy.ID,
-				Type:                  types.FeeDebitTypeFee,
+				Subtype:               types.FeeDebitSubtypeTypeFee,
 				ChargedAt:             time.Now(),
 			})
 			if err != nil {

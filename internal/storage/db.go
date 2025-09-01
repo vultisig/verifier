@@ -53,7 +53,10 @@ type FeeRepository interface {
 	GetFeeDebitsByIds(ctx context.Context, ids []uuid.UUID) ([]types.FeeDebit, error)
 	InsertFeeCreditTx(ctx context.Context, dbTx pgx.Tx, fee types.FeeCredit) (*types.FeeCredit, error)
 	InsertFeeDebitTx(ctx context.Context, dbTx pgx.Tx, fee types.FeeDebit) (*types.FeeDebit, error)
-	GetFeesOwed(ctx context.Context, publicKey string) (int64, error)
+	GetFeesOwed(ctx context.Context, publicKey string, ids ...uuid.UUID) (int64, error) //optional ids to get the balance for a specific fee. If no ids are provided, it will return the balance for all fees.
+	GetUnclaimedFeeMembers(ctx context.Context, publicKey string) ([]types.Fee, error)
+	CreateFeeBatchWithMembers(ctx context.Context, dbTx pgx.Tx, batchId uuid.UUID, members ...uuid.UUID) error
+	GetCreditTxByBatchId(ctx context.Context, batchId uuid.UUID) (*types.FeeCredit, error)
 }
 
 type PluginPolicySyncRepository interface {

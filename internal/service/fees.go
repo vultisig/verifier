@@ -30,7 +30,8 @@ import (
 )
 
 type Fees interface {
-	PublicKeyGetFeeInfo(ctx context.Context, publicKey string, since *time.Time) (*itypes.FeeHistoryDto, error)
+	PublicKeyGetFeeInfo(ctx context.Context, publicKey string, since *time.Time) ([]ptypes.FeeDebit, error)
+	GetFeeBalance(ctx context.Context, publicKey string) (uint64, error)
 	MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txHash string) ([]itypes.FeeDto, error)
 }
 
@@ -56,70 +57,27 @@ func NewFeeService(db storage.DatabaseStorage,
 	}, nil
 }
 
-func (s *FeeService) PublicKeyGetFeeInfo(ctx context.Context, publicKey string, since *time.Time) (*itypes.FeeHistoryDto, error) {
-
-	fees, err := s.db.GetFeesByPublicKey(ctx, publicKey, since)
+// This function returns a list of all fees incurred for an "account"/"public key"
+func (s *FeeService) PublicKeyGetFeeInfo(ctx context.Context, publicKey string, since *time.Time) ([]ptypes.FeeDebit, error) {
+	fees, err := s.db.GetFeeDebitsByPublicKey(ctx, publicKey, since)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get fees: %w", err)
 	}
-
-	var totalFeesIncurred uint64
-	var feesPendingCollection uint64
-
-	ifees := make([]itypes.FeeDto, 0, len(fees))
-	for _, fee := range fees {
-		collected := true
-		if fee.CollectedAt == nil {
-			collected = false
-		}
-		collectedDt := ""
-		if collected {
-			collectedDt = fee.CollectedAt.Format(time.RFC3339)
-		}
-		ifee := itypes.FeeDto{
-			ID:          fee.ID,
-			PublicKey:   fee.PublicKey,
-			PolicyId:    fee.PolicyID,
-			PluginId:    fee.PluginID.String(),
-			Amount:      fee.Amount,
-			Collected:   collected,
-			CollectedAt: collectedDt,
-			ChargedAt:   fee.ChargedAt.Format(time.RFC3339),
-		}
-		totalFeesIncurred += fee.Amount
-		if !collected {
-			feesPendingCollection += fee.Amount
-		}
-		ifees = append(ifees, ifee)
-	}
-
-	return &itypes.FeeHistoryDto{
-		Fees:                  ifees,
-		TotalFeesIncurred:     totalFeesIncurred,
-		FeesPendingCollection: feesPendingCollection,
-	}, nil
+	return fees, nil
 }
 
-func (s *FeeService) MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txHash string) ([]itypes.FeeDto, error) {
-	fees, err := s.db.MarkFeesCollected(ctx, collectedAt, ids, txHash)
+// Sum of all fee_debits and credits for an "account"/"public key"
+func (s *FeeService) GetFeeBalance(ctx context.Context, publicKey string) (uint64, error) {
+	feesOwed, err := s.db.GetFeesOwed(ctx, publicKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to mark fees as collected: %w", err)
+		return 0, fmt.Errorf("failed to get fees: %w", err)
 	}
+	return feesOwed, nil
+}
 
-	feesDto := make([]itypes.FeeDto, 0, len(fees))
-	for _, fee := range fees {
-		feesDto = append(feesDto, itypes.FeeDto{
-			ID:          fee.ID,
-			PublicKey:   fee.PublicKey,
-			PolicyId:    fee.PolicyID,
-			PluginId:    fee.PluginID.String(),
-			Amount:      fee.Amount,
-			Collected:   true,
-			CollectedAt: collectedAt.Format(time.RFC3339),
-			ChargedAt:   fee.ChargedAt.Format(time.RFC3339),
-		})
-	}
-	return feesDto, nil
+// TODO: this function will be replaced with one that marks a fee as failed rather than collected in a subsequent PR
+func (s *FeeService) MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txHash string) ([]itypes.FeeDto, error) {
+	return nil, nil
 }
 
 type unsignedDynamicFeeTx struct {
@@ -249,19 +207,18 @@ func (s *FeeService) ValidateFees(ctx context.Context, req *ptypes.PluginKeysign
 		return fmt.Errorf("transaction must be sent to the configured usdc contract address")
 	}
 
-	feeInfo, err := s.PublicKeyGetFeeInfo(ctx, req.PublicKey, nil)
+	feesDueUint64, err := s.GetFeeBalance(ctx, req.PublicKey)
 	if err != nil {
-		return fmt.Errorf("internal error")
+		return fmt.Errorf("failed to get fee balance: %w", err)
 	}
-
-	fpc := big.NewInt(0).SetUint64(feeInfo.FeesPendingCollection)
+	feesDue := big.NewInt(0).SetUint64(feesDueUint64)
 	amount, ok := args["value"].(*big.Int)
 	if !ok {
 		return fmt.Errorf("invalid amount")
 	}
 
-	if fpc.Cmp(amount) != 0 {
-		return fmt.Errorf("fee amount incorrect")
+	if amount.Cmp(feesDue) <= 0 {
+		return fmt.Errorf("fee amount exceeds fees due")
 	}
 
 	return nil

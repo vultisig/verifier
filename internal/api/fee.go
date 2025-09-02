@@ -52,64 +52,6 @@ func (s *Server) GetFeeBalance(c echo.Context) error {
 	}))
 }
 
-func (s *Server) RevertFeeTransaction(c echo.Context) error {
-	s.feeService.SignRequestMutex.Lock()
-	defer s.feeService.SignRequestMutex.Unlock()
-
-	batchIdString := c.Param("batch_id")
-
-	batchId, err := uuid.Parse(batchIdString)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid batch id"))
-	}
-
-	creditFee, err := s.db.GetCreditTxByBatchId(c.Request().Context(), batchId)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get fees"))
-	}
-
-	if creditFee == nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid batch id"))
-	}
-
-	revertAmount := creditFee.Amount
-
-	debitId := uuid.New()
-	dbTx, err := s.db.Pool().Begin(c.Request().Context())
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to begin transaction"))
-	}
-
-	_, err = s.db.InsertFeeDebitTx(c.Request().Context(), dbTx, types.FeeDebit{
-		Fee: types.Fee{
-			ID:        debitId,
-			Amount:    revertAmount,
-			PublicKey: creditFee.PublicKey,
-			Ref:       fmt.Sprintf("batch_id:%s", batchId),
-			Type:      types.FeeTypeDebit,
-		},
-		Subtype: types.FeeDebitSubtypeTypeFailedTx,
-	})
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to create fee debit"))
-	}
-
-	if err != nil {
-		dbTx.Rollback(c.Request().Context())
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to insert fee debit"))
-	}
-
-	if err := dbTx.Commit(c.Request().Context()); err != nil {
-		dbTx.Rollback(c.Request().Context())
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to commit transaction"))
-	}
-
-	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, map[string]string{
-		"debit_id": debitId.String(),
-	}))
-
-}
-
 func (s *Server) CreateFeeCollectionBatch(c echo.Context) error {
 	s.feeService.SignRequestMutex.Lock()
 	defer s.feeService.SignRequestMutex.Unlock()
@@ -129,4 +71,46 @@ func (s *Server) CreateFeeCollectionBatch(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, feesOwed))
+}
+
+func (s *Server) UpdateFeeCollectionBatch(c echo.Context) error {
+	s.feeService.SignRequestMutex.Lock()
+	defer s.feeService.SignRequestMutex.Unlock()
+
+	type request struct {
+		BatchID   uuid.UUID            `json:"batch_id"`
+		TxHash    string               `json:"tx_hash"`
+		Status    types.FeeBatchStatus `json:"status"`
+		PublicKey string               `json:"public_key"`
+	}
+	var req request
+
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid request"))
+	}
+
+	err := s.feeService.UpdateFeeCollectionBatch(c.Request().Context(), req.PublicKey, req.BatchID, req.TxHash, req.Status)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to update fee collection batch"))
+	}
+
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, map[string]string{
+		"batch_id":   req.BatchID.String(),
+		"tx_hash":    req.TxHash,
+		"status":     string(req.Status),
+		"public_key": req.PublicKey,
+	}))
+
+}
+
+func (s *Server) GetDraftFeeBatches(c echo.Context) error {
+	publicKey := c.Param("publicKey")
+
+	batches, err := s.db.GetFeeBatchesByStateAndPublicKey(c.Request().Context(), publicKey, types.FeeBatchStatusDraft)
+	if err != nil {
+		s.logger.WithError(err).Errorf("Failed to get draft fee batches for public key: %s", publicKey)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get draft fee batches"))
+	}
+
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, batches))
 }

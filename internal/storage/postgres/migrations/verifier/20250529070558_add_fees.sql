@@ -77,11 +77,12 @@ $$ LANGUAGE plpgsql STABLE;
 
 CREATE TABLE IF NOT EXISTS fee_debits(
     subtype fee_debit_type NOT NULL,
-    plugin_policy_billing_id uuid NOT NULL,
+    plugin_policy_billing_id uuid,
     charged_at DATE NOT NULL DEFAULT now(),
     CONSTRAINT fee_debits_pkey PRIMARY KEY (id),
     CONSTRAINT fk_billing FOREIGN KEY (plugin_policy_billing_id) REFERENCES plugin_policy_billing(id) ON DELETE CASCADE,
-    CONSTRAINT fee_debits_public_key_match CHECK (validate_fee_public_key(public_key, plugin_policy_billing_id)),
+    CONSTRAINT fee_debits_billing_id_required CHECK (subtype != 'fee' OR plugin_policy_billing_id IS NOT NULL),
+    CONSTRAINT fee_debits_public_key_match CHECK (subtype != 'fee' OR validate_fee_public_key(public_key, plugin_policy_billing_id)),
     CONSTRAINT fee_debits_type_check CHECK (type = 'debit'),
     type fee_type NOT NULL DEFAULT 'debit'
 ) INHERITS (fees);
@@ -93,12 +94,53 @@ CREATE TABLE IF NOT EXISTS fee_credits(
     type fee_type NOT NULL DEFAULT 'credit'
 ) INHERITS (fees);
 
+CREATE TYPE fee_batch_status as ENUM ('draft', 'sent', 'completed', 'failed');
+
 CREATE TABLE IF NOT EXISTS fee_batch(
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    public_key VARCHAR(66) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now(),
-    tx_hash VARCHAR(66) NOT NULL,
-    CONSTRAINT fee_batch_tx_hash_unique UNIQUE (tx_hash)
+    tx_hash VARCHAR(66),
+    status fee_batch_status NOT NULL DEFAULT 'draft',
+    CONSTRAINT fee_batch_tx_hash_unique UNIQUE (tx_hash),
+    CONSTRAINT fee_batch_tx_hash_not_null CHECK (status = 'draft' OR tx_hash IS NOT NULL)
 );
+
+-- Function to check if a fee exists in the inheritance hierarchy
+CREATE OR REPLACE FUNCTION fee_exists(fee_uuid uuid)
+RETURNS BOOLEAN AS $$
+BEGIN
+    -- Check if the fee exists in the parent table or any inherited tables
+    RETURN EXISTS (
+        SELECT 1 FROM ONLY fees WHERE id = fee_uuid
+        UNION ALL
+        SELECT 1 FROM fee_debits WHERE id = fee_uuid
+        UNION ALL
+        SELECT 1 FROM fee_credits WHERE id = fee_uuid
+    );
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- Function to check if a fee's public key matches the batch's public key
+CREATE OR REPLACE FUNCTION fee_batch_public_key_match(batch_id uuid, fee_uuid uuid)
+RETURNS BOOLEAN AS $$
+BEGIN
+    -- Check if the fee's public key matches the batch's public key
+    RETURN EXISTS (
+        SELECT 1 
+        FROM fee_batch fb
+        WHERE fb.id = batch_id
+        AND fb.public_key = (
+            SELECT public_key FROM fees WHERE id = fee_uuid
+            UNION ALL
+            SELECT public_key FROM fee_debits WHERE id = fee_uuid
+            UNION ALL
+            SELECT public_key FROM fee_credits WHERE id = fee_uuid
+            LIMIT 1
+        )
+    );
+END;
+$$ LANGUAGE plpgsql STABLE;
 
 CREATE TABLE IF NOT EXISTS fee_batch_members(
     fee_batch_id uuid NOT NULL,
@@ -106,8 +148,11 @@ CREATE TABLE IF NOT EXISTS fee_batch_members(
     CONSTRAINT fee_batch_members_pkey PRIMARY KEY (fee_batch_id, fee_id),
     CONSTRAINT fee_batch_members_fee_id_unique UNIQUE (fee_id),
     CONSTRAINT fk_fee_batch FOREIGN KEY (fee_batch_id) REFERENCES fee_batch(id) ON DELETE CASCADE,
-    CONSTRAINT fk_fee FOREIGN KEY (fee_id) REFERENCES fees(id) ON DELETE CASCADE
+    CONSTRAINT fk_fee CHECK (fee_exists(fee_id)),
+    CONSTRAINT fee_batch_public_key_match CHECK (fee_batch_public_key_match(fee_batch_id, fee_id))
 );
+
+
 
 CREATE VIEW billing_periods AS 
     SELECT pp.id as plugin_policy_id,
@@ -153,6 +198,27 @@ CREATE VIEW fee_balance AS
     COUNT(*) FILTER (WHERE type = 'debit') AS total_debits,
     COUNT(*) FILTER (WHERE type = 'credit') AS total_credits
     FROM fees_joined GROUP BY public_key ;
+
+-- Function to get fee balance for specific fee IDs
+CREATE OR REPLACE FUNCTION fee_balance_for_ids(fee_ids uuid[])
+RETURNS TABLE(public_key VARCHAR(66), total_owed BIGINT, total_debits BIGINT, total_credits BIGINT) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        fj.public_key, 
+        SUM(
+            CASE 
+                WHEN fj.type = 'credit' THEN -fj.amount
+                ELSE fj.amount
+            END
+        )::BIGINT AS total_owed,
+        COUNT(*) FILTER (WHERE fj.type = 'debit')::BIGINT AS total_debits,
+        COUNT(*) FILTER (WHERE fj.type = 'credit')::BIGINT AS total_credits
+    FROM fees_joined fj 
+    WHERE fj.id = ANY(fee_ids)
+    GROUP BY fj.public_key;
+END;
+$$ LANGUAGE plpgsql STABLE;
 
 
 CREATE INDEX idx_plugin_policy_billing_id ON plugin_policy_billing(id);

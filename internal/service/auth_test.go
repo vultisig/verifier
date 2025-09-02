@@ -240,8 +240,8 @@ func (m *MockDatabaseStorage) GetUnclaimedFeeMembers(ctx context.Context, public
 	return args.Get(0).([]types.Fee), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) CreateFeeBatchWithMembers(ctx context.Context, dbTx pgx.Tx, batchId uuid.UUID, members ...uuid.UUID) error {
-	args := m.Called(ctx, dbTx, batchId, members)
+func (m *MockDatabaseStorage) CreateFeeBatchWithMembers(ctx context.Context, dbTx pgx.Tx, publicKey string, batchId uuid.UUID, members ...uuid.UUID) error {
+	args := m.Called(ctx, dbTx, publicKey, batchId, members)
 	return args.Error(0)
 }
 
@@ -251,6 +251,35 @@ func (m *MockDatabaseStorage) GetCreditTxByBatchId(ctx context.Context, batchId 
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*types.FeeCredit), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) GetFeeBatch(ctx context.Context, batchId uuid.UUID) (*types.FeeBatch, error) {
+	args := m.Called(ctx, batchId)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*types.FeeBatch), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) UpdateFeeBatch(ctx context.Context, dbTx pgx.Tx, batchId uuid.UUID, txHash string, status types.FeeBatchStatus) error {
+	args := m.Called(ctx, dbTx, batchId, txHash, status)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) GetFeeBatchAmount(ctx context.Context, batchId uuid.UUID) (uint64, error) {
+	args := m.Called(ctx, batchId)
+	if args.Get(0) == nil {
+		return 0, args.Error(1)
+	}
+	return args.Get(0).(uint64), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) GetFeeBatchesByStateAndPublicKey(ctx context.Context, publicKey string, status types.FeeBatchStatus) ([]itypes.FeeBatchRequest, error) {
+	args := m.Called(ctx, publicKey, status)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]itypes.FeeBatchRequest), args.Error(1)
 }
 
 func (m *MockDatabaseStorage) FindPricingById(ctx context.Context, id uuid.UUID) (*types.Pricing, error) {

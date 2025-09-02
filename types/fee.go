@@ -36,7 +36,7 @@ const (
 type FeeDebit struct {
 	Fee                                       // Inherits base fee fields
 	Subtype               FeeDebitSubtypeType `json:"subtype"`                  // Type of debit (fee, failed_tx)
-	PluginPolicyBillingID uuid.UUID           `json:"plugin_policy_billing_id"` // Reference to billing policy
+	PluginPolicyBillingID *uuid.UUID          `json:"plugin_policy_billing_id"` // Reference to billing policy (nullable)
 	ChargedAt             time.Time           `json:"charged_at"`               // Date when the fee was charged
 }
 
@@ -49,16 +49,25 @@ const (
 
 // FeeCredit represents a fee credit record - refunds or payments to users
 type FeeCredit struct {
-	Fee                                  // Inherits base fee fields
-	Subtype         FeeCreditSubtypeType `json:"subtype"`          // Type of credit (fee_transacted)
-	TransactionHash *string              `json:"transaction_hash"` // Hash of transaction that collected the fee (optional)
+	Fee                          // Inherits base fee fields
+	Subtype FeeCreditSubtypeType `json:"subtype"` // Type of credit (fee_transacted)
 }
+
+type FeeBatchStatus string
+
+const (
+	FeeBatchStatusDraft     FeeBatchStatus = "draft"
+	FeeBatchStatusSent      FeeBatchStatus = "sent"
+	FeeBatchStatusCompleted FeeBatchStatus = "completed"
+	FeeBatchStatusFailed    FeeBatchStatus = "failed"
+)
 
 // FeeBatch represents a batch of fees collected in a single transaction
 type FeeBatch struct {
-	ID        uuid.UUID `json:"id"`         // Unique identifier for the batch
-	CreatedAt time.Time `json:"created_at"` // When the batch was created
-	TxHash    string    `json:"tx_hash"`    // Transaction hash where fees were collected
+	ID        uuid.UUID      `json:"id"`         // Unique identifier for the batch
+	CreatedAt time.Time      `json:"created_at"` // When the batch was created
+	TxHash    *string        `json:"tx_hash"`    // Transaction hash where fees were collected
+	Status    FeeBatchStatus `json:"status"`     // Status of the batch
 }
 
 // FeeBatchMembers represents the many-to-many relationship between fee batches and individual fees

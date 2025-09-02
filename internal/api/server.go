@@ -160,8 +160,9 @@ func (s *Server) StartServer() error {
 	feeGroup := e.Group("/fees", s.PluginAuthMiddleware)
 	feeGroup.GET("/history/:publicKey", s.GetPublicKeyFees)
 	feeGroup.GET("/balance/:publicKey", s.GetFeeBalance)
-	feeGroup.POST("/batcg", s.CreateFeeCollectionBatch)
-	feeGroup.POST("/revert/:batch_id", s.RevertFeeTransaction)
+	feeGroup.POST("/batch", s.CreateFeeCollectionBatch)
+	feeGroup.PUT("/batch", s.UpdateFeeCollectionBatch)
+	feeGroup.GET("/batch/draft/:publicKey", s.GetDraftFeeBatches)
 
 	pluginsGroup := e.Group("/plugins")
 	pluginsGroup.GET("", s.GetPlugins)

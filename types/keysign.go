@@ -29,12 +29,13 @@ type KeysignRequest struct {
 }
 
 type KeysignMessage struct {
-	TxIndexerID  string         `json:"tx_indexer_id"` // Tx indexer uuid
-	RawMessage   string         `json:"raw_message"`   // Raw message, used to decode the transaction
-	Message      string         `json:"message"`
-	Hash         string         `json:"hash"`
-	HashFunction HashFunction   `json:"hash_function"`
-	Chain        vgcommon.Chain `json:"chain"`
+	TxIndexerID  string                 `json:"tx_indexer_id"` // Tx indexer uuid
+	RawMessage   string                 `json:"raw_message"`   // Raw message, used to decode the transaction
+	Message      string                 `json:"message"`
+	Hash         string                 `json:"hash"`
+	HashFunction HashFunction           `json:"hash_function"`
+	Chain        vgcommon.Chain         `json:"chain"`
+	CustomData   map[string]interface{} `json:"custom_data"` // Adds extra context around a transaction
 }
 
 // IsValid checks if the keysign request is valid

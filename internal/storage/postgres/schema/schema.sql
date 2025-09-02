@@ -3,6 +3,13 @@ CREATE TYPE "billing_asset" AS ENUM (
     'usdc'
 );
 
+CREATE TYPE "fee_batch_status" AS ENUM (
+    'draft',
+    'sent',
+    'completed',
+    'failed'
+);
+
 CREATE TYPE "fee_credit_type" AS ENUM (
     'fee_transacted'
 );
@@ -100,6 +107,63 @@ BEGIN
     END IF;
     
     RETURN NULL;
+END;
+$$;
+
+CREATE FUNCTION "fee_balance_for_ids"("fee_ids" "uuid"[]) RETURNS TABLE("public_key" character varying, "total_owed" bigint, "total_debits" bigint, "total_credits" bigint)
+    LANGUAGE "plpgsql" STABLE
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        fj.public_key, 
+        SUM(
+            CASE 
+                WHEN fj.type = 'credit' THEN -fj.amount
+                ELSE fj.amount
+            END
+        )::BIGINT AS total_owed,
+        COUNT(*) FILTER (WHERE fj.type = 'debit')::BIGINT AS total_debits,
+        COUNT(*) FILTER (WHERE fj.type = 'credit')::BIGINT AS total_credits
+    FROM fees_joined fj 
+    WHERE fj.id = ANY(fee_ids)
+    GROUP BY fj.public_key;
+END;
+$$;
+
+CREATE FUNCTION "fee_batch_public_key_match"("batch_id" "uuid", "fee_uuid" "uuid") RETURNS boolean
+    LANGUAGE "plpgsql" STABLE
+    AS $$
+BEGIN
+    -- Check if the fee's public key matches the batch's public key
+    RETURN EXISTS (
+        SELECT 1 
+        FROM fee_batch fb
+        WHERE fb.id = batch_id
+        AND fb.public_key = (
+            SELECT public_key FROM fees WHERE id = fee_uuid
+            UNION ALL
+            SELECT public_key FROM fee_debits WHERE id = fee_uuid
+            UNION ALL
+            SELECT public_key FROM fee_credits WHERE id = fee_uuid
+            LIMIT 1
+        )
+    );
+END;
+$$;
+
+CREATE FUNCTION "fee_exists"("fee_uuid" "uuid") RETURNS boolean
+    LANGUAGE "plpgsql" STABLE
+    AS $$
+BEGIN
+    -- Check if the fee exists in the parent table or any inherited tables
+    RETURN EXISTS (
+        SELECT 1 FROM ONLY fees WHERE id = fee_uuid
+        UNION ALL
+        SELECT 1 FROM fee_debits WHERE id = fee_uuid
+        UNION ALL
+        SELECT 1 FROM fee_credits WHERE id = fee_uuid
+    );
 END;
 $$;
 
@@ -232,9 +296,10 @@ INHERITS ("fees");
 CREATE TABLE "fee_debits" (
     "type" "fee_type" DEFAULT 'debit'::"public"."fee_type",
     "subtype" "fee_debit_type" NOT NULL,
-    "plugin_policy_billing_id" "uuid" NOT NULL,
+    "plugin_policy_billing_id" "uuid",
     "charged_at" "date" DEFAULT "now"() NOT NULL,
-    CONSTRAINT "fee_debits_public_key_match" CHECK ("validate_fee_public_key"("public_key", "plugin_policy_billing_id")),
+    CONSTRAINT "fee_debits_billing_id_required" CHECK ((("subtype" <> 'fee'::"fee_debit_type") OR ("plugin_policy_billing_id" IS NOT NULL))),
+    CONSTRAINT "fee_debits_public_key_match" CHECK ((("subtype" <> 'fee'::"fee_debit_type") OR "public"."validate_fee_public_key"("public_key", "plugin_policy_billing_id"))),
     CONSTRAINT "fee_debits_type_check" CHECK (("type" = 'debit'::"fee_type"))
 )
 INHERITS ("fees");
@@ -270,13 +335,18 @@ CREATE VIEW "fee_balance" AS
 
 CREATE TABLE "fee_batch" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "public_key" character varying(66) NOT NULL,
     "created_at" timestamp without time zone DEFAULT "now"() NOT NULL,
-    "tx_hash" character varying(66) NOT NULL
+    "tx_hash" character varying(66),
+    "status" "fee_batch_status" DEFAULT 'draft'::"public"."fee_batch_status" NOT NULL,
+    CONSTRAINT "fee_batch_tx_hash_not_null" CHECK ((("status" = 'draft'::"fee_batch_status") OR ("tx_hash" IS NOT NULL)))
 );
 
 CREATE TABLE "fee_batch_members" (
     "fee_batch_id" "uuid" NOT NULL,
-    "fee_id" "uuid" NOT NULL
+    "fee_id" "uuid" NOT NULL,
+    CONSTRAINT "fee_batch_public_key_match" CHECK ("fee_batch_public_key_match"("fee_batch_id", "fee_id")),
+    CONSTRAINT "fk_fee" CHECK ("fee_exists"("fee_id"))
 );
 
 CREATE TABLE "plugin_policies" (
@@ -581,9 +651,6 @@ CREATE TRIGGER "trg_set_policy_inactive_on_delete" BEFORE INSERT OR UPDATE ON "p
 
 ALTER TABLE ONLY "fee_debits"
     ADD CONSTRAINT "fk_billing" FOREIGN KEY ("plugin_policy_billing_id") REFERENCES "plugin_policy_billing"("id") ON DELETE CASCADE;
-
-ALTER TABLE ONLY "fee_batch_members"
-    ADD CONSTRAINT "fk_fee" FOREIGN KEY ("fee_id") REFERENCES "fees"("id") ON DELETE CASCADE;
 
 ALTER TABLE ONLY "fee_batch_members"
     ADD CONSTRAINT "fk_fee_batch" FOREIGN KEY ("fee_batch_id") REFERENCES "fee_batch"("id") ON DELETE CASCADE;

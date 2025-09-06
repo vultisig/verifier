@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -85,6 +86,7 @@ func ReadVerifierConfig() (*VerifierConfig, error) {
 	if configName == "" {
 		configName = "config"
 	}
+	addKeysToViper(viper.GetViper(), reflect.TypeOf(VerifierConfig{}))
 	viper.SetConfigName(configName)
 	viper.AddConfigPath(".")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
@@ -94,13 +96,17 @@ func ReadVerifierConfig() (*VerifierConfig, error) {
 	viper.SetDefault("auth.nonce_expiry_minutes", 15)
 
 	if err := viper.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("fail to reading config file, %w", err)
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			return nil, fmt.Errorf("fail to reading config file, %w", err)
+		}
+		// This is expected for ENV based config
 	}
 	var cfg VerifierConfig
 	err := viper.Unmarshal(&cfg)
 	if err != nil {
 		return nil, fmt.Errorf("unable to decode into struct, %w", err)
 	}
+	fmt.Printf("cfg: %+v\n", cfg)
 	return &cfg, nil
 }
 
@@ -123,4 +129,31 @@ func ReadTxIndexerConfig() (*tx_indexer_config.Config, error) {
 		return nil, fmt.Errorf("unable to decode into struct, %w", err)
 	}
 	return &cfg, nil
+}
+
+func addKeysToViper(v *viper.Viper, t reflect.Type) {
+	keys := getAllKeys(t)
+	for _,key := range keys {
+		fmt.Println(key)
+		v.SetDefault(key, "")
+	}
+}
+
+func getAllKeys(t reflect.Type) []string {
+	var result []string
+
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		n := strings.ToUpper(f.Name)
+		if reflect.Struct == f.Type.Kind() {
+			subKeys := getAllKeys(f.Type)
+			for _, k := range subKeys {
+				result = append(result, n+"."+k)
+			}
+		} else {
+			result = append(result, n)
+		}
+	}
+
+	return result
 }

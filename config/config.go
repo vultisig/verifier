@@ -18,9 +18,6 @@ type WorkerConfig struct {
 	Redis        config.Redis              `mapstructure:"redis" json:"redis,omitempty"`
 	BlockStorage vault_config.BlockStorage `mapstructure:"block_storage" json:"block_storage,omitempty"`
 	Database     config.Database           `mapstructure:"database" json:"database,omitempty"`
-	Plugin       struct {
-		PluginConfigs map[string]map[string]interface{} `mapstructure:"plugin_configs" json:"plugin_configs,omitempty"`
-	} `mapstructure:"plugin" json:"plugin,omitempty"`
 	Datadog DatadogConfig `mapstructure:"datadog" json:"datadog"`
 	Fees    FeesConfig    `mapstructure:"fees" json:"fees"`
 }
@@ -63,6 +60,7 @@ func GetConfigure() (*WorkerConfig, error) {
 }
 
 func ReadConfig(configName string) (*WorkerConfig, error) {
+	addKeysToViper(viper.GetViper(), reflect.TypeOf(WorkerConfig{}))
 	viper.SetConfigName(configName)
 	viper.AddConfigPath(".")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
@@ -71,13 +69,17 @@ func ReadConfig(configName string) (*WorkerConfig, error) {
 	viper.SetDefault("VaultService.VaultsFilePath", "vaults")
 
 	if err := viper.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("fail to reading config file, %w", err)
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			return nil, fmt.Errorf("fail to reading config file, %w", err)
+		}
+		// This is expected for ENV based config
 	}
 	var cfg WorkerConfig
 	err := viper.Unmarshal(&cfg)
 	if err != nil {
 		return nil, fmt.Errorf("unable to decode into struct, %w", err)
 	}
+	fmt.Printf("cfg: %+v\n", cfg)
 	return &cfg, nil
 }
 
@@ -134,8 +136,8 @@ func ReadTxIndexerConfig() (*tx_indexer_config.Config, error) {
 func addKeysToViper(v *viper.Viper, t reflect.Type) {
 	keys := getAllKeys(t)
 	for _,key := range keys {
-		fmt.Println(key)
 		v.SetDefault(key, "")
+		fmt.Println(key)
 	}
 }
 
@@ -144,7 +146,28 @@ func getAllKeys(t reflect.Type) []string {
 
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		n := strings.ToUpper(f.Name)
+		
+		// Try mapstructure tag first
+		tagName := f.Tag.Get("mapstructure")
+		if tagName == "" || tagName == "-" {
+			// Fallback to JSON tag
+			jsonTag := f.Tag.Get("json")
+			if jsonTag != "" && jsonTag != "-" {
+				// Handle comma-separated options (e.g., "field_name,omitempty")
+				tagName = strings.Split(jsonTag, ",")[0]
+			}
+		} else {
+			// Handle comma-separated options in mapstructure tag
+			tagName = strings.Split(tagName, ",")[0]
+		}
+		
+		// Final fallback to field name if no valid tags found
+		if tagName == "" || tagName == "-" {
+			tagName = f.Name
+		}
+		
+		n := strings.ToUpper(tagName)
+		
 		if reflect.Struct == f.Type.Kind() {
 			subKeys := getAllKeys(f.Type)
 			for _, k := range subKeys {

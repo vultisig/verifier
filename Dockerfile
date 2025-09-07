@@ -14,7 +14,6 @@ RUN tar -xzf master.tar.gz && \
 ENV LD_LIBRARY_PATH=/usr/local/lib/dkls/includes/linux/:$LD_LIBRARY_PATH
 
 # Build the application
-RUN ls -al
 RUN go build -o bin/out/verifier ./cmd/verifier
 RUN go build -o bin/out/worker ./cmd/worker
 RUN go build -o bin/out/tx_indexer ./cmd/tx_indexer

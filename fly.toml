@@ -7,21 +7,33 @@ app = 'verifier-server-dev'
 primary_region = 'nrt'
 
 [build]
-  [build.args]
-    GO_VERSION = '1.24.2'
+[build.args]
+GO_VERSION = '1.24.2'
 
 [env]
-  PORT = '8080'
+PORT = '8080'
+
+[processes]
+verifier = "verifier"
+worker = "worker"
+# tx_indexer = "/tx_indexer"
 
 [http_service]
-  internal_port = 8080
-  force_https = true
-  auto_stop_machines = 'stop'
-  auto_start_machines = true
-  min_machines_running = 0
-  processes = ['app']
+internal_port = 8080
+force_https = true
+auto_stop_machines = 'stop'
+auto_start_machines = true
+min_machines_running = 0
+processes = ['verifier']
 
 [[vm]]
-  memory = '2gb'
-  cpu_kind = 'shared'
-  cpus = 4
+memory = '2gb'
+cpu_kind = 'shared'
+cpus = 2
+processes = ['verifier']
+
+[[vm]]
+memory = '2gb'
+cpu_kind = 'shared'
+cpus = 2
+processes = ['worker']

@@ -117,13 +117,17 @@ func ReadTxIndexerConfig() (*tx_indexer_config.Config, error) {
 	if configName == "" {
 		configName = "config"
 	}
+	addKeysToViper(viper.GetViper(), reflect.TypeOf(tx_indexer_config.Config{}))
 	viper.SetConfigName(configName)
 	viper.AddConfigPath(".")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("fail to reading config file, %w", err)
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			return nil, fmt.Errorf("fail to reading config file, %w", err)
+		}
+		// This is expected for ENV based config
 	}
 	var cfg tx_indexer_config.Config
 	err := viper.Unmarshal(&cfg)

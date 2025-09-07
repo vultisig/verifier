@@ -16,7 +16,7 @@ PORT = '8080'
 [processes]
 verifier = "verifier"
 worker = "worker"
-# tx_indexer = "/tx_indexer"
+tx_indexer = "/tx_indexer"
 
 [http_service]
 internal_port = 8080
@@ -37,3 +37,9 @@ memory = '2gb'
 cpu_kind = 'shared'
 cpus = 2
 processes = ['worker']
+
+[[vm]]
+memory = '2gb'
+cpu_kind = 'shared'
+cpus = 2
+processes = ['tx_indexer']

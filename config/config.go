@@ -79,7 +79,6 @@ func ReadConfig(configName string) (*WorkerConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to decode into struct, %w", err)
 	}
-	fmt.Printf("cfg: %+v\n", cfg)
 	return &cfg, nil
 }
 
@@ -108,7 +107,6 @@ func ReadVerifierConfig() (*VerifierConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to decode into struct, %w", err)
 	}
-	fmt.Printf("cfg: %+v\n", cfg)
 	return &cfg, nil
 }
 
@@ -141,7 +139,6 @@ func addKeysToViper(v *viper.Viper, t reflect.Type) {
 	keys := getAllKeys(t)
 	for _,key := range keys {
 		v.SetDefault(key, "")
-		fmt.Println(key)
 	}
 }
 

@@ -42,4 +42,13 @@ INSERT INTO plugins (id, title, description, server_endpoint, category) VALUES
     'Merkle tree implementation for efficient data storage and retrieval.',
     'http://localhost:8089',
     'plugin'
+), 
+
+-- Tester Plugin with free pricing
+(
+    'vultisig-tester-ae1d',
+    'Vultisig Tester Plugin',
+    'Tester plugin for recipe evaluation',
+    'http://tester-server:8080',
+    'plugin'
 ) ON CONFLICT (id) DO NOTHING;

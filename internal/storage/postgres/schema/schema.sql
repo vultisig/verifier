@@ -3,6 +3,10 @@ CREATE TYPE "billing_asset" AS ENUM (
     'usdc'
 );
 
+CREATE TYPE "event_type" AS ENUM (
+    'vault_reshared'
+);
+
 CREATE TYPE "plugin_category" AS ENUM (
     'ai-agent',
     'plugin'
@@ -13,7 +17,8 @@ CREATE TYPE "plugin_id" AS ENUM (
     'vultisig-payroll-0000',
     'vultisig-fees-feee',
     'vultisig-copytrader-0000',
-    'nbits-labs-merkle-e93d'
+    'nbits-labs-merkle-e93d',
+    'vultisig-tester-ae1d'
 );
 
 CREATE TYPE "pricing_asset" AS ENUM (
@@ -290,6 +295,24 @@ CREATE TABLE "reviews" (
     CONSTRAINT "reviews_rating_check" CHECK ((("rating" >= 1) AND ("rating" <= 5)))
 );
 
+CREATE TABLE "system_events" (
+    "id" bigint NOT NULL,
+    "public_key" "text",
+    "policy_id" "text",
+    "event_type" "event_type" NOT NULL,
+    "event_data" "jsonb" NOT NULL,
+    "created_at" timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE SEQUENCE "system_events_id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE "system_events_id_seq" OWNED BY "public"."system_events"."id";
+
 CREATE TABLE "tags" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "name" character varying(100) NOT NULL,
@@ -325,6 +348,8 @@ CREATE TABLE "vault_tokens" (
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 
+ALTER TABLE ONLY "system_events" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."system_events_id_seq"'::"regclass");
+
 ALTER TABLE ONLY "fees"
     ADD CONSTRAINT "fees_pkey" PRIMARY KEY ("id");
 
@@ -357,6 +382,9 @@ ALTER TABLE ONLY "pricings"
 
 ALTER TABLE ONLY "reviews"
     ADD CONSTRAINT "reviews_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "system_events"
+    ADD CONSTRAINT "system_events_pkey" PRIMARY KEY ("id");
 
 ALTER TABLE ONLY "tags"
     ADD CONSTRAINT "tags_name_key" UNIQUE ("name");
@@ -396,6 +424,14 @@ CREATE INDEX "idx_plugin_policy_sync_policy_id" ON "plugin_policy_sync" USING "b
 CREATE INDEX "idx_reviews_plugin_id" ON "reviews" USING "btree" ("plugin_id");
 
 CREATE INDEX "idx_reviews_public_key" ON "reviews" USING "btree" ("public_key");
+
+CREATE INDEX "idx_system_events_created_at" ON "system_events" USING "btree" ("created_at");
+
+CREATE INDEX "idx_system_events_event_type" ON "system_events" USING "btree" ("event_type");
+
+CREATE INDEX "idx_system_events_policy_id" ON "system_events" USING "btree" ("policy_id");
+
+CREATE INDEX "idx_system_events_public_key" ON "system_events" USING "btree" ("public_key");
 
 CREATE INDEX "idx_tx_indexer_key" ON "tx_indexer" USING "btree" ("chain_id", "plugin_id", "policy_id", "token_id", "to_public_key", "created_at");
 

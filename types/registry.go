@@ -12,6 +12,7 @@ const (
 	PluginVultisigPayroll_0000 PluginID = "vultisig-payroll-0000"
 	PluginVultisigFees_feee    PluginID = "vultisig-fees-feee"
 	PluginNBitsLabsMerkle_0000 PluginID = "nbits-labs-merkle-e93d"
+	PluginVultisigTester_ae1d  PluginID = "vultisig-tester-ae1d"
 )
 
 func (p PluginID) String() string {

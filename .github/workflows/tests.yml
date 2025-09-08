@@ -159,6 +159,8 @@ jobs:
             --quote-all-identifiers \
             -T public.goose_db_version \
             -T public.goose_db_version_id_seq | sed \
+            -e '/^\\restrict /d' \
+            -e '/^\\unrestrict /d' \
             -e '/^--.*/d' \
             -e '/^SET /d' \
             -e '/^SELECT pg_catalog./d' \

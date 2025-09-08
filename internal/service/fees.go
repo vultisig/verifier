@@ -40,24 +40,29 @@ type Fees interface {
 var _ Fees = (*FeeService)(nil)
 
 type FeeService struct {
-	db        storage.DatabaseStorage
-	logger    *logrus.Logger
-	client    *asynq.Client
-	feeConfig config.FeesConfig
+	db              storage.DatabaseStorage
+	logger          *logrus.Logger
+	client          *asynq.Client
+	feeConfig       config.FeesConfig
+	treasuryService *TreasuryService // Upon successful fee batch collection, treasury items need to be created and inserted into the ledger.
 	//TODO explore a per policy mutex to lock by policy ID without a map growing too big.
 	SignRequestMutex sync.Mutex // This mutex is locked when a sign request is sent and unlocked after it is processed. This is because a fee_credit is created on a sign request. It is to avoid race conditions of 2 credits being created at the same time.
 }
 
 func NewFeeService(db storage.DatabaseStorage,
-	client *asynq.Client, logger *logrus.Logger, feeConfig config.FeesConfig) (*FeeService, error) {
+	client *asynq.Client, logger *logrus.Logger, feeConfig config.FeesConfig, treasuryService *TreasuryService) (*FeeService, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database storage cannot be nil")
 	}
+	if treasuryService == nil {
+		return nil, fmt.Errorf("treasury service cannot be nil")
+	}
 	return &FeeService{
-		db:        db,
-		logger:    logger.WithField("service", "fee").Logger,
-		client:    client,
-		feeConfig: feeConfig,
+		db:              db,
+		logger:          logger.WithField("service", "fee").Logger,
+		client:          client,
+		feeConfig:       feeConfig,
+		treasuryService: treasuryService,
 	}, nil
 }
 

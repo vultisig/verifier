@@ -48,6 +48,7 @@ func (p *PostgresBackend) GetFeeDebitsByPublicKey(ctx context.Context, publicKey
 		return nil, err
 	}
 	defer rows.Close()
+
 	for rows.Next() {
 		var fee types.FeeDebit
 		err := rows.Scan(
@@ -70,7 +71,7 @@ func (p *PostgresBackend) GetFeeDebitsByPublicKey(ctx context.Context, publicKey
 
 func (p *PostgresBackend) GetFeeCreditsByIds(ctx context.Context, ids []uuid.UUID) ([]types.FeeCredit, error) {
 	fees := []types.FeeCredit{}
-	query := `SELECT id, public_key, type, amount, created_at, ref FROM fee_credits WHERE id = ANY($1)`
+	query := `SELECT id, public_key, type, amount, created_at, transaction_hash, ref FROM fee_credits WHERE id = ANY($1)`
 	rows, err := p.pool.Query(ctx, query, ids)
 	if err != nil {
 		return nil, err
@@ -223,6 +224,18 @@ func (p *PostgresBackend) CreateFeeBatchWithMembers(ctx context.Context, dbTx pg
 	}
 
 	return nil
+}
+
+func (p *PostgresBackend) GetCreditTxByBatchId(ctx context.Context, batchId uuid.UUID) (*types.FeeCredit, error) {
+	batchRef := fmt.Sprintf("batch:%s", batchId.String())
+	query := `SELECT id, public_key, type, amount, created_at, ref FROM fee_credits WHERE ref LIKE '%' || $1 || '%'`
+	row := p.pool.QueryRow(ctx, query, batchRef)
+	var fee types.FeeCredit
+	err := row.Scan(&fee.ID, &fee.PublicKey, &fee.Type, &fee.Amount, &fee.CreatedAt, &fee.Ref)
+	if err != nil {
+		return nil, err
+	}
+	return &fee, nil
 }
 
 func (p *PostgresBackend) GetFeeBatch(ctx context.Context, batchId uuid.UUID) (*types.FeeBatch, error) {

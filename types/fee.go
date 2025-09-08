@@ -75,7 +75,6 @@ type FeeBatchMembers struct {
 	FeeBatchID uuid.UUID `json:"fee_batch_id"` // Reference to the fee batch
 	FeeID      uuid.UUID `json:"fee_id"`       // Reference to the individual fee
 }
-
 type BillingPolicyProto struct {
 	ID        *uuid.UUID              `json:"id" validate:"required"`
 	Type      rtypes.FeeType          `json:"type" validate:"required"`

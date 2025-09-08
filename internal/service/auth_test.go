@@ -17,6 +17,7 @@ import (
 	"github.com/vultisig/verifier/internal/storage"
 	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/types"
+	ptypes "github.com/vultisig/verifier/types"
 )
 
 const testPublicKey = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
@@ -280,6 +281,43 @@ func (m *MockDatabaseStorage) GetFeeBatchesByStateAndPublicKey(ctx context.Conte
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]itypes.FeeBatchRequest), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) CreateTreasuryLedgerRecord(ctx context.Context, batch ptypes.FeeBatch) error {
+	args := m.Called(ctx, batch)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) CreateTreasuryLedgerBatch(ctx context.Context, tx pgx.Tx, developerId uuid.UUID, txHash string) (*types.TreasuryBatchMembersView, error) {
+	args := m.Called(ctx, tx, developerId, txHash)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*types.TreasuryBatchMembersView), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) CreateTreasuryLedgerDebitFromFeeBatch(ctx context.Context, tx pgx.Tx, feeBatchId uuid.UUID, amount uint64, developerId uuid.UUID, ref string) (uuid.UUID, error) {
+	args := m.Called(ctx, tx, feeBatchId, amount, developerId, ref)
+	if args.Get(0) == nil {
+		return uuid.Nil, args.Error(1)
+	}
+	return args.Get(0).(uuid.UUID), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) CreateVultisigDuesDebitFromFeeBatch(ctx context.Context, tx pgx.Tx, feeBatchId uuid.UUID, amount uint64) (uuid.UUID, error) {
+	args := m.Called(ctx, tx, feeBatchId, amount)
+	if args.Get(0) == nil {
+		return uuid.Nil, args.Error(1)
+	}
+	return args.Get(0).(uuid.UUID), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) GetUnclaimedTreasuryLedgerRecords(ctx context.Context, developerId uuid.UUID) ([]types.TreasuryLedgerRecord, error) {
+	args := m.Called(ctx, developerId)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]types.TreasuryLedgerRecord), args.Error(1)
 }
 
 func (m *MockDatabaseStorage) FindPricingById(ctx context.Context, id uuid.UUID) (*types.Pricing, error) {

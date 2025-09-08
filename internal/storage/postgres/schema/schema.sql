@@ -58,6 +58,25 @@ CREATE TYPE "pricing_type" AS ENUM (
     'per-tx'
 );
 
+CREATE TYPE "treasury_batch_status" AS ENUM (
+    'draft',
+    'sent',
+    'completed',
+    'failed'
+);
+
+CREATE TYPE "treasury_ledger_entry_type" AS ENUM (
+    'fee_batch_collection',
+    'developer_payout',
+    'failed_tx',
+    'vultisig_dues'
+);
+
+CREATE TYPE "treasury_ledger_type" AS ENUM (
+    'debit',
+    'credit'
+);
+
 CREATE TYPE "tx_indexer_status" AS ENUM (
     'PROPOSED',
     'VERIFIED',
@@ -245,6 +264,14 @@ BEGIN
 END;
 $$;
 
+CREATE FUNCTION "treasury_ledger_no_update_delete"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+    BEGIN
+        RAISE EXCEPTION 'treasury_ledger tables are append-only: updates and deletes are not allowed';
+    END;
+    $$;
+
 CREATE FUNCTION "validate_fee_public_key"("fee_public_key" character varying, "billing_id" "uuid") RETURNS boolean
     LANGUAGE "plpgsql" STABLE
     AS $$
@@ -360,7 +387,8 @@ CREATE TABLE "plugin_policies" (
     "active" boolean DEFAULT true NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "deleted" boolean DEFAULT false NOT NULL
+    "deleted" boolean DEFAULT false NOT NULL,
+    "developer_id" "uuid"
 );
 
 CREATE TABLE "plugin_policy_billing" (
@@ -398,6 +426,13 @@ CREATE TABLE "plugin_apikey" (
     "expires_at" timestamp with time zone,
     "status" integer DEFAULT 1 NOT NULL,
     CONSTRAINT "plugin_apikey_status_check" CHECK (("status" = ANY (ARRAY[0, 1])))
+);
+
+CREATE TABLE "plugin_developer" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "public_key" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 
 CREATE TABLE "plugin_policy_sync" (
@@ -469,6 +504,78 @@ CREATE TABLE "tags" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 
+CREATE TABLE "treasury_batch" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "created_at" timestamp without time zone DEFAULT "now"() NOT NULL,
+    "tx_hash" character varying(66),
+    "developer_id" "uuid" NOT NULL,
+    "status" "treasury_batch_status" DEFAULT 'draft'::"public"."treasury_batch_status" NOT NULL,
+    CONSTRAINT "treasury_batch_tx_hash_not_null" CHECK ((("status" = 'draft'::"treasury_batch_status") OR ("tx_hash" IS NOT NULL)))
+);
+
+CREATE TABLE "treasury_batch_members" (
+    "batch_id" "uuid" NOT NULL,
+    "treasury_ledger_record_id" "uuid" NOT NULL
+);
+
+CREATE TABLE "treasury_ledger" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "developer_id" "uuid" NOT NULL,
+    "amount" bigint NOT NULL,
+    "type" "treasury_ledger_type" NOT NULL,
+    "subtype" "treasury_ledger_entry_type" NOT NULL,
+    "ref" "text",
+    "created_at" timestamp without time zone DEFAULT "now"() NOT NULL
+);
+
+CREATE VIEW "treasury_batch_members_view" AS
+ SELECT "tbm"."batch_id",
+    "count"("tbm"."treasury_ledger_record_id") AS "record_count",
+    "sum"(
+        CASE
+            WHEN ("tl"."type" = 'credit'::"treasury_ledger_type") THEN (- "tl"."amount")
+            ELSE "tl"."amount"
+        END) AS "total_amount"
+   FROM ("treasury_batch_members" "tbm"
+     JOIN "treasury_ledger" "tl" ON (("tbm"."treasury_ledger_record_id" = "tl"."id")))
+  GROUP BY "tbm"."batch_id";
+
+CREATE TABLE "treasury_ledger_developer_payout" (
+    "type" "treasury_ledger_type" DEFAULT 'credit'::"public"."treasury_ledger_type",
+    "subtype" "treasury_ledger_entry_type" DEFAULT 'developer_payout'::"public"."treasury_ledger_entry_type",
+    "treasury_batch_id" "uuid" NOT NULL,
+    CONSTRAINT "treasury_must_be_credit" CHECK (("type" = 'credit'::"treasury_ledger_type")),
+    CONSTRAINT "treasury_must_be_developer_payout" CHECK (("subtype" = 'developer_payout'::"treasury_ledger_entry_type"))
+)
+INHERITS ("treasury_ledger");
+
+CREATE TABLE "treasury_ledger_failed_tx" (
+    "type" "treasury_ledger_type" DEFAULT 'debit'::"public"."treasury_ledger_type",
+    "subtype" "treasury_ledger_entry_type" DEFAULT 'failed_tx'::"public"."treasury_ledger_entry_type",
+    "treasury_batch_id" "uuid" NOT NULL,
+    CONSTRAINT "treasury_must_be_debit" CHECK (("type" = 'debit'::"treasury_ledger_type")),
+    CONSTRAINT "treasury_must_be_failed_tx" CHECK (("subtype" = 'failed_tx'::"treasury_ledger_entry_type"))
+)
+INHERITS ("treasury_ledger");
+
+CREATE TABLE "treasury_ledger_fee_batch_collection" (
+    "type" "treasury_ledger_type" DEFAULT 'debit'::"public"."treasury_ledger_type",
+    "subtype" "treasury_ledger_entry_type" DEFAULT 'fee_batch_collection'::"public"."treasury_ledger_entry_type",
+    "fee_batch_id" "uuid" NOT NULL,
+    CONSTRAINT "treasury_must_be_debit" CHECK (("type" = 'debit'::"treasury_ledger_type")),
+    CONSTRAINT "treasury_must_be_fee_batch_collection" CHECK (("subtype" = 'fee_batch_collection'::"treasury_ledger_entry_type"))
+)
+INHERITS ("treasury_ledger");
+
+CREATE TABLE "treasury_vultisig_debit" (
+    "type" "treasury_ledger_type" DEFAULT 'debit'::"public"."treasury_ledger_type",
+    "subtype" "treasury_ledger_entry_type" DEFAULT 'vultisig_dues'::"public"."treasury_ledger_entry_type",
+    "fee_batch_id" "uuid" NOT NULL,
+    CONSTRAINT "treasury_must_be_debit" CHECK (("type" = 'debit'::"treasury_ledger_type")),
+    CONSTRAINT "treasury_must_be_vultisig_dues" CHECK (("subtype" = 'vultisig_dues'::"treasury_ledger_entry_type"))
+)
+INHERITS ("treasury_ledger");
+
 CREATE TABLE "tx_indexer" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "plugin_id" character varying(255) NOT NULL,
@@ -506,6 +613,22 @@ ALTER TABLE ONLY "fee_debits" ALTER COLUMN "id" SET DEFAULT "gen_random_uuid"();
 
 ALTER TABLE ONLY "fee_debits" ALTER COLUMN "created_at" SET DEFAULT "now"();
 
+ALTER TABLE ONLY "treasury_ledger_developer_payout" ALTER COLUMN "id" SET DEFAULT "gen_random_uuid"();
+
+ALTER TABLE ONLY "treasury_ledger_developer_payout" ALTER COLUMN "created_at" SET DEFAULT "now"();
+
+ALTER TABLE ONLY "treasury_ledger_failed_tx" ALTER COLUMN "id" SET DEFAULT "gen_random_uuid"();
+
+ALTER TABLE ONLY "treasury_ledger_failed_tx" ALTER COLUMN "created_at" SET DEFAULT "now"();
+
+ALTER TABLE ONLY "treasury_ledger_fee_batch_collection" ALTER COLUMN "id" SET DEFAULT "gen_random_uuid"();
+
+ALTER TABLE ONLY "treasury_ledger_fee_batch_collection" ALTER COLUMN "created_at" SET DEFAULT "now"();
+
+ALTER TABLE ONLY "treasury_vultisig_debit" ALTER COLUMN "id" SET DEFAULT "gen_random_uuid"();
+
+ALTER TABLE ONLY "treasury_vultisig_debit" ALTER COLUMN "created_at" SET DEFAULT "now"();
+
 ALTER TABLE ONLY "fee_batch_members"
     ADD CONSTRAINT "fee_batch_members_fee_id_unique" UNIQUE ("fee_id");
 
@@ -532,6 +655,9 @@ ALTER TABLE ONLY "plugin_apikey"
 
 ALTER TABLE ONLY "plugin_apikey"
     ADD CONSTRAINT "plugin_apikey_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "plugin_developer"
+    ADD CONSTRAINT "plugin_developer_pkey" PRIMARY KEY ("id");
 
 ALTER TABLE ONLY "plugin_policies"
     ADD CONSTRAINT "plugin_policies_pkey" PRIMARY KEY ("id");
@@ -562,6 +688,30 @@ ALTER TABLE ONLY "tags"
 
 ALTER TABLE ONLY "tags"
     ADD CONSTRAINT "tags_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "treasury_batch_members"
+    ADD CONSTRAINT "treasury_batch_members_treasury_ledger_record_id_key" UNIQUE ("treasury_ledger_record_id");
+
+ALTER TABLE ONLY "treasury_batch"
+    ADD CONSTRAINT "treasury_batch_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "treasury_batch"
+    ADD CONSTRAINT "treasury_batch_tx_hash_unique" UNIQUE ("tx_hash");
+
+ALTER TABLE ONLY "treasury_ledger_developer_payout"
+    ADD CONSTRAINT "treasury_ledger_developer_payout_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "treasury_ledger_failed_tx"
+    ADD CONSTRAINT "treasury_ledger_failed_tx_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "treasury_ledger_fee_batch_collection"
+    ADD CONSTRAINT "treasury_ledger_fee_batch_collection_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "treasury_ledger"
+    ADD CONSTRAINT "treasury_ledger_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "treasury_vultisig_debit"
+    ADD CONSTRAINT "treasury_vultisig_debit_pkey" PRIMARY KEY ("id");
 
 ALTER TABLE ONLY "tx_indexer"
     ADD CONSTRAINT "tx_indexer_pkey" PRIMARY KEY ("id");
@@ -597,6 +747,20 @@ CREATE INDEX "idx_plugin_policy_sync_policy_id" ON "plugin_policy_sync" USING "b
 CREATE INDEX "idx_reviews_plugin_id" ON "reviews" USING "btree" ("plugin_id");
 
 CREATE INDEX "idx_reviews_public_key" ON "reviews" USING "btree" ("public_key");
+
+CREATE INDEX "idx_treasury_ledger_created_at" ON "treasury_ledger" USING "btree" ("created_at");
+
+CREATE INDEX "idx_treasury_ledger_developer_payout_treasury_batch_id" ON "treasury_ledger_developer_payout" USING "btree" ("treasury_batch_id");
+
+CREATE INDEX "idx_treasury_ledger_failed_tx_treasury_batch_id" ON "treasury_ledger_failed_tx" USING "btree" ("treasury_batch_id");
+
+CREATE INDEX "idx_treasury_ledger_fee_batch_collection_fee_batch_id" ON "treasury_ledger_fee_batch_collection" USING "btree" ("fee_batch_id");
+
+CREATE INDEX "idx_treasury_ledger_subtype" ON "treasury_ledger" USING "btree" ("subtype");
+
+CREATE INDEX "idx_treasury_ledger_type" ON "treasury_ledger" USING "btree" ("type");
+
+CREATE INDEX "idx_treasury_vultisig_debit_fee_batch_id" ON "treasury_vultisig_debit" USING "btree" ("fee_batch_id");
 
 CREATE INDEX "idx_tx_indexer_key" ON "tx_indexer" USING "btree" ("chain_id", "plugin_id", "policy_id", "token_id", "to_public_key", "created_at");
 
@@ -637,6 +801,8 @@ CREATE TRIGGER "fees_append_only_trigger" BEFORE DELETE OR UPDATE ON "fees" FOR 
 
 CREATE TRIGGER "prevent_fees_policy_deletion_with_active_fees" BEFORE DELETE ON "plugin_policies" FOR EACH ROW EXECUTE FUNCTION "public"."check_active_fees_for_public_key"();
 
+CREATE TRIGGER "treasury_ledger_no_update" BEFORE DELETE OR UPDATE ON "treasury_ledger" FOR EACH ROW EXECUTE FUNCTION "public"."treasury_ledger_no_update_delete"();
+
 CREATE TRIGGER "trg_prevent_billing_update_if_policy_deleted" BEFORE INSERT OR DELETE OR UPDATE ON "plugin_policy_billing" FOR EACH ROW EXECUTE FUNCTION "public"."prevent_billing_update_if_policy_deleted"();
 
 CREATE TRIGGER "trg_prevent_fees_update_if_policy_deleted" BEFORE INSERT OR DELETE OR UPDATE ON "fees" FOR EACH ROW EXECUTE FUNCTION "public"."prevent_fees_update_if_policy_deleted"();
@@ -649,6 +815,9 @@ CREATE TRIGGER "trg_prevent_update_if_policy_deleted" BEFORE UPDATE ON "plugin_p
 
 CREATE TRIGGER "trg_set_policy_inactive_on_delete" BEFORE INSERT OR UPDATE ON "plugin_policies" FOR EACH ROW WHEN (("new"."deleted" = true)) EXECUTE FUNCTION "public"."set_policy_inactive_on_delete"();
 
+ALTER TABLE ONLY "treasury_batch_members"
+    ADD CONSTRAINT "fk_batch" FOREIGN KEY ("batch_id") REFERENCES "treasury_batch"("id") ON DELETE CASCADE;
+
 ALTER TABLE ONLY "fee_debits"
     ADD CONSTRAINT "fk_billing" FOREIGN KEY ("plugin_policy_billing_id") REFERENCES "plugin_policy_billing"("id") ON DELETE CASCADE;
 
@@ -658,8 +827,14 @@ ALTER TABLE ONLY "fee_batch_members"
 ALTER TABLE ONLY "plugin_policy_billing"
     ADD CONSTRAINT "fk_plugin_policy" FOREIGN KEY ("plugin_policy_id") REFERENCES "plugin_policies"("id") ON DELETE CASCADE;
 
+ALTER TABLE ONLY "treasury_batch_members"
+    ADD CONSTRAINT "fk_treasury_ledger_record" FOREIGN KEY ("treasury_ledger_record_id") REFERENCES "treasury_ledger"("id") ON DELETE CASCADE;
+
 ALTER TABLE ONLY "plugin_apikey"
     ADD CONSTRAINT "plugin_apikey_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugins"("id") ON DELETE CASCADE;
+
+ALTER TABLE ONLY "plugin_policies"
+    ADD CONSTRAINT "plugin_policies_developer_id_fkey" FOREIGN KEY ("developer_id") REFERENCES "plugin_developer"("id") ON DELETE CASCADE;
 
 ALTER TABLE ONLY "plugin_policy_sync"
     ADD CONSTRAINT "plugin_policy_sync_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugins"("id") ON DELETE CASCADE;

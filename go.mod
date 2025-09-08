@@ -6,6 +6,7 @@ require (
 	github.com/DataDog/datadog-go v4.8.3+incompatible
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/btcsuite/btcd v0.24.2
+	github.com/btcsuite/btcd/btcutil/psbt v1.1.10
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0
 	github.com/eager7/dogd v0.0.0-20200427085516-2caf59f59dbb
@@ -29,7 +30,7 @@ require (
 	github.com/vultisig/commondata v0.0.0-20250710214228-61d9ed8f7778
 	github.com/vultisig/go-wrappers v0.0.0-20250716071337-34a5c0f4d6e0
 	github.com/vultisig/mobile-tss-lib v0.0.0-20250316003201-2e7e570a4a74
-	github.com/vultisig/recipes v0.0.0-20250904144043-c1ec16ed3aa2
+	github.com/vultisig/recipes v0.0.0-20250908191926-d2fe32c7e98e
 	github.com/vultisig/vultiserver v0.0.0-20250825042420-c6e6ac281110
 	github.com/vultisig/vultisig-go v0.0.0-20250826134334-ddbbadd76c86
 	golang.org/x/sync v0.14.0

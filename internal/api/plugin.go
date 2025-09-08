@@ -1,14 +1,17 @@
 package api
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/btcsuite/btcd/btcutil/psbt"
 	ecommon "github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
@@ -83,53 +86,79 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	if len(req.Messages) == 0 {
 		return errors.New("no messages to sign")
 	}
-	if len(req.Messages) != 1 {
-		return errors.New("plugins must sign exactly 1 message")
+
+	firstKeysignMessage := req.Messages[0]
+
+	// actually doesn't make a lot of sense to validate that,
+	// because even if req.Messages[](hashes proposed to sign) and req.Transaction(proposed tx object) are different,
+	// we are always appending signatures to req.Transaction and if it were for different hashes,
+	// signature would be wrong, and this tx would be rejected by the blockchain node anyway
+	//
+	// consider it's not safety check, but rather a sanity check
+	var txBytesEvaluate []byte
+	if firstKeysignMessage.Chain.IsEvm() {
+		if len(req.Messages) != 1 {
+			return errors.New("plugins must sign exactly 1 message for evm")
+		}
+
+		b, er := base64.StdEncoding.DecodeString(req.Transaction)
+		if er != nil {
+			return fmt.Errorf("failed to decode b64 proposed tx: %w", er)
+		}
+		txBytesEvaluate = b
+
+		evmID, er := firstKeysignMessage.Chain.EvmID()
+		if er != nil {
+			return fmt.Errorf("evm chain id not found: %s", firstKeysignMessage.Chain.String())
+		}
+
+		txData, er := ethereum.DecodeUnsignedPayload(b)
+		if er != nil {
+			return fmt.Errorf("failed to decode evm payload: %w", er)
+		}
+
+		kmBytes, er := base64.StdEncoding.DecodeString(firstKeysignMessage.Message)
+		if er != nil {
+			return fmt.Errorf("failed to decode b64 proposed tx: %w", er)
+		}
+
+		hashToSignFromTxObj := etypes.LatestSignerForChainID(evmID).Hash(etypes.NewTx(txData))
+		hashToSign := ecommon.BytesToHash(kmBytes)
+		if hashToSignFromTxObj.Cmp(hashToSign) != 0 {
+			// req.Transaction — full tx to unpack and assert ERC20 args against policy
+			// keysignMessage.Message — is ECDSA hash to sign
+			//
+			// We must validate that plugin not cheating and
+			// hash from req.Transaction is the same as keysignMessage.Message,
+			return fmt.Errorf(
+				"hashToSign(%s) must be the same as computed hash from request.Transaction(%s)",
+				hashToSign.Hex(),
+				hashToSignFromTxObj.Hex(),
+			)
+		}
+	} else if firstKeysignMessage.Chain == common.Bitcoin {
+		b, er := psbt.NewFromRawBytes(strings.NewReader(req.Transaction), true)
+		if er != nil {
+			return fmt.Errorf("failed to decode psbt: %w", er)
+		}
+
+		var buf bytes.Buffer
+		er = b.UnsignedTx.Serialize(&buf)
+		if er != nil {
+			return fmt.Errorf("failed to serialize psbt: %w", er)
+		}
+
+		txBytesEvaluate = buf.Bytes()
 	}
 
-	keysignMessage := req.Messages[0]
-	kmBytes, err := base64.StdEncoding.DecodeString(keysignMessage.Message)
-	if err != nil {
-		return fmt.Errorf("failed to decode b64 proposed tx: %w", err)
-	}
-
-	evmID, err := keysignMessage.Chain.EvmID()
-	if err != nil {
-		return fmt.Errorf("evm chain id not found: %s", keysignMessage.Chain.String())
-	}
-
-	b, err := base64.StdEncoding.DecodeString(req.Transaction)
-	if err != nil {
-		return fmt.Errorf("failed to decode b64 proposed tx: %w", err)
-	}
-	txData, err := ethereum.DecodeUnsignedPayload(b)
-	if err != nil {
-		return fmt.Errorf("failed to decode evm payload: %w", err)
-	}
-
-	hashToSignFromTxObj := etypes.LatestSignerForChainID(evmID).Hash(etypes.NewTx(txData))
-	hashToSign := ecommon.BytesToHash(kmBytes)
-	if hashToSignFromTxObj.Cmp(hashToSign) != 0 {
-		// req.Transaction — full tx to unpack and assert ERC20 args against policy
-		// keysignMessage.Message — is ECDSA hash to sign
-		//
-		// We must validate that plugin not cheating and
-		// hash from req.Transaction is the same as keysignMessage.Message,
-		return fmt.Errorf(
-			"hashToSign(%s) must be the same as computed hash from request.Transaction(%s)",
-			hashToSign.Hex(),
-			hashToSignFromTxObj.Hex(),
-		)
-	}
-
-	_, err = engine.NewEngine().Evaluate(recipe, keysignMessage.Chain, b)
+	_, err = engine.NewEngine().Evaluate(recipe, firstKeysignMessage.Chain, txBytesEvaluate)
 	if err != nil {
 		return fmt.Errorf("tx not allowed to execute: %w", err)
 	}
 
 	txToTrack, err := s.txIndexerService.CreateTx(c.Request().Context(), storage.CreateTxDto{
 		PluginID:      ptypes.PluginID(req.PluginID),
-		ChainID:       keysignMessage.Chain,
+		ChainID:       firstKeysignMessage.Chain,
 		PolicyID:      policy.ID,
 		FromPublicKey: req.PublicKey,
 		ProposedTxHex: req.Transaction,

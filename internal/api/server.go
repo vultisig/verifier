@@ -85,7 +85,12 @@ func NewServer(
 		logrus.Fatalf("Failed to initialize plugin service: %v", err)
 	}
 
-	feeService, err := service.NewFeeService(db, asynqClient, logger, cfg.Fees)
+	treasuryService, err := service.NewTreasuryService(db, asynqClient, logger)
+	if err != nil {
+		logrus.Fatalf("Failed to initialize treasury service: %v", err)
+	}
+
+	feeService, err := service.NewFeeService(db, asynqClient, logger, cfg.Fees, treasuryService)
 	if err != nil {
 		logrus.Fatalf("Failed to initialize fee service: %v", err)
 	}

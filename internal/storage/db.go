@@ -29,6 +29,7 @@ type DatabaseStorage interface {
 	PricingRepository
 	PluginRepository
 	FeeRepository
+	TreasuryRepository
 	TagRepository
 	ReviewRepository
 	RatingRepository
@@ -60,6 +61,13 @@ type FeeRepository interface {
 	UpdateFeeBatch(ctx context.Context, dbTx pgx.Tx, batchId uuid.UUID, txHash string, status types.FeeBatchStatus) error
 	GetFeeBatchAmount(ctx context.Context, batchId uuid.UUID) (uint64, error)
 	GetFeeBatchesByStateAndPublicKey(ctx context.Context, publicKey string, status types.FeeBatchStatus) ([]itypes.FeeBatchRequest, error)
+}
+
+type TreasuryRepository interface {
+	CreateTreasuryLedgerDebitFromFeeBatch(ctx context.Context, tx pgx.Tx, feeBatchId uuid.UUID, amount uint64, developerId uuid.UUID, ref string) (uuid.UUID, error)
+	CreateVultisigDuesDebitFromFeeBatch(ctx context.Context, tx pgx.Tx, feeBatchId uuid.UUID, amount uint64) (uuid.UUID, error)
+	GetUnclaimedTreasuryLedgerRecords(ctx context.Context, developerId uuid.UUID) ([]types.TreasuryLedgerRecord, error)
+	CreateTreasuryLedgerBatch(ctx context.Context, tx pgx.Tx, developerId uuid.UUID, txHash string) (*types.TreasuryBatchMembersView, error)
 }
 
 type PluginPolicySyncRepository interface {

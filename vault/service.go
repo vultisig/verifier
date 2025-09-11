@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/vultisig/mobile-tss-lib/tss"
-
 	"github.com/vultisig/verifier/plugin/tx_indexer"
 	"github.com/vultisig/verifier/vault_config"
 
@@ -181,11 +179,6 @@ func (s *ManagementService) HandleKeySignDKLS(ctx context.Context, t *asynq.Task
 		return fmt.Errorf("t.ResultWriter.Write failed: %v: %w", err, asynq.SkipRetry)
 	}
 
-	var sigs []tss.KeysignResponse
-	for _, sig := range signatures {
-		sigs = append(sigs, sig)
-	}
-
 	for _, msg := range p.Messages {
 		if msg.TxIndexerID == "" {
 			continue // not from plugin
@@ -201,7 +194,7 @@ func (s *ManagementService) HandleKeySignDKLS(ctx context.Context, t *asynq.Task
 			ctx,
 			msg.Chain,
 			txID,
-			sigs,
+			signatures,
 		)
 		if er != nil {
 			s.logger.WithError(er).Error("s.txIndexerService.SetSignedAndBroadcasted")

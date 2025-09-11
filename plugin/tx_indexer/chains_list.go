@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/vultisig/recipes/sdk/btc"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/chain"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/config"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
@@ -55,7 +56,9 @@ func Rpcs(ctx context.Context, cfg config.RpcConfig) (SupportedRpcs, error) {
 func Chains() (SupportedChains, error) {
 	chains := make(map[common.Chain]chain.Indexer)
 
-	chains[common.Bitcoin] = chain.NewBitcoinIndexer()
+	chains[common.Bitcoin] = chain.NewBitcoinIndexer(btc.NewSDK(
+		nil, // no Broadcast
+	))
 
 	evmChains := []common.Chain{
 		common.Ethereum,

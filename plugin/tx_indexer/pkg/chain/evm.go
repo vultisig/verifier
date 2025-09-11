@@ -20,9 +20,14 @@ func NewEvmIndexer(evmChainID *big.Int) *EvmIndexer {
 	}
 }
 
-func (e *EvmIndexer) ComputeTxHash(proposedTx []byte, sigs []tss.KeysignResponse) (string, error) {
+func (e *EvmIndexer) ComputeTxHash(proposedTx []byte, sigs map[string]tss.KeysignResponse) (string, error) {
 	if len(sigs) != 1 {
 		return "", fmt.Errorf("expected exactly one signature, got %d", len(sigs))
+	}
+
+	var sigRes tss.KeysignResponse
+	for _, s := range sigs {
+		sigRes = s
 	}
 
 	payloadDecoded, err := ethereum.DecodeUnsignedPayload(proposedTx)
@@ -31,9 +36,9 @@ func (e *EvmIndexer) ComputeTxHash(proposedTx []byte, sigs []tss.KeysignResponse
 	}
 
 	var sig []byte
-	sig = append(sig, common.FromHex(sigs[0].R)...)
-	sig = append(sig, common.FromHex(sigs[0].S)...)
-	sig = append(sig, common.FromHex(sigs[0].RecoveryID)...)
+	sig = append(sig, common.FromHex(sigRes.R)...)
+	sig = append(sig, common.FromHex(sigRes.S)...)
+	sig = append(sig, common.FromHex(sigRes.RecoveryID)...)
 
 	tx, err := types.NewTx(payloadDecoded).WithSignature(types.LatestSignerForChainID(e.evmChainID), sig)
 	if err != nil {

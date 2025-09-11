@@ -83,7 +83,7 @@ func (t *Service) SetSignedAndBroadcasted(
 	ctx context.Context,
 	chainID common.Chain,
 	txID uuid.UUID,
-	sigs []tss.KeysignResponse,
+	sigs map[string]tss.KeysignResponse,
 ) error {
 	tx, err := t.repo.GetTxByID(ctx, txID)
 	if err != nil {

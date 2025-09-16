@@ -46,7 +46,11 @@ func (s *Server) validatePluginPolicy(ctx context.Context, policy types.PluginPo
 		return fmt.Errorf("failed to get plugin recipe specification: %w", err)
 	}
 
-	err = engine.NewEngine().ValidatePolicyWithSchema(recipe, spec)
+	ngn, err := engine.NewEngine()
+	if err != nil {
+		return fmt.Errorf("fail to create engine: %w", err)
+	}
+	err = ngn.ValidatePolicyWithSchema(recipe, spec)
 	if err != nil {
 		return fmt.Errorf("failed to validate plugin policy: %w", err)
 	}

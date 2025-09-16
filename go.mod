@@ -30,7 +30,7 @@ require (
 	github.com/vultisig/commondata v0.0.0-20250710214228-61d9ed8f7778
 	github.com/vultisig/go-wrappers v0.0.0-20250716071337-34a5c0f4d6e0
 	github.com/vultisig/mobile-tss-lib v0.0.0-20250316003201-2e7e570a4a74
-	github.com/vultisig/recipes v0.0.0-20250908191926-d2fe32c7e98e
+	github.com/vultisig/recipes v0.0.0-20250916085335-d44529a73c7c
 	github.com/vultisig/vultiserver v0.0.0-20250825042420-c6e6ac281110
 	github.com/vultisig/vultisig-go v0.0.0-20250826134334-ddbbadd76c86
 	golang.org/x/sync v0.14.0
@@ -48,6 +48,7 @@ require (
 	cosmossdk.io/math v1.2.0 // indirect
 	cosmossdk.io/store v1.0.2 // indirect
 	cosmossdk.io/x/tx v0.13.0 // indirect
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/DataDog/zstd v1.5.5 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
@@ -55,9 +56,11 @@ require (
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/agl/ed25519 v0.0.0-20200225211852-fd4d107ace12 // indirect
+	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.20.0 // indirect
+	github.com/blendle/zapdriver v1.3.1 // indirect
 	github.com/bnb-chain/tss-lib/v2 v2.0.2 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.3 // indirect
 	github.com/btcsuite/btcd/btcutil v1.1.6 // indirect
@@ -97,8 +100,12 @@ require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ethereum/c-kzg-4844/v2 v2.1.0 // indirect
 	github.com/ethereum/go-verkle v0.2.2 // indirect
+	github.com/fatih/color v1.16.0 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
+	github.com/gagliardetto/binary v0.8.0 // indirect
+	github.com/gagliardetto/solana-go v1.13.0 // indirect
+	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/gcash/bchd v0.17.2-0.20201218180520-5708823e0e99 // indirect
 	github.com/gcash/bchutil v0.0.0-20210113190856-6ea28dff4000 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
@@ -142,6 +149,7 @@ require (
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/jmhodges/levigo v1.0.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
+	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kaptinlin/go-i18n v0.1.4 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
@@ -151,6 +159,7 @@ require (
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
 	github.com/linxGnu/grocksdb v1.8.12 // indirect
+	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
 	github.com/ltcsuite/ltcd v0.23.5 // indirect
 	github.com/ltcsuite/ltcd/btcec/v2 v2.3.2 // indirect
 	github.com/ltcsuite/ltcd/chaincfg/chainhash v1.0.2 // indirect
@@ -159,7 +168,12 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
+	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/mostynb/zstdpool-freelist v0.0.0-20201229113212-927304c0c3b1 // indirect
+	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/oasisprotocol/curve25519-voi v0.0.0-20230904125328-1f23a7beb09a // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/otiai10/primes v0.4.0 // indirect
@@ -183,6 +197,7 @@ require (
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spf13/cobra v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
+	github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/supranational/blst v0.3.14 // indirect
@@ -194,12 +209,15 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	go.etcd.io/bbolt v1.3.8 // indirect
+	go.mongodb.org/mongo-driver v1.12.2 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/ratelimit v0.2.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394 // indirect
 	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/term v0.30.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
 	golang.org/x/time v0.9.0 // indirect
 	golang.org/x/tools v0.31.0 // indirect

@@ -25,7 +25,12 @@ func ValidatePluginPolicy(policyDoc vtypes.PluginPolicy, spec *rtypes.RecipeSche
 		return fmt.Errorf("failed to unmarshal policy: %w", err)
 	}
 
-	err = engine.NewEngine().ValidatePolicyWithSchema(&rPolicy, spec)
+	ngn, err := engine.NewEngine()
+	if err != nil {
+		return fmt.Errorf("failed to get engine %w", err)
+	}
+
+	err = ngn.ValidatePolicyWithSchema(&rPolicy, spec)
 	if err != nil {
 		return fmt.Errorf("failed to validate policy: %w", err)
 	}

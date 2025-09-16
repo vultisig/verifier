@@ -151,7 +151,11 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		txBytesEvaluate = buf.Bytes()
 	}
 
-	_, err = engine.NewEngine().Evaluate(recipe, firstKeysignMessage.Chain, txBytesEvaluate)
+	ngn, err := engine.NewEngine()
+	if err != nil {
+		return fmt.Errorf("failed to create engine: %w", err)
+	}
+	_, err = ngn.Evaluate(recipe, firstKeysignMessage.Chain, txBytesEvaluate)
 	if err != nil {
 		return fmt.Errorf("tx not allowed to execute: %w", err)
 	}

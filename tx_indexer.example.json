@@ -6,6 +6,9 @@
     "bitcoin": {
       "url": "https://bitcoin-rpc.publicnode.com"
     },
+    "solana": {
+      "url": "https://solana-rpc.publicnode.com"
+    },
     "ethereum": {
       "url": "https://ethereum-rpc.publicnode.com"
     },

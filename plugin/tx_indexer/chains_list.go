@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/vultisig/recipes/sdk/btc"
+	"github.com/vultisig/recipes/sdk/solana"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/chain"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/config"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
@@ -25,6 +26,14 @@ func Rpcs(ctx context.Context, cfg config.RpcConfig) (SupportedRpcs, error) {
 			return nil, fmt.Errorf("failed to create Bitcoin RPC client: %w", err)
 		}
 		rpcs[common.Bitcoin] = btcRpc
+	}
+
+	if cfg.Solana.URL != "" {
+		solRpc, err := rpc.NewSolana(cfg.Solana.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Solana RPC client: %w", err)
+		}
+		rpcs[common.Solana] = solRpc
 	}
 
 	evmChains := map[common.Chain]config.RpcItem{
@@ -57,7 +66,11 @@ func Chains() (SupportedChains, error) {
 	chains := make(map[common.Chain]chain.Indexer)
 
 	chains[common.Bitcoin] = chain.NewBitcoinIndexer(btc.NewSDK(
-		nil, // no Broadcast
+		nil,
+	))
+
+	chains[common.Solana] = chain.NewSolanaIndexer(solana.NewSDK(
+		nil,
 	))
 
 	evmChains := []common.Chain{

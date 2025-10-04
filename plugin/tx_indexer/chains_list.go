@@ -6,6 +6,7 @@ import (
 
 	"github.com/vultisig/recipes/sdk/btc"
 	"github.com/vultisig/recipes/sdk/solana"
+	"github.com/vultisig/recipes/sdk/xrpl"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/chain"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/config"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
@@ -34,6 +35,14 @@ func Rpcs(ctx context.Context, cfg config.RpcConfig) (SupportedRpcs, error) {
 			return nil, fmt.Errorf("failed to create Solana RPC client: %w", err)
 		}
 		rpcs[common.Solana] = solRpc
+	}
+
+	if cfg.XRP.URL != "" {
+		xrpRpc, err := rpc.NewXRP(cfg.XRP.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create XRP RPC client: %w", err)
+		}
+		rpcs[common.XRP] = xrpRpc
 	}
 
 	evmChains := map[common.Chain]config.RpcItem{
@@ -70,6 +79,10 @@ func Chains() (SupportedChains, error) {
 	))
 
 	chains[common.Solana] = chain.NewSolanaIndexer(solana.NewSDK(
+		nil,
+	))
+
+	chains[common.XRP] = chain.NewXRPIndexer(xrpl.NewSDK(
 		nil,
 	))
 

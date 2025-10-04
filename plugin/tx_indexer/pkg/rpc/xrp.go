@@ -34,7 +34,7 @@ type XRPTransactionMeta struct {
 
 type XRPRequest struct {
 	Method string      `json:"method"`
-	Params interface{} `json:"params"`
+	Params []any       `json:"params"`
 }
 
 type XRPTransactionParams struct {
@@ -56,7 +56,7 @@ func NewXRP(rpcURL string) (*XRP, error) {
 	// Test with a simple server_info request
 	testReq := XRPRequest{
 		Method: "server_info",
-		Params: struct{}{},
+		Params: []any{},
 	}
 
 	_, err := xrp.makeRequest(context.Background(), testReq)
@@ -74,9 +74,11 @@ func (x *XRP) GetTxStatus(ctx context.Context, txHash string) (TxOnChainStatus, 
 
 	req := XRPRequest{
 		Method: "tx",
-		Params: XRPTransactionParams{
-			Transaction: txHash,
-			Binary:      false,
+		Params: []any{
+			XRPTransactionParams{
+				Transaction: txHash,
+				Binary:      false,
+			},
 		},
 	}
 

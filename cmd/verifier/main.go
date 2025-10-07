@@ -70,8 +70,6 @@ func main() {
 		logger.Fatalf("Failed to load plugin data: %v", err)
 	}
 
-	hybridStorage := storage.NewHybridStorage(db, pluginData)
-
 	txIndexerStore, err := tx_indexer_storage.NewPostgresTxIndexStore(ctx, cfg.Database.DSN)
 	if err != nil {
 		logger.Fatalf("Failed to connect to database: %v", err)
@@ -85,7 +83,8 @@ func main() {
 
 	server := api.NewServer(
 		*cfg,
-		hybridStorage,
+		db,
+		pluginData,
 		redisStorage,
 		vaultStorage,
 		client,

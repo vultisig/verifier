@@ -25,6 +25,7 @@ import (
 
 	vv "github.com/vultisig/verifier/common/vultisig_validator"
 	"github.com/vultisig/verifier/config"
+	iconfig "github.com/vultisig/verifier/internal/config"
 	"github.com/vultisig/verifier/internal/clientutil"
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/sigutil"
@@ -41,6 +42,7 @@ import (
 type Server struct {
 	cfg              config.VerifierConfig
 	db               storage.DatabaseStorage
+	pluginData       *iconfig.PluginData
 	redis            *storage.RedisStorage
 	vaultStorage     vault.Storage
 	asynqClient      *asynq.Client
@@ -58,6 +60,7 @@ type Server struct {
 func NewServer(
 	cfg config.VerifierConfig,
 	db storage.DatabaseStorage,
+	pluginData *iconfig.PluginData,
 	redis *storage.RedisStorage,
 	vaultStorage vault.Storage,
 	asynqClient *asynq.Client,
@@ -73,12 +76,12 @@ func NewServer(
 
 	syncer := syncer.NewPolicySyncer(db)
 
-	policyService, err := service.NewPolicyService(db, syncer)
+	policyService, err := service.NewPolicyService(db, pluginData, syncer)
 	if err != nil {
 		logrus.Fatalf("Failed to initialize policy service: %v", err)
 	}
 
-	pluginService, err := service.NewPluginService(db, redis, logger)
+	pluginService, err := service.NewPluginService(db, pluginData, redis, logger)
 	if err != nil {
 		logrus.Fatalf("Failed to initialize plugin service: %v", err)
 	}
@@ -92,12 +95,13 @@ func NewServer(
 
 	return &Server{
 		cfg:              cfg,
+		db:               db,
+		pluginData:       pluginData,
 		redis:            redis,
 		asynqClient:      asynqClient,
 		inspector:        inspector,
 		sdClient:         sdClient,
 		vaultStorage:     vaultStorage,
-		db:               db,
 		logger:           logger,
 		policyService:    policyService,
 		authService:      authService,
@@ -242,7 +246,7 @@ func (s *Server) ReshareVault(c echo.Context) error {
 // notifyPluginServerReshare sends the reshare request to the plugin server
 func (s *Server) notifyPluginServerReshare(ctx context.Context, req vtypes.ReshareRequest) error {
 	// Look up plugin server endpoint
-	plugin, err := s.db.FindPluginById(ctx, nil, vtypes.PluginID(req.PluginID))
+	plugin, err := s.pluginData.FindPluginById(vtypes.PluginID(req.PluginID))
 	if err != nil {
 		return fmt.Errorf("failed to find plugin: %w", err)
 	}
@@ -582,7 +586,7 @@ func (s *Server) GetActiveTokens(c echo.Context) error {
 // notifyPluginServerDeletePlugin user would like to delete a plugin, we need to notify the plugin server
 func (s *Server) notifyPluginServerDeletePlugin(ctx context.Context, id vtypes.PluginID, publicKeyEcdsa string) error {
 	// Look up plugin server endpoint
-	plugin, err := s.db.FindPluginById(ctx, nil, id)
+	plugin, err := s.pluginData.FindPluginById(id)
 	if err != nil {
 		return fmt.Errorf("failed to find plugin: %w", err)
 	}

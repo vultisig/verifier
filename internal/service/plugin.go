@@ -14,6 +14,7 @@ import (
 	"github.com/vultisig/verifier/plugin/libhttp"
 	"google.golang.org/protobuf/encoding/protojson"
 
+	iconfig "github.com/vultisig/verifier/internal/config"
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/internal/util"
@@ -49,41 +50,40 @@ type PluginServiceStorage interface {
 }
 
 type PluginService struct {
-	db     PluginServiceStorage
-	redis  *storage.RedisStorage
-	logger *logrus.Logger
+	db         PluginServiceStorage
+	pluginData *iconfig.PluginData
+	redis      *storage.RedisStorage
+	logger     *logrus.Logger
 }
 
-func NewPluginService(db PluginServiceStorage, redis *storage.RedisStorage, logger *logrus.Logger) (*PluginService, error) {
+func NewPluginService(db PluginServiceStorage, pluginData *iconfig.PluginData, redis *storage.RedisStorage, logger *logrus.Logger) (*PluginService, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database storage cannot be nil")
 	}
+	if pluginData == nil {
+		return nil, fmt.Errorf("plugin data cannot be nil")
+	}
 	return &PluginService{
-		db:     db,
-		redis:  redis,
-		logger: logger,
+		db:         db,
+		pluginData: pluginData,
+		redis:      redis,
+		logger:     logger,
 	}, nil
 }
 
 func (s *PluginService) GetPluginWithRating(ctx context.Context, pluginId string) (*types.PluginWithRatings, error) {
+	plugin, err := s.pluginData.FindPluginById(ptypes.PluginID(pluginId))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get plugin: %w", err)
+	}
+
 	var pluginWithRatings *types.PluginWithRatings
-	err := s.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
-		var err error
-
-		// Find plugin
-		plugin, err := s.db.FindPluginById(ctx, tx, ptypes.PluginID(pluginId))
-		if err != nil {
-			return fmt.Errorf("failed to get plugin: %w", err)
-		}
-
-		// Find rating
-		var rating []types.PluginRatingDto
-		rating, err = s.db.FindRatingByPluginId(ctx, tx, pluginId)
+	err = s.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
+		rating, err := s.db.FindRatingByPluginId(ctx, tx, pluginId)
 		if err != nil {
 			return fmt.Errorf("failed to get rating: %w", err)
 		}
 
-		// Create response with ratings
 		pluginWithRatings = &types.PluginWithRatings{
 			Plugin:  *plugin,
 			Ratings: rating,
@@ -189,8 +189,8 @@ func (s *PluginService) GetPluginRecipeSpecification(ctx context.Context, plugin
 		}
 	}
 
-	// Get plugin from database to get server endpoint
-	plugin, err := s.db.FindPluginById(ctx, nil, ptypes.PluginID(pluginID))
+	// Get plugin from YAML to get server endpoint
+	plugin, err := s.pluginData.FindPluginById(ptypes.PluginID(pluginID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to find plugin: %w", err)
 	}
@@ -220,7 +220,7 @@ func (s *PluginService) GetPluginRecipeSpecificationSuggest(
 	pluginID string,
 	configuration map[string]any,
 ) (*rtypes.PolicySuggest, error) {
-	plugin, err := s.db.FindPluginById(ctx, nil, ptypes.PluginID(pluginID))
+	plugin, err := s.pluginData.FindPluginById(ptypes.PluginID(pluginID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to find plugin: %w", err)
 	}

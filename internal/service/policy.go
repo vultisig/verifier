@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
 
+	iconfig "github.com/vultisig/verifier/internal/config"
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/syncer"
 	itypes "github.com/vultisig/verifier/internal/types"
@@ -27,19 +28,24 @@ type Policy interface {
 var _ Policy = (*PolicyService)(nil)
 
 type PolicyService struct {
-	db     storage.DatabaseStorage
-	logger *logrus.Logger
-	syncer *syncer.Syncer
+	db         storage.DatabaseStorage
+	pluginData *iconfig.PluginData
+	logger     *logrus.Logger
+	syncer     *syncer.Syncer
 }
 
-func NewPolicyService(db storage.DatabaseStorage, syncer *syncer.Syncer) (*PolicyService, error) {
+func NewPolicyService(db storage.DatabaseStorage, pluginData *iconfig.PluginData, syncer *syncer.Syncer) (*PolicyService, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database storage cannot be nil")
 	}
+	if pluginData == nil {
+		return nil, fmt.Errorf("plugin data cannot be nil")
+	}
 	return &PolicyService{
-		db:     db,
-		logger: logrus.WithField("service", "policy").Logger,
-		syncer: syncer,
+		db:         db,
+		pluginData: pluginData,
+		logger:     logrus.WithField("service", "policy").Logger,
+		syncer:     syncer,
 	}, nil
 }
 
@@ -76,7 +82,7 @@ func (s *PolicyService) validateBillingInformation(ctx context.Context, policy t
 		}
 	}()
 
-	pluginData, err := s.db.FindPluginById(ctx, tx, policy.PluginID)
+	pluginData, err := s.pluginData.FindPluginById(policy.PluginID)
 	if err != nil {
 		return fmt.Errorf("failed to find plugin: %w", err)
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/vultisig/verifier/config"
+	iconfig "github.com/vultisig/verifier/internal/config"
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/plugin/tasks"
@@ -48,8 +49,14 @@ func main() {
 		panic(fmt.Sprintf("failed to initialize database: %v", err))
 	}
 
+	pluginData, err := iconfig.LoadPluginData("config/data.yaml")
+	if err != nil {
+		panic(fmt.Sprintf("failed to load plugin data: %v", err))
+	}
+
 	policyService, err := service.NewPolicyService(
 		backendDB,
+		pluginData,
 		nil, // No syncer needed for async operations
 	)
 	if err != nil {

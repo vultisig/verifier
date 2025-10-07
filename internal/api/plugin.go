@@ -221,8 +221,7 @@ func (s *Server) GetPlugins(c echo.Context) error {
 		CategoryID: common.GetQueryParam(c, "category_id"),
 	}
 
-	plugins, err := s.db.FindPlugins(c.Request().Context(), filters, int(take), int(skip), sort)
-
+	plugins, err := s.pluginData.FindPlugins(filters, int(take), int(skip), sort)
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get plugins")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get plugins"))

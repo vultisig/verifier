@@ -32,9 +32,10 @@ require (
 	github.com/vultisig/commondata v0.0.0-20250710214228-61d9ed8f7778
 	github.com/vultisig/go-wrappers v0.0.0-20250716071337-34a5c0f4d6e0
 	github.com/vultisig/mobile-tss-lib v0.0.0-20250316003201-2e7e570a4a74
-	github.com/vultisig/recipes v0.0.0-20251002145442-8bee8cb0975c
+	github.com/vultisig/recipes v0.0.0-20251006192813-52d88afe31bb
 	github.com/vultisig/vultiserver v0.0.0-20250825042420-c6e6ac281110
-	github.com/vultisig/vultisig-go v0.0.0-20250826134334-ddbbadd76c86
+	github.com/vultisig/vultisig-go v0.0.0-20251004125942-60b3b1898d15
+	github.com/xyield/xrpl-go v0.0.0-20230914223425-9abe75c05830
 	golang.org/x/sync v0.14.0
 	google.golang.org/protobuf v1.36.6
 	sigs.k8s.io/yaml v1.3.0
@@ -209,7 +210,6 @@ require (
 	github.com/ulikunitz/xz v0.5.12 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
-	github.com/xyield/xrpl-go v0.0.0-20230914223425-9abe75c05830 // indirect
 	go.etcd.io/bbolt v1.3.8 // indirect
 	go.mongodb.org/mongo-driver v1.12.2 // indirect
 	go.uber.org/multierr v1.11.0 // indirect

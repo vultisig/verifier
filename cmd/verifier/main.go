@@ -12,6 +12,7 @@ import (
 
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/api"
+	iconfig "github.com/vultisig/verifier/internal/config"
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	tx_indexer_storage "github.com/vultisig/verifier/tx_indexer/pkg/storage"
@@ -64,6 +65,13 @@ func main() {
 		logger.Fatalf("Failed to connect to database: %v", err)
 	}
 
+	pluginData, err := iconfig.LoadPluginData("config/data.yaml")
+	if err != nil {
+		logger.Fatalf("Failed to load plugin data: %v", err)
+	}
+
+	hybridStorage := storage.NewHybridStorage(db, pluginData)
+
 	txIndexerStore, err := tx_indexer_storage.NewPostgresTxIndexStore(ctx, cfg.Database.DSN)
 	if err != nil {
 		logger.Fatalf("Failed to connect to database: %v", err)
@@ -77,7 +85,7 @@ func main() {
 
 	server := api.NewServer(
 		*cfg,
-		db,
+		hybridStorage,
 		redisStorage,
 		vaultStorage,
 		client,

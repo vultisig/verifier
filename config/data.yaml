@@ -1,0 +1,60 @@
+plugins:
+  - id: vultisig-dca-0000
+    title: Vultisig DCA Plugin
+    description: Dollar Cost Averaging automation for cryptocurrency investments. Automatically execute recurring buy orders based on predefined schedules and strategies.
+    server_endpoint: http://dca-server:8080
+    category: plugin
+    pricing:
+      - id: 00000000-0000-0000-0000-000000000002
+        type: per-tx
+        amount: 10000
+        asset: usdc
+        metric: fixed
+        plugin_id: vultisig-dca-0000
+
+  - id: vultisig-payroll-0000
+    title: Vultisig Payroll Plugin
+    description: Automated payroll system for cryptocurrency payments. Handle employee payments, tax calculations, and compliance reporting.
+    server_endpoint: http://payroll-server:8080
+    category: plugin
+    pricing:
+      - id: 00000000-0000-0000-0000-000000000003
+        type: once
+        amount: 50000
+        asset: usdc
+        metric: fixed
+        plugin_id: vultisig-payroll-0000
+      - id: 00000000-0000-0000-0000-000000000004
+        type: recurring
+        frequency: monthly
+        amount: 30000
+        asset: usdc
+        metric: fixed
+        plugin_id: vultisig-payroll-0000
+
+  - id: vultisig-copytrader-0000
+    title: Vultisig Copytrader Plugin
+    description: Copytrader
+    server_endpoint: http://copytrader-server:8080
+    category: plugin
+    pricing:
+      - id: 00000000-0000-0000-0000-000000000005
+        type: per-tx
+        amount: 10000
+        asset: usdc
+        metric: fixed
+        plugin_id: vultisig-copytrader-0000
+
+  - id: vultisig-fees-feee
+    title: Vultisig Fee Management Plugin
+    description: Fee collection and management system. Track, calculate, and distribute fees across different protocols and services.
+    server_endpoint: http://fee-server:8080
+    category: plugin
+    pricing: []
+
+  - id: nbits-labs-merkle-e93d
+    title: NBits Labs Merkle Plugin
+    description: Merkle tree implementation for efficient data storage and retrieval.
+    server_endpoint: http://localhost:8089
+    category: plugin
+    pricing: []

@@ -93,14 +93,17 @@ type TagRepository interface {
 
 type ReviewRepository interface {
 	CreateReview(ctx context.Context, dbTx pgx.Tx, reviewDto itypes.ReviewCreateDto, pluginId string) (string, error)
+	UpdateReview(ctx context.Context, dbTx pgx.Tx, reviewId string, reviewDto itypes.ReviewCreateDto) error
 	FindReviews(ctx context.Context, pluginId string, take int, skip int, sort string) (itypes.ReviewsDto, error)
 	FindReviewById(ctx context.Context, db pgx.Tx, id string) (*itypes.ReviewDto, error)
+	FindReviewByUserAndPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, userAddress string) (*itypes.ReviewDto, error)
 }
 
 type RatingRepository interface {
 	FindRatingByPluginId(ctx context.Context, dbTx pgx.Tx, pluginId string) ([]itypes.PluginRatingDto, error)
 	CreateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string) error
 	UpdateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, reviewRating int) error
+	ChangeRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, oldRating int, newRating int) error
 }
 
 type ApiKeyRepository interface {

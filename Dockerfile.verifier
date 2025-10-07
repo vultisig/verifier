@@ -35,6 +35,7 @@ WORKDIR /app
 # Copy the built binary from the builder stage
 COPY --from=builder /app/verifier .
 COPY --from=builder /usr/local/lib/dkls /usr/local/lib/dkls
+COPY --from=builder /app/config/data.yaml config/data.yaml
 COPY verifier.example.json config.json
 
 ENV LD_LIBRARY_PATH=/usr/local/lib/dkls/includes/linux/:$LD_LIBRARY_PATH

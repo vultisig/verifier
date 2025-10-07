@@ -29,7 +29,6 @@ import (
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/sigutil"
 	"github.com/vultisig/verifier/internal/storage"
-	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/internal/syncer"
 	"github.com/vultisig/verifier/plugin/tasks"
 	vtypes "github.com/vultisig/verifier/types"
@@ -58,7 +57,7 @@ type Server struct {
 // NewServer returns a new server.
 func NewServer(
 	cfg config.VerifierConfig,
-	db *postgres.PostgresBackend,
+	db storage.DatabaseStorage,
 	redis *storage.RedisStorage,
 	vaultStorage vault.Storage,
 	asynqClient *asynq.Client,
@@ -72,7 +71,6 @@ func NewServer(
 
 	logger := logrus.WithField("service", "verifier-server").Logger
 
-	// Create syncer for synchronous policy sync
 	syncer := syncer.NewPolicySyncer(db)
 
 	policyService, err := service.NewPolicyService(db, syncer)

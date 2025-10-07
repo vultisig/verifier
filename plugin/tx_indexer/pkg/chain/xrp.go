@@ -54,13 +54,13 @@ func (x *XRPIndexer) ComputeTxHash(proposedTx []byte, sigs map[string]tss.Keysig
 func (x *XRPIndexer) extractPublicKeyFromTx(txBytes []byte) ([]byte, error) {
 	// Convert bytes to hex for the binary codec
 	txHex := hex.EncodeToString(txBytes)
-	
+
 	// Try to decode the transaction to see if it has any key information
 	txMap, err := xrpgo.Decode(strings.ToUpper(txHex))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode transaction: %w", err)
 	}
-	
+
 	// Check if SigningPubKey is already present in the transaction
 	if pubKeyHex, exists := txMap["SigningPubKey"]; exists {
 		if pubKeyStr, ok := pubKeyHex.(string); ok && pubKeyStr != "" {
@@ -71,7 +71,7 @@ func (x *XRPIndexer) extractPublicKeyFromTx(txBytes []byte) ([]byte, error) {
 			return pubKeyBytes, nil
 		}
 	}
-	
+
 	// If no public key is found in the transaction, we have a problem
 	// In a real implementation, the public key should be provided by the calling context
 	// For now, return an error indicating the public key is missing
@@ -80,38 +80,20 @@ func (x *XRPIndexer) extractPublicKeyFromTx(txBytes []byte) ([]byte, error) {
 
 // computeHashFromSignedTx computes the transaction hash from a signed XRP transaction
 func (x *XRPIndexer) computeHashFromSignedTx(signedTxBytes []byte) (string, error) {
-	// Convert to hex
-	signedHex := hex.EncodeToString(signedTxBytes)
+	// For XRP transaction ID computation, we need to:
+	// 1. Use the fully serialized signed transaction (including TxnSignature)
+	// 2. Prefix with "TXN\0" (0x54584E00)
+	// 3. Hash with SHA512-half
 	
-	// Decode the signed transaction
-	txMap, err := xrpgo.Decode(strings.ToUpper(signedHex))
-	if err != nil {
-		return "", fmt.Errorf("failed to decode signed transaction: %w", err)
-	}
+	// XRP transaction ID prefix: "TXN\0"
+	txnPrefix := []byte{0x54, 0x58, 0x4E, 0x00}
 	
-	// For XRP, the transaction hash is computed by taking SHA512-half of the signed transaction bytes
-	// But we need to exclude the TxnSignature field for the hash computation
-	txMapForHash := make(map[string]interface{})
-	for k, v := range txMap {
-		if k != "TxnSignature" {
-			txMapForHash[k] = v
-		}
-	}
+	// Construct the full preimage: TXN prefix + signed transaction bytes
+	preimage := append(append([]byte{}, txnPrefix...), signedTxBytes...)
 	
-	// Re-encode without the signature
-	hashableHex, err := xrpgo.Encode(txMapForHash)
-	if err != nil {
-		return "", fmt.Errorf("failed to encode transaction for hashing: %w", err)
-	}
-	
-	hashableBytes, err := hex.DecodeString(hashableHex)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode hashable hex: %w", err)
-	}
-	
-	// Compute SHA512-half (this is how XRP computes transaction hashes)
-	hash := sha512Half(hashableBytes)
-	
+	// Compute SHA512-half (this is how XRP computes transaction IDs)
+	hash := sha512Half(preimage)
+
 	// Return as uppercase hex string (XRP convention)
 	return strings.ToUpper(hex.EncodeToString(hash)), nil
 }

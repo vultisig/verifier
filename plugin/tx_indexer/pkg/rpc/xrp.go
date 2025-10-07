@@ -24,8 +24,9 @@ type XRPTransactionResponse struct {
 		Transaction      map[string]interface{} `json:"transaction"`
 		Validated        bool                   `json:"validated"`
 	} `json:"result"`
-	Status string `json:"status"`
-	Type   string `json:"type"`
+	Status string      `json:"status"`
+	Type   string      `json:"type"`
+	Error  interface{} `json:"error,omitempty"`
 }
 
 type XRPTransactionMeta struct {
@@ -84,13 +85,21 @@ func (x *XRP) GetTxStatus(ctx context.Context, txHash string) (TxOnChainStatus, 
 
 	respBody, err := x.makeRequest(ctx, req)
 	if err != nil {
-		// If transaction not found, it's still pending
-		return TxOnChainPending, nil
+		// Propagate network errors, connection issues, etc.
+		return "", fmt.Errorf("failed to get transaction status: %w", err)
 	}
 
 	var txResp XRPTransactionResponse
 	if err := json.Unmarshal(respBody, &txResp); err != nil {
 		return "", fmt.Errorf("failed to unmarshal XRP transaction response: %w", err)
+	}
+
+	// Check for RPC-level errors (transaction not found, etc.)
+	if txResp.Error != nil {
+		// In XRP RPC, transaction not found is an error response
+		// For now, treat any error as "transaction not found" (pending)
+		// This is a conservative approach - if needed, we can refine later
+		return TxOnChainPending, nil
 	}
 
 	// Check if transaction is validated

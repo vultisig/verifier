@@ -5,6 +5,7 @@
     <envs>
       <env name="AUTH_ENABLED" value="true" />
       <env name="VS_VERIFIER_CONFIG_NAME" value="verifier.example" />
+      <env name="PROPOSED_YAML_PATH" value="proposed.yaml" />
     </envs>
     <kind value="PACKAGE" />
     <package value="github.com/vultisig/verifier/cmd/verifier" />

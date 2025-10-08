@@ -23,7 +23,7 @@ type MigrationOptions struct {
 	RunVerifierMigrations bool
 }
 
-func NewPostgresBackend(dsn string, opts *MigrationOptions) (*PostgresBackend, error) {
+func NewPostgresBackend(dsn string, opts *MigrationOptions, proposedYAMLPath string) (*PostgresBackend, error) {
 	pool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
@@ -43,6 +43,13 @@ func NewPostgresBackend(dsn string, opts *MigrationOptions) (*PostgresBackend, e
 
 	if err := backend.Migrate(opts); err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
+	}
+
+	if proposedYAMLPath != "" {
+		err = backend.SyncPluginsFromYAML(proposedYAMLPath)
+		if err != nil {
+			logrus.Warnf("Failed to sync plugins from YAML: %v", err)
+		}
 	}
 
 	return backend, nil

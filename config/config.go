@@ -14,11 +14,12 @@ import (
 )
 
 type WorkerConfig struct {
-	VaultService vault_config.Config       `mapstructure:"vault_service" json:"vault_service,omitempty"`
-	Redis        config.Redis              `mapstructure:"redis" json:"redis,omitempty"`
-	BlockStorage vault_config.BlockStorage `mapstructure:"block_storage" json:"block_storage,omitempty"`
-	Database     config.Database           `mapstructure:"database" json:"database,omitempty"`
-	Fees         FeesConfig                `mapstructure:"fees" json:"fees"`
+	VaultService     vault_config.Config       `mapstructure:"vault_service" json:"vault_service,omitempty"`
+	Redis            config.Redis              `mapstructure:"redis" json:"redis,omitempty"`
+	BlockStorage     vault_config.BlockStorage `mapstructure:"block_storage" json:"block_storage,omitempty"`
+	Database         config.Database           `mapstructure:"database" json:"database,omitempty"`
+	Fees             FeesConfig                `mapstructure:"fees" json:"fees"`
+	ProposedYAMLPath string                    `mapstructure:"proposed_yaml_path" json:"proposed_yaml_path,omitempty"`
 }
 
 type VerifierConfig struct {
@@ -37,7 +38,8 @@ type VerifierConfig struct {
 		// pointer so it must be explicitly set to false, no value considered as enabled
 		Enabled *bool `mapstructure:"enabled" json:"enabled,omitempty"`
 	} `mapstructure:"auth" json:"auth"`
-	Fees FeesConfig `mapstructure:"fees" json:"fees"`
+	Fees             FeesConfig `mapstructure:"fees" json:"fees"`
+	ProposedYAMLPath string     `mapstructure:"proposed_yaml_path" json:"proposed_yaml_path,omitempty"`
 }
 
 type FeesConfig struct {

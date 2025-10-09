@@ -54,7 +54,7 @@ func (p *PostgresBackend) SyncPluginsFromYAML(yamlPath string) error {
 			plugin.Title,
 			plugin.Description,
 			plugin.ServerEndpoint,
-			plugin.Category,
+			string(plugin.Category),
 		)
 		if err != nil {
 			return fmt.Errorf("failed to upsert plugin %s: %w", plugin.ID, err)

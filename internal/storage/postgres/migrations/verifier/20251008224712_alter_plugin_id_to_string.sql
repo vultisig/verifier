@@ -81,6 +81,8 @@ ALTER TABLE reviews ADD CONSTRAINT reviews_plugin_id_fkey
 CREATE INDEX idx_plugin_apikey_plugin_id ON plugin_apikey (plugin_id);
 CREATE INDEX idx_plugin_policies_plugin_id ON plugin_policies (plugin_id);
 CREATE INDEX idx_reviews_plugin_id ON reviews (plugin_id);
+CREATE UNIQUE INDEX unique_fees_policy_per_public_key ON plugin_policies (plugin_id, public_key)
+    WHERE plugin_id = 'vultisig-fees-feee' AND active = true;
 
 -- +goose StatementEnd
 

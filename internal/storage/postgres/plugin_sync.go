@@ -46,7 +46,14 @@ func (p *PostgresBackend) SyncPluginsFromYAML(yamlPath string) error {
 				description = EXCLUDED.description,
 				server_endpoint = EXCLUDED.server_endpoint,
 				category = EXCLUDED.category,
-				updated_at = NOW()
+				updated_at = CASE
+					WHEN plugins.title IS DISTINCT FROM EXCLUDED.title
+						OR plugins.description IS DISTINCT FROM EXCLUDED.description
+						OR plugins.server_endpoint IS DISTINCT FROM EXCLUDED.server_endpoint
+						OR plugins.category IS DISTINCT FROM EXCLUDED.category
+					THEN NOW()
+					ELSE plugins.updated_at
+				END
 		`
 
 		_, err = p.pool.Exec(ctx, query,

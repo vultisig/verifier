@@ -14,7 +14,6 @@ import (
 
 	"github.com/vultisig/verifier/tx_indexer"
 
-	"github.com/DataDog/datadog-go/statsd"
 	"github.com/go-playground/validator/v10"
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
@@ -46,7 +45,6 @@ type Server struct {
 	vaultStorage     vault.Storage
 	asynqClient      *asynq.Client
 	inspector        *asynq.Inspector
-	sdClient         *statsd.Client
 	policyService    service.Policy
 	pluginService    service.Plugin
 	feeService       *service.FeeService
@@ -63,7 +61,6 @@ func NewServer(
 	vaultStorage vault.Storage,
 	asynqClient *asynq.Client,
 	inspector *asynq.Inspector,
-	sdClient *statsd.Client,
 	jwtSecret string,
 	txIndexerService *tx_indexer.Service,
 ) *Server {
@@ -97,7 +94,6 @@ func NewServer(
 		redis:            redis,
 		asynqClient:      asynqClient,
 		inspector:        inspector,
-		sdClient:         sdClient,
 		vaultStorage:     vaultStorage,
 		db:               db,
 		logger:           logger,
@@ -114,7 +110,6 @@ func (s *Server) StartServer() error {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit("2M")) // set maximum allowed size for a request body to 2M
-	e.Use(s.statsdMiddleware)
 	e.Use(middleware.CORS())
 	limiterStore := middleware.NewRateLimiterMemoryStoreWithConfig(
 		middleware.RateLimiterMemoryStoreConfig{Rate: 5, Burst: 30, ExpiresIn: 5 * time.Minute},

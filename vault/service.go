@@ -5,13 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"plugin"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/vultisig/verifier/plugin/tx_indexer"
 	"github.com/vultisig/verifier/vault_config"
 
-	"github.com/DataDog/datadog-go/statsd"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
 	keygenType "github.com/vultisig/commondata/go/vultisig/keygen/v1"
@@ -40,7 +38,6 @@ type ManagementService struct {
 	cfg              vault_config.Config
 	logger           *logrus.Logger
 	queueClient      *asynq.Client
-	sdClient         *statsd.Client
 	plugin           plugin.Plugin
 	vaultStorage     Storage
 	txIndexerService *tx_indexer.Service
@@ -50,7 +47,6 @@ type ManagementService struct {
 func NewManagementService(
 	cfg vault_config.Config,
 	queueClient *asynq.Client,
-	sdClient *statsd.Client,
 	storage Storage,
 	txIndexerService *tx_indexer.Service,
 ) (*ManagementService, error) {
@@ -59,30 +55,16 @@ func NewManagementService(
 	return &ManagementService{
 		cfg:              cfg,
 		queueClient:      queueClient,
-		sdClient:         sdClient,
 		logger:           logger,
 		vaultStorage:     storage,
 		txIndexerService: txIndexerService,
 	}, nil
 }
 
-func (s *ManagementService) incCounter(name string, tags []string) {
-	if err := s.sdClient.Count(name, 1, tags, 1); err != nil {
-		s.logger.WithError(err).Error("fail to count metric")
-	}
-}
-
-func (s *ManagementService) measureTime(name string, start time.Time, tags []string) {
-	if err := s.sdClient.Timing(name, time.Since(start), tags, 1); err != nil {
-		s.logger.WithError(err).Error("fail to measure time metric")
-	}
-}
-
 func (s *ManagementService) HandleKeyGenerationDKLS(ctx context.Context, t *asynq.Task) error {
 	if err := contexthelper.CheckCancellation(ctx); err != nil {
 		return err
 	}
-	defer s.measureTime("worker.vault.create.latency", time.Now(), []string{})
 	var req vgtypes.VaultCreateRequest
 	if err := json.Unmarshal(t.Payload(), &req); err != nil {
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
@@ -94,7 +76,6 @@ func (s *ManagementService) HandleKeyGenerationDKLS(ctx context.Context, t *asyn
 		"local_party_id": req.LocalPartyId,
 		"email":          req.Email,
 	}).Info("Joining keygen")
-	s.incCounter("worker.vault.create.dkls", []string{})
 	if err := req.IsValid(); err != nil {
 		return fmt.Errorf("invalid vault create request: %s: %w", err, asynq.SkipRetry)
 	}
@@ -105,7 +86,6 @@ func (s *ManagementService) HandleKeyGenerationDKLS(ctx context.Context, t *asyn
 	}
 	keyECDSA, keyEDDSA, err := dklsService.ProcessDKLSKeygen(req)
 	if err != nil {
-		_ = s.sdClient.Count("worker.vault.create.dkls.error", 1, nil, 1)
 		s.logger.WithError(err).Error("keygen.JoinKeyGeneration failed")
 		return fmt.Errorf("keygen.JoinKeyGeneration failed: %v: %w", err, asynq.SkipRetry)
 	}
@@ -143,8 +123,6 @@ func (s *ManagementService) HandleKeySignDKLS(ctx context.Context, t *asynq.Task
 		s.logger.WithError(err).Error("json.Unmarshal failed")
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
 	}
-	defer s.measureTime("worker.vault.sign.latency", time.Now(), []string{})
-	s.incCounter("worker.vault.sign", []string{})
 	s.logger.WithFields(logrus.Fields{
 		"PublicKey": p.PublicKey,
 		"session":   p.SessionID,
@@ -215,8 +193,6 @@ func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
 	}
 
-	defer s.measureTime("worker.vault.reshare.latency", time.Now(), []string{})
-	s.incCounter("worker.vault.reshare.dkls", []string{})
 	s.logger.WithFields(logrus.Fields{
 		"name":           req.Name,
 		"session":        req.SessionID,

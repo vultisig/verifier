@@ -4,6 +4,7 @@ HTTP 200
 GET http://localhost:8080/plugins
 HTTP 200
 [Asserts]
+<<<<<<< HEAD
 jsonpath "$.data.plugins" exists
 jsonpath "$.data.total_count" exists
 jsonpath "$.data.plugins" count >= 1
@@ -15,11 +16,25 @@ jsonpath "$.data.plugins[0].pricing" exists
 jsonpath "$.data.plugins[0].category_id" exists
 jsonpath "$.data.plugins[0].created_at" exists
 jsonpath "$.data.plugins[0].updated_at" exists
+=======
+jsonpath "$.plugins" exists
+jsonpath "$.total_count" exists
+jsonpath "$.plugins" count >= 1
+jsonpath "$.plugins[0].id" matches "^[a-z]+-[a-z]+-[0-9a-f]{4}$"
+jsonpath "$.plugins[0].title" exists
+jsonpath "$.plugins[0].description" exists
+jsonpath "$.plugins[0].server_endpoint" exists
+jsonpath "$.plugins[0].pricing" exists
+jsonpath "$.plugins[0].category_id" exists
+jsonpath "$.plugins[0].created_at" exists
+jsonpath "$.plugins[0].updated_at" exists
+>>>>>>> a768e80 (plugins yaml)
 
 GET http://localhost:8080/plugins/vultisig-dca-0000
 HTTP 200
 Content-Type: application/json
 [Asserts]
+<<<<<<< HEAD
 jsonpath "$.data.id" == "vultisig-dca-0000"
 jsonpath "$.data.title" exists
 jsonpath "$.data.description" exists
@@ -40,10 +55,33 @@ jsonpath "$.data.reviews[0].address" matches "0x[0-9a-fA-F]{40}"
 jsonpath "$.data.reviews[0].rating" == 5
 jsonpath "$.data.reviews[0].comment" == "Hello world"
 jsonpath "$.data.reviews[0].created_at" exists
+=======
+jsonpath "$.id" == "vultisig-dca-0000"
+jsonpath "$.title" exists
+jsonpath "$.description" exists
+jsonpath "$.server_endpoint" exists
+jsonpath "$.pricing" exists
+jsonpath "$.category_id" == "plugin"
+jsonpath "$.created_at" exists
+jsonpath "$.updated_at" exists
+>>>>>>> a768e80 (plugins yaml)
+
+GET http://localhost:8080/plugins/vultisig-dca-0000/reviews
+HTTP 200
+Content-Type: application/json
+[Asserts]
+jsonpath "$.reviews" exists
+jsonpath "$.reviews" count >= 1
+jsonpath "$.reviews[0].id" matches "{{uuid_regex}}"
+jsonpath "$.reviews[0].address" matches "0x[0-9a-fA-F]{40}"
+jsonpath "$.reviews[0].rating" == 5
+jsonpath "$.reviews[0].comment" == "Hello world"
+jsonpath "$.reviews[0].created_at" exists
 
 GET http://localhost:8080/categories
 HTTP 200
 Content-Type: application/json
+<<<<<<< HEAD
 [Asserts]
 jsonpath "$.data" count == 2
 jsonpath "$.data[0].id" == "ai-agent"
@@ -51,6 +89,12 @@ jsonpath "$.data[0].name" == "AI Agent"
 jsonpath "$.data[1].id" == "plugin"
 jsonpath "$.data[1].name" == "Plugin"
 
+=======
+# Go adds a newline so we need to use the raw string body format
+```json
+[{"id":"ai-agent","name":"AI Agent"},{"id":"plugin","name":"Plugin"}]
+```
+>>>>>>> a768e80 (plugins yaml)
 
 GET http://localhost:8080/tags
 HTTP 200

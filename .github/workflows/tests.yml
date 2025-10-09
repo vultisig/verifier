@@ -89,6 +89,7 @@ jobs:
               "dsn": "postgres://myuser:mypassword@localhost:5432/vultisig-verifier?sslmode=disable"
             },
             "encryption_secret": "test123",
+            "proposed_yaml_path": "proposed.yaml",
             "plugin": {},
             "datadog": {
               "host": "localhost",

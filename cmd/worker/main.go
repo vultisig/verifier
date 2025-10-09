@@ -43,7 +43,7 @@ func main() {
 		panic(fmt.Sprintf("failed to initialize vault storage: %v", err))
 	}
 
-	backendDB, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil)
+	backendDB, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil, cfg.ProposedYAMLPath)
 	if err != nil {
 		panic(fmt.Sprintf("failed to initialize database: %v", err))
 	}

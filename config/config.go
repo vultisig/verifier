@@ -14,12 +14,13 @@ import (
 )
 
 type WorkerConfig struct {
-	VaultService vault_config.Config       `mapstructure:"vault_service" json:"vault_service,omitempty"`
-	Redis        config.Redis              `mapstructure:"redis" json:"redis,omitempty"`
-	BlockStorage vault_config.BlockStorage `mapstructure:"block_storage" json:"block_storage,omitempty"`
-	Database     config.Database           `mapstructure:"database" json:"database,omitempty"`
-	Datadog DatadogConfig `mapstructure:"datadog" json:"datadog"`
-	Fees    FeesConfig    `mapstructure:"fees" json:"fees"`
+	VaultService     vault_config.Config       `mapstructure:"vault_service" json:"vault_service,omitempty"`
+	Redis            config.Redis              `mapstructure:"redis" json:"redis,omitempty"`
+	BlockStorage     vault_config.BlockStorage `mapstructure:"block_storage" json:"block_storage,omitempty"`
+	Database         config.Database           `mapstructure:"database" json:"database,omitempty"`
+	Datadog          DatadogConfig             `mapstructure:"datadog" json:"datadog"`
+	Fees             FeesConfig                `mapstructure:"fees" json:"fees"`
+	ProposedYAMLPath string                    `mapstructure:"proposed_yaml_path" json:"proposed_yaml_path,omitempty"`
 }
 
 type VerifierConfig struct {
@@ -39,7 +40,8 @@ type VerifierConfig struct {
 		// pointer so it must be explicitly set to false, no value considered as enabled
 		Enabled *bool `mapstructure:"enabled" json:"enabled,omitempty"`
 	} `mapstructure:"auth" json:"auth"`
-	Fees FeesConfig `mapstructure:"fees" json:"fees"`
+	Fees             FeesConfig `mapstructure:"fees" json:"fees"`
+	ProposedYAMLPath string     `mapstructure:"proposed_yaml_path" json:"proposed_yaml_path,omitempty"`
 }
 
 type DatadogConfig struct {
@@ -137,7 +139,7 @@ func ReadTxIndexerConfig() (*tx_indexer_config.Config, error) {
 
 func addKeysToViper(v *viper.Viper, t reflect.Type) {
 	keys := getAllKeys(t)
-	for _,key := range keys {
+	for _, key := range keys {
 		v.SetDefault(key, "")
 	}
 }
@@ -147,7 +149,7 @@ func getAllKeys(t reflect.Type) []string {
 
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		
+
 		// Try mapstructure tag first
 		tagName := f.Tag.Get("mapstructure")
 		if tagName == "" || tagName == "-" {
@@ -161,14 +163,14 @@ func getAllKeys(t reflect.Type) []string {
 			// Handle comma-separated options in mapstructure tag
 			tagName = strings.Split(tagName, ",")[0]
 		}
-		
+
 		// Final fallback to field name if no valid tags found
 		if tagName == "" || tagName == "-" {
 			tagName = f.Name
 		}
-		
+
 		n := strings.ToUpper(tagName)
-		
+
 		if reflect.Struct == f.Type.Kind() {
 			subKeys := getAllKeys(f.Type)
 			for _, k := range subKeys {

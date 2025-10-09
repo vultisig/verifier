@@ -27,6 +27,7 @@ go.work.sum
 
 ./IMPLEMENTATION_PLAN.md
 .idea
+.serena
 cmd/verifier
 cmd/worker
 

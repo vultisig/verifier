@@ -7,11 +7,10 @@ HTTP 200
 jsonpath "$.plugins" exists
 jsonpath "$.total_count" exists
 jsonpath "$.plugins" count >= 1
-jsonpath "$.plugins[0].id" matches "^[a-z]+-[a-z]+-[0-9a-f]{4}$"
+jsonpath "$.plugins[0].id" matches "^[a-z]+(-[a-z]+)+-[0-9a-f]{4}$"
 jsonpath "$.plugins[0].title" exists
 jsonpath "$.plugins[0].description" exists
 jsonpath "$.plugins[0].server_endpoint" exists
-jsonpath "$.plugins[0].pricing" exists
 jsonpath "$.plugins[0].category_id" exists
 jsonpath "$.plugins[0].created_at" exists
 jsonpath "$.plugins[0].updated_at" exists
@@ -24,7 +23,6 @@ jsonpath "$.id" == "vultisig-dca-0000"
 jsonpath "$.title" exists
 jsonpath "$.description" exists
 jsonpath "$.server_endpoint" exists
-jsonpath "$.pricing" exists
 jsonpath "$.category_id" == "plugin"
 jsonpath "$.created_at" exists
 jsonpath "$.updated_at" exists

@@ -13,8 +13,6 @@ func TestConfig(t *testing.T) {
 	cfg := WorkerConfig{}
 	cfg.VaultService.Relay.Server = "http://localhost:8080"
 	cfg.VaultService.QueueEmailTask = false
-	cfg.Datadog.Host = "localhost"
-	cfg.Datadog.Port = "8125"
 
 	cfg.Redis.Host = "localhost"
 	cfg.Redis.Port = "6379"

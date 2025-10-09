@@ -7,6 +7,7 @@ import (
 )
 
 const QUEUE_NAME = "default_queue"
+
 const (
 	TypeRecurringFeeRecord = "fee:recurringRecord"
 	TypePluginTransaction  = "plugin:transaction"

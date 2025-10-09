@@ -3,7 +3,6 @@ module github.com/vultisig/verifier
 go 1.24.2
 
 require (
-	github.com/DataDog/datadog-go v4.8.3+incompatible
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/btcsuite/btcd v0.24.2
 	github.com/btcsuite/btcd/btcutil/psbt v1.1.10

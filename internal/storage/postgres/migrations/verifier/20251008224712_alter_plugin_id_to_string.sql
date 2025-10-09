@@ -12,9 +12,29 @@ CREATE DOMAIN plugin_id AS VARCHAR(255);
 -- Data will be resynced from proposed.yaml on service start
 TRUNCATE TABLE plugins CASCADE;
 
--- Recreate the id column in plugins table that was dropped by CASCADE
+-- Recreate the id column in plugins table as first column
 ALTER TABLE plugins ADD COLUMN id plugin_id NOT NULL;
-ALTER TABLE plugins ADD PRIMARY KEY (id);
+ALTER TABLE plugins ALTER COLUMN id SET STORAGE MAIN;
+
+-- Reorder columns to put id first by recreating the table
+CREATE TABLE plugins_new (
+    id plugin_id NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    server_endpoint TEXT NOT NULL,
+    category plugin_category NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (id)
+);
+
+-- Copy data from old table
+INSERT INTO plugins_new (id, title, description, server_endpoint, category, created_at, updated_at)
+SELECT id, title, description, server_endpoint, category, created_at, updated_at FROM plugins;
+
+-- Drop old table and rename new one
+DROP TABLE plugins;
+ALTER TABLE plugins_new RENAME TO plugins;
 
 -- Recreate foreign key columns that were dropped by CASCADE
 -- Using nullable first since tables might have data, then set NOT NULL

@@ -1,0 +1,30 @@
+plugins:
+  - id: vultisig-dca-0000
+    title: DCA Plugin
+    description: Dollar Cost Averaging automation plugin
+    server_endpoint: https://dca.vultisigplugin.app
+    category: plugin
+
+  - id: vultisig-payroll-0000
+    title: Payroll Plugin
+    description: Automated payroll distribution plugin
+    server_endpoint: https://plugin.vultisigplugin.app/payroll
+    category: plugin
+
+  - id: vultisig-fees-feee
+    title: Fees Plugin
+    description: Transaction fees management plugin
+    server_endpoint: ""
+    category: plugin
+
+  - id: vultisig-copytrader-0000
+    title: Copy Trader Plugin
+    description: Copy trading automation plugin
+    server_endpoint: http://149.28.158.120:8081
+    category: ai-agent
+
+  - id: nbits-labs-merkle-e93d
+    title: Merkle Plugin
+    description: Merkle tree verification plugin
+    server_endpoint: ""
+    category: plugin

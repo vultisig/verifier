@@ -4,7 +4,6 @@
     <working_directory value="$PROJECT_DIR$" />
     <envs>
       <env name="VS_WORKER_CONFIG_NAME" value="worker.example" />
-      <env name="PROPOSED_YAML_PATH" value="proposed.yaml" />
     </envs>
     <kind value="PACKAGE" />
     <package value="github.com/vultisig/verifier/cmd/worker" />

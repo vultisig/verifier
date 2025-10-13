@@ -48,8 +48,8 @@ type PolicyRepository interface {
 
 type FeeRepository interface {
 	GetAllFeesByPolicyId(ctx context.Context, policyId uuid.UUID) ([]types.Fee, error)
+	GetFees(ctx context.Context, includeCollected bool, since *time.Time) ([]types.Fee, error)
 	GetFeesByPublicKey(ctx context.Context, publicKey string, since *time.Time) ([]types.Fee, error)
-	GetAllFeesByPublicKey(ctx context.Context, includeCollected bool) ([]types.Fee, error)
 	InsertFee(ctx context.Context, dbTx pgx.Tx, fee types.Fee) (*types.Fee, error)
 	MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txid string) ([]types.Fee, error)
 }

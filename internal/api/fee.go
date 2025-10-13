@@ -7,10 +7,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+
 	"github.com/vultisig/verifier/types"
 )
 
-func (s *Server) GetPublicKeyFees(c echo.Context) error {
+func (s *Server) GetFees(c echo.Context) error {
 	pluginId := fmt.Sprint(c.Get("plugin_id"))
 	since := c.QueryParam("since")
 	var sinceTime *time.Time
@@ -26,11 +27,9 @@ func (s *Server) GetPublicKeyFees(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("unauthorized"))
 	}
 
-	publicKey := c.Param("publicKey")
-
-	history, err := s.feeService.PublicKeyGetFeeInfo(c.Request().Context(), publicKey, sinceTime)
+	history, err := s.feeService.GetFeeInfo(c.Request().Context(), sinceTime)
 	if err != nil {
-		s.logger.WithError(err).Errorf("Failed to get fees for public key: %s", publicKey)
+		s.logger.WithError(err).Errorf("Failed to get fees: %s ", err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get fees"))
 	}
 

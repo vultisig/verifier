@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"fmt"
-
 	"time"
 
 	"github.com/google/uuid"
@@ -54,6 +53,42 @@ func (p *PostgresBackend) GetFeesByPublicKey(ctx context.Context, publicKey stri
 		query := `SELECT id, public_key, plugin_id, policy_id, type, transaction_id, amount, charged_at, created_at, collected_at FROM fees_view WHERE public_key = $1 AND collected_at IS NULL`
 		rows, err = p.pool.Query(ctx, query, publicKey)
 	}
+	if err != nil {
+		return []types.Fee{}, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var fee types.Fee
+		err := rows.Scan(
+			&fee.ID,
+			&fee.PublicKey,
+			&fee.PluginID,
+			&fee.PolicyID,
+			&fee.Type,
+			&fee.TransactionID,
+			&fee.Amount,
+			&fee.ChargedAt,
+			&fee.CreatedAt,
+			&fee.CollectedAt,
+		)
+		if err != nil {
+			return []types.Fee{}, err
+		}
+		fees = append(fees, fee)
+	}
+	return fees, nil
+}
+
+func (p *PostgresBackend) GetFees(ctx context.Context, includeCollected bool, since *time.Time) ([]types.Fee, error) {
+	fees := []types.Fee{}
+	query := `SELECT id, public_key, plugin_id, policy_id, type, transaction_id, amount, charged_at, created_at, 
+       collected_at FROM fees WHERE collected_at IS NULL AND created_at > $1 ORDER BY public_key, created_at`
+	if includeCollected {
+		query = `SELECT id, public_key, plugin_id, policy_id, type, transaction_id, amount, charged_at, created_at,
+       collected_at FROM fees WHERE created_at > $1 ORDER BY public_key, created_at`
+	}
+	rows, err := p.pool.Query(ctx, query, since)
 	if err != nil {
 		return []types.Fee{}, err
 	}

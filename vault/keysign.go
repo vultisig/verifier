@@ -483,6 +483,9 @@ func (t *DKLSTssService) processKeysignInbound(
 }
 
 func fmtDerivePath(derivePath string) []byte {
+	if derivePath == "" {
+		return []byte{}
+	}
 	return []byte(strings.ReplaceAll(derivePath, "'", ""))
 }
 

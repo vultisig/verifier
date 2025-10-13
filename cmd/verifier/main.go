@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/DataDog/datadog-go/statsd"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
 
@@ -27,11 +26,6 @@ func main() {
 	}
 
 	logger := logrus.New()
-
-	sdClient, err := statsd.New(fmt.Sprintf("%s:%s", cfg.Datadog.Host, cfg.Datadog.Port))
-	if err != nil {
-		panic(err)
-	}
 
 	redisStorage, err := storage.NewRedisStorage(cfg.Redis)
 	if err != nil {
@@ -82,7 +76,6 @@ func main() {
 		vaultStorage,
 		client,
 		inspector,
-		sdClient,
 		cfg.Server.JWTSecret,
 		txIndexerService,
 	)

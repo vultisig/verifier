@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/DataDog/datadog-go/statsd"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
 
@@ -25,10 +24,6 @@ func main() {
 		panic(err)
 	}
 
-	sdClient, err := statsd.New(cfg.Datadog.Host + ":" + cfg.Datadog.Port)
-	if err != nil {
-		panic(err)
-	}
 	redisCfg := cfg.Redis
 	redisOptions := asynq.RedisClientOpt{
 		Addr:     redisCfg.Host + ":" + redisCfg.Port,
@@ -88,7 +83,6 @@ func main() {
 	vaultMgmService, err := vault.NewManagementService(
 		cfg.VaultService,
 		client,
-		sdClient,
 		vaultStorage,
 		txIndexerService,
 	)

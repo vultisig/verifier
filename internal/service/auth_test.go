@@ -175,6 +175,14 @@ func (m *MockDatabaseStorage) GetAllFeesByPolicyId(ctx context.Context, policyId
 	return args.Get(0).([]types.Fee), args.Error(1)
 }
 
+func (m *MockDatabaseStorage) GetFees(ctx context.Context, includeCollected bool, since *time.Time) ([]types.Fee, error) {
+	args := m.Called(ctx, includeCollected, since)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]types.Fee), args.Error(1)
+}
+
 func (m *MockDatabaseStorage) MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txHash string) ([]types.Fee, error) {
 	args := m.Called(ctx, collectedAt, ids, txHash)
 	if args.Get(0) == nil {

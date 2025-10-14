@@ -123,7 +123,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 	if message == "" {
 		return nil, fmt.Errorf("message is empty")
 	}
-	if derivePath == "" {
+	if derivePath == "" && !isEdDSA {
 		return nil, fmt.Errorf("derive path is empty")
 	}
 	if localPartyID == "" {
@@ -483,6 +483,9 @@ func (t *DKLSTssService) processKeysignInbound(
 }
 
 func fmtDerivePath(derivePath string) []byte {
+	if derivePath == "" {
+		return nil
+	}
 	return []byte(strings.ReplaceAll(derivePath, "'", ""))
 }
 

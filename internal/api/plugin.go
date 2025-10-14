@@ -149,6 +149,12 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		}
 
 		txBytesEvaluate = buf.Bytes()
+	} else if firstKeysignMessage.Chain == common.Solana {
+		b, er := base64.StdEncoding.DecodeString(req.Transaction)
+		if er != nil {
+			return fmt.Errorf("failed to decode b64 proposed Solana tx: %w", er)
+		}
+		txBytesEvaluate = b
 	}
 
 	ngn, err := engine.NewEngine()

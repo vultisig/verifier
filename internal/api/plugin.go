@@ -161,9 +161,9 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 			return fmt.Errorf("failed to decode b64 proposed Solana tx: %w", er)
 		}
 		txBytesEvaluate = b
-  } else {
-    return fmt.Errorf("failed to decode transaction, chain %s not supported", firstKeysignMessage.Chain)
-  } 
+	} else {
+		return fmt.Errorf("failed to decode transaction, chain %s not supported", firstKeysignMessage.Chain)
+	}
 
 	ngn, err := engine.NewEngine()
 	if err != nil {

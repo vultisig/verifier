@@ -149,12 +149,20 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		}
 
 		txBytesEvaluate = buf.Bytes()
+	} else if firstKeysignMessage.Chain == common.XRP {
+		b, er := base64.StdEncoding.DecodeString(req.Transaction)
+		if er != nil {
+			return fmt.Errorf("failed to decode base64 XRP transaction: %w", er)
+		}
+		txBytesEvaluate = b
 	} else if firstKeysignMessage.Chain == common.Solana {
 		b, er := base64.StdEncoding.DecodeString(req.Transaction)
 		if er != nil {
 			return fmt.Errorf("failed to decode b64 proposed Solana tx: %w", er)
 		}
 		txBytesEvaluate = b
+	} else {
+		return fmt.Errorf("failed to decode transaction, chain %s not supported", firstKeysignMessage.Chain)
 	}
 
 	ngn, err := engine.NewEngine()

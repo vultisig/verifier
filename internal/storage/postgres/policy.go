@@ -416,27 +416,3 @@ func (p *PostgresBackend) DeleteAllPolicies(ctx context.Context, dbTx pgx.Tx, pl
 
 	return nil
 }
-
-// InsertFee inserts a fee record for a billing policy within a transaction
-func (p *PostgresBackend) InsertFee(ctx context.Context, dbTx pgx.Tx, fee types.Fee) (*types.Fee, error) {
-	if fee.ID == uuid.Nil {
-		fee.ID = uuid.New()
-	}
-	if fee.PluginPolicyBillingID == uuid.Nil {
-		return nil, fmt.Errorf("plugin policy billing ID is required")
-	}
-	if fee.Amount <= 0 {
-		return nil, fmt.Errorf("amount must be greater than 0")
-	}
-
-	err := dbTx.QueryRow(ctx,
-		`INSERT INTO fees (plugin_policy_billing_id, amount) VALUES ($1, $2) RETURNING id`,
-		fee.PluginPolicyBillingID, fee.Amount,
-	).Scan(&fee.ID)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to insert fee record for billing policy %s: %w", fee.PluginPolicyBillingID, err)
-	}
-
-	return &fee, nil
-}

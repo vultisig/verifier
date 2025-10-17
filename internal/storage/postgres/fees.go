@@ -50,7 +50,8 @@ func (p *PostgresBackend) InsertFee(ctx context.Context, dbTx pgx.Tx, fee *types
 	query := `
   	INSERT INTO fees (
       policy_id, public_key, transaction_type, amount, fee_type, metadata, underlying_type, underlying_id
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT ON CONSTRAINT idx_unique_installation_fee_per_plugin_user
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (underlying_id, public_key) 
+        WHERE fee_type = 'installation_fee' AND underlying_type = 'plugin'
     DO NOTHING
 	`
 

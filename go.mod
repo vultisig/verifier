@@ -31,7 +31,7 @@ require (
 	github.com/vultisig/commondata v0.0.0-20250710214228-61d9ed8f7778
 	github.com/vultisig/go-wrappers v0.0.0-20250716071337-34a5c0f4d6e0
 	github.com/vultisig/mobile-tss-lib v0.0.0-20250316003201-2e7e570a4a74
-	github.com/vultisig/recipes v0.0.0-20251024004947-6107c2ab0a64
+	github.com/vultisig/recipes v0.0.0-20251027203547-ac3242e4b91a
 	github.com/vultisig/vultiserver v0.0.0-20250825042420-c6e6ac281110
 	github.com/vultisig/vultisig-go v0.0.0-20251004125942-60b3b1898d15
 	github.com/xyield/xrpl-go v0.0.0-20230914223425-9abe75c05830

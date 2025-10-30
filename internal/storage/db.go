@@ -98,6 +98,7 @@ type ReviewRepository interface {
 
 type RatingRepository interface {
 	FindRatingByPluginId(ctx context.Context, dbTx pgx.Tx, pluginId string) ([]itypes.PluginRatingDto, error)
+	FindAvgRatingByPluginID(ctx context.Context, pluginID string) (itypes.PluginAvgRatingDto, error)
 	CreateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string) error
 	UpdateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, reviewRating int) error
 }

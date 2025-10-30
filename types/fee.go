@@ -9,6 +9,6 @@ const (
 
 const (
 	FeeTypeInstallationFee = "installation_fee"
-	FeeSubscribtionFee     = "subscription_fee"
+	FeeSubscriptionFee     = "subscription_fee"
 	FeeTxExecFee           = "transaction_execution_fee"
 )

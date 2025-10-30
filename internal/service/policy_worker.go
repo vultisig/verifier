@@ -55,7 +55,7 @@ func (s *PolicyService) HandleScheduledFees(ctx context.Context, task *asynq.Tas
 			PublicKey:      res.publicKey,
 			TxType:         types.TxTypeDebit,
 			Amount:         res.amount,
-			FeeType:        types.FeeSubscribtionFee,
+			FeeType:        types.FeeSubscriptionFee,
 			UnderlyingType: "policy",
 			UnderlyingID:   res.policyId,
 		})

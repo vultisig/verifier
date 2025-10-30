@@ -368,9 +368,6 @@ ALTER TABLE ONLY "tags"
 ALTER TABLE ONLY "tx_indexer"
     ADD CONSTRAINT "tx_indexer_pkey" PRIMARY KEY ("id");
 
-ALTER TABLE ONLY "fees"
-    ADD CONSTRAINT "unique_fee_per_entity" UNIQUE ("fee_type", "underlying_type", "underlying_id");
-
 ALTER TABLE ONLY "vault_tokens"
     ADD CONSTRAINT "vault_tokens_pkey" PRIMARY KEY ("id");
 

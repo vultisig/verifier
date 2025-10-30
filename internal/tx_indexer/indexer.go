@@ -91,6 +91,7 @@ func (fi *FeeIndexer) updateTxStatus(ctx context.Context, tx storage.Tx) error {
 			for _, pricing := range pluginInfo.Pricing {
 				if pricing.Type == types.PricingTypePerTx {
 					txFee = pricing.Amount
+					break
 				}
 			}
 			if txFee == 0 {
@@ -112,6 +113,9 @@ func (fi *FeeIndexer) updateTxStatus(ctx context.Context, tx storage.Tx) error {
 
 			return nil
 		})
+		if err != nil {
+			return fmt.Errorf("failed to insert fee: %w", err)
+		}
 	}
 	return nil
 }

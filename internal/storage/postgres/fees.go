@@ -52,8 +52,17 @@ func (p *PostgresBackend) InsertFee(ctx context.Context, dbTx pgx.Tx, fee *types
       policy_id, public_key, transaction_type, amount, fee_type, metadata, underlying_type, underlying_id
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 
-	_, err := dbTx.Exec(ctx, query,
-		fee.PolicyID, fee.PublicKey, fee.TxType, fee.Amount, fee.FeeType, fee.Metadata, fee.UnderlyingType, fee.UnderlyingID)
+	var (
+		err error
+	)
+	if dbTx != nil {
+		_, err = dbTx.Exec(ctx, query,
+			fee.PolicyID, fee.PublicKey, fee.TxType, fee.Amount, fee.FeeType, fee.Metadata, fee.UnderlyingType, fee.UnderlyingID)
+	} else {
+		_, err = p.pool.Exec(ctx, query,
+			fee.PolicyID, fee.PublicKey, fee.TxType, fee.Amount, fee.FeeType, fee.Metadata, fee.UnderlyingType, fee.UnderlyingID)
+	}
+
 	if err != nil {
 		return err
 	}

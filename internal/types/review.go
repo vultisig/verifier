@@ -42,3 +42,8 @@ type PluginRatingDto struct {
 	Rating int `json:"rating"`
 	Count  int `json:"count"`
 }
+
+type PluginAvgRatingDto struct {
+	PluginID  string  `json:"plugin_id"`
+	RatingAvg float64 `json:"rating_avg"`
+}

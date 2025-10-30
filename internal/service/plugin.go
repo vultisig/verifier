@@ -35,6 +35,7 @@ type PluginServiceStorage interface {
 	WithTransaction(ctx context.Context, fn func(ctx context.Context, tx pgx.Tx) error) error
 
 	FindRatingByPluginId(ctx context.Context, dbTx pgx.Tx, pluginId string) ([]types.PluginRatingDto, error)
+	FindAvgRatingByPluginID(ctx context.Context, pluginId string) (types.PluginAvgRatingDto, error)
 	CreateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string) error
 	UpdateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, reviewRating int) error
 	ChangeRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, oldRating int, newRating int) error

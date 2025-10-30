@@ -251,7 +251,7 @@ func (s *ManagementService) RegisterInstallationFee(ctx context.Context, pluginI
 		var err error
 
 		//Find plugin
-		pluginInfo, err := s.db.FindPluginById(ctx, nil, pluginID)
+		pluginInfo, err := s.db.FindPluginById(ctx, tx, pluginID)
 		if err != nil {
 			return err
 		}

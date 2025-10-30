@@ -3,7 +3,6 @@ package tx_indexer
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"sync/atomic"
 	"time"
 
@@ -88,13 +87,13 @@ func (fi *FeeIndexer) updateTxStatus(ctx context.Context, tx storage.Tx) error {
 				return err
 			}
 
-			txFee := new(big.Int)
+			var txFee uint64
 			for _, pricing := range pluginInfo.Pricing {
 				if pricing.Type == types.PricingTypePerTx {
-					txFee = new(big.Int).SetUint64(pricing.Amount)
+					txFee = pricing.Amount
 				}
 			}
-			if txFee.Cmp(big.NewInt(0)) < 1 {
+			if txFee == 0 {
 				return nil
 			}
 

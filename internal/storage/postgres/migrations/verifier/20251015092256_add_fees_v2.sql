@@ -25,7 +25,6 @@ CREATE TABLE fees
     underlying_type  TEXT             NOT NULL,
     underlying_id    TEXT             NOT NULL,
 
-    CONSTRAINT unique_fee_per_entity UNIQUE (fee_type, underlying_type, underlying_id),
     CONSTRAINT policy_id_required_for_policies CHECK (
         (underlying_type = 'policy' AND policy_id IS NOT NULL) OR
         (underlying_type != 'policy')

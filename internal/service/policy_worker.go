@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"math/big"
 
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
@@ -43,7 +42,7 @@ func (s *PolicyService) HandleScheduledFees(ctx context.Context, task *asynq.Tas
 		var res struct {
 			publicKey string
 			policyId  string
-			amount    *big.Int
+			amount    uint64
 		}
 		if err := rows.Scan(&res.publicKey, &res.policyId, &res.amount); err != nil {
 			fmt.Println(err)
@@ -75,7 +74,9 @@ func (s *PolicyService) HandleScheduledFees(ctx context.Context, task *asynq.Tas
 
 	}
 
-	// In case of maintenance, down time etc, if may be the case that several bill cycles have been missed. Therefore we rerun the task with an updated next_billing_cycle value. If no values are returned by the subsequent query then we end.
+	// In case of maintenance, down time etc, if may be the case that several bill cycles have been missed.
+	// Therefore we rerun the task with an updated next_billing_cycle value. If no values are returned by the
+	// subsequent query then we end.
 	if recurse {
 		rows.Close()
 		s.HandleScheduledFees(ctx, task)

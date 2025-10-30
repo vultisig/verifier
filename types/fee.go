@@ -7,4 +7,8 @@ const (
 	TxTypeCredit TxType = "credit"
 )
 
-const FeeTypeInstallationFee = "installation_fee"
+const (
+	FeeTypeInstallationFee = "installation_fee"
+	FeeSubscribtionFee     = "subscription_fee"
+	FeeTxExecFee           = "transaction_execution_fee"
+)

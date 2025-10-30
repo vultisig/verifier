@@ -3,15 +3,33 @@ package service
 import (
 	"context"
 	"fmt"
-	"time"
+	"math/big"
 
-	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
+	"github.com/vultisig/verifier/types"
 )
 
+const QUERY_GET_EXPIRED_SUBSCRIPTIONS = `SELECT
+  p.public_key,
+  b.plugin_policy_id AS policy_id,
+  b.amount
+FROM plugin_policies p
+JOIN plugin_policy_billing b ON b.plugin_policy_id = p.id
+LEFT JOIN (
+  SELECT policy_id, public_key, MAX(created_at) AS last_fee_at
+  FROM fees
+  WHERE fee_type = 'subscription_fee'
+  GROUP BY policy_id, public_key
+) f ON f.policy_id = p.id AND f.public_key = p.public_key
+WHERE b.type = 'recurring'
+  AND (
+    f.last_fee_at IS NULL
+    OR (f.last_fee_at + b.frequency::interval) <= CURRENT_DATE
+  )`
+
 func (s *PolicyService) HandleScheduledFees(ctx context.Context, task *asynq.Task) error {
-	query := `SELECT pb.billing_id, pb.amount, pb.next_billing_date FROM billing_periods pb WHERE pb.next_billing_date <= CURRENT_DATE AND pb.active = true`
+	query := QUERY_GET_EXPIRED_SUBSCRIPTIONS
 	rows, err := s.db.Pool().Query(ctx, query)
 	if err != nil {
 		fmt.Println(err)
@@ -22,32 +40,37 @@ func (s *PolicyService) HandleScheduledFees(ctx context.Context, task *asynq.Tas
 	recurse := false
 
 	for rows.Next() {
-		var billingID uuid.UUID
-		var amount int
-		var nextBillingDate time.Time
-		if err := rows.Scan(&billingID, &amount, &nextBillingDate); err != nil {
+		var res struct {
+			publicKey string
+			policyId  string
+			amount    *big.Int
+		}
+		if err := rows.Scan(&res.publicKey, &res.policyId, &res.amount); err != nil {
 			fmt.Println(err)
 			s.logger.WithError(err).Error("Failed to scan scheduled fee row")
 			return fmt.Errorf("failed to scan scheduled fee row: %w", err)
 		}
 		recurse = true
 
-		insertedId := uuid.Nil
-		err = s.db.Pool().QueryRow(ctx, `INSERT INTO fees (plugin_policy_billing_id, amount, charged_at) VALUES ($1, $2, $3) RETURNING id`, billingID, amount, nextBillingDate).Scan(&insertedId)
+		err = s.db.InsertFee(ctx, nil, &types.Fee{
+			PublicKey:      res.publicKey,
+			TxType:         types.TxTypeDebit,
+			Amount:         res.amount,
+			FeeType:        types.FeeSubscribtionFee,
+			UnderlyingType: "policy",
+			UnderlyingID:   res.policyId,
+		})
 		if err != nil {
 			s.logger.WithError(err).WithFields(logrus.Fields{
-				"plugin_policy_billing_id": billingID,
-				"amount":                   amount,
-				"charged_at":               nextBillingDate,
+				"plugin_policy_id": res.policyId,
+				"amount":           res.amount,
 			}).Error("Failed to insert scheduled fee record")
 			return fmt.Errorf("failed to insert scheduled fee record: %w", err)
 		}
 
 		s.logger.WithFields(logrus.Fields{
-			"plugin_policy_billing_id": billingID,
-			"amount":                   amount,
-			"charged_at":               nextBillingDate,
-			"fee_id":                   insertedId,
+			"plugin_policy_id": res.policyId,
+			"amount":           res.amount,
 		}).Info("Inserted scheduled fee record")
 
 	}

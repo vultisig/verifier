@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,7 +17,7 @@ type Fee struct {
 	PolicyID       uuid.UUID       `json:"policy_id"`  // The policy ID that has incurred the fee
 	PublicKey      string          `json:"public_key"` // The public key "account" connected to the fee
 	TxType         TxType          `json:"transaction_type"`
-	Amount         uint64          `json:"amount"` // The amount of the fee in the smallest unit, e.g., "1000000" for 0.01 VULTI
+	Amount         *big.Int        `json:"amount"` // The amount of the fee in the smallest unit, e.g., "1000000" for 0.01 VULTI
 	CreatedAt      time.Time       `json:"created_at"`
 	FeeType        string          `json:"fee_type"`
 	Metadata       json.RawMessage `json:"metadata"`

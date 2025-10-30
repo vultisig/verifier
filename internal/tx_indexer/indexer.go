@@ -82,7 +82,7 @@ func (fi *FeeIndexer) updateTxStatus(ctx context.Context, tx storage.Tx) error {
 			var err error
 
 			//Find plugin
-			pluginInfo, err := fi.db.FindPluginById(ctx, nil, tx.PluginID)
+			pluginInfo, err := fi.db.FindPluginById(ctx, dbTx, tx.PluginID)
 			if err != nil {
 				return err
 			}

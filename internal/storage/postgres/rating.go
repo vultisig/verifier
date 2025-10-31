@@ -55,7 +55,7 @@ func (p *PostgresBackend) FindAvgRatingByPluginID(ctx context.Context, pluginID 
 
 	resp := types.PluginAvgRatingDto{
 		PluginID:  pluginID,
-		RatingAvg: avgRating,
+		AvgRating: avgRating,
 	}
 	return resp, nil
 }

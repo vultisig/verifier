@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -91,8 +92,8 @@ func (p *PostgresBackend) WithTransaction(ctx context.Context, fn func(ctx conte
 	}()
 
 	if err := fn(ctx, tx); err != nil {
-		_ = tx.Rollback(ctx)
-		return err
+		er := tx.Rollback(ctx)
+		return errors.Join(err, er)
 	}
 
 	if err := tx.Commit(ctx); err != nil {

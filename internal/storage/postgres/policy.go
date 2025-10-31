@@ -21,7 +21,7 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (*t
 
 	query := `SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe
         FROM plugin_policies 
-        WHERE id = $1`
+        WHERE id = $1 AND deleted = false`
 
 	err := p.pool.QueryRow(ctx, query, id).Scan(
 		&policy.ID,
@@ -68,9 +68,15 @@ func (p *PostgresBackend) GetPluginPolicies(ctx context.Context, publicKey strin
 
 	if len(pluginIds) == 0 {
 		if !includeInactive {
-			rows, err = p.pool.Query(ctx, `SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe FROM plugin_policies WHERE public_key = $1 AND active = true`, publicKey)
+			rows, err = p.pool.Query(ctx, `
+SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe 
+FROM plugin_policies 
+WHERE public_key = $1 AND active = true AND deleted = false`, publicKey)
 		} else {
-			rows, err = p.pool.Query(ctx, `SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe FROM plugin_policies WHERE public_key = $1`, publicKey)
+			rows, err = p.pool.Query(ctx, `
+SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe 
+FROM plugin_policies 
+WHERE public_key = $1 AND deleted = false`, publicKey)
 		}
 	} else {
 		pids := []string{}
@@ -78,9 +84,15 @@ func (p *PostgresBackend) GetPluginPolicies(ctx context.Context, publicKey strin
 			pids = append(pids, pid.String())
 		}
 		if !includeInactive {
-			rows, err = p.pool.Query(ctx, `SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe FROM plugin_policies WHERE public_key = $1 AND plugin_id = ANY($2) AND active = true`, publicKey, pids)
+			rows, err = p.pool.Query(ctx, `
+SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe 
+FROM plugin_policies 
+WHERE public_key = $1 AND plugin_id = ANY($2) AND active = true AND deleted = false`, publicKey, pids)
 		} else {
-			rows, err = p.pool.Query(ctx, `SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe FROM plugin_policies WHERE public_key = $1 AND plugin_id = ANY($2)`, publicKey, pids)
+			rows, err = p.pool.Query(ctx, `
+SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe 
+FROM plugin_policies 
+WHERE public_key = $1 AND plugin_id = ANY($2) AND deleted = false`, publicKey, pids)
 		}
 	}
 
@@ -121,7 +133,7 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 		COUNT(*) OVER() AS total_count
 		FROM plugin_policies
 		WHERE public_key = $1
-		AND plugin_id = $2`
+		AND plugin_id = $2 AND deleted = false`
 
 	if !includeInactive {
 		query += ` AND active = true`

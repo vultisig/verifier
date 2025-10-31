@@ -85,6 +85,7 @@ func main() {
 		client,
 		vaultStorage,
 		txIndexerService,
+		backendDB,
 	)
 
 	mux := asynq.NewServeMux()

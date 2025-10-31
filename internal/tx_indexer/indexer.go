@@ -73,11 +73,7 @@ func (fi *FeeIndexer) updateTxStatus(ctx context.Context, tx storage.Tx) error {
 		return fmt.Errorf("w.UpdateTxStatus: %w", err)
 	}
 
-	if newStatus == nil {
-		return fmt.Errorf("new status is nil")
-	}
-
-	if tx.PluginID != types.PluginVultisigFees_feee && *newStatus == rpc.TxOnChainSuccess {
+	if tx.PluginID != types.PluginVultisigFees_feee && newStatus != nil && *newStatus == rpc.TxOnChainSuccess {
 		err = fi.db.WithTransaction(ctx, func(ctx context.Context, dbTx pgx.Tx) error {
 			var err error
 

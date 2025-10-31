@@ -386,7 +386,7 @@ func (s *Server) GetReviews(c echo.Context) error {
 	return c.JSON(http.StatusOK, reviews)
 }
 
-func (s *Server) GetAvgRatingByPluginID(c echo.Context) error {
+func (s *Server) GetPluginAvgRating(c echo.Context) error {
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("pluginId is required"))

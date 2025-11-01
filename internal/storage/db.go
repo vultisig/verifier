@@ -46,11 +46,11 @@ type PolicyRepository interface {
 }
 
 type FeeRepository interface {
+	GetFeeById(ctx context.Context, id uint64) (*types.Fee, error)
+	GetFeesByPublicKey(ctx context.Context, publicKey string) ([]*types.Fee, error)
 	//GetAllFeesByPolicyId(ctx context.Context, policyId uuid.UUID) ([]types.Fee, error)
-	//GetFeesByPublicKey(ctx context.Context, publicKey string, since *time.Time) ([]types.Fee, error)
 	//GetAllFeesByPublicKey(ctx context.Context, includeCollected bool) ([]types.Fee, error)
 	InsertFee(ctx context.Context, dbTx pgx.Tx, fee *types.Fee) error
-	//MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txid string) ([]types.Fee, error)
 }
 
 type PluginPolicySyncRepository interface {

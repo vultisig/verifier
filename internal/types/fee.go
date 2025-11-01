@@ -2,6 +2,12 @@ package types
 
 import "github.com/google/uuid"
 
+type CreditMetadata struct {
+	DebitFeeID      uint64 `json:"debit_fee_id"`     // ID of the debit transaction
+	TransactionHash string `json:"transaction_hash"` // Transaction hash in blockchain
+	Network         string `json:"network"`          // Blockchain network (e.g., "ethereum", "polygon")
+}
+
 type FeeDto struct {
 	ID          uuid.UUID `json:"id" validate:"required"`
 	Amount      uint64    `json:"amount" validate:"required"`
@@ -14,8 +20,7 @@ type FeeDto struct {
 }
 
 type FeeHistoryDto struct {
-	PublicKey             string   `json:"public_key" validate:"required"`
-	Fees                  []FeeDto `json:"fees" validate:"required"`
-	TotalFeesIncurred     uint64   `json:"total_fees_incurred" validate:"required"`     // Total fees incurred in the smallest unit, e.g., "1000000" for 0.01 VULTI
-	FeesPendingCollection uint64   `json:"fees_pending_collection" validate:"required"` // Total fees pending collection in the smallest unit, e.g., "1000000" for 0.01 VULTI
+	PublicKey         string   `json:"public_key" validate:"required"`
+	Fees              []FeeDto `json:"fees" validate:"required"`
+	TotalFeesIncurred uint64   `json:"total_fees_incurred" validate:"required"` // Total fees incurred in the smallest unit, e.g., "1000000" for 0.01 VULTI
 }

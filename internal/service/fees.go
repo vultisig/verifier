@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strings"
@@ -13,10 +14,10 @@ import (
 	abi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	reth "github.com/vultisig/recipes/ethereum"
+	"github.com/vultisig/vultisig-go/common"
 
 	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
 	resolver "github.com/vultisig/recipes/resolver"
@@ -31,7 +32,7 @@ import (
 
 type Fees interface {
 	PublicKeyGetFeeInfo(ctx context.Context, publicKey string, since *time.Time) (*itypes.FeeHistoryDto, error)
-	MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txHash string) ([]itypes.FeeDto, error)
+	MarkFeesCollected(ctx context.Context, id uint64, txHash, network string, amount uint64) error
 }
 
 var _ Fees = (*FeeService)(nil)
@@ -60,8 +61,44 @@ func (s *FeeService) PublicKeyGetFeeInfo(ctx context.Context, publicKey string, 
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (s *FeeService) MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txHash string) ([]itypes.FeeDto, error) {
-	return nil, fmt.Errorf("not implemented")
+func (s *FeeService) MarkFeesCollected(ctx context.Context, id uint64, txHash, network string, amount uint64) error {
+	chain, err := common.FromString(network)
+	if err != nil {
+		return err
+	}
+
+	metadata := ptypes.CreditMetadata{
+		DebitFeeID: id,
+		TxHash:     txHash,
+		Network:    chain.String(),
+	}
+
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return fmt.Errorf("failed marshaling metadata: %w", err)
+	}
+
+	feeInfo, err := s.db.GetFeeById(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed fetching fee: %w", err)
+	}
+
+	creditFee := &ptypes.Fee{
+		PolicyID:       feeInfo.PolicyID,
+		PublicKey:      feeInfo.PublicKey,
+		TxType:         ptypes.TxTypeCredit,
+		Amount:         amount,
+		CreatedAt:      time.Now(),
+		FeeType:        "blockchain_fee",
+		Metadata:       metadataJSON,
+		UnderlyingType: "refund",
+		UnderlyingID:   txHash,
+	}
+	err = s.db.InsertFee(ctx, nil, creditFee)
+	if err != nil {
+		return fmt.Errorf("failed inserting fee: %w", err)
+	}
+	return nil
 }
 
 type unsignedDynamicFeeTx struct {
@@ -189,21 +226,6 @@ func (s *FeeService) ValidateFees(ctx context.Context, req *ptypes.PluginKeysign
 	// Check valid usdc address
 	if strings.TrimPrefix(strings.ToLower(s.feeConfig.USDCAddress), "0x") != strings.TrimPrefix(strings.ToLower(contractAddress), "0x") {
 		return fmt.Errorf("transaction must be sent to the configured usdc contract address")
-	}
-
-	feeInfo, err := s.PublicKeyGetFeeInfo(ctx, req.PublicKey, nil)
-	if err != nil {
-		return fmt.Errorf("internal error")
-	}
-
-	fpc := big.NewInt(0).SetUint64(feeInfo.FeesPendingCollection)
-	amount, ok := args["value"].(*big.Int)
-	if !ok {
-		return fmt.Errorf("invalid amount")
-	}
-
-	if fpc.Cmp(amount) != 0 {
-		return fmt.Errorf("fee amount incorrect")
 	}
 
 	return nil

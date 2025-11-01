@@ -394,8 +394,8 @@ func (s *Server) GetPluginAvgRating(c echo.Context) error {
 
 	avgRating, err := s.db.FindAvgRatingByPluginID(c.Request().Context(), pluginID)
 	if err != nil {
-		s.logger.WithError(err).Error("Failed to get reviews")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get reviews"))
+		s.logger.WithError(err).Error("Failed to get average rating")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get average rating"))
 	}
 
 	return c.JSON(http.StatusOK, avgRating)

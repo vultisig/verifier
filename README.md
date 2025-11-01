@@ -35,7 +35,7 @@ make seed-db
 To debug Docker containers in GoLand with breakpoints, [refer to this article](https://www.jetbrains.com/help/go/attach-to-running-go-processes-with-debugger.html).
 
 For convenient usage of debug breakpoints in GoLand, you can start only infra/db with Docker, and backend services outside Docker. Configs shared in `.run` directory, all envs already configured correctly. It will run:
-- Verifier Server (don't forget to set `http://localhost:8080` instead of `http://payroll-server:8080` in `plugins` table);
+- Verifier Server (don't forget to set `http://localhost:8081` instead of `http://payroll-server:8080` in `plugins` table);
 - Verifier Worker;
 - Tx Indexer Worker;
 - Plugins Frontend;

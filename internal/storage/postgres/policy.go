@@ -128,6 +128,8 @@ func (p *PostgresBackend) GetPluginInstallationsCount(ctx context.Context, plugi
 		return itypes.PluginTotalCount{}, fmt.Errorf("database pool is nil")
 	}
 
+	// Note: This query intentionally includes all installations (both active and deleted)
+	// to provide a historical count of total downloads, even if users later uninstalled.
 	query := `
 	SELECT COUNT(DISTINCT public_key) AS total_count
 	FROM plugin_policies

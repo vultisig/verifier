@@ -136,10 +136,6 @@ func (p *PostgresBackend) GetPluginInstallationsCount(ctx context.Context, plugi
 	var totalCount int
 	err := p.pool.QueryRow(ctx, query, pluginID).Scan(&totalCount)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			// No installations yet, return empty type.
-			return itypes.PluginTotalCount{}, nil
-		}
 		return itypes.PluginTotalCount{}, err
 	}
 

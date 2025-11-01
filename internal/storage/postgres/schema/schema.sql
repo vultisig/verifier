@@ -96,20 +96,6 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION "prevent_tx_indexer_update_if_policy_deleted"() RETURNS "trigger"
-    LANGUAGE "plpgsql"
-    AS $$
-DECLARE
-    is_deleted boolean;
-BEGIN
-    SELECT deleted INTO is_deleted FROM plugin_policies WHERE id = COALESCE(NEW.policy_id, OLD.policy_id);
-    IF is_deleted THEN
-        RAISE EXCEPTION 'Cannot modify tx_indexer for a deleted policy';
-    END IF;
-    RETURN NEW;
-END;
-$$;
-
 CREATE FUNCTION "prevent_update_if_policy_deleted"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -427,8 +413,6 @@ CREATE UNIQUE INDEX "unique_fees_policy_per_public_key" ON "plugin_policies" USI
 CREATE TRIGGER "trg_prevent_billing_update_if_policy_deleted" BEFORE INSERT OR DELETE OR UPDATE ON "plugin_policy_billing" FOR EACH ROW EXECUTE FUNCTION "public"."prevent_billing_update_if_policy_deleted"();
 
 CREATE TRIGGER "trg_prevent_insert_if_policy_deleted" BEFORE INSERT ON "plugin_policies" FOR EACH ROW EXECUTE FUNCTION "public"."prevent_insert_if_policy_deleted"();
-
-CREATE TRIGGER "trg_prevent_tx_indexer_update_if_policy_deleted" BEFORE INSERT OR DELETE OR UPDATE ON "tx_indexer" FOR EACH ROW EXECUTE FUNCTION "public"."prevent_tx_indexer_update_if_policy_deleted"();
 
 CREATE TRIGGER "trg_prevent_update_if_policy_deleted" BEFORE UPDATE ON "plugin_policies" FOR EACH ROW WHEN (("old"."deleted" = true)) EXECUTE FUNCTION "public"."prevent_update_if_policy_deleted"();
 

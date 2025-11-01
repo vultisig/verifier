@@ -123,6 +123,31 @@ WHERE public_key = $1 AND plugin_id = ANY($2) AND deleted = false`, publicKey, p
 	return policies, nil
 }
 
+func (p *PostgresBackend) GetPluginInstallationsCount(ctx context.Context, pluginID types.PluginID) (itypes.PluginTotalCount, error) {
+	if p.pool == nil {
+		return itypes.PluginTotalCount{}, fmt.Errorf("database pool is nil")
+	}
+
+	// Note: This query intentionally includes all installations (both active and deleted)
+	// to provide a historical count of total downloads, even if users later uninstalled.
+	query := `
+	SELECT COUNT(DISTINCT public_key) AS total_count
+	FROM plugin_policies
+	WHERE plugin_id = $1`
+
+	var totalCount int
+	err := p.pool.QueryRow(ctx, query, pluginID).Scan(&totalCount)
+	if err != nil {
+		return itypes.PluginTotalCount{}, err
+	}
+
+	resp := itypes.PluginTotalCount{
+		ID:         pluginID,
+		TotalCount: totalCount,
+	}
+	return resp, nil
+}
+
 func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int, includeInactive bool) (*itypes.PluginPolicyPaginatedList, error) {
 	if p.pool == nil {
 		return nil, fmt.Errorf("database pool is nil")

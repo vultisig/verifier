@@ -319,3 +319,18 @@ func (s *Server) GetAllPluginPolicies(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, policies)
 }
+
+func (s *Server) GetPluginInstallationsCountByID(c echo.Context) error {
+	pluginID := c.Param("pluginId")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("pluginId is required"))
+	}
+
+	count, err := s.policyService.GetPluginInstallationsCount(c.Request().Context(), vtypes.PluginID(pluginID))
+	if err != nil {
+		s.logger.WithError(err).Errorf("Failed to get installation count for pluginId: %s", pluginID)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get plugin installation count"))
+	}
+
+	return c.JSON(http.StatusOK, count)
+}

@@ -37,6 +37,29 @@ func (p *PostgresBackend) FindRatingByPluginId(ctx context.Context, dbTx pgx.Tx,
 	return ratings, nil
 }
 
+func (p *PostgresBackend) FindAvgRatingByPluginID(ctx context.Context, pluginID string) (types.PluginAvgRatingDto, error) {
+	query := fmt.Sprintf(`
+	SELECT avg_rating
+    FROM %s
+    WHERE plugin_id = $1`, PLUGIN_RATING_TABLE)
+
+	var avgRating float64
+	err := p.pool.QueryRow(ctx, query, pluginID).Scan(&avgRating)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			// No ratings yet, return empty type.
+			return types.PluginAvgRatingDto{}, nil
+		}
+		return types.PluginAvgRatingDto{}, err
+	}
+
+	resp := types.PluginAvgRatingDto{
+		PluginID:  pluginID,
+		AvgRating: avgRating,
+	}
+	return resp, nil
+}
+
 func (p *PostgresBackend) CreateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string) error {
 	ratingQuery := fmt.Sprintf(`INSERT INTO %s (plugin_id, avg_rating, total_ratings, rating_1_count, rating_2_count, rating_3_count, rating_4_count, rating_5_count)
 	      VALUES ($1, 0, 0, 0, 0, 0, 0, 0)`, PLUGIN_RATING_TABLE)

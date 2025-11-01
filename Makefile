@@ -1,7 +1,8 @@
 # adjust to point to your local go-wrappers repo
+# https://github.com/vultisig/go-wrappers.git
 DYLD_LIBRARY=../go-wrappers/includes/darwin/:$LD_LIBRARY_PATH
 
-.PHONY: up up-dev down down-dev build build-dev seed-db run-frontend run-server run-worker dump-schema
+.PHONY: up up-dev down down-dev build build-dev seed-db run-server run-worker dump-schema
 
 up:
 	@docker compose up -d --remove-orphans;
@@ -27,7 +28,6 @@ seed-db:
 # Run the verifier server
 run-server:
 	@DYLD_LIBRARY_PATH=$(DYLD_LIBRARY) VS_CONFIG_NAME=config go run cmd/verifier/main.go
-
 
 # Run the worker process
 run-worker:

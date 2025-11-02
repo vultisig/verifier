@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -29,6 +30,7 @@ type Plugin interface {
 		pluginID string,
 		configuration map[string]any,
 	) (*rtypes.PolicySuggest, error)
+	GetPluginRecipeFunctions(ctx context.Context, pluginID string) (types.RecipeFunctions, error)
 }
 
 type PluginServiceStorage interface {
@@ -202,14 +204,19 @@ func (s *PluginService) GetPluginRecipeSpecification(ctx context.Context, plugin
 		return nil, fmt.Errorf("failed to fetch recipe specification from plugin: %w", err)
 	}
 
-	// Cache the result for 2 hours
+	// Cache for 2 hours
 	if s.redis != nil {
-		specBytes, _ := json.Marshal(recipeSpec)
-		_ = s.redis.Set(ctx, cacheKey, string(specBytes), 2*time.Hour)
-		if err := s.redis.Set(ctx, cacheKey, string(specBytes), 2*time.Hour); err != nil {
-			s.logger.WithError(err).Warnf("Failed to cache recipe spec for plugin %s", pluginID)
+		specBytes, err := json.Marshal(recipeSpec)
+		if err != nil {
+			s.logger.WithError(err).Warn("Failed to serialize recipe spec for caching")
+			return recipeSpec, nil
 		}
-		s.logger.Debugf("[GetPluginRecipeSpecification] Cached recipe spec for plugin %s\n", pluginID)
+		err = s.redis.Set(ctx, cacheKey, string(specBytes), 2*time.Hour)
+		if err != nil {
+			s.logger.WithError(err).Warnf("Failed to cache recipe spec for plugin %s", pluginID)
+			return recipeSpec, nil
+		}
+		s.logger.Debugf("[GetPluginRecipeSpecification] Cached recipe spec for plugin %s", pluginID)
 	}
 
 	return recipeSpec, nil
@@ -251,6 +258,63 @@ func (s *PluginService) GetPluginRecipeSpecificationSuggest(
 		return nil, fmt.Errorf("failed to unmarshal recipe spec: %w", err)
 	}
 	return &policySuggest, nil
+}
+
+// GetPluginRecipeFunctions fetches recipe functions from plugin server with caching
+func (s *PluginService) GetPluginRecipeFunctions(ctx context.Context, pluginID string) (types.RecipeFunctions, error) {
+	// Check cache first
+	cacheKey := fmt.Sprintf("recipe_functions:%s", pluginID)
+
+	if s.redis != nil {
+		cached, err := s.redis.Get(ctx, cacheKey)
+		if err == nil && cached != "" {
+			cachedSpec := types.RecipeFunctions{}
+			if err := json.Unmarshal([]byte(cached), &cachedSpec); err == nil {
+				s.logger.Debugf("[GetPluginRecipeFunctions] Cache hit for plugin %s\n", pluginID)
+				return cachedSpec, nil
+			}
+		}
+	}
+
+	// Get plugin from database to get server endpoint
+	recipeSpec, err := s.GetPluginRecipeSpecification(ctx, pluginID)
+	if err != nil {
+		return types.RecipeFunctions{}, fmt.Errorf("failed to find plugin: %w", err)
+	}
+
+	uniqueFunctions := make(map[string]struct{})
+	for _, resource := range recipeSpec.SupportedResources {
+		f := resource.ResourcePath.FunctionId
+		if f != "" {
+			uniqueFunctions[f] = struct{}{}
+		}
+	}
+	funcs := make([]string, 0, len(uniqueFunctions))
+	for f := range uniqueFunctions {
+		funcs = append(funcs, f)
+	}
+	sort.Strings(funcs)
+
+	recipeFuncs := types.RecipeFunctions{
+		ID:        pluginID,
+		Functions: funcs,
+	}
+	// Cache for 2 hours
+	if s.redis != nil {
+		bytes, err := json.Marshal(recipeFuncs)
+		if err != nil {
+			s.logger.WithError(err).Warn("Failed to serialize recipe spec for caching")
+			return recipeFuncs, nil
+		}
+		err = s.redis.Set(ctx, cacheKey, string(bytes), 2*time.Hour)
+		if err != nil {
+			s.logger.WithError(err).Warnf("Failed to cache recipe spec for plugin %s", pluginID)
+			return recipeFuncs, nil
+		}
+		s.logger.Debugf("[GetPluginRecipeFunctions] Cached recipe spec for plugin %s", pluginID)
+	}
+
+	return recipeFuncs, nil
 }
 
 // Helper method to call plugin server

@@ -65,3 +65,8 @@ type PluginTotalCount struct {
 	ID         types.PluginID `json:"id" validate:"required"`
 	TotalCount int            `json:"total_count" validate:"required"`
 }
+
+type RecipeFunctions struct {
+	ID        string   `json:"id"`
+	Functions []string `json:"functions"`
+}

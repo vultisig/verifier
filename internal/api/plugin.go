@@ -456,3 +456,17 @@ func (s *Server) GetPluginRecipeSpecificationSuggest(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, res)
 }
+
+func (s *Server) GetPluginRecipeFunctions(c echo.Context) error {
+	pluginID := c.Param("pluginId")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("pluginId is required"))
+	}
+	recipeFuncs, err := s.pluginService.GetPluginRecipeFunctions(c.Request().Context(), pluginID)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to get plugin recipe functions")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get recipe functions"))
+	}
+
+	return c.JSON(http.StatusOK, recipeFuncs)
+}

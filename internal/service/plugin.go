@@ -279,7 +279,7 @@ func (s *PluginService) GetPluginRecipeFunctions(ctx context.Context, pluginID s
 	// Get plugin from database to get server endpoint
 	recipeSpec, err := s.GetPluginRecipeSpecification(ctx, pluginID)
 	if err != nil {
-		return types.RecipeFunctions{}, fmt.Errorf("failed to find plugin: %w", err)
+		return types.RecipeFunctions{}, fmt.Errorf("failed to get recipe specification: %w", err)
 	}
 
 	uniqueFunctions := make(map[string]struct{})

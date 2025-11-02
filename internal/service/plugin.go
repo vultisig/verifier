@@ -303,15 +303,15 @@ func (s *PluginService) GetPluginRecipeFunctions(ctx context.Context, pluginID s
 	if s.redis != nil {
 		bytes, err := json.Marshal(recipeFuncs)
 		if err != nil {
-			s.logger.WithError(err).Warn("Failed to serialize recipe spec for caching")
+			s.logger.WithError(err).Warn("Failed to serialize recipe functions for caching")
 			return recipeFuncs, nil
 		}
 		err = s.redis.Set(ctx, cacheKey, string(bytes), 2*time.Hour)
 		if err != nil {
-			s.logger.WithError(err).Warnf("Failed to cache recipe spec for plugin %s", pluginID)
+			s.logger.WithError(err).Warnf("Failed to cache recipe functions for plugin %s", pluginID)
 			return recipeFuncs, nil
 		}
-		s.logger.Debugf("[GetPluginRecipeFunctions] Cached recipe spec for plugin %s", pluginID)
+		s.logger.Debugf("[GetPluginRecipeFunctions] Cached recipe functions for plugin %s", pluginID)
 	}
 
 	return recipeFuncs, nil

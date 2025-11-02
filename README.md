@@ -62,6 +62,7 @@ To switch branch or update it: rebuild code and click `Reload` button near Vulti
 You can configure the verifier and worker by modifying the following files:
 - `verifier.example.json`
 - `worker.example.json`
+- `tx_indexer.example`
 
 These files define settings for:
 - Server (port, host)
@@ -70,7 +71,7 @@ These files define settings for:
 - Storage options (S3 or local)
 - TSS parameters
 
-Both files are used as the default `config.json` in the production and development Docker configurations.
+Each service uses its corresponding example file as the default config.json in both production and development Docker configurations..
 
 ## API Endpoints
 

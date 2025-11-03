@@ -26,12 +26,12 @@ import (
 	ecommon "github.com/ethereum/go-ethereum/common"
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/storage"
-	itypes "github.com/vultisig/verifier/internal/types"
 	ptypes "github.com/vultisig/verifier/types"
 )
 
 type Fees interface {
-	PublicKeyGetFeeInfo(ctx context.Context, publicKey string, since *time.Time) (*itypes.FeeHistoryDto, error)
+	PublicKeyGetFeeInfo(ctx context.Context, publicKey string) ([]*ptypes.Fee, error)
+	ValidateFees(ctx context.Context, req *ptypes.PluginKeysignRequest) error
 	MarkFeesCollected(ctx context.Context, id uint64, txHash, network string, amount uint64) error
 }
 
@@ -57,8 +57,8 @@ func NewFeeService(db storage.DatabaseStorage,
 	}, nil
 }
 
-func (s *FeeService) PublicKeyGetFeeInfo(ctx context.Context, publicKey string, since *time.Time) (*itypes.FeeHistoryDto, error) {
-	return nil, fmt.Errorf("not implemented")
+func (s *FeeService) PublicKeyGetFeeInfo(ctx context.Context, publicKey string) ([]*ptypes.Fee, error) {
+	return s.db.GetFeesByPublicKey(ctx, publicKey)
 }
 
 func (s *FeeService) MarkFeesCollected(ctx context.Context, id uint64, txHash, network string, amount uint64) error {

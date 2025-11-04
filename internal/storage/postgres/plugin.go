@@ -18,6 +18,7 @@ import (
 const PLUGINS_TABLE = "plugins"
 const PLUGIN_TAGS_TABLE = "plugin_tags"
 const REVIEWS_TABLE = "reviews"
+const PLUGINS_INSTALLATIONS_TABLE = "plugins_installations"
 
 // This is needed as the plugins table is left joined with the pricings table, and when a plugin is free (i.e zero related pricing records) it tries to scan null into a non nullable struct
 type nullablePricing struct {
@@ -461,4 +462,48 @@ func (p *PostgresBackend) CreateReview(ctx context.Context, dbTx pgx.Tx, reviewD
 	}
 
 	return createdId, nil
+}
+
+func (p *PostgresBackend) InsertPluginInstallation(ctx context.Context, pluginID types.PluginID, publicKey string) error {
+	if p.pool == nil {
+		return fmt.Errorf("database pool is nil")
+	}
+
+	query := fmt.Sprintf(`
+        INSERT INTO %s (plugin_id, public_key)
+        VALUES ($1, $2)
+        ON CONFLICT (plugin_id, public_key) DO NOTHING`, PLUGINS_INSTALLATIONS_TABLE)
+
+	_, err := p.pool.Exec(ctx, query, pluginID, publicKey)
+	if err != nil {
+		return fmt.Errorf("failed to create plugin installation entry: %w", err)
+	}
+
+	return nil
+}
+
+func (p *PostgresBackend) GetPluginInstallationsCount(ctx context.Context, pluginID types.PluginID) (itypes.PluginTotalCount, error) {
+	if p.pool == nil {
+		return itypes.PluginTotalCount{}, fmt.Errorf("database pool is nil")
+	}
+
+	// Note: This count represents total historical installations for a plugin.
+	// Rows are never removed and duplicate installs are prevented by ON CONFLICT,
+	// ensuring this reflects accurate unique installation count over time.
+	query := fmt.Sprintf(`
+	SELECT COUNT(*) AS total_count
+	FROM %s
+	WHERE plugin_id = $1`, PLUGINS_INSTALLATIONS_TABLE)
+
+	var totalCount int
+	err := p.pool.QueryRow(ctx, query, pluginID).Scan(&totalCount)
+	if err != nil {
+		return itypes.PluginTotalCount{}, err
+	}
+
+	resp := itypes.PluginTotalCount{
+		ID:         pluginID,
+		TotalCount: totalCount,
+	}
+	return resp, nil
 }

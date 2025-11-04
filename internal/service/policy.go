@@ -72,7 +72,7 @@ func (s *PolicyService) validateBillingInformation(ctx context.Context, policy t
 	//If there is an error, then rollback the tx at the end
 	defer func() {
 		if err != nil {
-			s.handleRollback(tx, ctx)
+			s.handleRollback(tx)
 		}
 	}()
 
@@ -126,7 +126,7 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer s.handleRollback(tx, ctx)
+	defer s.handleRollback(tx)
 
 	// Populate billing information
 	if err := policy.ParseBillingFromRecipe(); err != nil {
@@ -195,7 +195,7 @@ func (s *PolicyService) UpdatePolicy(ctx context.Context, policy types.PluginPol
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer s.handleRollback(tx, ctx)
+	defer s.handleRollback(tx)
 
 	// Update policy with tx
 	updatedPolicy, err := s.db.UpdatePluginPolicyTx(ctx, tx, policy)
@@ -228,8 +228,8 @@ func (s *PolicyService) UpdatePolicy(ctx context.Context, policy types.PluginPol
 	return updatedPolicy, nil
 }
 
-func (s *PolicyService) handleRollback(tx pgx.Tx, ctx context.Context) {
-	if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+func (s *PolicyService) handleRollback(tx pgx.Tx) {
+	if err := tx.Rollback(context.Background()); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 		s.logger.WithError(err).Error("failed to rollback transaction")
 	}
 }
@@ -239,7 +239,7 @@ func (s *PolicyService) DeletePolicy(ctx context.Context, policyID uuid.UUID, pl
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer s.handleRollback(tx, ctx)
+	defer s.handleRollback(tx)
 
 	// Check if policy exists
 	policy, err := s.db.GetPluginPolicy(ctx, policyID)
@@ -286,7 +286,7 @@ func (s *PolicyService) DeleteAllPolicies(ctx context.Context, pluginID types.Pl
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer s.handleRollback(tx, ctx)
+	defer s.handleRollback(tx)
 
 	err = s.db.DeleteAllPolicies(ctx, tx, pluginID, publicKey)
 	if err != nil {

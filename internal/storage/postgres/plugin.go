@@ -464,17 +464,17 @@ func (p *PostgresBackend) CreateReview(ctx context.Context, dbTx pgx.Tx, reviewD
 	return createdId, nil
 }
 
-func (p *PostgresBackend) InsertPluginInstallation(ctx context.Context, pluginID types.PluginID, publicKey string) error {
-	if p.pool == nil {
-		return fmt.Errorf("database pool is nil")
-	}
-
+func (p *PostgresBackend) InsertPluginInstallation(ctx context.Context, dbTx pgx.Tx, pluginID types.PluginID, publicKey string) error {
 	query := fmt.Sprintf(`
         INSERT INTO %s (plugin_id, public_key)
         VALUES ($1, $2)
         ON CONFLICT (plugin_id, public_key) DO NOTHING`, PLUGINS_INSTALLATIONS_TABLE)
 
-	_, err := p.pool.Exec(ctx, query, pluginID, publicKey)
+	execFn := p.pool.Exec
+	if dbTx != nil {
+		execFn = dbTx.Exec
+	}
+	_, err := execFn(ctx, query, pluginID, publicKey)
 	if err != nil {
 		return fmt.Errorf("failed to create plugin installation entry: %w", err)
 	}

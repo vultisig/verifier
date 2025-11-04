@@ -3,7 +3,6 @@ package api
 import (
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/vultisig/verifier/types"
@@ -29,11 +28,10 @@ func (s *Server) GetPublicKeyFees(c echo.Context) error {
 
 func (s *Server) MarkCollected(c echo.Context) error {
 	var req struct {
-		ID          uint64    `json:"id"`
-		TxHash      string    `json:"tx_hash"`
-		Network     string    `json:"network"`
-		Amount      uint64    `json:"amount"`
-		CollectedAt time.Time `json:"collected_at"`
+		ID      uint64 `json:"id"`
+		TxHash  string `json:"tx_hash"`
+		Network string `json:"network"`
+		Amount  uint64 `json:"amount"`
 	}
 	if err := c.Bind(&req); err != nil {
 		s.logger.WithError(err).Error("Failed to parse request body for MarkCollected")

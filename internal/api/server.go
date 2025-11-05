@@ -47,7 +47,7 @@ type Server struct {
 	inspector        *asynq.Inspector
 	policyService    service.Policy
 	pluginService    service.Plugin
-	feeService       *service.FeeService
+	feeService       service.Fees
 	authService      *service.AuthService
 	txIndexerService *tx_indexer.Service
 	logger           *logrus.Logger

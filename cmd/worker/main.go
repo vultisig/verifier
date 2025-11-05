@@ -6,6 +6,7 @@ import (
 
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
+	"github.com/vultisig/verifier/internal/fee_manager"
 
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/service"
@@ -85,14 +86,18 @@ func main() {
 		client,
 		vaultStorage,
 		txIndexerService,
+	)
+
+	feeMgmService := fee_manager.NewFeeManagementService(
+		logger,
 		backendDB,
+		vaultMgmService,
 	)
 
 	mux := asynq.NewServeMux()
-	// mux.HandleFunc(tasks.TypePluginTransaction, workerService.HandlePluginTransaction)
 	mux.HandleFunc(tasks.TypeKeyGenerationDKLS, vaultMgmService.HandleKeyGenerationDKLS)
 	mux.HandleFunc(tasks.TypeKeySignDKLS, vaultMgmService.HandleKeySignDKLS)
-	mux.HandleFunc(tasks.TypeReshareDKLS, vaultMgmService.HandleReshareDKLS)
+	mux.HandleFunc(tasks.TypeReshareDKLS, feeMgmService.HandleReshareDKLS)
 	mux.HandleFunc(tasks.TypeRecurringFeeRecord, policyService.HandleScheduledFees)
 
 	if err := srv.Run(mux); err != nil {

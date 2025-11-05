@@ -48,14 +48,6 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		return fmt.Errorf("policy plugin ID mismatch")
 	}
 
-	// Handle fee specific validations
-	if policy.PluginID == ptypes.PluginVultisigFees_feee {
-		if err := s.feeService.ValidateFees(c.Request().Context(), &req); err != nil {
-			s.logger.WithError(err).Error("invalid fee keysign request")
-			return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid fee keysign request"))
-		}
-	}
-
 	recipe, err := policy.GetRecipe()
 	if err != nil {
 		return fmt.Errorf("failed to unpack recipe: %w", err)

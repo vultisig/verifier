@@ -12,7 +12,6 @@ import (
 	"github.com/vultisig/verifier/internal/storage"
 	vtypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/verifier/vault"
-	"github.com/vultisig/vultisig-go/types"
 )
 
 type FeeManagementService struct {
@@ -38,10 +37,10 @@ func (s *FeeManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.T
 		return err
 	}
 
-	var req types.ReshareRequest
+	var req vtypes.ReshareRequest
 	if err := json.Unmarshal(t.Payload(), &req); err != nil {
 		s.logger.WithError(err).Error("json.Unmarshal failed")
-		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
+		return fmt.Errorf("s.RegisterInstallationFee failed: %w", err)
 	}
 
 	if err := s.RegisterInstallationFee(ctx, vtypes.PluginID(req.PluginID), req.PublicKey); err != nil {
@@ -66,6 +65,7 @@ func (s *FeeManagementService) RegisterInstallationFee(ctx context.Context, plug
 		for _, pricing := range pluginInfo.Pricing {
 			if pricing.Type == vtypes.PricingTypeOnce {
 				installationFee = pricing.Amount
+				break
 			}
 		}
 		if installationFee == 0 {

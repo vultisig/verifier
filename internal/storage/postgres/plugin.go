@@ -465,6 +465,10 @@ func (p *PostgresBackend) CreateReview(ctx context.Context, dbTx pgx.Tx, reviewD
 }
 
 func (p *PostgresBackend) InsertPluginInstallation(ctx context.Context, dbTx pgx.Tx, pluginID types.PluginID, publicKey string) error {
+	if p.pool == nil {
+		return fmt.Errorf("database pool is nil")
+	}
+
 	query := fmt.Sprintf(`
         INSERT INTO %s (plugin_id, public_key)
         VALUES ($1, $2)

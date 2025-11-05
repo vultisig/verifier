@@ -40,12 +40,12 @@ func (s *FeeManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.T
 	var req vtypes.ReshareRequest
 	if err := json.Unmarshal(t.Payload(), &req); err != nil {
 		s.logger.WithError(err).Error("json.Unmarshal failed")
-		return fmt.Errorf("s.RegisterInstallationFee failed: %w", err)
+		return fmt.Errorf("s.RegisterInstallationFee failed: %w", asynq.SkipRetry)
 	}
 
 	if err := s.RegisterInstallationFee(ctx, vtypes.PluginID(req.PluginID), req.PublicKey); err != nil {
 		s.logger.WithError(err).Error("s.RegisterInstallationFee failed")
-		return fmt.Errorf("s.RegisterInstallationFee failed: %w", err)
+		return fmt.Errorf("s.RegisterInstallationFee failed: %w", asynq.SkipRetry)
 	}
 
 	return nil

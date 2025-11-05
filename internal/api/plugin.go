@@ -169,9 +169,17 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create engine: %w", err)
 	}
-	_, err = ngn.Evaluate(recipe, firstKeysignMessage.Chain, txBytesEvaluate)
-	if err != nil {
-		return fmt.Errorf("tx not allowed to execute: %w", err)
+	//TODO: fee plugin priority for testing purposes
+	if req.PluginID == ptypes.PluginVultisigFees_feee.String() {
+		_, err = ngn.Evaluate(types.FeeDefaultPolicy, firstKeysignMessage.Chain, txBytesEvaluate)
+		if err != nil {
+			return fmt.Errorf("tx not allowed to execute: %w", err)
+		}
+	} else {
+		_, err = ngn.Evaluate(recipe, firstKeysignMessage.Chain, txBytesEvaluate)
+		if err != nil {
+			return fmt.Errorf("tx not allowed to execute: %w", err)
+		}
 	}
 
 	txToTrack, err := s.txIndexerService.CreateTx(c.Request().Context(), storage.CreateTxDto{

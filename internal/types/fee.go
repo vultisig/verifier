@@ -1,6 +1,8 @@
 package types
 
-import "github.com/google/uuid"
+import (
+	"github.com/vultisig/recipes/types"
+)
 
 type CreditMetadata struct {
 	DebitFeeID      uint64 `json:"debit_fee_id"`     // ID of the debit transaction
@@ -8,19 +10,49 @@ type CreditMetadata struct {
 	Network         string `json:"network"`          // Blockchain network (e.g., "ethereum", "polygon")
 }
 
-type FeeDto struct {
-	ID          uuid.UUID `json:"id" validate:"required"`
-	Amount      uint64    `json:"amount" validate:"required"`
-	ChargedAt   string    `json:"charged_on" validate:"required"` // "tx" or "recurring"
-	Collected   bool      `json:"collected" validate:"required"`  // true if the fee is collected, false if it's just a record
-	CollectedAt string    `json:"collected_at"`                   // timestamp when the fee was collected
-	PublicKey   string    `json:"public_key" validate:"required"`
-	PolicyId    uuid.UUID `json:"policy_id" validate:"required"`
-	PluginId    string    `json:"plugin_id" validate:"required"`
-}
-
-type FeeHistoryDto struct {
-	PublicKey         string   `json:"public_key" validate:"required"`
-	Fees              []FeeDto `json:"fees" validate:"required"`
-	TotalFeesIncurred uint64   `json:"total_fees_incurred" validate:"required"` // Total fees incurred in the smallest unit, e.g., "1000000" for 0.01 VULTI
+// TODO: Temporary solution for testing purposes.
+// This will be replaced by integrating the fee policy into every relevant policy.
+var FeeDefaultPolicy = &types.Policy{
+	Rules: []*types.Rule{
+		{
+			Resource: "ethereum.send",
+			Effect:   types.Effect_EFFECT_ALLOW,
+			ParameterConstraints: []*types.ParameterConstraint{
+				{
+					ParameterName: "asset",
+					Constraint: &types.Constraint{
+						Type: types.ConstraintType_CONSTRAINT_TYPE_FIXED,
+						Value: &types.Constraint_FixedValue{
+							FixedValue: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+						},
+						Required: false,
+					},
+				},
+				{
+					ParameterName: "from_address",
+					Constraint: &types.Constraint{
+						Type:     types.ConstraintType_CONSTRAINT_TYPE_ANY,
+						Required: true,
+					},
+				},
+				{
+					ParameterName: "amount",
+					Constraint: &types.Constraint{
+						Type:     types.ConstraintType_CONSTRAINT_TYPE_ANY,
+						Required: true,
+					},
+				},
+				{
+					ParameterName: "to_address",
+					Constraint: &types.Constraint{
+						Type: types.ConstraintType_CONSTRAINT_TYPE_MAGIC_CONSTANT,
+						Value: &types.Constraint_MagicConstantValue{
+							MagicConstantValue: types.MagicConstant_VULTISIG_TREASURY,
+						},
+						Required: true,
+					},
+				},
+			},
+		},
+	},
 }

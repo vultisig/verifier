@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/eager7/dogd/btcec"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-playground/validator/v10"
@@ -221,7 +222,7 @@ func (s *Server) handleDeleteVault(c echo.Context) error {
 	}
 
 	fileName := vcommon.GetVaultBackupFilename(publicKeyECDSA, pluginId)
-	if err := s.vaultStorage.DeleteFile(fileName); err != nil {
+	if err := s.vaultStorage.DeleteFile(fileName); err != nil && err.Error() != s3.ErrCodeNoSuchBucket {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse(err.Error()))
 	}
 	return c.NoContent(http.StatusOK)

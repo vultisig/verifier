@@ -623,6 +623,10 @@ func (s *Server) DeletePlugin(c echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to get vault public key"))
 	}
+	if pluginID == vtypes.PluginVultisigFees_feee.String() {
+		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("Uninstall of fee plugin is forbidden"))
+	}
+
 	if err := s.notifyPluginServerDeletePlugin(c.Request().Context(), vtypes.PluginID(pluginID), publicKey); err != nil {
 		s.logger.WithError(err).Errorf("Failed to notify plugin server for deletion of plugin %s", pluginID)
 		return c.JSON(http.StatusServiceUnavailable, NewErrorResponseWithMessage("Plugin server is currently unavailable"))

@@ -1,37 +1,22 @@
 package service
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/big"
-	"strings"
 	"time"
 
-	abi "github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	reth "github.com/vultisig/recipes/ethereum"
-	"github.com/vultisig/vultisig-go/common"
-
-	etypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
-	resolver "github.com/vultisig/recipes/resolver"
-	rtypes "github.com/vultisig/recipes/types"
 
-	ecommon "github.com/ethereum/go-ethereum/common"
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/storage"
-	ptypes "github.com/vultisig/verifier/types"
+	vtypes "github.com/vultisig/verifier/types"
+	"github.com/vultisig/vultisig-go/common"
 )
 
 type Fees interface {
-	PublicKeyGetFeeInfo(ctx context.Context, publicKey string) ([]*ptypes.Fee, error)
-	ValidateFees(ctx context.Context, req *ptypes.PluginKeysignRequest) error
+	PublicKeyGetFeeInfo(ctx context.Context, publicKey string) ([]*vtypes.Fee, error)
 	MarkFeesCollected(ctx context.Context, id uint64, txHash, network string, amount uint64) error
 }
 
@@ -57,7 +42,7 @@ func NewFeeService(db storage.DatabaseStorage,
 	}, nil
 }
 
-func (s *FeeService) PublicKeyGetFeeInfo(ctx context.Context, publicKey string) ([]*ptypes.Fee, error) {
+func (s *FeeService) PublicKeyGetFeeInfo(ctx context.Context, publicKey string) ([]*vtypes.Fee, error) {
 	return s.db.GetFeesByPublicKey(ctx, publicKey)
 }
 
@@ -67,7 +52,7 @@ func (s *FeeService) MarkFeesCollected(ctx context.Context, id uint64, txHash, n
 		return err
 	}
 
-	metadata := ptypes.CreditMetadata{
+	metadata := vtypes.CreditMetadata{
 		DebitFeeID: id,
 		TxHash:     txHash,
 		Network:    chain.String(),
@@ -83,16 +68,16 @@ func (s *FeeService) MarkFeesCollected(ctx context.Context, id uint64, txHash, n
 		return fmt.Errorf("failed fetching fee: %w", err)
 	}
 
-	creditFee := &ptypes.Fee{
+	creditFee := &vtypes.Fee{
 		PolicyID:       feeInfo.PolicyID,
 		PublicKey:      feeInfo.PublicKey,
-		TxType:         ptypes.TxTypeCredit,
+		TxType:         vtypes.TxTypeCredit,
 		Amount:         amount,
 		CreatedAt:      time.Now(),
-		FeeType:        "blockchain_fee",
+		FeeType:        "fee_collection",
 		Metadata:       metadataJSON,
-		UnderlyingType: "refund",
-		UnderlyingID:   txHash,
+		UnderlyingType: "tx",
+		UnderlyingID:   fmt.Sprint(id),
 	}
 	err = s.db.InsertFee(ctx, nil, creditFee)
 	if err != nil {

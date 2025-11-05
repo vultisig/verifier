@@ -176,6 +176,12 @@ CREATE TABLE "plugin_apikey" (
     CONSTRAINT "plugin_apikey_status_check" CHECK (("status" = ANY (ARRAY[0, 1])))
 );
 
+CREATE TABLE "plugin_installations" (
+    "plugin_id" "plugin_id" NOT NULL,
+    "public_key" "text" NOT NULL,
+    "installed_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
 CREATE TABLE "plugin_policies" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "public_key" "text" NOT NULL,
@@ -320,6 +326,9 @@ ALTER TABLE ONLY "plugin_apikey"
 
 ALTER TABLE ONLY "plugin_apikey"
     ADD CONSTRAINT "plugin_apikey_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "plugin_installations"
+    ADD CONSTRAINT "plugin_installations_pkey" PRIMARY KEY ("plugin_id", "public_key");
 
 ALTER TABLE ONLY "plugin_policies"
     ADD CONSTRAINT "plugin_policies_pkey" PRIMARY KEY ("id");

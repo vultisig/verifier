@@ -1,5 +1,5 @@
 -- +goose Up
-CREATE TABLE IF NOT EXISTS plugins_installations (
+CREATE TABLE IF NOT EXISTS plugin_installations (
     plugin_id     plugin_id        NOT NULL,
     public_key    TEXT             NOT NULL,
     installed_at  TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
@@ -7,4 +7,4 @@ CREATE TABLE IF NOT EXISTS plugins_installations (
 );
 
 -- +goose Down
-DROP TABLE IF EXISTS plugins_installations;
+DROP TABLE IF EXISTS plugin_installations;

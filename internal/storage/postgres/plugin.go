@@ -18,7 +18,7 @@ import (
 const PLUGINS_TABLE = "plugins"
 const PLUGIN_TAGS_TABLE = "plugin_tags"
 const REVIEWS_TABLE = "reviews"
-const PLUGINS_INSTALLATIONS_TABLE = "plugins_installations"
+const PLUGIN_INSTALLATIONS_TABLE = "plugin_installations"
 
 // This is needed as the plugins table is left joined with the pricings table, and when a plugin is free (i.e zero related pricing records) it tries to scan null into a non nullable struct
 type nullablePricing struct {
@@ -468,7 +468,7 @@ func (p *PostgresBackend) InsertPluginInstallation(ctx context.Context, dbTx pgx
 	query := fmt.Sprintf(`
         INSERT INTO %s (plugin_id, public_key)
         VALUES ($1, $2)
-        ON CONFLICT (plugin_id, public_key) DO NOTHING`, PLUGINS_INSTALLATIONS_TABLE)
+        ON CONFLICT (plugin_id, public_key) DO NOTHING`, PLUGIN_INSTALLATIONS_TABLE)
 
 	execFn := p.pool.Exec
 	if dbTx != nil {
@@ -493,7 +493,7 @@ func (p *PostgresBackend) GetPluginInstallationsCount(ctx context.Context, plugi
 	query := fmt.Sprintf(`
 	SELECT COUNT(*) AS total_count
 	FROM %s
-	WHERE plugin_id = $1`, PLUGINS_INSTALLATIONS_TABLE)
+	WHERE plugin_id = $1`, PLUGIN_INSTALLATIONS_TABLE)
 
 	var totalCount int
 	err := p.pool.QueryRow(ctx, query, pluginID).Scan(&totalCount)

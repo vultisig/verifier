@@ -7,8 +7,6 @@ import (
 	"plugin"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/plugin/tx_indexer"
 	"github.com/vultisig/verifier/vault_config"
 
@@ -43,7 +41,6 @@ type ManagementService struct {
 	plugin           plugin.Plugin
 	vaultStorage     Storage
 	txIndexerService *tx_indexer.Service
-	db               *postgres.PostgresBackend
 }
 
 // NewManagementService creates a new instance of the ManagementService
@@ -52,7 +49,6 @@ func NewManagementService(
 	queueClient *asynq.Client,
 	storage Storage,
 	txIndexerService *tx_indexer.Service,
-	db *postgres.PostgresBackend,
 ) (*ManagementService, error) {
 	logger := logrus.WithField("service", "vault-management").Logger
 
@@ -62,7 +58,6 @@ func NewManagementService(
 		logger:           logger,
 		vaultStorage:     storage,
 		txIndexerService: txIndexerService,
-		db:               db,
 	}, nil
 }
 
@@ -237,51 +232,5 @@ func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task
 		return fmt.Errorf("reshare failed: %v: %w", err, asynq.SkipRetry)
 	}
 
-	err = s.RegisterInstallationFee(ctx, vtypes.PluginID(req.PluginID), req.PublicKey)
-	if err != nil {
-		s.logger.WithError(err).Error("RegisterInstallationFee failed")
-		return fmt.Errorf("RegisterInstallationFee failed: %v: %w", err, asynq.SkipRetry)
-	}
-
 	return nil
-}
-
-func (s *ManagementService) RegisterInstallationFee(ctx context.Context, pluginID vtypes.PluginID, publicKey string) error {
-	return s.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
-		var err error
-
-		//Find plugin
-		pluginInfo, err := s.db.FindPluginById(ctx, tx, pluginID)
-		if err != nil {
-			return err
-		}
-
-		var installationFee uint64
-		for _, pricing := range pluginInfo.Pricing {
-			if pricing.Type == vtypes.PricingTypeOnce {
-				installationFee = pricing.Amount
-			}
-		}
-		if installationFee == 0 {
-			s.logger.WithFields(logrus.Fields{
-				"plugin": pluginID,
-			}).Info("installation is free")
-			return nil
-		}
-
-		//Insert fee
-		err = s.db.InsertFee(ctx, tx, &vtypes.Fee{
-			PublicKey:      publicKey,
-			TxType:         vtypes.TxTypeDebit,
-			Amount:         installationFee,
-			FeeType:        vtypes.FeeTypeInstallationFee,
-			UnderlyingType: "plugin",
-			UnderlyingID:   pluginID.String(),
-		})
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
+
 	"github.com/vultisig/verifier/internal/storage"
 	vtypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/verifier/vault"

@@ -1,7 +1,7 @@
 package types
 
 import (
-	tx_indexer_storage "github.com/vultisig/verifier/tx_indexer/pkg/storage"
+	tx_indexer_storage "github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
 )
 
 type TransactionHistoryPaginatedList struct {

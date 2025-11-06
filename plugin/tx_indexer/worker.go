@@ -9,6 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/graceful"
+	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
 	"github.com/vultisig/vultisig-go/common"
 	"golang.org/x/sync/errgroup"
@@ -42,6 +43,26 @@ func NewWorker(
 		concurrency:      concurrency,
 		clients:          clients,
 	}
+}
+
+func (w *Worker) Interval() time.Duration {
+	return w.interval
+}
+
+func (w *Worker) Concurrency() int {
+	return w.concurrency
+}
+
+func (w *Worker) MarkLostAfter() time.Duration {
+	return w.markLostAfter
+}
+
+func (w *Worker) IterationTimeout() time.Duration {
+	return w.iterationTimeout
+}
+
+func (w *Worker) TxIndexerRepo() storage.TxIndexerRepo {
+	return w.repo
 }
 
 func (w *Worker) start(aliveCtx context.Context) error {
@@ -79,15 +100,15 @@ func (w *Worker) Run() error {
 	return nil
 }
 
-func (w *Worker) updateTxStatus(ctx context.Context, tx storage.Tx) error {
+func (w *Worker) UpdateTxStatus(ctx context.Context, tx storage.Tx) (*rpc.TxOnChainStatus, error) {
 	if tx.BroadcastedAt == nil {
-		return errors.New("unexpected tx.BroadcastedAt == nil, tx_id=" + tx.ID.String())
+		return nil, errors.New("unexpected tx.BroadcastedAt == nil, tx_id=" + tx.ID.String())
 	}
 	if tx.TxHash == nil {
-		return errors.New("unexpected tx.TxHash == nil, tx_id=" + tx.ID.String())
+		return nil, errors.New("unexpected tx.TxHash == nil, tx_id=" + tx.ID.String())
 	}
 	if tx.StatusOnChain == nil {
-		return errors.New("unexpected tx.StatusOnChain == nil, tx_id=" + tx.ID.String())
+		return nil, errors.New("unexpected tx.StatusOnChain == nil, tx_id=" + tx.ID.String())
 	}
 
 	fields := tx.Fields()
@@ -95,41 +116,43 @@ func (w *Worker) updateTxStatus(ctx context.Context, tx storage.Tx) error {
 	if time.Now().After((*tx.BroadcastedAt).Add(w.markLostAfter)) {
 		err := w.repo.SetLost(ctx, tx.ID)
 		if err != nil {
-			return fmt.Errorf("w.repo.SetLost: %w", err)
+			return nil, fmt.Errorf("w.repo.SetLost: %w", err)
 		}
 		w.logger.WithFields(fields).Info("updated as lost (timeout since broadcast)")
-		return nil
+		newStatus := rpc.TxOnChainFail
+		return &newStatus, nil
 	}
 
 	client, ok := w.clients[common.Chain(tx.ChainID)]
 	if !ok {
 		err := w.repo.SetLost(ctx, tx.ID)
 		if err != nil {
-			return fmt.Errorf("w.repo.SetLost: %w", err)
+			return nil, fmt.Errorf("w.repo.SetLost: %w", err)
 		}
 		w.logger.WithFields(fields).Infof(
 			"updated as lost (rpc unimplemented, chain=%s, tx_id=%s)",
 			common.Chain(tx.ChainID).String(),
 			tx.ID.String(),
 		)
-		return nil
+		newStatus := rpc.TxOnChainFail
+		return &newStatus, nil
 	}
 
 	newStatus, err := client.GetTxStatus(ctx, *tx.TxHash)
 	if err != nil {
-		return fmt.Errorf("client.GetTxStatus: %w", err)
+		return nil, fmt.Errorf("client.GetTxStatus: %w", err)
 	}
 	if newStatus == *tx.StatusOnChain {
 		w.logger.WithFields(fields).Info("status didn't changed since last call")
-		return nil
+		return tx.StatusOnChain, nil
 	}
 
 	err = w.repo.SetOnChainStatus(ctx, tx.ID, newStatus)
 	if err != nil {
-		return fmt.Errorf("w.repo.SetOnChainStatus: %w", err)
+		return nil, fmt.Errorf("w.repo.SetOnChainStatus: %w", err)
 	}
 	w.logger.WithFields(fields).Infof("status updated, newStatus=%s", newStatus)
-	return nil
+	return &newStatus, nil
 }
 
 func (w *Worker) updatePendingTxs() error {
@@ -149,7 +172,7 @@ func (w *Worker) updatePendingTxs() error {
 				return fmt.Errorf("row.Err: %w", row.Err)
 			}
 
-			err := w.updateTxStatus(ctx, row.Row)
+			_, err := w.UpdateTxStatus(ctx, row.Row)
 			if err != nil {
 				return fmt.Errorf("w.updateTxStatus: %w", err)
 			}

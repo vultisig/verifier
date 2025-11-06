@@ -7,13 +7,12 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
 
-	"github.com/vultisig/verifier/tx_indexer"
-
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/api"
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/storage/postgres"
-	tx_indexer_storage "github.com/vultisig/verifier/tx_indexer/pkg/storage"
+	"github.com/vultisig/verifier/plugin/tx_indexer"
+	tx_indexer_storage "github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
 	"github.com/vultisig/verifier/vault"
 )
 
@@ -63,10 +62,15 @@ func main() {
 		logger.Fatalf("Failed to connect to database: %v", err)
 	}
 
+	supportedChains, err := tx_indexer.Chains()
+	if err != nil {
+		logger.Fatalf("failed to get supported chains: %v", err)
+	}
+
 	txIndexerService := tx_indexer.NewService(
 		logger,
 		txIndexerStore,
-		tx_indexer.Chains(),
+		supportedChains,
 	)
 
 	server := api.NewServer(

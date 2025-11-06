@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/spf13/viper"
-	"github.com/vultisig/verifier/plugin/config"
 
-	tx_indexer_config "github.com/vultisig/verifier/tx_indexer/pkg/config"
+	"github.com/vultisig/verifier/plugin/config"
+	tx_indexer_config "github.com/vultisig/verifier/plugin/tx_indexer/pkg/config"
 	"github.com/vultisig/verifier/vault_config"
 )
 

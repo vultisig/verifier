@@ -49,7 +49,7 @@ func (p *PostgresBackend) GetFeesByPublicKey(ctx context.Context, publicKey stri
             d.underlying_id
         FROM fees d
         LEFT JOIN fees c ON c.transaction_type = 'credit' 
-            AND c.metadata::jsonb->>'debit_fee_id' = d.id::text
+            AND c.underlying_type = 'tx' AND c.underlying_id= d.id::text
         WHERE d.transaction_type = 'debit'
             AND d.public_key = $1
             AND c.id IS NULL

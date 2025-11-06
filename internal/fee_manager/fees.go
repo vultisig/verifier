@@ -40,23 +40,25 @@ func (s *FeeManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.T
 	var req vtypes.ReshareRequest
 	if err := json.Unmarshal(t.Payload(), &req); err != nil {
 		s.logger.WithError(err).Error("json.Unmarshal failed")
-		return fmt.Errorf("s.RegisterInstallationFee failed: %w", asynq.SkipRetry)
+		return fmt.Errorf("s.RegisterInstallation failed: %w", asynq.SkipRetry)
 	}
 
-	if err := s.RegisterInstallationFee(ctx, vtypes.PluginID(req.PluginID), req.PublicKey); err != nil {
-		s.logger.WithError(err).Error("s.RegisterInstallationFee failed")
-		return fmt.Errorf("s.RegisterInstallationFee failed: %w", asynq.SkipRetry)
+	if err := s.RegisterInstallation(ctx, vtypes.PluginID(req.PluginID), req.PublicKey); err != nil {
+		s.logger.WithError(err).Error("s.RegisterInstallation failed")
+		return fmt.Errorf("s.RegisterInstallation failed: %w", asynq.SkipRetry)
 	}
 
 	return nil
 }
 
-func (s *FeeManagementService) RegisterInstallationFee(ctx context.Context, pluginID vtypes.PluginID, publicKey string) error {
+func (s *FeeManagementService) RegisterInstallation(ctx context.Context, pluginID vtypes.PluginID, publicKey string) error {
 	return s.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
-		var err error
-
-		//Find plugin
 		pluginInfo, err := s.db.FindPluginById(ctx, tx, pluginID)
+		if err != nil {
+			return err
+		}
+
+		err = s.db.InsertPluginInstallation(ctx, tx, pluginID, publicKey)
 		if err != nil {
 			return err
 		}
@@ -75,7 +77,6 @@ func (s *FeeManagementService) RegisterInstallationFee(ctx context.Context, plug
 			return nil
 		}
 
-		//Insert fee
 		err = s.db.InsertFee(ctx, tx, &vtypes.Fee{
 			PublicKey:      publicKey,
 			TxType:         vtypes.TxTypeDebit,

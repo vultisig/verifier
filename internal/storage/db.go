@@ -51,6 +51,7 @@ type FeeRepository interface {
 	//GetFeesByPublicKey(ctx context.Context, publicKey string, since *time.Time) ([]types.Fee, error)
 	//GetAllFeesByPublicKey(ctx context.Context, includeCollected bool) ([]types.Fee, error)
 	InsertFee(ctx context.Context, dbTx pgx.Tx, fee *types.Fee) error
+	InsertPluginInstallation(ctx context.Context, dbTx pgx.Tx, pluginID types.PluginID, publicKey string) error
 	//MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txid string) ([]types.Fee, error)
 }
 

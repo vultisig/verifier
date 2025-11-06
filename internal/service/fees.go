@@ -68,11 +68,15 @@ func (s *FeeService) MarkFeesCollected(ctx context.Context, id uint64, txHash, n
 		return fmt.Errorf("failed fetching fee: %w", err)
 	}
 
+	if feeInfo.Amount != amount {
+		return fmt.Errorf("incorrect fee: expected %d, got %d", amount, feeInfo.Amount)
+	}
+
 	creditFee := &vtypes.Fee{
 		PolicyID:       feeInfo.PolicyID,
 		PublicKey:      feeInfo.PublicKey,
 		TxType:         vtypes.TxTypeCredit,
-		Amount:         amount,
+		Amount:         feeInfo.Amount,
 		CreatedAt:      time.Now(),
 		FeeType:        "fee_collection",
 		Metadata:       metadataJSON,

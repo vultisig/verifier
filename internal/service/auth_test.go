@@ -212,6 +212,11 @@ func (m *MockDatabaseStorage) InsertFee(ctx context.Context, dbTx pgx.Tx, fee *t
 	return args.Error(0)
 }
 
+func (m *MockDatabaseStorage) InsertPluginInstallation(ctx context.Context, dbTx pgx.Tx, pluginID types.PluginID, publicKey string) error {
+	args := m.Called(ctx, dbTx, pluginID, publicKey)
+	return args.Error(0)
+}
+
 func (m *MockDatabaseStorage) FindPricingById(ctx context.Context, id uuid.UUID) (*types.Pricing, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {

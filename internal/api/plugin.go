@@ -97,7 +97,8 @@ func (s *Server) validateAndSign(c echo.Context, req *ptypes.PluginKeysignReques
 	//
 	// consider it's not safety check, but rather a sanity check
 	var txBytesEvaluate []byte
-	if firstKeysignMessage.Chain.IsEvm() {
+	switch {
+	case firstKeysignMessage.Chain.IsEvm():
 		if len(req.Messages) != 1 {
 			return errors.New("plugins must sign exactly 1 message for evm")
 		}
@@ -137,7 +138,7 @@ func (s *Server) validateAndSign(c echo.Context, req *ptypes.PluginKeysignReques
 				hashToSignFromTxObj.Hex(),
 			)
 		}
-	} else if firstKeysignMessage.Chain == common.Bitcoin {
+	case firstKeysignMessage.Chain == common.Bitcoin:
 		b, er := psbt.NewFromRawBytes(strings.NewReader(req.Transaction), true)
 		if er != nil {
 			return fmt.Errorf("failed to decode psbt: %w", er)
@@ -150,19 +151,19 @@ func (s *Server) validateAndSign(c echo.Context, req *ptypes.PluginKeysignReques
 		}
 
 		txBytesEvaluate = buf.Bytes()
-	} else if firstKeysignMessage.Chain == common.XRP {
+	case firstKeysignMessage.Chain == common.XRP:
 		b, er := base64.StdEncoding.DecodeString(req.Transaction)
 		if er != nil {
 			return fmt.Errorf("failed to decode base64 XRP transaction: %w", er)
 		}
 		txBytesEvaluate = b
-	} else if firstKeysignMessage.Chain == common.Solana {
+	case firstKeysignMessage.Chain == common.Solana:
 		b, er := base64.StdEncoding.DecodeString(req.Transaction)
 		if er != nil {
 			return fmt.Errorf("failed to decode b64 proposed Solana tx: %w", er)
 		}
 		txBytesEvaluate = b
-	} else {
+	default:
 		return fmt.Errorf("failed to decode transaction, chain %s not supported", firstKeysignMessage.Chain)
 	}
 
@@ -235,9 +236,7 @@ func (s *Server) GetPlugins(c echo.Context) error {
 		s.logger.WithError(err).Error("fail to parse pagination parameters")
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid pagination parameters"))
 	}
-
 	sort := c.QueryParam("sort")
-
 	filters := types.PluginFilters{
 		Term:       common.GetQueryParam(c, "term"),
 		TagID:      common.GetUUIDParam(c, "tag_id"),
@@ -245,7 +244,6 @@ func (s *Server) GetPlugins(c echo.Context) error {
 	}
 
 	plugins, err := s.db.FindPlugins(c.Request().Context(), filters, int(take), int(skip), sort)
-
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get plugins")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get plugins"))
@@ -407,6 +405,21 @@ func (s *Server) GetReviews(c echo.Context) error {
 	return c.JSON(http.StatusOK, reviews)
 }
 
+func (s *Server) GetPluginAvgRating(c echo.Context) error {
+	pluginID := c.Param("pluginId")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("pluginId is required"))
+	}
+
+	avgRating, err := s.db.FindAvgRatingByPluginID(c.Request().Context(), pluginID)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to get average rating")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get average rating"))
+	}
+
+	return c.JSON(http.StatusOK, avgRating)
+}
+
 func (s *Server) GetPluginRecipeSpecification(c echo.Context) error {
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
@@ -461,4 +474,18 @@ func (s *Server) GetPluginRecipeSpecificationSuggest(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, res)
+}
+
+func (s *Server) GetPluginRecipeFunctions(c echo.Context) error {
+	pluginID := c.Param("pluginId")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("pluginId is required"))
+	}
+	recipeFuncs, err := s.pluginService.GetPluginRecipeFunctions(c.Request().Context(), pluginID)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to get plugin recipe functions")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get recipe functions"))
+	}
+
+	return c.JSON(http.StatusOK, recipeFuncs)
 }

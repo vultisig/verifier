@@ -17,9 +17,7 @@ func (p *PostgresBackend) InsertFee(ctx context.Context, dbTx pgx.Tx, fee *types
 	WHERE fee_type = 'installation_fee' AND underlying_type = 'plugin'
 	DO NOTHING;`
 
-	var (
-		err error
-	)
+	var err error
 	if dbTx != nil {
 		_, err = dbTx.Exec(ctx, query,
 			fee.PolicyID, fee.PublicKey, fee.TxType, fee.Amount, fee.FeeType, fee.Metadata, fee.UnderlyingType, fee.UnderlyingID)

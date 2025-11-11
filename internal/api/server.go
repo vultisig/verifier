@@ -148,6 +148,7 @@ func (s *Server) StartServer() error {
 	pluginGroup.PUT("/policy", s.UpdatePluginPolicyById)
 	pluginGroup.GET("/policies/:pluginId", s.GetAllPluginPolicies)
 	pluginGroup.GET("/policy/:policyId", s.GetPluginPolicyById)
+	pluginGroup.GET("/policy/:pluginId/total-count", s.GetPluginInstallationsCountByID)
 	pluginGroup.DELETE("/policy/:policyId", s.DeletePluginPolicyById)
 	pluginGroup.GET("/policies/:policyId/history", s.GetPluginPolicyTransactionHistory)
 
@@ -163,7 +164,9 @@ func (s *Server) StartServer() error {
 	pluginsGroup.GET("/:pluginId/reviews", s.GetReviews)
 	pluginsGroup.POST("/:pluginId/reviews", s.CreateReview, s.AuthMiddleware)
 	pluginsGroup.GET("/:pluginId/recipe-specification", s.GetPluginRecipeSpecification)
+	pluginsGroup.GET("/:pluginId/recipe-functions", s.GetPluginRecipeFunctions)
 	pluginsGroup.POST("/:pluginId/recipe-specification/suggest", s.GetPluginRecipeSpecificationSuggest)
+	pluginsGroup.GET("/:pluginId/average-rating", s.GetPluginAvgRating)
 
 	categoriesGroup := e.Group("/categories")
 	categoriesGroup.GET("", s.GetCategories)

@@ -21,6 +21,7 @@ type Policy interface {
 	DeletePolicy(ctx context.Context, policyID uuid.UUID, pluginID types.PluginID, signature string) error
 	GetPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int, includeInactive bool) (*itypes.PluginPolicyPaginatedList, error)
 	GetPluginPolicy(ctx context.Context, policyID uuid.UUID) (*types.PluginPolicy, error)
+	GetPluginInstallationsCount(ctx context.Context, pluginID types.PluginID) (itypes.PluginTotalCount, error)
 	DeleteAllPolicies(ctx context.Context, pluginID types.PluginID, publicKey string) error
 }
 
@@ -280,6 +281,14 @@ func (s *PolicyService) GetPluginPolicy(ctx context.Context, policyID uuid.UUID)
 		return nil, fmt.Errorf("failed to get policy: %w", err)
 	}
 	return policy, nil
+}
+
+func (s *PolicyService) GetPluginInstallationsCount(ctx context.Context, pluginID types.PluginID) (itypes.PluginTotalCount, error) {
+	count, err := s.db.GetPluginInstallationsCount(ctx, pluginID)
+	if err != nil {
+		return itypes.PluginTotalCount{}, fmt.Errorf("failed to get plugin installations count: %w", err)
+	}
+	return count, nil
 }
 
 func (s *PolicyService) DeleteAllPolicies(ctx context.Context, pluginID types.PluginID, publicKey string) error {

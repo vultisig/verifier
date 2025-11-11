@@ -130,6 +130,14 @@ func (m *MockDatabaseStorage) GetPluginPolicy(ctx context.Context, id uuid.UUID)
 	return args.Get(0).(*types.PluginPolicy), args.Error(1)
 }
 
+func (m *MockDatabaseStorage) GetPluginInstallationsCount(ctx context.Context, pluginID types.PluginID) (itypes.PluginTotalCount, error) {
+	args := m.Called(ctx, pluginID)
+	if args.Get(0) == nil {
+		return itypes.PluginTotalCount{}, args.Error(1)
+	}
+	return args.Get(0).(itypes.PluginTotalCount), args.Error(1)
+}
+
 func (m *MockDatabaseStorage) GetPluginPolicies(ctx context.Context, publicKey string, pluginIds []types.PluginID, includeInactive bool) ([]types.PluginPolicy, error) {
 	args := m.Called(ctx, publicKey, pluginIds, includeInactive)
 	if args.Get(0) == nil {
@@ -193,6 +201,11 @@ func (m *MockDatabaseStorage) GetFeesByPublicKey(ctx context.Context, publicKey 
 
 func (m *MockDatabaseStorage) InsertFee(ctx context.Context, dbTx pgx.Tx, fee *types.Fee) error {
 	args := m.Called(ctx, dbTx, fee)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) InsertPluginInstallation(ctx context.Context, dbTx pgx.Tx, pluginID types.PluginID, publicKey string) error {
+	args := m.Called(ctx, dbTx, pluginID, publicKey)
 	return args.Error(0)
 }
 
@@ -262,6 +275,14 @@ func (m *MockDatabaseStorage) FindRatingByPluginId(ctx context.Context, dbTx pgx
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]itypes.PluginRatingDto), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) FindAvgRatingByPluginID(ctx context.Context, pluginID string) (itypes.PluginAvgRatingDto, error) {
+	args := m.Called(ctx, pluginID)
+	if args.Get(0) == nil {
+		return itypes.PluginAvgRatingDto{}, args.Error(1)
+	}
+	return args.Get(0).(itypes.PluginAvgRatingDto), args.Error(1)
 }
 
 func (m *MockDatabaseStorage) FindReviewById(ctx context.Context, db pgx.Tx, id string) (*itypes.ReviewDto, error) {

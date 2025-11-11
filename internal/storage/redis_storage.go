@@ -16,12 +16,12 @@ type RedisStorage struct {
 }
 
 func NewRedisStorage(cfg config.Redis) (*RedisStorage, error) {
-	client := redis.NewClient(&redis.Options{
-		Addr:     cfg.Host + ":" + cfg.Port,
-		Username: cfg.User,
-		Password: cfg.Password,
-		DB:       cfg.DB,
-	})
+	opts, err := cfg.GetRedisOptions()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get redis opts: %w", err)
+	}
+
+	client := redis.NewClient(opts)
 	status := client.Ping(context.Background())
 	if status.Err() != nil {
 		return nil, status.Err()

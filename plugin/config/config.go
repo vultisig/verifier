@@ -11,7 +11,7 @@ type Database struct {
 }
 
 type Redis struct {
-	ConnURI  string `mapstructure:"conn_uri" json:"conn_uri,omitempty"`
+	URI      string `mapstructure:"uri" json:"uri,omitempty"`
 	Host     string `mapstructure:"host" json:"host,omitempty"`
 	Port     string `mapstructure:"port" json:"port,omitempty"`
 	User     string `mapstructure:"user" json:"user,omitempty"`
@@ -20,8 +20,8 @@ type Redis struct {
 }
 
 func (r Redis) GetRedisOptions() (*redis.Options, error) {
-	if r.ConnURI != "" {
-		opts, err := redis.ParseURL(r.ConnURI)
+	if r.URI != "" {
+		opts, err := redis.ParseURL(r.URI)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse redis URI: %w", err)
 		}
@@ -29,7 +29,7 @@ func (r Redis) GetRedisOptions() (*redis.Options, error) {
 	}
 
 	if r.Host == "" {
-		return nil, fmt.Errorf("redis host is required when conn_uri is not provided")
+		return nil, fmt.Errorf("redis host is required when uri is not provided")
 	}
 
 	return &redis.Options{

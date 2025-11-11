@@ -12,6 +12,7 @@ GO_VERSION = '1.24.2'
 
 [env]
 PORT = '8080'
+REDIS_URI = { from_secret = "redis" }
 
 [processes]
 verifier = "verifier"

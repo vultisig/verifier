@@ -33,8 +33,8 @@ func main() {
 	}
 
 	var redisConnOpt asynq.RedisConnOpt
-	if cfg.Redis.ConnURI != "" {
-		redisConnOpt, err = asynq.ParseRedisURI(cfg.Redis.ConnURI)
+	if cfg.Redis.URI != "" {
+		redisConnOpt, err = asynq.ParseRedisURI(cfg.Redis.URI)
 		if err != nil {
 			panic(err)
 		}

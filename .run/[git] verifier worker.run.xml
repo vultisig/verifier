@@ -4,6 +4,7 @@
     <working_directory value="$PROJECT_DIR$" />
     <envs>
       <env name="VS_WORKER_CONFIG_NAME" value="worker.example" />
+      <env name="REDIS_URI" value="" />
     </envs>
     <kind value="PACKAGE" />
     <package value="github.com/vultisig/verifier/cmd/worker" />

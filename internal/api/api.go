@@ -15,6 +15,17 @@ type ErrorResponse struct {
 	DetailedResponse string `json:"details,omitempty"`
 }
 
+const (
+	MsgMissingAuthHeader = "Missing authorization header"
+	MsgInvalidAuthHeader = "Invalid authorization header format"
+	MsgUnauthorized      = "Unauthorized"
+	MsgInternalError     = "An internal error occurred"
+	MsgAccessDenied      = "Access denied: token not authorized for this vault"
+	MsgDisabledAPIKey    = "API key is disabled"
+	MsgExpiredAPIKey     = "API key has expired"
+	MsgAPIKeyNotFound    = "API key not found"
+)
+
 func NewErrorResponseWithMessage(message string) APIResponse[interface{}] {
 	return APIResponse[interface{}]{
 		Error: ErrorResponse{

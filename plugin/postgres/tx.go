@@ -61,8 +61,9 @@ func (t *TxHandler) Rollback(ctx context.Context) error {
 	if !ok {
 		return fmt.Errorf("tx not found in context")
 	}
-
-	err := tx.Rollback(ctx)
+	// For not blocking db if ctx cancelled
+	ctxBg := context.Background()
+	err := tx.Rollback(ctxBg)
 	if err != nil {
 		return fmt.Errorf("failed to rollback tx: %w", err)
 	}

@@ -235,7 +235,6 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		&insertedPolicy.Recipe,
 	)
 	if err != nil {
-		tx.Rollback(ctx)
 		return nil, fmt.Errorf("failed to insert policy: %w", err)
 	}
 
@@ -263,7 +262,6 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 			)
 		}
 		if err != nil {
-			tx.Rollback(ctx)
 			return nil, fmt.Errorf("failed to insert billing policy: %w", err)
 		}
 		insertedPolicy.Billing = append(insertedPolicy.Billing, billing)

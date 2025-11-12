@@ -22,6 +22,7 @@ import (
 
 	"github.com/vultisig/recipes/engine"
 	"github.com/vultisig/recipes/ethereum"
+	rtypes "github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/internal/conv"
 	"github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/plugin/tasks"
@@ -38,42 +39,52 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		return fmt.Errorf("fail to parse request, err: %w", err)
 	}
 
-	policy, err := s.db.GetPluginPolicy(c.Request().Context(), req.PolicyID)
-	if err != nil {
-		return fmt.Errorf("failed to get policy from database: %w", err)
-	}
-	// Validate policy matches plugin
-	if policy.PluginID != ptypes.PluginID(req.PluginID) {
-		return fmt.Errorf("policy plugin ID mismatch")
-	}
-
-	recipe, err := policy.GetRecipe()
-	if err != nil {
-		return fmt.Errorf("failed to unpack recipe: %w", err)
-	}
-
-	if recipe.RateLimitWindow != nil && recipe.MaxTxsPerWindow != nil {
-		txs, er := s.txIndexerService.GetTxsInTimeRange(
-			c.Request().Context(),
-			policy.ID,
-			time.Now().Add(time.Duration(-recipe.GetRateLimitWindow())*time.Second),
-			time.Now(),
-		)
-		if er != nil {
-			return fmt.Errorf("failed to get data from tx indexer: %w", er)
+	// Get policy from database
+	if req.PluginID == ptypes.PluginVultisigFees_feee.String() {
+		s.logger.Debug("SIGN FEE PLUGIN MESSAGES")
+		return s.validateAndSign(c, &req, types.FeeDefaultPolicy, uuid.New())
+	} else {
+		policy, err := s.db.GetPluginPolicy(c.Request().Context(), req.PolicyID)
+		if err != nil {
+			return fmt.Errorf("failed to get policy from database: %w", err)
 		}
-		if uint32(len(txs)) >= recipe.GetMaxTxsPerWindow() {
-			return fmt.Errorf(
-				"policy not allowed to execute more txs in currrent time window: "+
-					"policy_id=%s, txs=%d, max_txs=%d, min_exec_window=%d",
-				policy.ID.String(),
-				len(txs),
-				recipe.GetMaxTxsPerWindow(),
-				recipe.GetRateLimitWindow(),
+
+		// Validate policy matches plugin
+		if policy.PluginID != ptypes.PluginID(req.PluginID) {
+			return fmt.Errorf("policy plugin ID mismatch")
+		}
+
+		recipe, err := policy.GetRecipe()
+		if err != nil {
+			return fmt.Errorf("failed to unpack recipe: %w", err)
+		}
+
+		if recipe.RateLimitWindow != nil && recipe.MaxTxsPerWindow != nil {
+			txs, er := s.txIndexerService.GetTxsInTimeRange(
+				c.Request().Context(),
+				policy.ID,
+				time.Now().Add(time.Duration(-recipe.GetRateLimitWindow())*time.Second),
+				time.Now(),
 			)
+			if er != nil {
+				return fmt.Errorf("failed to get data from tx indexer: %w", er)
+			}
+			if uint32(len(txs)) >= recipe.GetMaxTxsPerWindow() {
+				return fmt.Errorf(
+					"policy not allowed to execute more txs in currrent time window: "+
+						"policy_id=%s, txs=%d, max_txs=%d, min_exec_window=%d",
+					policy.ID.String(),
+					len(txs),
+					recipe.GetMaxTxsPerWindow(),
+					recipe.GetRateLimitWindow(),
+				)
+			}
 		}
+		return s.validateAndSign(c, &req, recipe, policy.ID)
 	}
+}
 
+func (s *Server) validateAndSign(c echo.Context, req *ptypes.PluginKeysignRequest, recipe *rtypes.Policy, policyID uuid.UUID) error {
 	if len(req.Messages) == 0 {
 		return errors.New("no messages to sign")
 	}
@@ -161,15 +172,23 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create engine: %w", err)
 	}
-	_, err = ngn.Evaluate(recipe, firstKeysignMessage.Chain, txBytesEvaluate)
-	if err != nil {
-		return fmt.Errorf("tx not allowed to execute: %w", err)
+	//TODO: fee plugin priority for testing purposes
+	if req.PluginID == ptypes.PluginVultisigFees_feee.String() {
+		_, err = ngn.Evaluate(types.FeeDefaultPolicy, firstKeysignMessage.Chain, txBytesEvaluate)
+		if err != nil {
+			return fmt.Errorf("tx not allowed to execute: %w", err)
+		}
+	} else {
+		_, err = ngn.Evaluate(recipe, firstKeysignMessage.Chain, txBytesEvaluate)
+		if err != nil {
+			return fmt.Errorf("tx not allowed to execute: %w", err)
+		}
 	}
 
 	txToTrack, err := s.txIndexerService.CreateTx(c.Request().Context(), storage.CreateTxDto{
 		PluginID:      ptypes.PluginID(req.PluginID),
 		ChainID:       firstKeysignMessage.Chain,
-		PolicyID:      policy.ID,
+		PolicyID:      policyID,
 		FromPublicKey: req.PublicKey,
 		ProposedTxHex: req.Transaction,
 	})

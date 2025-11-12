@@ -2,20 +2,22 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
+
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/storage"
-	itypes "github.com/vultisig/verifier/internal/types"
+	vtypes "github.com/vultisig/verifier/types"
+	"github.com/vultisig/vultisig-go/common"
 )
 
 type Fees interface {
-	PublicKeyGetFeeInfo(ctx context.Context, publicKey string, since *time.Time) (*itypes.FeeHistoryDto, error)
-	MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txHash string) ([]itypes.FeeDto, error)
+	PublicKeyGetFeeInfo(ctx context.Context, publicKey string) ([]*vtypes.Fee, error)
+	MarkFeesCollected(ctx context.Context, id uint64, txHash, network string, amount uint64) error
 }
 
 var _ Fees = (*FeeService)(nil)
@@ -40,10 +42,50 @@ func NewFeeService(db storage.DatabaseStorage,
 	}, nil
 }
 
-func (s *FeeService) PublicKeyGetFeeInfo(ctx context.Context, publicKey string, since *time.Time) (*itypes.FeeHistoryDto, error) {
-	return nil, fmt.Errorf("not implemented")
+func (s *FeeService) PublicKeyGetFeeInfo(ctx context.Context, publicKey string) ([]*vtypes.Fee, error) {
+	return s.db.GetFeesByPublicKey(ctx, publicKey)
 }
 
-func (s *FeeService) MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txHash string) ([]itypes.FeeDto, error) {
-	return nil, fmt.Errorf("not implemented")
+func (s *FeeService) MarkFeesCollected(ctx context.Context, id uint64, txHash, network string, amount uint64) error {
+	chain, err := common.FromString(network)
+	if err != nil {
+		return err
+	}
+
+	metadata := vtypes.CreditMetadata{
+		DebitFeeID: id,
+		TxHash:     txHash,
+		Network:    chain.String(),
+	}
+
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return fmt.Errorf("failed marshaling metadata: %w", err)
+	}
+
+	feeInfo, err := s.db.GetFeeById(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed fetching fee: %w", err)
+	}
+
+	if feeInfo.Amount != amount {
+		return fmt.Errorf("incorrect fee: expected %d, got %d", amount, feeInfo.Amount)
+	}
+
+	creditFee := &vtypes.Fee{
+		PolicyID:       feeInfo.PolicyID,
+		PublicKey:      feeInfo.PublicKey,
+		TxType:         vtypes.TxTypeCredit,
+		Amount:         feeInfo.Amount,
+		CreatedAt:      time.Now(),
+		FeeType:        "fee_collection",
+		Metadata:       metadataJSON,
+		UnderlyingType: "tx",
+		UnderlyingID:   fmt.Sprint(id),
+	}
+	err = s.db.InsertFee(ctx, nil, creditFee)
+	if err != nil {
+		return fmt.Errorf("failed inserting fee: %w", err)
+	}
+	return nil
 }

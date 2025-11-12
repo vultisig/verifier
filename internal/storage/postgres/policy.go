@@ -210,12 +210,8 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 	`
 
 	var insertedPolicy types.PluginPolicy
-	tx, err := dbTx.Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", err)
-	}
 
-	err = tx.QueryRow(ctx, query,
+	err := dbTx.QueryRow(ctx, query,
 		policy.ID,
 		policy.PublicKey,
 		policy.PluginID,
@@ -235,7 +231,6 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		&insertedPolicy.Recipe,
 	)
 	if err != nil {
-		tx.Rollback(ctx)
 		return nil, fmt.Errorf("failed to insert policy: %w", err)
 	}
 
@@ -245,7 +240,7 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 	for _, billing := range policy.Billing {
 		var err error
 		if billing.Frequency == nil {
-			err = tx.QueryRow(ctx, billingQuery,
+			err = dbTx.QueryRow(ctx, billingQuery,
 				billing.ID,
 				policy.ID,
 				billing.Type,
@@ -263,7 +258,6 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 			)
 		}
 		if err != nil {
-			tx.Rollback(ctx)
 			return nil, fmt.Errorf("failed to insert billing policy: %w", err)
 		}
 		insertedPolicy.Billing = append(insertedPolicy.Billing, billing)

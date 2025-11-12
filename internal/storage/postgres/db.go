@@ -86,13 +86,13 @@ func (p *PostgresBackend) WithTransaction(ctx context.Context, fn func(ctx conte
 	// Roll back on error *or* panic.
 	defer func() {
 		if p := recover(); p != nil {
-			_ = tx.Rollback(ctx)
+			_ = tx.Rollback(context.Background())
 			panic(p)
 		}
 	}()
 
 	if err := fn(ctx, tx); err != nil {
-		er := tx.Rollback(ctx)
+		er := tx.Rollback(context.Background())
 		return errors.Join(err, er)
 	}
 

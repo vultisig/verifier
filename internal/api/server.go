@@ -12,8 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vultisig/verifier/tx_indexer"
-
 	"github.com/go-playground/validator/v10"
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
@@ -31,6 +29,7 @@ import (
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/internal/syncer"
 	"github.com/vultisig/verifier/plugin/tasks"
+	"github.com/vultisig/verifier/plugin/tx_indexer"
 	vtypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/verifier/vault"
 	"github.com/vultisig/vultisig-go/address"
@@ -47,7 +46,7 @@ type Server struct {
 	inspector        *asynq.Inspector
 	policyService    service.Policy
 	pluginService    service.Plugin
-	feeService       *service.FeeService
+	feeService       service.Fees
 	authService      *service.AuthService
 	txIndexerService *tx_indexer.Service
 	logger           *logrus.Logger
@@ -148,12 +147,14 @@ func (s *Server) StartServer() error {
 	pluginGroup.PUT("/policy", s.UpdatePluginPolicyById)
 	pluginGroup.GET("/policies/:pluginId", s.GetAllPluginPolicies)
 	pluginGroup.GET("/policy/:policyId", s.GetPluginPolicyById)
+	pluginGroup.GET("/policy/:pluginId/total-count", s.GetPluginInstallationsCountByID)
 	pluginGroup.DELETE("/policy/:policyId", s.DeletePluginPolicyById)
 	pluginGroup.GET("/policies/:policyId/history", s.GetPluginPolicyTransactionHistory)
 
 	// fee group. These should only be accessible by the plugin server
 	feeGroup := e.Group("/fees", s.PluginAuthMiddleware)
 	feeGroup.GET("/publickey/:publicKey", s.GetPublicKeyFees)
+	feeGroup.POST("/collected", s.MarkCollected)
 
 	pluginsGroup := e.Group("/plugins")
 	pluginsGroup.GET("", s.GetPlugins)
@@ -162,7 +163,9 @@ func (s *Server) StartServer() error {
 	pluginsGroup.GET("/:pluginId/reviews", s.GetReviews)
 	pluginsGroup.POST("/:pluginId/reviews", s.CreateReview, s.AuthMiddleware)
 	pluginsGroup.GET("/:pluginId/recipe-specification", s.GetPluginRecipeSpecification)
+	pluginsGroup.GET("/:pluginId/recipe-functions", s.GetPluginRecipeFunctions)
 	pluginsGroup.POST("/:pluginId/recipe-specification/suggest", s.GetPluginRecipeSpecificationSuggest)
+	pluginsGroup.GET("/:pluginId/average-rating", s.GetPluginAvgRating)
 
 	categoriesGroup := e.Group("/categories")
 	categoriesGroup.GET("", s.GetCategories)
@@ -623,6 +626,10 @@ func (s *Server) DeletePlugin(c echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to get vault public key"))
 	}
+	if pluginID == vtypes.PluginVultisigFees_feee.String() {
+		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("Uninstall of fee plugin is forbidden"))
+	}
+
 	if err := s.notifyPluginServerDeletePlugin(c.Request().Context(), vtypes.PluginID(pluginID), publicKey); err != nil {
 		s.logger.WithError(err).Errorf("Failed to notify plugin server for deletion of plugin %s", pluginID)
 		return c.JSON(http.StatusServiceUnavailable, NewErrorResponseWithMessage("Plugin server is currently unavailable"))

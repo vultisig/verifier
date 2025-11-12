@@ -30,9 +30,6 @@ make up
 
 # seed the postgres database with initial data
 make seed-db
-
-# run frontend marketplace locally
-make run-frontend
 ```
 
 To debug Docker containers in GoLand with breakpoints, [refer to this article](https://www.jetbrains.com/help/go/attach-to-running-go-processes-with-debugger.html).
@@ -49,7 +46,7 @@ How to install dev version of Chrome extension from desired branch:
 
 - Clone [vultisig-windows](https://github.com/vultisig/vultisig-windows) repo and checkout to desired branch;
 - `yarn install` to install deps;
-- `yarn run build-extension` to build Chrome extension files;
+- `yarn run build:extension` to build Chrome extension files;
 - Open Chrome and load extension there:
   - Open `chrome://extensions`;
   - Click `Developer mode` toggle at top-right;
@@ -62,12 +59,19 @@ To switch branch or update it: rebuild code and click `Reload` button near Vulti
 ![extension.png](readme-static/extension.png)
 
 ### Configuration
-Edit `config.yaml` with appropriate settings for:
+You can configure the verifier and worker by modifying the following files:
+- `verifier.example.json`
+- `worker.example.json`
+- `tx_indexer.example`
+
+These files define settings for:
 - Server (port, host)
 - Database connection
 - Redis connection
 - Storage options (S3 or local)
 - TSS parameters
+
+Each service uses its corresponding example file as the default config.json in both production and development Docker configurations..
 
 ## API Endpoints
 
@@ -95,7 +99,8 @@ Edit `config.yaml` with appropriate settings for:
 - `/types` - Data structures
 - `/vault` - Vault storage implementations
 
-**Testing:** Run `make test` or `go test ./[path]/...`
+**Testing:**
+Run `go test ./[path]/...`
 
 ## License
 

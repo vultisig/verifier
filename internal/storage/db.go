@@ -38,6 +38,7 @@ type DatabaseStorage interface {
 type PolicyRepository interface {
 	GetPluginPolicy(ctx context.Context, id uuid.UUID) (*types.PluginPolicy, error)
 	GetPluginPolicies(ctx context.Context, publicKey string, pluginIds []types.PluginID, includeInactive bool) ([]types.PluginPolicy, error)
+	GetPluginInstallationsCount(ctx context.Context, pluginID types.PluginID) (itypes.PluginTotalCount, error)
 	GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int, includeInactive bool) (*itypes.PluginPolicyPaginatedList, error)
 	DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id uuid.UUID) error
 	InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error)
@@ -46,11 +47,10 @@ type PolicyRepository interface {
 }
 
 type FeeRepository interface {
-	//GetAllFeesByPolicyId(ctx context.Context, policyId uuid.UUID) ([]types.Fee, error)
-	//GetFeesByPublicKey(ctx context.Context, publicKey string, since *time.Time) ([]types.Fee, error)
-	//GetAllFeesByPublicKey(ctx context.Context, includeCollected bool) ([]types.Fee, error)
+	GetFeeById(ctx context.Context, id uint64) (*types.Fee, error)
+	GetFeesByPublicKey(ctx context.Context, publicKey string) ([]*types.Fee, error)
 	InsertFee(ctx context.Context, dbTx pgx.Tx, fee *types.Fee) error
-	//MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txid string) ([]types.Fee, error)
+	InsertPluginInstallation(ctx context.Context, dbTx pgx.Tx, pluginID types.PluginID, publicKey string) error
 }
 
 type PluginPolicySyncRepository interface {
@@ -98,6 +98,7 @@ type ReviewRepository interface {
 
 type RatingRepository interface {
 	FindRatingByPluginId(ctx context.Context, dbTx pgx.Tx, pluginId string) ([]itypes.PluginRatingDto, error)
+	FindAvgRatingByPluginID(ctx context.Context, pluginID string) (itypes.PluginAvgRatingDto, error)
 	CreateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string) error
 	UpdateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, reviewRating int) error
 }

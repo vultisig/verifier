@@ -130,6 +130,14 @@ func (m *MockDatabaseStorage) GetPluginPolicy(ctx context.Context, id uuid.UUID)
 	return args.Get(0).(*types.PluginPolicy), args.Error(1)
 }
 
+func (m *MockDatabaseStorage) GetPluginInstallationsCount(ctx context.Context, pluginID types.PluginID) (itypes.PluginTotalCount, error) {
+	args := m.Called(ctx, pluginID)
+	if args.Get(0) == nil {
+		return itypes.PluginTotalCount{}, args.Error(1)
+	}
+	return args.Get(0).(itypes.PluginTotalCount), args.Error(1)
+}
+
 func (m *MockDatabaseStorage) GetPluginPolicies(ctx context.Context, publicKey string, pluginIds []types.PluginID, includeInactive bool) ([]types.PluginPolicy, error) {
 	args := m.Called(ctx, publicKey, pluginIds, includeInactive)
 	if args.Get(0) == nil {
@@ -167,14 +175,6 @@ func (m *MockDatabaseStorage) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx
 	return args.Get(0).(*types.PluginPolicy), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetAllFeesByPolicyId(ctx context.Context, policyId uuid.UUID) ([]types.Fee, error) {
-	args := m.Called(ctx, policyId)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]types.Fee), args.Error(1)
-}
-
 func (m *MockDatabaseStorage) MarkFeesCollected(ctx context.Context, collectedAt time.Time, ids []uuid.UUID, txHash string) ([]types.Fee, error) {
 	args := m.Called(ctx, collectedAt, ids, txHash)
 	if args.Get(0) == nil {
@@ -183,24 +183,29 @@ func (m *MockDatabaseStorage) MarkFeesCollected(ctx context.Context, collectedAt
 	return args.Get(0).([]types.Fee), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetFeesByPublicKey(ctx context.Context, publicKey string, since *time.Time) ([]types.Fee, error) {
-	args := m.Called(ctx, publicKey, since)
+func (m *MockDatabaseStorage) GetFeeById(ctx context.Context, id uint64) (*types.Fee, error) {
+	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]types.Fee), args.Error(1)
+	return args.Get(0).(*types.Fee), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetAllFeesByPublicKey(ctx context.Context, includeCollected bool) ([]types.Fee, error) {
-	args := m.Called(ctx, includeCollected)
+func (m *MockDatabaseStorage) GetFeesByPublicKey(ctx context.Context, publicKey string) ([]*types.Fee, error) {
+	args := m.Called(ctx, publicKey)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]types.Fee), args.Error(1)
+	return args.Get(0).([]*types.Fee), args.Error(1)
 }
 
 func (m *MockDatabaseStorage) InsertFee(ctx context.Context, dbTx pgx.Tx, fee *types.Fee) error {
 	args := m.Called(ctx, dbTx, fee)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) InsertPluginInstallation(ctx context.Context, dbTx pgx.Tx, pluginID types.PluginID, publicKey string) error {
+	args := m.Called(ctx, dbTx, pluginID, publicKey)
 	return args.Error(0)
 }
 
@@ -270,6 +275,14 @@ func (m *MockDatabaseStorage) FindRatingByPluginId(ctx context.Context, dbTx pgx
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]itypes.PluginRatingDto), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) FindAvgRatingByPluginID(ctx context.Context, pluginID string) (itypes.PluginAvgRatingDto, error) {
+	args := m.Called(ctx, pluginID)
+	if args.Get(0) == nil {
+		return itypes.PluginAvgRatingDto{}, args.Error(1)
+	}
+	return args.Get(0).(itypes.PluginAvgRatingDto), args.Error(1)
 }
 
 func (m *MockDatabaseStorage) FindReviewById(ctx context.Context, db pgx.Tx, id string) (*itypes.ReviewDto, error) {

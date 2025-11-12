@@ -8,6 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/vultisig/verifier/config"
+	"github.com/vultisig/verifier/internal/fee_manager"
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/plugin/tasks"
@@ -25,14 +26,22 @@ func main() {
 	}
 
 	redisCfg := cfg.Redis
-	redisOptions := asynq.RedisClientOpt{
-		Addr:     redisCfg.Host + ":" + redisCfg.Port,
-		Username: redisCfg.User,
-		Password: redisCfg.Password,
-		DB:       redisCfg.DB,
+	var redisConnOpt asynq.RedisConnOpt
+	if redisCfg.URI != "" {
+		redisConnOpt, err = asynq.ParseRedisURI(redisCfg.URI)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		redisConnOpt = asynq.RedisClientOpt{
+			Addr:     redisCfg.Host + ":" + redisCfg.Port,
+			Username: redisCfg.User,
+			Password: redisCfg.Password,
+			DB:       redisCfg.DB,
+		}
 	}
 	logger := logrus.StandardLogger()
-	client := asynq.NewClient(redisOptions)
+	client := asynq.NewClient(redisConnOpt)
 	vaultStorage, err := vault.NewBlockStorageImp(cfg.BlockStorage)
 	if err != nil {
 		panic(fmt.Sprintf("failed to initialize vault storage: %v", err))
@@ -52,14 +61,14 @@ func main() {
 	}
 
 	srv := asynq.NewServer(
-		redisOptions,
+		redisConnOpt,
 		asynq.Config{
 			Logger:      logger,
 			Concurrency: 10,
 			Queues: map[string]int{
 				tasks.QUEUE_NAME:         10,
 				vault.EmailQueueName:     100,
-				"scheduled_plugin_queue": 10, // new queue
+				"scheduled_plugin_queue": 10,
 			},
 		},
 	)
@@ -85,14 +94,18 @@ func main() {
 		client,
 		vaultStorage,
 		txIndexerService,
+	)
+
+	feeMgmService := fee_manager.NewFeeManagementService(
+		logger,
 		backendDB,
+		vaultMgmService,
 	)
 
 	mux := asynq.NewServeMux()
-	// mux.HandleFunc(tasks.TypePluginTransaction, workerService.HandlePluginTransaction)
 	mux.HandleFunc(tasks.TypeKeyGenerationDKLS, vaultMgmService.HandleKeyGenerationDKLS)
 	mux.HandleFunc(tasks.TypeKeySignDKLS, vaultMgmService.HandleKeySignDKLS)
-	mux.HandleFunc(tasks.TypeReshareDKLS, vaultMgmService.HandleReshareDKLS)
+	mux.HandleFunc(tasks.TypeReshareDKLS, feeMgmService.HandleReshareDKLS)
 	mux.HandleFunc(tasks.TypeRecurringFeeRecord, policyService.HandleScheduledFees)
 
 	if err := srv.Run(mux); err != nil {

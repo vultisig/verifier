@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -15,12 +16,12 @@ type Redis struct {
 }
 
 func NewRedis(cfg config.Redis) (*Redis, error) {
-	client := redis.NewClient(&redis.Options{
-		Addr:     cfg.Host + ":" + cfg.Port,
-		Username: cfg.User,
-		Password: cfg.Password,
-		DB:       cfg.DB,
-	})
+	opts, err := cfg.GetRedisOptions()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get redis opts: %w", err)
+	}
+
+	client := redis.NewClient(opts)
 	status := client.Ping(context.Background())
 	if status.Err() != nil {
 		return nil, status.Err()

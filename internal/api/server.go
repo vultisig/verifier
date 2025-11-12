@@ -12,8 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vultisig/verifier/tx_indexer"
-
 	"github.com/go-playground/validator/v10"
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
@@ -31,6 +29,7 @@ import (
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/internal/syncer"
 	"github.com/vultisig/verifier/plugin/tasks"
+	"github.com/vultisig/verifier/plugin/tx_indexer"
 	vtypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/verifier/vault"
 	"github.com/vultisig/vultisig-go/address"

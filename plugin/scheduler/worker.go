@@ -8,8 +8,9 @@ import (
 
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
-	"github.com/vultisig/verifier/tx_indexer/pkg/graceful"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/graceful"
 )
 
 type Worker struct {

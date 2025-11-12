@@ -5,11 +5,12 @@ import (
 	"fmt"
 
 	"github.com/sirupsen/logrus"
+
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	fee_tx_indexer "github.com/vultisig/verifier/internal/tx_indexer"
-	"github.com/vultisig/verifier/tx_indexer"
-	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
+	"github.com/vultisig/verifier/plugin/tx_indexer"
+	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
 )
 
 func main() {

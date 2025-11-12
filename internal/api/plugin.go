@@ -18,16 +18,17 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
 	"github.com/microcosm-cc/bluemonday"
+	"google.golang.org/protobuf/encoding/protojson"
+
 	"github.com/vultisig/recipes/engine"
 	"github.com/vultisig/recipes/ethereum"
 	rtypes "github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/internal/conv"
 	"github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/plugin/tasks"
-	"github.com/vultisig/verifier/tx_indexer/pkg/storage"
+	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
 	ptypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/vultisig-go/common"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func (s *Server) SignPluginMessages(c echo.Context) error {

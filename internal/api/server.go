@@ -201,7 +201,8 @@ func (s *Server) ReshareVault(c echo.Context) error {
 	// Check if session exists in Redis
 	result, err := s.redis.Get(c.Request().Context(), req.SessionID)
 	if err == nil && result != "" {
-		return c.NoContent(http.StatusOK)
+		s.logger.WithField("session_id", req.SessionID).Info("Session already active, skipping enqueue")
+		return c.JSON(http.StatusOK, map[string]string{"status": "already_exists"})
 	}
 
 	// First, notify plugin server synchronously
@@ -236,7 +237,7 @@ func (s *Server) ReshareVault(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgReshareQueueFailed))
 	}
 
-	return c.NoContent(http.StatusOK)
+	return c.JSON(http.StatusOK, map[string]string{"status": "queued"})
 }
 
 // notifyPluginServerReshare sends the reshare request to the plugin server
@@ -345,22 +346,27 @@ func (s *Server) isValidHash(hash string) bool {
 func (s *Server) ExistVault(c echo.Context) error {
 	publicKeyECDSA := c.Param("publicKeyECDSA")
 	if publicKeyECDSA == "" {
-		return errors.New(msgRequiredPublicKey)
+		return c.JSON(http.StatusBadRequest, errors.New(msgRequiredPublicKey))
 	}
 	if !s.isValidHash(publicKeyECDSA) {
-		return c.NoContent(http.StatusBadRequest)
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidPublicKey))
 	}
 	pluginId := c.Param("pluginId")
 	if pluginId == "" {
-		return errors.New(msgRequiredPluginID)
+		return c.JSON(http.StatusBadRequest, errors.New(msgRequiredPluginID))
 	}
 
 	filePathName := common.GetVaultBackupFilename(publicKeyECDSA, pluginId)
 	exist, err := s.vaultStorage.Exist(filePathName)
-	if err != nil || !exist {
-		return c.NoContent(http.StatusBadRequest)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to check vault existence")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgInternalError))
 	}
-	return c.NoContent(http.StatusOK)
+	if !exist {
+		return c.JSON(http.StatusNotFound, NewErrorResponseWithMessage(msgVaultNotFound))
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (s *Server) Auth(c echo.Context) error {
@@ -412,7 +418,6 @@ func (s *Server) Auth(c echo.Context) error {
 		s.logger.WithError(err).Error("signature verification failed")
 		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgSignatureVerificationFailed))
 	}
-
 	if !success {
 		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgInvalidSignature))
 	}
@@ -520,6 +525,7 @@ func (s *Server) RevokeToken(c echo.Context) error {
 
 	vaultKey, ok := c.Get("vault_public_key").(string)
 	if !ok {
+		s.logger.Warn("Missing vault_public_key in context")
 		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgUnauthorized))
 	}
 
@@ -544,7 +550,7 @@ func (s *Server) RevokeToken(c echo.Context) error {
 		}
 	}
 
-	return c.NoContent(http.StatusOK)
+	return c.JSON(http.StatusOK, map[string]string{"status": "revoked"})
 }
 
 // RevokeAllTokens revokes all tokens for the authenticated vault
@@ -552,6 +558,7 @@ func (s *Server) RevokeAllTokens(c echo.Context) error {
 	// Get public key from context (set by VaultAuthMiddleware)
 	publicKey, ok := c.Get("vault_public_key").(string)
 	if !ok {
+		s.logger.Warn("Missing vault_public_key in context")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
 
@@ -561,7 +568,7 @@ func (s *Server) RevokeAllTokens(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgRevokeAllTokensFailed))
 	}
 
-	return c.NoContent(http.StatusOK)
+	return c.JSON(http.StatusOK, map[string]string{"status": "revoked"})
 }
 
 // GetActiveTokens returns all active tokens for the authenticated vault
@@ -644,7 +651,9 @@ func (s *Server) DeletePlugin(c echo.Context) error {
 	fileName := common.GetVaultBackupFilename(publicKey, pluginID)
 	// delete the vault
 	if err := s.vaultStorage.DeleteFile(fileName); err != nil {
+		s.logger.WithError(err).Error("Failed to delete vault file")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultShareDeleteFailed))
 	}
-	return c.NoContent(http.StatusOK)
+
+	return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 }

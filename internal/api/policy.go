@@ -214,8 +214,10 @@ func (s *Server) DeletePluginPolicyById(c echo.Context) error {
 		s.logger.WithError(err).Error("Failed to parse request")
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequestParseFailed))
 	}
+
 	publicKey, ok := c.Get("vault_public_key").(string)
 	if !ok {
+		s.logger.Warn("Missing vault_public_key in context")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
 
@@ -225,35 +227,35 @@ func (s *Server) DeletePluginPolicyById(c echo.Context) error {
 	}
 	policyUUID, err := uuid.Parse(policyID)
 	if err != nil {
-		s.logger.WithError(err).Errorf("failed to parse policyId")
+		s.logger.WithError(err).Errorf("Failed to parse policyId")
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidPolicyID))
 	}
 	policy, err := s.policyService.GetPluginPolicy(c.Request().Context(), policyUUID)
 	if err != nil {
-		s.logger.WithError(err).Error("failed to get plugin policy")
+		s.logger.WithError(err).Error("Failed to get plugin policy")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgPolicyGetFailed))
 	}
 
 	if policy.PublicKey != publicKey {
+		s.logger.Warn("Public key mismatch")
 		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgPublicKeyMismatch))
 	}
 
 	// This is because we have different signature stored in the database.
 	policy.Signature = reqBody.Signature
-
 	if !s.verifyPolicySignature(*policy) {
-		s.logger.Error("invalid policy signature")
+		s.logger.Error("Invalid policy signature")
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidPolicySignature))
 	}
 
 	if err := s.policyService.DeletePolicy(c.Request().Context(), policyUUID, policy.PluginID, reqBody.Signature); err != nil {
-		s.logger.WithError(err).Error("failed to delete plugin policy")
-
+		s.logger.WithError(err).Error("Failed to delete plugin policy")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgPolicyDeleteFailed))
 	}
 
-	return c.NoContent(http.StatusOK)
+	return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 }
+
 func (s *Server) GetPluginPolicyById(c echo.Context) error {
 	publicKey, ok := c.Get("vault_public_key").(string)
 	if !ok {

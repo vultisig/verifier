@@ -72,6 +72,7 @@ const (
 	// Vault
 	msgVaultPublicKeyGetFailed = "failed to get vault_public_key"
 	msgVaultShareDeleteFailed  = "failed to delete vault share"
+	msgVaultNotFound           = "vault not found"
 
 	// Fees
 	msgGetFeesFailed           = "failed to get fees"

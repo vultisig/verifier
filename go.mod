@@ -36,6 +36,7 @@ require (
 	github.com/vultisig/vultisig-go v0.0.0-20251004125942-60b3b1898d15
 	github.com/xyield/xrpl-go v0.0.0-20230914223425-9abe75c05830
 	golang.org/x/sync v0.14.0
+	golang.org/x/time v0.9.0
 	google.golang.org/protobuf v1.36.6
 	sigs.k8s.io/yaml v1.6.0
 )
@@ -262,7 +263,6 @@ require (
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
-	golang.org/x/time v0.9.0 // indirect
 	golang.org/x/tools v0.31.0 // indirect
 	google.golang.org/genproto v0.0.0-20241118233622-e639e219e697 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250528174236-200df99c418a // indirect

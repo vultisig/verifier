@@ -1,8 +1,6 @@
 package api
 
-import (
-	"time"
-)
+import "time"
 
 type APIResponse[T any] struct {
 	Data      T             `json:"data,omitempty"`
@@ -19,11 +17,11 @@ type ErrorResponse struct {
 
 // Error messages
 const (
-	msgMissingAuthHeader = "Missing authorization header"
-	msgInvalidAuthHeader = "Invalid authorization header format"
-	msgUnauthorized      = "Unauthorized"
-	msgInternalError     = "An internal error occurred"
-	msgAccessDenied      = "Access denied: token not authorized for this vault"
+	msgMissingAuthHeader = "missing authorization header"
+	msgInvalidAuthHeader = "invalid authorization header format"
+	msgUnauthorized      = "unauthorized"
+	msgInternalError     = "an internal error occurred"
+	msgAccessDenied      = "access denied: token not authorized for this vault"
 
 	// Token
 	msgMissingTokenID              = "missing tokenId"
@@ -81,7 +79,7 @@ const (
 
 	// Policy
 	msgInvalidPluginPolicy    = "plugin policy is invalid"
-	msgInvalidPolicySignature = "Invalid policy signature"
+	msgInvalidPolicySignature = "invalid policy signature"
 	msgPoliciesGetFailed      = "failed to get policies"
 	msgPolicyGetFailed        = "failed to get policy"
 	msgPolicyCreateFailed     = "failed to create policy"
@@ -94,9 +92,10 @@ const (
 	msgReshareQueueFailed = "failed to queue reshare task"
 
 	// Public key
+	msgRequiredPublicKey      = "publicKeyECDSA is required"
+	msgInvalidPublicKey       = "invalid publicKeyECDSA"
 	msgInvalidPublicKeyFormat = "invalid public key format"
 	msgPublicKeyMismatch      = "public key mismatch"
-	msgRequiredPublicKey      = "publicKeyECDSA is required"
 
 	// Misc. params
 	msgInvalidSince      = "invalid since time"

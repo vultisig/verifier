@@ -10,8 +10,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-const ()
-
 func (s *Server) AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		authHeader := c.Request().Header.Get(echo.HeaderAuthorization)

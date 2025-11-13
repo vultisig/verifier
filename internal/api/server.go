@@ -284,26 +284,28 @@ func (s *Server) notifyPluginServerReshare(ctx context.Context, req vtypes.Resha
 func (s *Server) GetVault(c echo.Context) error {
 	publicKeyECDSA := c.Param("publicKeyECDSA")
 	if publicKeyECDSA == "" {
-		return errors.New(msgRequiredPublicKey)
+		return c.JSON(http.StatusBadRequest, errors.New(msgRequiredPublicKey))
 	}
 	if !s.isValidHash(publicKeyECDSA) {
-		return c.NoContent(http.StatusBadRequest)
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidPublicKey))
 	}
 	pluginId := c.Param("pluginId")
 	if pluginId == "" {
-		return errors.New(msgRequiredPluginID)
+		return c.JSON(http.StatusBadRequest, errors.New(msgRequiredPluginID))
 	}
 	filePathName := common.GetVaultBackupFilename(publicKeyECDSA, pluginId)
 	content, err := s.vaultStorage.GetVault(filePathName)
 	if err != nil {
 		wrappedErr := fmt.Errorf("fail to read file in GetVault, err: %w", err)
 		s.logger.Error(wrappedErr)
-		return wrappedErr
+		return c.JSON(http.StatusInternalServerError, wrappedErr)
 	}
 
 	v, err := common.DecryptVaultFromBackup(s.cfg.EncryptionSecret, content)
 	if err != nil {
-		return fmt.Errorf("fail to decrypt vault from the backup, err: %w", err)
+		wrappedErr := fmt.Errorf("fail to decrypt vault from the backup, err: %w", err)
+		s.logger.Error(wrappedErr)
+		return c.JSON(http.StatusInternalServerError, wrappedErr)
 	}
 
 	return c.JSON(http.StatusOK, vgtypes.VaultGetResponse{

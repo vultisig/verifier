@@ -70,6 +70,10 @@ func (t *TxHandler) Rollback(ctx context.Context) error {
 	return nil
 }
 
+func (t *TxHandler) Pool() Caller {
+	return t.pool
+}
+
 func (t *TxHandler) Try(ctx context.Context) Caller {
 	v, ok := ctx.Value(txKey).(pgx.Tx)
 	if ok {

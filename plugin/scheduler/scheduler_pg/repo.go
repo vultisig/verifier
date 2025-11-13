@@ -39,7 +39,7 @@ func (r *Repo) Create(ctx context.Context, policyID uuid.UUID, next time.Time) e
 
 func (r *Repo) GetByPolicy(ctx context.Context, policyID uuid.UUID) (scheduler.Scheduler, error) {
 	var sch scheduler.Scheduler
-	err := r.tx.Try(ctx).QueryRow(ctx, `
+	err := r.tx.Pool().QueryRow(ctx, `
 		SELECT policy_id, next_execution
 		FROM scheduler
 		WHERE policy_id = $1
@@ -53,7 +53,7 @@ func (r *Repo) GetByPolicy(ctx context.Context, policyID uuid.UUID) (scheduler.S
 }
 
 func (r *Repo) GetPending(ctx context.Context) ([]scheduler.Scheduler, error) {
-	rows, err := r.tx.Try(ctx).Query(ctx, `
+	rows, err := r.tx.Pool().Query(ctx, `
 		SELECT policy_id, next_execution
 		FROM scheduler
 		WHERE next_execution <= $1

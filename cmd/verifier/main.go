@@ -31,21 +31,29 @@ func main() {
 		panic(err)
 	}
 
-	redisOptions := asynq.RedisClientOpt{
-		Addr:     cfg.Redis.Host + ":" + cfg.Redis.Port,
-		Username: cfg.Redis.User,
-		Password: cfg.Redis.Password,
-		DB:       cfg.Redis.DB,
+	var redisConnOpt asynq.RedisConnOpt
+	if cfg.Redis.URI != "" {
+		redisConnOpt, err = asynq.ParseRedisURI(cfg.Redis.URI)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		redisConnOpt = asynq.RedisClientOpt{
+			Addr:     cfg.Redis.Host + ":" + cfg.Redis.Port,
+			Username: cfg.Redis.User,
+			Password: cfg.Redis.Password,
+			DB:       cfg.Redis.DB,
+		}
 	}
 
-	client := asynq.NewClient(redisOptions)
+	client := asynq.NewClient(redisConnOpt)
 	defer func() {
 		if err := client.Close(); err != nil {
 			fmt.Println("fail to close asynq client,", err)
 		}
 	}()
 
-	inspector := asynq.NewInspector(redisOptions)
+	inspector := asynq.NewInspector(redisConnOpt)
 
 	vaultStorage, err := vault.NewBlockStorageImp(cfg.BlockStorage)
 	if err != nil {

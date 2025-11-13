@@ -63,13 +63,7 @@ func compareBillingPricing(pricing *types.Pricing, billing *types.BillingPolicy)
 	return sameType && sameFrequency && sameAmount
 }
 
-func (s *PolicyService) validateBillingInformation(ctx context.Context, policy types.PluginPolicy) error {
-	tx, err := s.db.Pool().Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer s.handleRollback(tx)
-
+func (s *PolicyService) validateBillingInformation(ctx context.Context, tx pgx.Tx, policy types.PluginPolicy) error {
 	pluginData, err := s.db.FindPluginById(ctx, tx, policy.PluginID)
 	if err != nil {
 		return fmt.Errorf("failed to find plugin: %w", err)
@@ -103,11 +97,6 @@ func (s *PolicyService) validateBillingInformation(ctx context.Context, policy t
 		}
 	}
 
-	err = tx.Commit(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
 	return nil
 }
 
@@ -133,47 +122,15 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, policy types.PluginPol
 	}
 
 	// Compare and contrast the billing information (signed by user) with the pricing information (defined in the pricings table and connected to the plugin definition)
-	if err := s.validateBillingInformation(ctx, policy); err != nil {
+	if err := s.validateBillingInformation(ctx, tx, policy); err != nil {
 		return nil, fmt.Errorf("failed to validate billing information: %w", err)
 	}
-
-	//// If a non plugin policy, then we need to validate the fee information
-	//if policy.PluginID != types.PluginVultisigFees_feee && len(policy.Billing) > 0 {
-	//	isFeePolicyInstalled, err := s.isFeePolicyInstalled(ctx, policy.PublicKey)
-	//	if err != nil {
-	//		return nil, fmt.Errorf("failed to check if fee policy is installed: %w", err)
-	//	}
-	//	if !isFeePolicyInstalled {
-	//		return nil, fmt.Errorf("fee policy is not installed")
-	//	}
-	//}
 
 	// Insert policy
 	newPolicy, err := s.db.InsertPluginPolicyTx(ctx, tx, policy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert policy: %w", err)
 	}
-
-	//// Create one-time fee records within the transaction
-	//for _, billingPolicy := range newPolicy.Billing {
-	//	if billingPolicy.Type == types.PricingTypeOnce {
-	//		// Create fee record for one-time billing
-	//		fee, err := s.db.InsertFee(ctx, tx, types.Fee{
-	//			PluginPolicyBillingID: billingPolicy.ID,
-	//			Amount:                billingPolicy.Amount,
-	//		})
-	//		if err != nil {
-	//			return nil, fmt.Errorf("failed to insert fee for billing policy %s: %w", billingPolicy.ID, err)
-	//		}
-	//
-	//		s.logger.WithFields(logrus.Fields{
-	//			"plugin_policy_id":         newPolicy.ID,
-	//			"plugin_policy_billing_id": billingPolicy.ID,
-	//			"fee_id":                   fee.ID,
-	//			"amount":                   fee.Amount,
-	//		}).Info("Inserted one-time fee record")
-	//	}
-	//}
 
 	// Sync policy synchronously - if this fails, the entire operation fails
 	if err := s.syncer.CreatePolicySync(ctx, policy); err != nil {

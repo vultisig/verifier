@@ -314,7 +314,7 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 		take = 100
 	}
 	publicKey, ok := c.Get("vault_public_key").(string)
-	if !ok {
+	if !ok || publicKey == "" {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
 	oldPolicy, err := s.policyService.GetPluginPolicy(c.Request().Context(), policyUUID)

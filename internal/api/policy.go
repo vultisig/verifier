@@ -71,7 +71,7 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 		policy.ID = uuid.New()
 	}
 	publicKey, ok := c.Get("vault_public_key").(string)
-	if !ok {
+	if !ok || publicKey == "" {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
 	if policy.PublicKey != publicKey {
@@ -173,7 +173,7 @@ func (s *Server) UpdatePluginPolicyById(c echo.Context) error {
 	}
 
 	publicKey, ok := c.Get("vault_public_key").(string)
-	if !ok {
+	if !ok || publicKey == "" {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
 
@@ -216,7 +216,7 @@ func (s *Server) DeletePluginPolicyById(c echo.Context) error {
 	}
 
 	publicKey, ok := c.Get("vault_public_key").(string)
-	if !ok {
+	if !ok || publicKey == "" {
 		s.logger.Warn("Missing vault_public_key in context")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
@@ -258,7 +258,7 @@ func (s *Server) DeletePluginPolicyById(c echo.Context) error {
 
 func (s *Server) GetPluginPolicyById(c echo.Context) error {
 	publicKey, ok := c.Get("vault_public_key").(string)
-	if !ok {
+	if !ok || publicKey == "" {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
 	policyID := c.Param("policyId")
@@ -292,7 +292,7 @@ func (s *Server) GetAllPluginPolicies(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
 	}
 	publicKey, ok := c.Get("vault_public_key").(string)
-	if !ok {
+	if !ok || publicKey == "" {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
 

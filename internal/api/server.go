@@ -524,7 +524,7 @@ func (s *Server) RevokeToken(c echo.Context) error {
 	}
 
 	vaultKey, ok := c.Get("vault_public_key").(string)
-	if !ok {
+	if !ok || vaultKey == "" {
 		s.logger.Warn("Missing vault_public_key in context")
 		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgUnauthorized))
 	}
@@ -557,7 +557,7 @@ func (s *Server) RevokeToken(c echo.Context) error {
 func (s *Server) RevokeAllTokens(c echo.Context) error {
 	// Get public key from context (set by VaultAuthMiddleware)
 	publicKey, ok := c.Get("vault_public_key").(string)
-	if !ok {
+	if !ok || publicKey == "" {
 		s.logger.Warn("Missing vault_public_key in context")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
@@ -575,7 +575,7 @@ func (s *Server) RevokeAllTokens(c echo.Context) error {
 func (s *Server) GetActiveTokens(c echo.Context) error {
 	// Get public key from context (set by VaultAuthMiddleware)
 	publicKey, ok := c.Get("vault_public_key").(string)
-	if !ok {
+	if !ok || publicKey == "" {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
 
@@ -632,7 +632,7 @@ func (s *Server) DeletePlugin(c echo.Context) error {
 	}
 	// Get public key from context (set by VaultAuthMiddleware)
 	publicKey, ok := c.Get("vault_public_key").(string)
-	if !ok {
+	if !ok || publicKey == "" {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
 	if pluginID == vtypes.PluginVultisigFees_feee.String() {

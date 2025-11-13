@@ -18,6 +18,7 @@ type DatabaseConfig struct {
 type RpcConfig struct {
 	Bitcoin   RpcItem `mapstructure:"bitcoin" json:"bitcoin,omitempty"`
 	Solana    RpcItem `mapstructure:"solana" json:"solana,omitempty"`
+	THORChain RpcItem `mapstructure:"thorchain" json:"thorchain,omitempty"`
 	XRP       RpcItem `mapstructure:"xrp" json:"xrp,omitempty"`
 	Ethereum  RpcItem `mapstructure:"ethereum" json:"ethereum,omitempty"`
 	Avalanche RpcItem `mapstructure:"avalanche" json:"avalanche,omitempty"`

@@ -6,6 +6,7 @@ import (
 
 	"github.com/vultisig/recipes/sdk/btc"
 	"github.com/vultisig/recipes/sdk/solana"
+	"github.com/vultisig/recipes/sdk/thorchain"
 	"github.com/vultisig/recipes/sdk/xrpl"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/chain"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/config"
@@ -79,6 +80,10 @@ func Chains() (SupportedChains, error) {
 	))
 
 	chains[common.Solana] = chain.NewSolanaIndexer(solana.NewSDK(
+		nil,
+	))
+
+	chains[common.THORChain] = chain.NewTHORChainIndexer(thorchain.NewSDK(
 		nil,
 	))
 

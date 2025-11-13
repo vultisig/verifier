@@ -204,7 +204,7 @@ func (s *Syncer) updatePolicySyncStatus(ctx context.Context, policySyncEntity it
 	}
 
 	defer func() {
-		err := tx.Rollback(ctx)
+		err := tx.Rollback(context.Background())
 		if err != nil {
 			s.logger.WithError(err).Error("failed to rollback transaction")
 		}

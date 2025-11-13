@@ -196,20 +196,30 @@ func (s *Syncer) CreatePolicyAsync(ctx context.Context, policySyncEntity itypes.
 
 	return nil
 }
-func (s *Syncer) updatePolicySyncStatus(ctx context.Context, policySyncEntity itypes.PluginPolicySync) (returnErr error) {
+func (s *Syncer) updatePolicySyncStatus(ctx context.Context, policySyncEntity itypes.PluginPolicySync) error {
 	// update plugin policy sync status
 	tx, err := s.storage.Pool().Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
+
 	defer func() {
-		if err := tx.Commit(ctx); err != nil && returnErr == nil {
-			returnErr = fmt.Errorf("failed to commit transaction: %w", err)
+		err := tx.Rollback(context.Background())
+		if err != nil {
+			s.logger.WithError(err).Error("failed to rollback transaction")
 		}
 	}()
-	if err := s.storage.UpdatePluginPolicySync(ctx, tx, policySyncEntity); err != nil {
+
+	err = s.storage.UpdatePluginPolicySync(ctx, tx, policySyncEntity)
+	if err != nil {
 		return fmt.Errorf("failed to update policy sync status: %w", err)
 	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
 	return nil
 }
 

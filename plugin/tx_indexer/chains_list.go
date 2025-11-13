@@ -46,6 +46,14 @@ func Rpcs(ctx context.Context, cfg config.RpcConfig) (SupportedRpcs, error) {
 		rpcs[common.XRP] = xrpRpc
 	}
 
+	if cfg.THORChain.URL != "" {
+		thorchainRpc, err := rpc.NewTHORChain(cfg.THORChain.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create THORChain RPC client: %w", err)
+		}
+		rpcs[common.THORChain] = thorchainRpc
+	}
+
 	evmChains := map[common.Chain]config.RpcItem{
 		common.Ethereum:    cfg.Ethereum,
 		common.Avalanche:   cfg.Avalanche,

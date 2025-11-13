@@ -64,18 +64,11 @@ func compareBillingPricing(pricing *types.Pricing, billing *types.BillingPolicy)
 }
 
 func (s *PolicyService) validateBillingInformation(ctx context.Context, policy types.PluginPolicy) error {
-	var err error
 	tx, err := s.db.Pool().Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-
-	//If there is an error, then rollback the tx at the end
-	defer func() {
-		if err != nil {
-			s.handleRollback(tx)
-		}
-	}()
+	defer s.handleRollback(tx)
 
 	pluginData, err := s.db.FindPluginById(ctx, tx, policy.PluginID)
 	if err != nil {
@@ -108,6 +101,11 @@ func (s *PolicyService) validateBillingInformation(ctx context.Context, policy t
 		if !found {
 			return fmt.Errorf("no matching plugin pricing found for billing policy at index %d", i)
 		}
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil

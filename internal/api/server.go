@@ -202,7 +202,8 @@ func (s *Server) ReshareVault(c echo.Context) error {
 	result, err := s.redis.Get(c.Request().Context(), req.SessionID)
 	if err == nil && result != "" {
 		s.logger.WithField("session_id", req.SessionID).Info("Session already active, skipping enqueue")
-		return c.JSON(http.StatusOK, map[string]string{"status": "already_exists"})
+		status := http.StatusOK
+		return c.JSON(status, NewSuccessResponse(status, "already_exists"))
 	}
 
 	// First, notify plugin server synchronously
@@ -237,7 +238,8 @@ func (s *Server) ReshareVault(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgReshareQueueFailed))
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"status": "queued"})
+	status := http.StatusOK
+	return c.JSON(status, NewSuccessResponse(status, "queued"))
 }
 
 // notifyPluginServerReshare sends the reshare request to the plugin server
@@ -366,7 +368,8 @@ func (s *Server) ExistVault(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, NewErrorResponseWithMessage(msgVaultNotFound))
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	status := http.StatusOK
+	return c.JSON(status, NewSuccessResponse(status, "ok"))
 }
 
 func (s *Server) Auth(c echo.Context) error {
@@ -465,7 +468,9 @@ func (s *Server) Auth(c echo.Context) error {
 		s.logger.WithError(err).Warnf("Failed to cache user info")
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"token": token})
+	status := http.StatusOK
+	resp := map[string]string{"token": token}
+	return c.JSON(status, NewSuccessResponse(status, resp))
 }
 
 // parseAuthMessage extracts nonce and expiry time from the auth message
@@ -513,7 +518,9 @@ func (s *Server) RefreshToken(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgInvalidOrExpiredToken))
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"token": newToken})
+	status := http.StatusOK
+	resp := map[string]string{"token": newToken}
+	return c.JSON(status, NewSuccessResponse(status, resp))
 }
 
 // RevokeToken revokes a specific token
@@ -550,7 +557,8 @@ func (s *Server) RevokeToken(c echo.Context) error {
 		}
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"status": "revoked"})
+	status := http.StatusOK
+	return c.JSON(status, NewSuccessResponse(status, "revoked"))
 }
 
 // RevokeAllTokens revokes all tokens for the authenticated vault
@@ -568,7 +576,8 @@ func (s *Server) RevokeAllTokens(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgRevokeAllTokensFailed))
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"status": "revoked"})
+	status := http.StatusOK
+	return c.JSON(status, NewSuccessResponse(status, "revoked"))
 }
 
 // GetActiveTokens returns all active tokens for the authenticated vault
@@ -655,5 +664,6 @@ func (s *Server) DeletePlugin(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultShareDeleteFailed))
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
+	status := http.StatusOK
+	return c.JSON(status, NewSuccessResponse(status, "deleted"))
 }

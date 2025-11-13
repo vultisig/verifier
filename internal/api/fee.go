@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -9,8 +8,11 @@ import (
 )
 
 func (s *Server) GetPublicKeyFees(c echo.Context) error {
-	pluginId := fmt.Sprint(c.Get("plugin_id"))
-	if pluginId != string(types.PluginVultisigFees_feee) {
+	pluginID, ok := c.Get("plugin_id").(string)
+	if !ok || pluginID == "" {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
+	}
+	if pluginID != string(types.PluginVultisigFees_feee) {
 		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("unauthorized"))
 	}
 

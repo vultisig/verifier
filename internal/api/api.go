@@ -99,7 +99,6 @@ const (
 	msgPublicKeyMismatch      = "public key mismatch"
 
 	// Misc. params
-	msgInvalidSince      = "invalid since time"
 	msgInvalidSort       = "invalid sort parameter"
 	msgInvalidPagination = "invalid pagination parameters"
 	msgRequiredTaskID    = "taskId is required"

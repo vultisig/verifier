@@ -164,6 +164,12 @@ func (s *Server) validateAndSign(c echo.Context, req *ptypes.PluginKeysignReques
 			return fmt.Errorf("failed to decode b64 proposed Solana tx: %w", er)
 		}
 		txBytesEvaluate = b
+	case firstKeysignMessage.Chain == common.THORChain:
+		b, er := base64.StdEncoding.DecodeString(req.Transaction)
+		if er != nil {
+			return fmt.Errorf("failed to decode b64 proposed THORChain tx: %w", er)
+		}
+		txBytesEvaluate = b
 	default:
 		return fmt.Errorf("failed to decode transaction, chain %s not supported", firstKeysignMessage.Chain)
 	}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/vultisig/recipes/sdk/btc"
 	"github.com/vultisig/recipes/sdk/solana"
+	"github.com/vultisig/recipes/sdk/thorchain"
 	"github.com/vultisig/recipes/sdk/xrpl"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/chain"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/config"
@@ -45,6 +46,14 @@ func Rpcs(ctx context.Context, cfg config.RpcConfig) (SupportedRpcs, error) {
 		rpcs[common.XRP] = xrpRpc
 	}
 
+	if cfg.THORChain.URL != "" {
+		thorchainRpc, err := rpc.NewTHORChain(cfg.THORChain.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create THORChain RPC client: %w", err)
+		}
+		rpcs[common.THORChain] = thorchainRpc
+	}
+
 	evmChains := map[common.Chain]config.RpcItem{
 		common.Ethereum:    cfg.Ethereum,
 		common.Avalanche:   cfg.Avalanche,
@@ -79,6 +88,10 @@ func Chains() (SupportedChains, error) {
 	))
 
 	chains[common.Solana] = chain.NewSolanaIndexer(solana.NewSDK(
+		nil,
+	))
+
+	chains[common.THORChain] = chain.NewTHORChainIndexer(thorchain.NewSDK(
 		nil,
 	))
 

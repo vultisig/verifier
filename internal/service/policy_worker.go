@@ -74,6 +74,10 @@ func (s *PolicyService) HandleScheduledFees(ctx context.Context, task *asynq.Tas
 
 	}
 
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("error iterating rows: %w", err)
+	}
+
 	// In case of maintenance, down time etc, if may be the case that several bill cycles have been missed.
 	// Therefore we rerun the task with an updated next_billing_cycle value. If no values are returned by the
 	// subsequent query then we end.

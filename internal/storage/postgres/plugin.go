@@ -383,6 +383,10 @@ func (p *PostgresBackend) FindReviews(ctx context.Context, pluginId string, skip
 		reviews = append(reviews, review)
 	}
 
+	if err := rows.Err(); err != nil {
+		return itypes.ReviewsDto{}, fmt.Errorf("error iterating rows: %w", err)
+	}
+
 	pluginsDto := itypes.ReviewsDto{
 		Reviews:    reviews,
 		TotalCount: totalCount,

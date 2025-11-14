@@ -120,6 +120,10 @@ WHERE public_key = $1 AND plugin_id = ANY($2) AND deleted = false`, publicKey, p
 		policies = append(policies, policy)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
+
 	return policies, nil
 }
 
@@ -191,6 +195,10 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 		}
 		billingRows.Close()
 		policies = append(policies, policy)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
 	}
 
 	dto := itypes.PluginPolicyPaginatedList{
@@ -390,6 +398,11 @@ func (p *PostgresBackend) GetUnFinishedPluginPolicySyncs(ctx context.Context) ([
 		}
 		policies = append(policies, policy)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
+
 	return policies, nil
 }
 

@@ -87,6 +87,10 @@ func (r *Repo) GetAllPluginPolicies(ctx context.Context, publicKey string, plugi
 		policies = append(policies, policy)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
+
 	return policies, nil
 }
 

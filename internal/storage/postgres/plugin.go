@@ -121,6 +121,10 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 		}
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
+
 	// Convert map back to slice
 	plugins := make([]itypes.Plugin, 0, len(pluginMap))
 	for _, pluginId := range pluginIds {
@@ -270,6 +274,7 @@ func (p *PostgresBackend) FindPlugins(
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	plugins, err := p.collectPlugins(rows)
 	if err != nil {

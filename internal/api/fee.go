@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -9,8 +8,11 @@ import (
 )
 
 func (s *Server) GetPublicKeyFees(c echo.Context) error {
-	pluginId := fmt.Sprint(c.Get("plugin_id"))
-	if pluginId != string(types.PluginVultisigFees_feee) {
+	pluginID, ok := c.Get("plugin_id").(string)
+	if !ok || pluginID == "" {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
+	}
+	if pluginID != string(types.PluginVultisigFees_feee) {
 		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("unauthorized"))
 	}
 
@@ -19,7 +21,7 @@ func (s *Server) GetPublicKeyFees(c echo.Context) error {
 	fees, err := s.feeService.PublicKeyGetFeeInfo(c.Request().Context(), publicKey)
 	if err != nil {
 		s.logger.WithError(err).Errorf("Failed to get fees for public key: %s", publicKey)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get fees"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetFeesFailed))
 	}
 
 	status := http.StatusOK
@@ -35,13 +37,13 @@ func (s *Server) MarkCollected(c echo.Context) error {
 	}
 	if err := c.Bind(&req); err != nil {
 		s.logger.WithError(err).Error("Failed to parse request body for MarkCollected")
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("failed to parse request"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequestParseFailed))
 	}
 
 	err := s.feeService.MarkFeesCollected(c.Request().Context(), req.ID, req.TxHash, req.Network, req.Amount)
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to mark fees as collected")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to mark fees as collected"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgMarkFeesCollectedFailed))
 	}
 
 	return c.JSON(http.StatusOK, "OK")

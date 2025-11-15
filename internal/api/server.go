@@ -190,18 +190,20 @@ func (s *Server) ReshareVault(c echo.Context) error {
 	var req vtypes.ReshareRequest
 	if err := c.Bind(&req); err != nil {
 		s.logger.WithError(err).Error("ReshareVault: Failed to parse request body")
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Failed to parse request body"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequestParseFailed))
 	}
 
 	if err := req.IsValid(); err != nil {
 		s.logger.WithError(err).Error("ReshareVault: Request validation failed")
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Request validation failed"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequestValidationFailed))
 	}
 
 	// Check if session exists in Redis
 	result, err := s.redis.Get(c.Request().Context(), req.SessionID)
 	if err == nil && result != "" {
-		return c.NoContent(http.StatusOK)
+		s.logger.WithField("session_id", req.SessionID).Info("Session already active, skipping enqueue")
+		status := http.StatusOK
+		return c.JSON(status, NewSuccessResponse(status, "already_exists"))
 	}
 
 	// First, notify plugin server synchronously
@@ -210,20 +212,20 @@ func (s *Server) ReshareVault(c echo.Context) error {
 
 	if err := s.notifyPluginServerReshare(ctx, req); err != nil {
 		s.logger.WithError(err).Error("ReshareVault: Plugin server notification failed")
-		return c.JSON(http.StatusServiceUnavailable, NewErrorResponseWithMessage("Plugin server is currently unavailable"))
+		return c.JSON(http.StatusServiceUnavailable, NewErrorResponseWithMessage(msgPluginServerUnavailable))
 	}
 
 	// Store session in Redis
 	if err := s.redis.Set(c.Request().Context(), req.SessionID, req.SessionID, 5*time.Minute); err != nil {
 		s.logger.WithError(err).Error("ReshareVault: Failed to store session in Redis")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to store session"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgStoreSessionFailed))
 	}
 
 	// Enqueue background task
 	buf, err := json.Marshal(req)
 	if err != nil {
 		s.logger.WithError(err).Error("ReshareVault: Failed to marshal request")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to process request"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgRequestProcessFailed))
 	}
 
 	_, err = s.asynqClient.Enqueue(asynq.NewTask(tasks.TypeReshareDKLS, buf),
@@ -233,10 +235,11 @@ func (s *Server) ReshareVault(c echo.Context) error {
 		asynq.Queue(tasks.QUEUE_NAME))
 	if err != nil {
 		s.logger.WithError(err).Error("ReshareVault: Failed to enqueue task")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to queue reshare task"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgReshareQueueFailed))
 	}
 
-	return c.NoContent(http.StatusOK)
+	status := http.StatusOK
+	return c.JSON(status, NewSuccessResponse(status, "queued"))
 }
 
 // notifyPluginServerReshare sends the reshare request to the plugin server
@@ -284,26 +287,28 @@ func (s *Server) notifyPluginServerReshare(ctx context.Context, req vtypes.Resha
 func (s *Server) GetVault(c echo.Context) error {
 	publicKeyECDSA := c.Param("publicKeyECDSA")
 	if publicKeyECDSA == "" {
-		return errors.New("public key is required")
+		return c.JSON(http.StatusBadRequest, errors.New(msgRequiredPublicKey))
 	}
 	if !s.isValidHash(publicKeyECDSA) {
-		return c.NoContent(http.StatusBadRequest)
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidPublicKey))
 	}
 	pluginId := c.Param("pluginId")
 	if pluginId == "" {
-		return errors.New("plugin id is required")
+		return c.JSON(http.StatusBadRequest, errors.New(msgRequiredPluginID))
 	}
 	filePathName := common.GetVaultBackupFilename(publicKeyECDSA, pluginId)
 	content, err := s.vaultStorage.GetVault(filePathName)
 	if err != nil {
 		wrappedErr := fmt.Errorf("fail to read file in GetVault, err: %w", err)
 		s.logger.Error(wrappedErr)
-		return wrappedErr
+		return c.JSON(http.StatusInternalServerError, wrappedErr)
 	}
 
 	v, err := common.DecryptVaultFromBackup(s.cfg.EncryptionSecret, content)
 	if err != nil {
-		return fmt.Errorf("fail to decrypt vault from the backup, err: %w", err)
+		wrappedErr := fmt.Errorf("fail to decrypt vault from the backup, err: %w", err)
+		s.logger.Error(wrappedErr)
+		return c.JSON(http.StatusInternalServerError, wrappedErr)
 	}
 
 	return c.JSON(http.StatusOK, vgtypes.VaultGetResponse{
@@ -319,7 +324,7 @@ func (s *Server) GetVault(c echo.Context) error {
 func (s *Server) GetKeysignResult(c echo.Context) error {
 	taskID := c.Param("taskId")
 	if taskID == "" {
-		return fmt.Errorf("task id is required")
+		return errors.New(msgRequiredTaskID)
 	}
 	result, err := tasks.GetTaskResult(s.inspector, taskID)
 	if err != nil {
@@ -343,22 +348,28 @@ func (s *Server) isValidHash(hash string) bool {
 func (s *Server) ExistVault(c echo.Context) error {
 	publicKeyECDSA := c.Param("publicKeyECDSA")
 	if publicKeyECDSA == "" {
-		return errors.New("public key is required")
+		return c.JSON(http.StatusBadRequest, errors.New(msgRequiredPublicKey))
 	}
 	if !s.isValidHash(publicKeyECDSA) {
-		return c.NoContent(http.StatusBadRequest)
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidPublicKey))
 	}
 	pluginId := c.Param("pluginId")
 	if pluginId == "" {
-		return errors.New("plugin id is required")
+		return c.JSON(http.StatusBadRequest, errors.New(msgRequiredPluginID))
 	}
 
 	filePathName := common.GetVaultBackupFilename(publicKeyECDSA, pluginId)
 	exist, err := s.vaultStorage.Exist(filePathName)
-	if err != nil || !exist {
-		return c.NoContent(http.StatusBadRequest)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to check vault existence")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgInternalError))
 	}
-	return c.NoContent(http.StatusOK)
+	if !exist {
+		return c.JSON(http.StatusNotFound, NewErrorResponseWithMessage(msgVaultNotFound))
+	}
+
+	status := http.StatusOK
+	return c.JSON(status, NewSuccessResponse(status, "ok"))
 }
 
 func (s *Server) Auth(c echo.Context) error {
@@ -370,49 +381,48 @@ func (s *Server) Auth(c echo.Context) error {
 	}
 
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Invalid request format"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidRequestFormat))
 	}
 
 	// Validate required fields
 	if err := clientutil.ValidateAuthRequest(
 		req.Message, req.Signature, req.PublicKey, req.ChainCodeHex,
 	); err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Invalid request format"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidRequestFormat))
 	}
 
 	// Parse message to extract nonce and expiry
 	nonce, expiryTime, err := parseAuthMessage(req.Message)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Invalid message format"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidMessageFormat))
 	}
 
 	// Validate expiry time
 	if time.Now().After(expiryTime) {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Message has expired"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgMessageExpired))
 	}
 
 	// Decode signature from hex (remove 0x prefix first)
 	sigBytes, err := hex.DecodeString(strings.TrimPrefix(req.Signature, "0x"))
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to decode signature")
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Invalid signature format"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidSignatureFormat))
 	}
 
 	ethAddress, _, _, err := address.GetAddress(req.PublicKey, req.ChainCodeHex, common.Ethereum)
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get address")
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Invalid public key format"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidPublicKeyFormat))
 	}
 
 	// extract the public key from the signature, make sure it matches the eth public key
 	success, err := sigutil.VerifyEthAddressSignature(ecommon.HexToAddress(ethAddress), []byte(req.Message), sigBytes)
 	if err != nil {
 		s.logger.WithError(err).Error("signature verification failed")
-		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("Signature verification failed"))
+		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgSignatureVerificationFailed))
 	}
-
 	if !success {
-		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("Invalid signature"))
+		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgInvalidSignature))
 	}
 
 	// Unique nonce-public key identifier
@@ -423,32 +433,32 @@ func (s *Server) Auth(c echo.Context) error {
 		// We should still store the nonce in redis to avoid delayed replays
 		if err := s.redis.Set(c.Request().Context(), nonceKey, "1", time.Until(expiryTime)); err != nil {
 			s.logger.WithError(err).Error("Failed to store nonce")
-			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to store nonce"))
+			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgNonceStoreFailed))
 		}
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Expiry time too far in the future"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgExpiryTooFarInFuture))
 	}
 
 	// Check if nonce has been used in Redis
 	exists, err := s.redis.Exists(c.Request().Context(), nonceKey)
 	if err != nil {
 		s.logger.WithError(err).Errorf("Nonce already used")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Nonce was already used"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgNonceUsed))
 	}
 	if exists {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Nonce already used"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgNonceUsed))
 	}
 
 	// Store the nonce in Redis with expiry
 	if err := s.redis.Set(c.Request().Context(), nonceKey, "1", time.Until(expiryTime)); err != nil {
 		s.logger.WithError(err).Errorf("Failed to store nonce")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to store nonce"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgNonceStoreFailed))
 	}
 
 	// Generate JWT token with the public key
 	token, err := s.authService.GenerateToken(c.Request().Context(), req.PublicKey)
 	if err != nil {
 		s.logger.Error("failed to generate token:", err)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to generate auth token"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgTokenGenerateFailed))
 	}
 
 	// Store logged-in user's public key in cache for quick access
@@ -458,7 +468,9 @@ func (s *Server) Auth(c echo.Context) error {
 		s.logger.WithError(err).Warnf("Failed to cache user info")
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"token": token})
+	status := http.StatusOK
+	resp := map[string]string{"token": token}
+	return c.JSON(status, NewSuccessResponse(status, resp))
 }
 
 // parseAuthMessage extracts nonce and expiry time from the auth message
@@ -475,7 +487,7 @@ func parseAuthMessage(message string) (string, time.Time, error) {
 	}
 
 	if authData.Nonce == "" || authData.ExpiresAt == "" {
-		return "", time.Time{}, fmt.Errorf("missing nonce or expiry time")
+		return "", time.Time{}, errors.New(msgNonceOrExpiryRequired)
 	}
 
 	expiryTime, err := time.Parse(time.RFC3339, authData.ExpiresAt)
@@ -493,32 +505,35 @@ func (s *Server) RefreshToken(c echo.Context) error {
 
 	if err := c.Bind(&req); err != nil {
 		s.logger.WithError(err).Errorf("fail to decode token")
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Invalid request format"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidRequestFormat))
 	}
 
 	if req.Token == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Missing token"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgMissingTokenID))
 	}
 
 	newToken, err := s.authService.RefreshToken(c.Request().Context(), req.Token)
 	if err != nil {
 		s.logger.WithError(err).Error("fail to refresh token")
-		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("Invalid or expired token"))
+		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgInvalidOrExpiredToken))
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"token": newToken})
+	status := http.StatusOK
+	resp := map[string]string{"token": newToken}
+	return c.JSON(status, NewSuccessResponse(status, resp))
 }
 
 // RevokeToken revokes a specific token
 func (s *Server) RevokeToken(c echo.Context) error {
 	tokenID := c.Param("tokenId")
 	if tokenID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Missing token ID"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgMissingTokenID))
 	}
 
 	vaultKey, ok := c.Get("vault_public_key").(string)
-	if !ok {
-		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("Unauthorized"))
+	if !ok || vaultKey == "" {
+		s.logger.Warn("Missing vault_public_key in context")
+		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgUnauthorized))
 	}
 
 	err := s.authService.RevokeToken(c.Request().Context(), vaultKey, tokenID)
@@ -526,54 +541,57 @@ func (s *Server) RevokeToken(c echo.Context) error {
 		s.logger.WithError(err).Error("Failed to revoke token")
 		switch {
 		case errors.Is(err, service.ErrTokenNotFound):
-			return c.JSON(http.StatusNotFound, NewErrorResponseWithMessage("Token not found"))
+			return c.JSON(http.StatusNotFound, NewErrorResponseWithMessage(msgTokenNotFound))
 		case errors.Is(err, service.ErrNotOwner):
-			return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("Unauthorized token revocation"))
+			return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgUnauthorizedTokenRevocation))
 		case errors.Is(err, service.ErrBeginTx):
-			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to begin transaction"))
+			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgTransactionBeginFailed))
 		case errors.Is(err, service.ErrGetToken):
-			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to get token"))
+			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgTokenGetFailed))
 		case errors.Is(err, service.ErrRevokeToken):
-			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to revoke token"))
+			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgTokenRevokeFailed))
 		case errors.Is(err, service.ErrCommitTx):
-			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to commit transaction"))
+			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgTransactionCommitFailed))
 		default:
-			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to revoke token"))
+			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgTokenRevokeFailed))
 		}
 	}
 
-	return c.NoContent(http.StatusOK)
+	status := http.StatusOK
+	return c.JSON(status, NewSuccessResponse(status, "revoked"))
 }
 
 // RevokeAllTokens revokes all tokens for the authenticated vault
 func (s *Server) RevokeAllTokens(c echo.Context) error {
 	// Get public key from context (set by VaultAuthMiddleware)
 	publicKey, ok := c.Get("vault_public_key").(string)
-	if !ok {
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to get vault public key"))
+	if !ok || publicKey == "" {
+		s.logger.Warn("Missing vault_public_key in context")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
 
 	err := s.authService.RevokeAllTokens(c.Request().Context(), publicKey)
 	if err != nil {
 		s.logger.WithError(err).Errorf("Failed to revoke all tokens")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to revoke all tokens"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgRevokeAllTokensFailed))
 	}
 
-	return c.NoContent(http.StatusOK)
+	status := http.StatusOK
+	return c.JSON(status, NewSuccessResponse(status, "revoked"))
 }
 
 // GetActiveTokens returns all active tokens for the authenticated vault
 func (s *Server) GetActiveTokens(c echo.Context) error {
 	// Get public key from context (set by VaultAuthMiddleware)
 	publicKey, ok := c.Get("vault_public_key").(string)
-	if !ok {
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to get vault public key"))
+	if !ok || publicKey == "" {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
 
 	tokens, err := s.authService.GetActiveTokens(c.Request().Context(), publicKey)
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get active tokens")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to get active tokens"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetActiveTokensFailed))
 	}
 
 	return c.JSON(http.StatusOK, tokens)
@@ -619,12 +637,12 @@ func (s *Server) notifyPluginServerDeletePlugin(ctx context.Context, id vtypes.P
 func (s *Server) DeletePlugin(c echo.Context) error {
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("Plugin ID is required"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
 	}
 	// Get public key from context (set by VaultAuthMiddleware)
 	publicKey, ok := c.Get("vault_public_key").(string)
-	if !ok {
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to get vault public key"))
+	if !ok || publicKey == "" {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
 	if pluginID == vtypes.PluginVultisigFees_feee.String() {
 		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("Uninstall of fee plugin is forbidden"))
@@ -632,17 +650,20 @@ func (s *Server) DeletePlugin(c echo.Context) error {
 
 	if err := s.notifyPluginServerDeletePlugin(c.Request().Context(), vtypes.PluginID(pluginID), publicKey); err != nil {
 		s.logger.WithError(err).Errorf("Failed to notify plugin server for deletion of plugin %s", pluginID)
-		return c.JSON(http.StatusServiceUnavailable, NewErrorResponseWithMessage("Plugin server is currently unavailable"))
+		return c.JSON(http.StatusServiceUnavailable, NewErrorResponseWithMessage(msgPluginServerUnavailable))
 	}
 	// remove plugin policies
 	if err := s.policyService.DeleteAllPolicies(c.Request().Context(), vtypes.PluginID(pluginID), publicKey); err != nil {
 		s.logger.Errorf("Failed to delete plugin policies: %v", err)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to delete plugin policies"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgPoliciesDeleteFailed))
 	}
 	fileName := common.GetVaultBackupFilename(publicKey, pluginID)
 	// delete the vault
 	if err := s.vaultStorage.DeleteFile(fileName); err != nil {
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to delete vault share"))
+		s.logger.WithError(err).Error("Failed to delete vault file")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultShareDeleteFailed))
 	}
-	return c.NoContent(http.StatusOK)
+
+	status := http.StatusOK
+	return c.JSON(status, NewSuccessResponse(status, "deleted"))
 }

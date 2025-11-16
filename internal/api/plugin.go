@@ -448,7 +448,7 @@ func (s *Server) GetPluginRecipeSpecificationSuggest(c echo.Context) error {
 	err := c.Bind(&req)
 	if err != nil {
 		s.logger.WithError(err).Error("failed to parse request")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgRequestParseFailed))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequestParseFailed))
 	}
 
 	recipeSpec, err := s.pluginService.GetPluginRecipeSpecificationSuggest(

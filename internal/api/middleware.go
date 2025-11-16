@@ -18,8 +18,8 @@ func (s *Server) AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		// Extract token from Bearer format
-		tokenParts := strings.Split(authHeader, " ")
-		if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+		tokenParts := strings.Fields(authHeader)
+		if len(tokenParts) != 2 || !strings.EqualFold(tokenParts[0], "Bearer") {
 			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgInvalidAuthHeader))
 		}
 		tokenStr := tokenParts[1]
@@ -47,8 +47,8 @@ func (s *Server) VaultAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgMissingAuthHeader))
 		}
 
-		tokenParts := strings.Split(authHeader, " ")
-		if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+		tokenParts := strings.Fields(authHeader)
+		if len(tokenParts) != 2 || !strings.EqualFold(tokenParts[0], "Bearer") {
 			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgInvalidAuthHeader))
 		}
 		tokenStr := tokenParts[1]

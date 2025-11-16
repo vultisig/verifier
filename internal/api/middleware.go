@@ -1,10 +1,12 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
 )
 
@@ -12,21 +14,27 @@ func (s *Server) AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
 		if authHeader == "" {
-			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("Authorization header required"))
+			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgMissingAuthHeader))
 		}
 
-		tokenStr := authHeader[len("Bearer "):]
+		// Extract token from Bearer format
+		tokenParts := strings.Fields(authHeader)
+		if len(tokenParts) != 2 || !strings.EqualFold(tokenParts[0], "Bearer") {
+			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgInvalidAuthHeader))
+		}
+		tokenStr := tokenParts[1]
+
 		_, err := s.authService.ValidateToken(c.Request().Context(), tokenStr)
 		if err != nil {
 			s.logger.Warnf("fail to validate token, err: %v", err)
-			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("Unauthorized"))
+			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgUnauthorized))
 		}
 		s.logger.Info("Token validated successfully")
 		return next(c)
 	}
 }
 
-// VaultAuthMiddleware verifies JWT tokens and ensures users can only access their own vaults
+// VaultAuthMiddleware verifies JWT tokens and ensures users can only access their own vaults.
 func (s *Server) VaultAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		if s.cfg.Auth.Enabled != nil && !*s.cfg.Auth.Enabled {
@@ -34,23 +42,21 @@ func (s *Server) VaultAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return next(c)
 		}
 
-		// Get token from header
 		authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
 		if authHeader == "" {
-			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("Missing authorization header"))
+			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgMissingAuthHeader))
 		}
 
-		// Extract token from Bearer format
-		tokenParts := strings.Split(authHeader, " ")
-		if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
-			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("Invalid authorization header format"))
+		tokenParts := strings.Fields(authHeader)
+		if len(tokenParts) != 2 || !strings.EqualFold(tokenParts[0], "Bearer") {
+			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgInvalidAuthHeader))
 		}
+		tokenStr := tokenParts[1]
 
-		// Validate token and get claims
-		claims, err := s.authService.ValidateToken(c.Request().Context(), tokenParts[1])
+		claims, err := s.authService.ValidateToken(c.Request().Context(), tokenStr)
 		if err != nil {
-			s.logger.WithError(err).Error("Internal error")
-			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("An internal error occurred"))
+			s.logger.Warnf("fail to validate token, err: %v", err)
+			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgUnauthorized))
 		}
 
 		// Get requested vault's public key from URL parameter
@@ -61,7 +67,7 @@ func (s *Server) VaultAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			if claims.PublicKey != requestedPublicKey {
 				s.logger.Warnf("Access denied: token public key %s does not match requested vault %s",
 					claims.PublicKey, requestedPublicKey)
-				return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("Access denied: token not authorized for this vault"))
+				return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgAccessDenied))
 			}
 		}
 
@@ -76,27 +82,31 @@ func (s *Server) PluginAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
 		if authHeader == "" {
-			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("Authorization header required"))
+			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgMissingAuthHeader))
 		}
 
 		items := strings.Fields(authHeader)
-		if len(items) != 2 || items[0] != "Bearer" {
-			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("Invalid authorization header format"))
+		if len(items) != 2 || !strings.EqualFold(items[0], "Bearer") {
+			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgInvalidAuthHeader))
 		}
 		tokenStr := items[1]
 		apiKey, err := s.db.GetAPIKey(c.Request().Context(), tokenStr)
 		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				s.logger.Warnf("API key not found: %v", tokenStr)
+				return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgAPIKeyNotFound))
+			}
 			s.logger.WithError(err).Error("fail to get API key")
-			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("Failed to validate API key"))
+			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgInternalError))
 		}
 		if apiKey.Status == 0 {
 			s.logger.Warnf("API key is disabled, id: %s", apiKey.ID)
-			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("Invalid API key"))
+			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgDisabledAPIKey))
 		}
 		if apiKey.ExpiresAt != nil {
 			if apiKey.ExpiresAt.Before(time.Now()) {
 				s.logger.Warnf("API key is expired, id: %s", apiKey.ID)
-				return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("API key has expired"))
+				return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgExpiredAPIKey))
 			}
 		}
 		c.Set("plugin_id", apiKey.PluginID)

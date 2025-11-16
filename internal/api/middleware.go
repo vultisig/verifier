@@ -86,7 +86,7 @@ func (s *Server) PluginAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		items := strings.Fields(authHeader)
-		if len(items) != 2 || items[0] != "Bearer" {
+		if len(items) != 2 || !strings.EqualFold(items[0], "Bearer") {
 			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgInvalidAuthHeader))
 		}
 		tokenStr := items[1]

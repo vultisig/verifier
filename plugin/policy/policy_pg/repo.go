@@ -35,7 +35,7 @@ func (r *Repo) GetPluginPolicy(ctx context.Context, id uuid.UUID) (*types.Plugin
         FROM plugin_policies 
         WHERE id = $1`
 
-	err := r.tx.Try(ctx).QueryRow(ctx, query, id).Scan(
+	err := r.tx.Pool().QueryRow(ctx, query, id).Scan(
 		&policy.ID,
 		&policy.PublicKey,
 		&policy.PluginID,
@@ -63,7 +63,7 @@ func (r *Repo) GetAllPluginPolicies(ctx context.Context, publicKey string, plugi
 		query += ` AND active = true`
 	}
 
-	rows, err := r.tx.Try(ctx).Query(ctx, query, publicKey, pluginID)
+	rows, err := r.tx.Pool().Query(ctx, query, publicKey, pluginID)
 	if err != nil {
 		return nil, err
 	}
@@ -85,6 +85,10 @@ func (r *Repo) GetAllPluginPolicies(ctx context.Context, publicKey string, plugi
 			return nil, err
 		}
 		policies = append(policies, policy)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
 	}
 
 	return policies, nil

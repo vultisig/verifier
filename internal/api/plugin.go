@@ -241,7 +241,7 @@ func (s *Server) GetPlugins(c echo.Context) error {
 	skip, take, err := conv.PageParamsFromCtx(c, 0, 20)
 	if err != nil {
 		s.logger.WithError(err).Error("fail to parse pagination parameters")
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid pagination parameters"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidPagination))
 	}
 	sort := c.QueryParam("sort")
 	filters := types.PluginFilters{
@@ -253,7 +253,7 @@ func (s *Server) GetPlugins(c echo.Context) error {
 	plugins, err := s.db.FindPlugins(c.Request().Context(), filters, int(take), int(skip), sort)
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get plugins")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get plugins"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginsFailed))
 	}
 
 	return c.JSON(http.StatusOK, plugins)
@@ -263,13 +263,13 @@ func (s *Server) GetPlugin(c echo.Context) error {
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
 		s.logger.Error("plugin id is required")
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("plugin id is required"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
 	}
 
 	plugin, err := s.pluginService.GetPluginWithRating(c.Request().Context(), pluginID)
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get plugin")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get plugin"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginFailed))
 	}
 
 	return c.JSON(http.StatusOK, plugin)
@@ -296,7 +296,7 @@ func (s *Server) GetTags(c echo.Context) error {
 	tags, err := s.db.FindTags(c.Request().Context())
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get tags")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get tags"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetTagsFailed))
 	}
 	return c.JSON(http.StatusOK, tags)
 }
@@ -304,38 +304,38 @@ func (s *Server) GetTags(c echo.Context) error {
 func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 	policyID := c.Param("policyId")
 	if policyID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("policy ID is required"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPolicyID))
 	}
 	policyUUID, err := uuid.Parse(policyID)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("policyId invalid uuid"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidPolicyID))
 	}
 
 	skip, take, err := conv.PageParamsFromCtx(c, 0, 20)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid pagination parameters"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidPagination))
 	}
 
 	if take > 100 {
 		take = 100
 	}
 	publicKey, ok := c.Get("vault_public_key").(string)
-	if !ok {
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("Failed to get vault public key"))
+	if !ok || publicKey == "" {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
 	oldPolicy, err := s.policyService.GetPluginPolicy(c.Request().Context(), policyUUID)
 	if err != nil {
 		s.logger.WithError(err).Errorf("failed to get plugin policy, id:%s", policyUUID)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get policy"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgPolicyGetFailed))
 	}
 	if oldPolicy.PublicKey != publicKey {
-		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("public key mismatch"))
+		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgPublicKeyMismatch))
 	}
 
 	txs, totalCount, err := s.txIndexerService.GetByPolicyID(c.Request().Context(), policyUUID, skip, take)
 	if err != nil {
 		s.logger.WithError(err).Errorf("s.txIndexerService.GetByPolicyID: %s", policyID)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get txs by policy ID"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetTxsByPolicyIDFailed))
 	}
 
 	return c.JSON(http.StatusOK, types.TransactionHistoryPaginatedList{
@@ -348,12 +348,12 @@ func (s *Server) CreateReview(c echo.Context) error {
 	var review types.ReviewCreateDto
 	if err := c.Bind(&review); err != nil {
 		s.logger.WithError(err).Error("Failed to parse request")
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("failed to parse request"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequestParseFailed))
 	}
 
 	if err := c.Validate(&review); err != nil {
 		s.logger.WithError(err).Error("Request validation failed")
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid review"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidReview))
 	}
 
 	// If allowing HTML, sanitize with bluemonday:
@@ -362,13 +362,13 @@ func (s *Server) CreateReview(c echo.Context) error {
 
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("plugin id is required"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
 	}
 
 	created, err := s.pluginService.CreatePluginReviewWithRating(c.Request().Context(), review, pluginID)
 	if err != nil {
 		s.logger.WithError(err).Errorf("Plugin service failed to create review for plugin %s", pluginID)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to create review"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgCreateReviewFailed))
 	}
 
 	return c.JSON(http.StatusOK, created)
@@ -377,7 +377,7 @@ func (s *Server) CreateReview(c echo.Context) error {
 func (s *Server) GetReviews(c echo.Context) error {
 	pluginId := c.Param("pluginId")
 	if pluginId == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("plugin id is required"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
 	}
 
 	skip, err := strconv.Atoi(c.QueryParam("skip"))
@@ -400,13 +400,13 @@ func (s *Server) GetReviews(c echo.Context) error {
 
 	allowedSortFields := []string{"created_at", "rating", "updated_at"}
 	if sort != "" && !common.IsValidSortField(sort, allowedSortFields) {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid sort parameter"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidSort))
 	}
 
 	reviews, err := s.db.FindReviews(c.Request().Context(), pluginId, skip, take, sort)
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get reviews")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get reviews"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetReviewsFailed))
 	}
 
 	return c.JSON(http.StatusOK, reviews)
@@ -415,13 +415,13 @@ func (s *Server) GetReviews(c echo.Context) error {
 func (s *Server) GetPluginAvgRating(c echo.Context) error {
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("pluginId is required"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
 	}
 
 	avgRating, err := s.db.FindAvgRatingByPluginID(c.Request().Context(), pluginID)
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get average rating")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get average rating"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetAvgRatingFailed))
 	}
 
 	return c.JSON(http.StatusOK, avgRating)
@@ -430,12 +430,12 @@ func (s *Server) GetPluginAvgRating(c echo.Context) error {
 func (s *Server) GetPluginRecipeSpecification(c echo.Context) error {
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("plugin id is required"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
 	}
 	recipeSpec, err := s.pluginService.GetPluginRecipeSpecification(c.Request().Context(), pluginID)
 	if err != nil {
 		s.logger.WithError(err).Error("failed to get plugin recipe specification")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get recipe specification"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetRecipeSpecFailed))
 	}
 
 	return c.JSON(http.StatusOK, recipeSpec)
@@ -444,7 +444,7 @@ func (s *Server) GetPluginRecipeSpecification(c echo.Context) error {
 func (s *Server) GetPluginRecipeSpecificationSuggest(c echo.Context) error {
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("plugin id is required"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
 	}
 
 	type reqBody struct {
@@ -454,7 +454,7 @@ func (s *Server) GetPluginRecipeSpecificationSuggest(c echo.Context) error {
 	err := c.Bind(&req)
 	if err != nil {
 		s.logger.WithError(err).Error("failed to parse request")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to parse request"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequestParseFailed))
 	}
 
 	recipeSpec, err := s.pluginService.GetPluginRecipeSpecificationSuggest(
@@ -464,20 +464,20 @@ func (s *Server) GetPluginRecipeSpecificationSuggest(c echo.Context) error {
 	)
 	if err != nil {
 		s.logger.WithError(err).Error("failed to get plugin recipe suggest")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get recipe suggest"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetRecipeSuggestFailed))
 	}
 
 	b, err := protojson.Marshal(recipeSpec)
 	if err != nil {
 		s.logger.WithError(err).Error("failed to proto marshal")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to proto marshal"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgProtoMarshalFailed))
 	}
 
 	var res map[string]any
 	err = json.Unmarshal(b, &res)
 	if err != nil {
 		s.logger.WithError(err).Error("failed to json marshal")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to json marshal"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgJSONMarshalFailed))
 	}
 
 	return c.JSON(http.StatusOK, res)
@@ -486,13 +486,28 @@ func (s *Server) GetPluginRecipeSpecificationSuggest(c echo.Context) error {
 func (s *Server) GetPluginRecipeFunctions(c echo.Context) error {
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("pluginId is required"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
 	}
 	recipeFuncs, err := s.pluginService.GetPluginRecipeFunctions(c.Request().Context(), pluginID)
 	if err != nil {
-		s.logger.WithError(err).Error("failed to get plugin recipe functions")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get recipe functions"))
+		s.logger.WithError(err).Error(msgGetRecipeFunctionsFailed)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetRecipeFunctionsFailed))
 	}
 
 	return c.JSON(http.StatusOK, recipeFuncs)
+}
+
+func (s *Server) GetPluginInstallationsCountByID(c echo.Context) error {
+	pluginID := c.Param("pluginId")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
+	}
+
+	count, err := s.policyService.GetPluginInstallationsCount(c.Request().Context(), ptypes.PluginID(pluginID))
+	if err != nil {
+		s.logger.WithError(err).Errorf("Failed to get installation count for pluginId: %s", pluginID)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgPluginInstallationCountFailed))
+	}
+
+	return c.JSON(http.StatusOK, count)
 }

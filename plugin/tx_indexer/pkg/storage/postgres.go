@@ -190,6 +190,8 @@ func (p *PostgresTxIndexStore) GetTxByID(c context.Context, id uuid.UUID) (Tx, e
 	if err != nil {
 		return Tx{}, fmt.Errorf("p.pool.Query: %w", err)
 	}
+	defer rows.Close()
+
 	if !rows.Next() {
 		return Tx{}, ErrNoTx
 	}

@@ -221,20 +221,11 @@ func (p *PostgresBackend) MarkFeesCollected(ctx context.Context, dbTx pgx.Tx, fe
 	return nil
 }
 
-func (p *PostgresBackend) GetUserFees(ctx context.Context, publicKey string) (*types.UserFeeStatus, error) {
+func (p *PostgresBackend) GetUserFees(
+	ctx context.Context,
+	publicKey string,
+) (*types.UserFeeStatus, error) {
 	query := `
-    WITH last_cutoff AS (
-        SELECT COALESCE(MAX(fb.batch_cutoff), 0) as cutoff_id
-        FROM fee_batches fb
-        WHERE fb.batch_cutoff IS NOT NULL
-          AND EXISTS (
-              SELECT 1 
-              FROM fee_batch_members fbm
-              JOIN fees f ON fbm.fee_id = f.id
-              WHERE fbm.batch_id = fb.id
-                AND f.public_key = $1
-          )
-    )
     SELECT 
         f.id,
         f.policy_id,
@@ -246,9 +237,8 @@ func (p *PostgresBackend) GetUserFees(ctx context.Context, publicKey string) (*t
         f.metadata,
         f.underlying_type,
         f.underlying_id
-    FROM fees f, last_cutoff lc
+    FROM fees f
     WHERE f.public_key = $1
-      AND f.id > lc.cutoff_id
     ORDER BY f.created_at ASC
     `
 
@@ -283,12 +273,21 @@ func (p *PostgresBackend) GetUserFees(ctx context.Context, publicKey string) (*t
 			return nil, fmt.Errorf("failed to scan fee row: %w", err)
 		}
 
+		// Добавляем ВСЕ транзакции в список
+		result.Fees = append(result.Fees, fee)
+
+		// Считаем баланс
 		if fee.TxType == types.TxTypeCredit {
 			result.Balance += int64(fee.Amount)
 		} else if fee.TxType == types.TxTypeDebit {
-			result.Balance -= int64(fee.Amount)
-			result.Fees = append(result.Fees, fee)
-			result.UnpaidAmount += int64(fee.Amount)
+			if fee.Amount < 0 {
+				// Компенсация (отрицательный debit)
+				result.Balance += -int64(fee.Amount)
+			} else {
+				// Обычный debit
+				result.Balance -= int64(fee.Amount)
+				result.UnpaidAmount += int64(fee.Amount)
+			}
 		}
 	}
 

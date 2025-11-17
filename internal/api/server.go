@@ -156,6 +156,10 @@ func (s *Server) StartServer() error {
 	feeGroup.GET("/publickey/:publicKey", s.GetPublicKeyFees)
 	feeGroup.POST("/collected", s.MarkCollected)
 
+	// user fee group. These should only be accessible by the plugin server
+	userFeeGroup := e.Group("/fee", s.VaultAuthMiddleware)
+	userFeeGroup.GET("/status", s.GetUserFees)
+
 	pluginsGroup := e.Group("/plugins")
 	pluginsGroup.GET("", s.GetPlugins)
 	pluginsGroup.GET("/:pluginId", s.GetPlugin)
@@ -175,6 +179,10 @@ func (s *Server) StartServer() error {
 
 	pricingsGroup := e.Group("/pricing")
 	pricingsGroup.GET("/:pricingId", s.GetPricing)
+
+	//TODO: add admin auth
+	adminGroup := e.Group("/admin")
+	adminGroup.POST("/trial/credit", s.IssueCredit)
 
 	return e.Start(fmt.Sprintf(":%d", s.cfg.Server.Port))
 }

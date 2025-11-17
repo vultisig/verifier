@@ -51,7 +51,7 @@ func (s *PolicyService) HandleScheduledFees(ctx context.Context, task *asynq.Tas
 		}
 		recurse = true
 
-		err = s.db.InsertFee(ctx, nil, &types.Fee{
+		_, err = s.db.InsertFee(ctx, nil, &types.Fee{
 			PublicKey:      res.publicKey,
 			TxType:         types.TxTypeDebit,
 			Amount:         res.amount,

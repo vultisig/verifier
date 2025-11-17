@@ -3,12 +3,13 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/hibiken/asynq"
+	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
-
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/storage"
 	vtypes "github.com/vultisig/verifier/types"
@@ -17,7 +18,9 @@ import (
 
 type Fees interface {
 	PublicKeyGetFeeInfo(ctx context.Context, publicKey string) ([]*vtypes.Fee, error)
-	MarkFeesCollected(ctx context.Context, id uint64, txHash, network string, amount uint64) error
+	MarkFeesCollected(ctx context.Context, feeIDs []uint64, network, txHash string, amount uint64) error
+	IssueCredit(ctx context.Context, publicKey string, amount uint64, reason string) error
+	GetUserFees(ctx context.Context, publicKey string) (*vtypes.UserFeeStatus, error)
 }
 
 var _ Fees = (*FeeService)(nil)
@@ -46,46 +49,69 @@ func (s *FeeService) PublicKeyGetFeeInfo(ctx context.Context, publicKey string) 
 	return s.db.GetFeesByPublicKey(ctx, publicKey)
 }
 
-func (s *FeeService) MarkFeesCollected(ctx context.Context, id uint64, txHash, network string, amount uint64) error {
-	chain, err := common.FromString(network)
+func (s *FeeService) MarkFeesCollected(ctx context.Context, feeIDs []uint64, network, txHash string, amount uint64) error {
+	//TODO: add handling for fees in different networks
+	_, err := common.FromString(network)
+	if err != nil {
+		return fmt.Errorf("invalid network: %w", err)
+	}
+
+	// Start transaction
+	tx, err := s.db.Pool().Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer s.handleRollback(tx)
+
+	err = s.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
+		return s.db.MarkFeesCollected(ctx, tx, feeIDs, txHash, amount)
+	})
 	if err != nil {
 		return err
 	}
+	return nil
+}
 
-	metadata := vtypes.CreditMetadata{
-		DebitFeeID: id,
-		TxHash:     txHash,
-		Network:    chain.String(),
+// IssueCredit for promo, bonuses, etc.
+func (s *FeeService) IssueCredit(ctx context.Context, publicKey string, amount uint64, reason string) error {
+	metadata := map[string]interface{}{
+		"reason":    reason,
+		"issued_at": time.Now().UTC(),
 	}
-
 	metadataJSON, err := json.Marshal(metadata)
 	if err != nil {
-		return fmt.Errorf("failed marshaling metadata: %w", err)
-	}
-
-	feeInfo, err := s.db.GetFeeById(ctx, id)
-	if err != nil {
-		return fmt.Errorf("failed fetching fee: %w", err)
-	}
-
-	if feeInfo.Amount != amount {
-		return fmt.Errorf("incorrect fee: expected %d, got %d", amount, feeInfo.Amount)
+		return fmt.Errorf("failed to marshall metadata: %w", err)
 	}
 
 	creditFee := &vtypes.Fee{
-		PolicyID:       feeInfo.PolicyID,
-		PublicKey:      feeInfo.PublicKey,
+		PublicKey:      publicKey,
 		TxType:         vtypes.TxTypeCredit,
-		Amount:         feeInfo.Amount,
-		CreatedAt:      time.Now(),
-		FeeType:        "fee_collection",
+		Amount:         amount,
+		FeeType:        "free_credit",
 		Metadata:       metadataJSON,
-		UnderlyingType: "tx",
-		UnderlyingID:   fmt.Sprint(id),
+		UnderlyingType: reason,
 	}
-	err = s.db.InsertFee(ctx, nil, creditFee)
+
+	_, err = s.db.InsertFee(ctx, nil, creditFee)
 	if err != nil {
-		return fmt.Errorf("failed inserting fee: %w", err)
+		return fmt.Errorf("failed to issue credit: %w", err)
 	}
+
 	return nil
+}
+
+func (s *FeeService) GetUserFees(ctx context.Context, publicKey string) (*vtypes.UserFeeStatus, error) {
+	status, err := s.db.GetUserFees(ctx, publicKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user fees: %w", err)
+	}
+
+	return status, nil
+}
+
+func (s *FeeService) handleRollback(tx pgx.Tx) {
+	ctx := context.Background()
+	if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+		s.logger.WithError(err).Error("failed to rollback transaction")
+	}
 }

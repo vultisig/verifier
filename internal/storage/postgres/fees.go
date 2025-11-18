@@ -316,9 +316,10 @@ func (p *PostgresBackend) GetUserFees(
 			result.Balance += int64(fee.Amount)
 		} else if fee.TxType == types.TxTypeDebit {
 			result.Balance -= int64(fee.Amount)
-			result.UnpaidAmount += int64(fee.Amount)
 		}
 	}
+
+	result.UnpaidAmount = max(0, -result.Balance)
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating fee rows: %w", err)

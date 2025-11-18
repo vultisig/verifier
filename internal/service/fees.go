@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -100,11 +99,4 @@ func (s *FeeService) GetUserFees(ctx context.Context, publicKey string) (*vtypes
 	}
 
 	return status, nil
-}
-
-func (s *FeeService) handleRollback(tx pgx.Tx) {
-	ctx := context.Background()
-	if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
-		s.logger.WithError(err).Error("failed to rollback transaction")
-	}
 }

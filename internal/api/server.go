@@ -472,7 +472,7 @@ func (s *Server) Auth(c echo.Context) error {
 		s.logger.WithError(err).Warnf("Failed to cache user info")
 	}
 
-	_, err = s.db.InsertFee(context.Background(), nil, &vtypes.Fee{
+	_, err = s.db.InsertFee(c.Request().Context(), nil, &vtypes.Fee{
 		PublicKey: req.PublicKey,
 		TxType:    vtypes.TxTypeCredit,
 		// Default trial fee
@@ -481,6 +481,9 @@ func (s *Server) Auth(c echo.Context) error {
 		UnderlyingType: "user",
 		UnderlyingID:   ethAddress,
 	})
+	if err != nil {
+		s.logger.WithError(err).Warn("Failed to insert trial fee, continuing with auth")
+	}
 
 	status := http.StatusOK
 	resp := map[string]string{"token": token}

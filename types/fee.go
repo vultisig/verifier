@@ -26,7 +26,7 @@ type CreditMetadata struct {
 	Network    string `json:"network"`      // Blockchain network (e.g., "ethereum", "polygon")
 }
 
-// UserFeeStatus - статус комиссий и баланса пользователя
+// UserFeeStatus represents the fee status and balance for a user
 type UserFeeStatus struct {
 	PublicKey    string `json:"public_key"`
 	Balance      int64  `json:"balance"` // Current balance (can be negative)

@@ -155,15 +155,26 @@ func (p *PostgresBackend) GetFeeById(ctx context.Context, id uint64) (*types.Fee
 
 func (p *PostgresBackend) MarkFeesCollected(ctx context.Context, dbTx pgx.Tx, feeIDs []uint64, txHash string, totalAmount uint64) error {
 	var publicKey string
-	var maxFeeID int64
+	var feeCount int
+	var distinctKeys int
 	err := dbTx.QueryRow(ctx, `
-        SELECT public_key, MAX(id)
+        SELECT 
+            MIN(public_key) as public_key,
+            COUNT(*) as fee_count,
+            COUNT(DISTINCT public_key) as distinct_keys
         FROM fees
         WHERE id = ANY($1)
-        GROUP BY public_key
-    `, feeIDs).Scan(&publicKey, &maxFeeID)
+    `, feeIDs).Scan(&publicKey, &feeCount, &distinctKeys)
 	if err != nil {
-		return fmt.Errorf("failed to get fee info: %w", err)
+		return fmt.Errorf("failed to validate fees: %w", err)
+	}
+
+	if feeCount != len(feeIDs) {
+		return fmt.Errorf("fee count mismatch: expected %d, found %d", len(feeIDs), feeCount)
+	}
+
+	if distinctKeys != 1 {
+		return fmt.Errorf("fees belong to multiple public keys: found %d distinct keys", distinctKeys)
 	}
 
 	var batchID int64
@@ -273,21 +284,13 @@ func (p *PostgresBackend) GetUserFees(
 			return nil, fmt.Errorf("failed to scan fee row: %w", err)
 		}
 
-		// Добавляем ВСЕ транзакции в список
 		result.Fees = append(result.Fees, fee)
 
-		// Считаем баланс
 		if fee.TxType == types.TxTypeCredit {
 			result.Balance += int64(fee.Amount)
 		} else if fee.TxType == types.TxTypeDebit {
-			if fee.Amount < 0 {
-				// Компенсация (отрицательный debit)
-				result.Balance += -int64(fee.Amount)
-			} else {
-				// Обычный debit
-				result.Balance -= int64(fee.Amount)
-				result.UnpaidAmount += int64(fee.Amount)
-			}
+			result.Balance -= int64(fee.Amount)
+			result.UnpaidAmount += int64(fee.Amount)
 		}
 	}
 

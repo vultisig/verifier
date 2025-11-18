@@ -56,13 +56,6 @@ func (s *FeeService) MarkFeesCollected(ctx context.Context, feeIDs []uint64, net
 		return fmt.Errorf("invalid network: %w", err)
 	}
 
-	// Start transaction
-	tx, err := s.db.Pool().Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer s.handleRollback(tx)
-
 	err = s.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
 		return s.db.MarkFeesCollected(ctx, tx, feeIDs, txHash, amount)
 	})
@@ -80,7 +73,7 @@ func (s *FeeService) IssueCredit(ctx context.Context, publicKey string, amount u
 	}
 	metadataJSON, err := json.Marshal(metadata)
 	if err != nil {
-		return fmt.Errorf("failed to marshall metadata: %w", err)
+		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
 	creditFee := &vtypes.Fee{

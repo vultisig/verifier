@@ -77,7 +77,7 @@ func (s *FeeManagementService) RegisterInstallation(ctx context.Context, pluginI
 			return nil
 		}
 
-		err = s.db.InsertFee(ctx, tx, &vtypes.Fee{
+		_, err = s.db.InsertFee(ctx, tx, &vtypes.Fee{
 			PublicKey:      publicKey,
 			TxType:         vtypes.TxTypeDebit,
 			Amount:         installationFee,

@@ -2,7 +2,6 @@ package types
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -10,19 +9,6 @@ import (
 	rtypes "github.com/vultisig/recipes/types"
 	"google.golang.org/protobuf/proto"
 )
-
-type Fee struct {
-	ID             uint64          `json:"id"`         // The unique id of the fee incurred
-	PolicyID       uuid.UUID       `json:"policy_id"`  // The policy ID that has incurred the fee
-	PublicKey      string          `json:"public_key"` // The public key "account" connected to the fee
-	TxType         TxType          `json:"transaction_type"`
-	Amount         uint64          `json:"amount"` // The amount of the fee in the smallest unit, e.g., "1000000" for 0.01 VULTI
-	CreatedAt      time.Time       `json:"created_at"`
-	FeeType        string          `json:"fee_type"`
-	Metadata       json.RawMessage `json:"metadata"`
-	UnderlyingType string          `json:"underlying_type"`
-	UnderlyingID   string          `json:"underlying_id"`
-}
 
 type BillingPolicyProto struct {
 	ID        *uuid.UUID              `json:"id" validate:"required"`

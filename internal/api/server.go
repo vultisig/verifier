@@ -180,10 +180,6 @@ func (s *Server) StartServer() error {
 	pricingsGroup := e.Group("/pricing")
 	pricingsGroup.GET("/:pricingId", s.GetPricing)
 
-	//TODO: add admin auth
-	adminGroup := e.Group("/admin")
-	adminGroup.POST("/trial/credit", s.IssueCredit)
-
 	return e.Start(fmt.Sprintf(":%d", s.cfg.Server.Port))
 }
 
@@ -475,6 +471,16 @@ func (s *Server) Auth(c echo.Context) error {
 	if err != nil {
 		s.logger.WithError(err).Warnf("Failed to cache user info")
 	}
+
+	_, err = s.db.InsertFee(context.Background(), nil, &vtypes.Fee{
+		PublicKey: req.PublicKey,
+		TxType:    vtypes.TxTypeCredit,
+		// Default trial fee
+		Amount:         5000000,
+		FeeType:        "trial",
+		UnderlyingType: "user",
+		UnderlyingID:   ethAddress,
+	})
 
 	status := http.StatusOK
 	resp := map[string]string{"token": token}

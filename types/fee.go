@@ -16,6 +16,7 @@ const (
 
 const (
 	FeeTypeInstallationFee = "installation_fee"
+	FeeTypeTrial           = "trial"
 	FeeSubscriptionFee     = "subscription_fee"
 	FeeTxExecFee           = "transaction_execution_fee"
 )

@@ -413,6 +413,8 @@ CREATE INDEX "idx_tx_indexer_status_onchain_lost" ON "tx_indexer" USING "btree" 
 
 CREATE UNIQUE INDEX "idx_unique_installation_fee_per_plugin_user" ON "fees" USING "btree" ("underlying_id", "public_key") WHERE (("fee_type" = 'installation_fee'::"text") AND ("underlying_type" = 'plugin'::"text"));
 
+CREATE UNIQUE INDEX "idx_unique_trial_fee" ON "fees" USING "btree" ("public_key") WHERE ("fee_type" = 'trial'::"text");
+
 CREATE INDEX "idx_vault_tokens_public_key" ON "vault_tokens" USING "btree" ("public_key");
 
 CREATE INDEX "idx_vault_tokens_token_id" ON "vault_tokens" USING "btree" ("token_id");

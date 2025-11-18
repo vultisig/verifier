@@ -10,9 +10,8 @@ import (
 	"github.com/vultisig/verifier/types"
 )
 
-func (p *PostgresBackend) InsertFee(ctx context.Context, dbTx pgx.Tx, fee *types.Fee) (uint64, error) {
-	query := `
-    INSERT INTO fees (
+const (
+	queryInsertPluginInstallation = `INSERT INTO fees (
         policy_id, public_key, transaction_type, amount, 
         fee_type, metadata, underlying_type, underlying_id
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -21,6 +20,33 @@ func (p *PostgresBackend) InsertFee(ctx context.Context, dbTx pgx.Tx, fee *types
     DO NOTHING
     RETURNING id
     `
+	queryInsertTrial = `INSERT INTO fees (
+            policy_id, public_key, transaction_type, amount, 
+            fee_type, metadata, underlying_type, underlying_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (public_key)
+        WHERE fee_type = 'trial'
+        DO NOTHING
+        RETURNING id
+        `
+	queryInsertFee = `INSERT INTO fees (
+            policy_id, public_key, transaction_type, amount, 
+            fee_type, metadata, underlying_type, underlying_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING id
+        `
+)
+
+func (p *PostgresBackend) InsertFee(ctx context.Context, dbTx pgx.Tx, fee *types.Fee) (uint64, error) {
+	var query string
+	switch fee.FeeType {
+	case types.FeeTypeInstallationFee:
+		query = queryInsertPluginInstallation
+	case types.FeeTypeTrial:
+		query = queryInsertTrial
+	default:
+		query = queryInsertFee
+	}
 
 	var feeID uint64
 	var err error

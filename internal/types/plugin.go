@@ -14,10 +14,10 @@ type Plugin struct {
 	Description    string          `json:"description" validate:"required"`
 	ServerEndpoint string          `json:"server_endpoint" validate:"required"`
 	Category       PluginCategory  `json:"category_id" validate:"required"`
-	LogoURL        string          `json:"logo_url"`
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
-	Pricing        []types.Pricing `json:"pricing,omitempty"` // New field for multiple pricing options
+	LogoURL        string          `json:"logo_url,omitempty"` // New field, should be validated once migration is done.
+	Pricing        []types.Pricing `json:"pricing,omitempty"`  // New field for multiple pricing options
 }
 
 // PluginWithRatings is used for API responses that include rating statistics

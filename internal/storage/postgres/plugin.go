@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
@@ -71,6 +72,7 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 		var tagID *string
 		var tagName *string
 		var tagCreatedAt *time.Time
+		var logoURL sql.NullString
 
 		nullablePricing := &nullablePricing{}
 
@@ -80,9 +82,9 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 			&plugin.Description,
 			&plugin.ServerEndpoint,
 			&plugin.Category,
-			&plugin.LogoURL,
 			&plugin.CreatedAt,
 			&plugin.UpdatedAt,
+			&logoURL,
 			&tagID,
 			&tagName,
 			&tagCreatedAt,
@@ -115,6 +117,9 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 				if pricing := convertNullablePricing(nullablePricing); pricing != nil {
 					plugin.Pricing = append(plugin.Pricing, *pricing)
 				}
+			}
+			if logoURL.Valid {
+				existingPlugin.LogoURL = logoURL.String
 			}
 			pluginMap[plugin.ID] = &plugin
 			pluginIDs = append(pluginIDs, plugin.ID)

@@ -244,7 +244,7 @@ CREATE TABLE "plugins" (
     "category" "plugin_category" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "logo_url" "text"
+    "logo_url" "text" DEFAULT ''::"text" NOT NULL
 );
 
 CREATE TABLE "pricings" (

@@ -14,7 +14,7 @@ type Plugin struct {
 	Description    string          `json:"description" validate:"required"`
 	ServerEndpoint string          `json:"server_endpoint" validate:"required"`
 	Category       PluginCategory  `json:"category_id" validate:"required"`
-	LogoURL        string          `json:"logo_url" validate:"required"`
+	LogoURL        string          `json:"logo_url"`
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
 	Pricing        []types.Pricing `json:"pricing,omitempty"` // New field for multiple pricing options
@@ -43,7 +43,7 @@ type PluginCreateDto struct {
 	Description    string                       `json:"description" validate:"required"`
 	Metadata       json.RawMessage              `json:"metadata" validate:"required"`
 	ServerEndpoint string                       `json:"server_endpoint" validate:"required"`
-	LogoURL        string                       `json:"logo_url" validate:"required"`
+	LogoURL        string                       `json:"logo_url"`
 	CategoryID     uuid.UUID                    `json:"category_id" validate:"required"`
 	PricingData    []types.PricingCreateDataDto `json:"pricing_data" validate:"required"`
 }

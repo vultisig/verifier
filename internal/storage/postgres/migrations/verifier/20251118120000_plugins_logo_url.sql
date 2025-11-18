@@ -1,6 +1,6 @@
 -- +goose Up
 ALTER TABLE plugins
-ADD COLUMN logo_url TEXT;
+ADD COLUMN logo_url TEXT NOT NULL DEFAULT '';
 
 -- +goose Down
 ALTER TABLE plugins

@@ -118,8 +118,8 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 					plugin.Pricing = append(plugin.Pricing, *pricing)
 				}
 			}
-			if logoURL.Valid {
-				existingPlugin.LogoURL = logoURL.String
+			if logoURL.Valid && logoURL.String != "" {
+				plugin.LogoURL = logoURL.String
 			}
 			pluginMap[plugin.ID] = &plugin
 			pluginIDs = append(pluginIDs, plugin.ID)

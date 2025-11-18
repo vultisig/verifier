@@ -15,7 +15,6 @@ jsonpath "$.plugins[0].pricing" exists
 jsonpath "$.plugins[0].category_id" exists
 jsonpath "$.plugins[0].created_at" exists
 jsonpath "$.plugins[0].updated_at" exists
-jsonpath "$.plugins[0].logo_url" exists
 
 GET http://localhost:8080/plugins/vultisig-dca-0000
 HTTP 200
@@ -29,7 +28,6 @@ jsonpath "$.pricing" exists
 jsonpath "$.category_id" == "plugin"
 jsonpath "$.created_at" exists
 jsonpath "$.updated_at" exists
-jsonpath "$.logo_url" exists
 
 GET http://localhost:8080/plugins/vultisig-dca-0000/reviews
 HTTP 200

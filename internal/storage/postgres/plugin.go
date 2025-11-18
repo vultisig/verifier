@@ -64,11 +64,11 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 
 	// Use a map to group plugins by ID and collect their pricing records
 	pluginMap := make(map[types.PluginID]*itypes.Plugin)
-	pluginIds := []types.PluginID{}
+	pluginIDs := []types.PluginID{}
 
 	for rows.Next() {
 		var plugin itypes.Plugin
-		var tagId *string
+		var tagID *string
 		var tagName *string
 		var tagCreatedAt *time.Time
 
@@ -80,9 +80,10 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 			&plugin.Description,
 			&plugin.ServerEndpoint,
 			&plugin.Category,
+			&plugin.LogoURL,
 			&plugin.CreatedAt,
 			&plugin.UpdatedAt,
-			&tagId,
+			&tagID,
 			&tagName,
 			&tagCreatedAt,
 			&nullablePricing.ID,
@@ -95,13 +96,12 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 			&nullablePricing.CreatedAt,
 			&nullablePricing.UpdatedAt,
 		)
-
 		if err != nil {
 			return nil, err
 		}
 
 		// Check if we've seen this plugin before
-		if existingPlugin, exists := pluginMap[plugin.ID]; exists {
+		if existingPlugin, ok := pluginMap[plugin.ID]; ok {
 			// Plugin already exists, just add the pricing record if it's valid
 			if nullablePricing.ID != nil {
 				if pricing := convertNullablePricing(nullablePricing); pricing != nil {
@@ -117,18 +117,17 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 				}
 			}
 			pluginMap[plugin.ID] = &plugin
-			pluginIds = append(pluginIds, plugin.ID)
+			pluginIDs = append(pluginIDs, plugin.ID)
 		}
 	}
-
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating rows: %w", err)
 	}
 
 	// Convert map back to slice
 	plugins := make([]itypes.Plugin, 0, len(pluginMap))
-	for _, pluginId := range pluginIds {
-		plugins = append(plugins, *pluginMap[pluginId])
+	for _, pluginID := range pluginIDs {
+		plugins = append(plugins, *pluginMap[pluginID])
 	}
 
 	return plugins, nil

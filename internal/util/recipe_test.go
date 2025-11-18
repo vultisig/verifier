@@ -18,7 +18,7 @@ func TestValidateRecipeSchema(t *testing.T) {
 				PluginId:   "",
 				PluginName: "Test Plugin",
 				SupportedResources: []*rtypes.ResourcePattern{
-					&rtypes.ResourcePattern{},
+					{},
 				},
 			},
 			hasErr: true,
@@ -29,7 +29,7 @@ func TestValidateRecipeSchema(t *testing.T) {
 				PluginId:   "plugin-123",
 				PluginName: "",
 				SupportedResources: []*rtypes.ResourcePattern{
-					&rtypes.ResourcePattern{},
+					{},
 				},
 			},
 			hasErr: true,
@@ -49,7 +49,7 @@ func TestValidateRecipeSchema(t *testing.T) {
 				PluginId:   "plugin-123",
 				PluginName: "Test Plugin",
 				SupportedResources: []*rtypes.ResourcePattern{
-					&rtypes.ResourcePattern{},
+					{},
 				},
 			},
 			hasErr: false,

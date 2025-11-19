@@ -12,6 +12,9 @@
     "xrp": {
       "url": "https://s1.ripple.com:51234"
     },
+    "thorchain": {
+      "url": "https://rpc.ninerealms.com"
+    },
     "ethereum": {
       "url": "https://ethereum-rpc.publicnode.com"
     },

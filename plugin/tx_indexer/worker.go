@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/vultisig/verifier/plugin/metrics"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/graceful"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
@@ -23,6 +24,7 @@ type Worker struct {
 	markLostAfter    time.Duration
 	concurrency      int
 	clients          SupportedRpcs
+	metrics          metrics.TxIndexerMetrics
 }
 
 func NewWorker(
@@ -33,6 +35,7 @@ func NewWorker(
 	concurrency int,
 	repo storage.TxIndexerRepo,
 	clients SupportedRpcs,
+	txMetrics metrics.TxIndexerMetrics,
 ) *Worker {
 	return &Worker{
 		logger:           logger.WithField("pkg", "tx_indexer.worker").Logger,
@@ -42,6 +45,7 @@ func NewWorker(
 		markLostAfter:    markLostAfter,
 		concurrency:      concurrency,
 		clients:          clients,
+		metrics:          txMetrics,
 	}
 }
 
@@ -112,34 +116,55 @@ func (w *Worker) UpdateTxStatus(ctx context.Context, tx storage.Tx) (*rpc.TxOnCh
 	}
 
 	fields := tx.Fields()
+	chain := common.Chain(tx.ChainID)
+
+	// Record processing attempt
+	if w.metrics != nil {
+		w.metrics.RecordProcessing(chain)
+	}
 
 	if time.Now().After((*tx.BroadcastedAt).Add(w.markLostAfter)) {
 		err := w.repo.SetLost(ctx, tx.ID)
 		if err != nil {
+			if w.metrics != nil {
+				w.metrics.RecordProcessingError(chain, "set_lost_timeout")
+			}
 			return nil, fmt.Errorf("w.repo.SetLost: %w", err)
 		}
 		w.logger.WithFields(fields).Info("updated as lost (timeout since broadcast)")
 		newStatus := rpc.TxOnChainFail
+		if w.metrics != nil {
+			w.metrics.RecordTransactionStatus(chain, string(newStatus))
+		}
 		return &newStatus, nil
 	}
 
-	client, ok := w.clients[common.Chain(tx.ChainID)]
+	client, ok := w.clients[chain]
 	if !ok {
 		err := w.repo.SetLost(ctx, tx.ID)
 		if err != nil {
+			if w.metrics != nil {
+				w.metrics.RecordProcessingError(chain, "set_lost_unimplemented")
+			}
 			return nil, fmt.Errorf("w.repo.SetLost: %w", err)
 		}
 		w.logger.WithFields(fields).Infof(
 			"updated as lost (rpc unimplemented, chain=%s, tx_id=%s)",
-			common.Chain(tx.ChainID).String(),
+			chain.String(),
 			tx.ID.String(),
 		)
 		newStatus := rpc.TxOnChainFail
+		if w.metrics != nil {
+			w.metrics.RecordTransactionStatus(chain, string(newStatus))
+		}
 		return &newStatus, nil
 	}
 
 	newStatus, err := client.GetTxStatus(ctx, *tx.TxHash)
 	if err != nil {
+		if w.metrics != nil {
+			w.metrics.RecordRPCError(chain)
+		}
 		return nil, fmt.Errorf("client.GetTxStatus: %w", err)
 	}
 	if newStatus == *tx.StatusOnChain {
@@ -149,8 +174,17 @@ func (w *Worker) UpdateTxStatus(ctx context.Context, tx storage.Tx) (*rpc.TxOnCh
 
 	err = w.repo.SetOnChainStatus(ctx, tx.ID, newStatus)
 	if err != nil {
+		if w.metrics != nil {
+			w.metrics.RecordProcessingError(chain, "set_status")
+		}
 		return nil, fmt.Errorf("w.repo.SetOnChainStatus: %w", err)
 	}
+	
+	// Record successful status change
+	if w.metrics != nil {
+		w.metrics.RecordTransactionStatus(chain, string(newStatus))
+	}
+	
 	w.logger.WithFields(fields).Infof("status updated, newStatus=%s", newStatus)
 	return &newStatus, nil
 }
@@ -159,12 +193,19 @@ func (w *Worker) updatePendingTxs() error {
 	ctx, cancel := context.WithTimeout(context.Background(), w.iterationTimeout)
 	defer cancel()
 
+	start := time.Now()
 	w.logger.Info("worker tick")
+
+	// Update last processing timestamp
+	if w.metrics != nil {
+		w.metrics.SetLastProcessingTimestamp(float64(time.Now().Unix()))
+	}
 
 	eg := &errgroup.Group{}
 	eg.SetLimit(w.concurrency)
 	ch := w.repo.GetPendingTxs(ctx)
 	count := &atomic.Uint64{}
+	
 	for _row := range ch {
 		row := _row
 		eg.Go(func() error {
@@ -184,6 +225,14 @@ func (w *Worker) updatePendingTxs() error {
 	err := eg.Wait()
 	if err != nil {
 		return fmt.Errorf("eg.Wait: %w", err)
+	}
+
+	// Record iteration duration for each supported chain
+	if w.metrics != nil {
+		duration := time.Since(start).Seconds()
+		for chain := range w.clients {
+			w.metrics.RecordIterationDuration(chain, duration)
+		}
 	}
 
 	w.logger.WithField("tx_count", count.Load()).Info("tx statuses updated")

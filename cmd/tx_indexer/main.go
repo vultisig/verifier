@@ -38,6 +38,7 @@ func main() {
 		panic(fmt.Sprintf("failed to initialize database: %v", err))
 	}
 
+	// Metrics disabled for now - pass nil to worker
 	worker := tx_indexer.NewWorker(
 		logger,
 		cfg.Interval,
@@ -46,6 +47,7 @@ func main() {
 		cfg.Concurrency,
 		txIndexerStore,
 		rpcs,
+		nil, // metrics disabled for now
 	)
 
 	feeIndexer := fee_tx_indexer.NewFeeIndexer(

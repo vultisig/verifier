@@ -119,23 +119,17 @@ func (w *Worker) UpdateTxStatus(ctx context.Context, tx storage.Tx) (*rpc.TxOnCh
 	chain := common.Chain(tx.ChainID)
 
 	// Record processing attempt
-	if w.metrics != nil {
-		w.metrics.RecordProcessing(chain)
-	}
+	w.metrics.RecordProcessing(chain)
 
 	if time.Now().After((*tx.BroadcastedAt).Add(w.markLostAfter)) {
 		err := w.repo.SetLost(ctx, tx.ID)
 		if err != nil {
-			if w.metrics != nil {
-				w.metrics.RecordProcessingError(chain, "set_lost_timeout")
-			}
+			w.metrics.RecordProcessingError(chain, "set_lost_timeout")
 			return nil, fmt.Errorf("w.repo.SetLost: %w", err)
 		}
 		w.logger.WithFields(fields).Info("updated as lost (timeout since broadcast)")
 		newStatus := rpc.TxOnChainFail
-		if w.metrics != nil {
-			w.metrics.RecordTransactionStatus(chain, string(newStatus))
-		}
+		w.metrics.RecordTransactionStatus(chain, string(newStatus))
 		return &newStatus, nil
 	}
 
@@ -143,9 +137,7 @@ func (w *Worker) UpdateTxStatus(ctx context.Context, tx storage.Tx) (*rpc.TxOnCh
 	if !ok {
 		err := w.repo.SetLost(ctx, tx.ID)
 		if err != nil {
-			if w.metrics != nil {
-				w.metrics.RecordProcessingError(chain, "set_lost_unimplemented")
-			}
+			w.metrics.RecordProcessingError(chain, "set_lost_unimplemented")
 			return nil, fmt.Errorf("w.repo.SetLost: %w", err)
 		}
 		w.logger.WithFields(fields).Infof(
@@ -154,17 +146,13 @@ func (w *Worker) UpdateTxStatus(ctx context.Context, tx storage.Tx) (*rpc.TxOnCh
 			tx.ID.String(),
 		)
 		newStatus := rpc.TxOnChainFail
-		if w.metrics != nil {
-			w.metrics.RecordTransactionStatus(chain, string(newStatus))
-		}
+		w.metrics.RecordTransactionStatus(chain, string(newStatus))
 		return &newStatus, nil
 	}
 
 	newStatus, err := client.GetTxStatus(ctx, *tx.TxHash)
 	if err != nil {
-		if w.metrics != nil {
-			w.metrics.RecordRPCError(chain)
-		}
+		w.metrics.RecordRPCError(chain)
 		return nil, fmt.Errorf("client.GetTxStatus: %w", err)
 	}
 	if newStatus == *tx.StatusOnChain {
@@ -174,16 +162,12 @@ func (w *Worker) UpdateTxStatus(ctx context.Context, tx storage.Tx) (*rpc.TxOnCh
 
 	err = w.repo.SetOnChainStatus(ctx, tx.ID, newStatus)
 	if err != nil {
-		if w.metrics != nil {
-			w.metrics.RecordProcessingError(chain, "set_status")
-		}
+		w.metrics.RecordProcessingError(chain, "set_status")
 		return nil, fmt.Errorf("w.repo.SetOnChainStatus: %w", err)
 	}
 	
 	// Record successful status change
-	if w.metrics != nil {
-		w.metrics.RecordTransactionStatus(chain, string(newStatus))
-	}
+	w.metrics.RecordTransactionStatus(chain, string(newStatus))
 	
 	w.logger.WithFields(fields).Infof("status updated, newStatus=%s", newStatus)
 	return &newStatus, nil
@@ -197,9 +181,7 @@ func (w *Worker) updatePendingTxs() error {
 	w.logger.Info("worker tick")
 
 	// Update last processing timestamp
-	if w.metrics != nil {
-		w.metrics.SetLastProcessingTimestamp(float64(time.Now().Unix()))
-	}
+	w.metrics.SetLastProcessingTimestamp(float64(time.Now().Unix()))
 
 	eg := &errgroup.Group{}
 	eg.SetLimit(w.concurrency)
@@ -228,11 +210,9 @@ func (w *Worker) updatePendingTxs() error {
 	}
 
 	// Record iteration duration for each supported chain
-	if w.metrics != nil {
-		duration := time.Since(start).Seconds()
-		for chain := range w.clients {
-			w.metrics.RecordIterationDuration(chain, duration)
-		}
+	duration := time.Since(start).Seconds()
+	for chain := range w.clients {
+		w.metrics.RecordIterationDuration(chain, duration)
 	}
 
 	w.logger.WithField("tx_count", count.Load()).Info("tx statuses updated")

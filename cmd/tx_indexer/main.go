@@ -9,6 +9,7 @@ import (
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	fee_tx_indexer "github.com/vultisig/verifier/internal/tx_indexer"
+	"github.com/vultisig/verifier/plugin/metrics"
 	"github.com/vultisig/verifier/plugin/tx_indexer"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
 )
@@ -38,7 +39,7 @@ func main() {
 		panic(fmt.Sprintf("failed to initialize database: %v", err))
 	}
 
-	// Metrics disabled for now - pass nil to worker
+	// Use no-op metrics implementation, disable metrics for now
 	worker := tx_indexer.NewWorker(
 		logger,
 		cfg.Interval,
@@ -47,7 +48,7 @@ func main() {
 		cfg.Concurrency,
 		txIndexerStore,
 		rpcs,
-		nil, // metrics disabled for now
+		metrics.NewNilTxIndexerMetrics(), // no-op metrics implementation
 	)
 
 	feeIndexer := fee_tx_indexer.NewFeeIndexer(

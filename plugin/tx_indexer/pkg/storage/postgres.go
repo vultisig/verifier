@@ -200,6 +200,11 @@ func (p *PostgresTxIndexStore) GetTxByID(c context.Context, id uuid.UUID) (Tx, e
 	if err != nil {
 		return Tx{}, fmt.Errorf("TxFromRow: %w", err)
 	}
+
+	if err := rows.Err(); err != nil {
+		return Tx{}, fmt.Errorf("rows.Err: %w", err)
+	}
+
 	return tx, nil
 }
 

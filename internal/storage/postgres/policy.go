@@ -44,6 +44,7 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (*t
 		return nil, fmt.Errorf("failed to get billing info: %w", err)
 	}
 	defer billingRows.Close()
+
 	for billingRows.Next() {
 		var billing types.BillingPolicy
 		err := billingRows.Scan(
@@ -57,6 +58,10 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (*t
 			return nil, fmt.Errorf("failed to scan billing info: %w", err)
 		}
 		policy.Billing = append(policy.Billing, billing)
+	}
+
+	if err := billingRows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating billing rows: %w", err)
 	}
 
 	return &policy, nil
@@ -178,6 +183,7 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 		if err != nil {
 			return nil, fmt.Errorf("failed to get billing info: %w", err)
 		}
+
 		for billingRows.Next() {
 			var billing types.BillingPolicy
 			err := billingRows.Scan(
@@ -193,7 +199,13 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 			}
 			policy.Billing = append(policy.Billing, billing)
 		}
+
+		if err := billingRows.Err(); err != nil {
+			billingRows.Close()
+			return nil, fmt.Errorf("error iterating billing rows: %w", err)
+		}
 		billingRows.Close()
+
 		policies = append(policies, policy)
 	}
 

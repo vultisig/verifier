@@ -46,6 +46,7 @@ func createWorker() (*Worker, context.CancelFunc, storage.TxIndexerRepo, error) 
 		cfg.Concurrency,
 		db,
 		rpcs,
+		nil, // metrics disabled for tests
 	)
 
 	return worker, stop, db, nil

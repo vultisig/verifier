@@ -10,11 +10,13 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/vultisig/verifier/plugin/metrics"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/graceful"
 )
 
 type Worker struct {
-	logger *logrus.Logger
+	logger  *logrus.Logger
+	metrics metrics.SchedulerMetrics
 
 	client *asynq.Client
 	task   string
@@ -36,9 +38,11 @@ func NewWorker(
 	repo Storage,
 	interval Interval,
 	policy PolicyFetcher,
+	schedulerMetrics metrics.SchedulerMetrics,
 ) *Worker {
 	return &Worker{
 		logger:           logger.WithField("pkg", "scheduler.Worker").Logger,
+		metrics:          schedulerMetrics,
 		client:           client,
 		task:             task,
 		queue:            queue,
@@ -96,6 +100,9 @@ func (w *Worker) enqueue() error {
 		return fmt.Errorf("failed to get pending tasks: %w", err)
 	}
 
+	// Collect metrics
+	w.collectMetrics(tasks)
+
 	eg := &errgroup.Group{}
 	for _, _task := range tasks {
 		task := _task
@@ -148,4 +155,23 @@ func (w *Worker) enqueue() error {
 	}
 
 	return nil
+}
+
+func (w *Worker) collectMetrics(tasks []Scheduler) {
+	if w.metrics == nil {
+		return
+	}
+
+	activePolicies := float64(len(tasks))
+	w.metrics.SetActivePolicies(activePolicies)
+
+	now := time.Now()
+	stuckCount := 0
+	for _, task := range tasks {
+		if task.NextExecution.Before(now) {
+			stuckCount++
+		}
+	}
+	
+	w.metrics.SetStuckPolicies(float64(stuckCount))
 }

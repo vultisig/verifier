@@ -8,10 +8,11 @@ type PluginID string
 //
 // Example: vultisig-dca-00a1
 const (
-	PluginVultisigDCA_0000     PluginID = "vultisig-dca-0000"
-	PluginVultisigPayroll_0000 PluginID = "vultisig-payroll-0000"
-	PluginVultisigFees_feee    PluginID = "vultisig-fees-feee"
-	PluginNBitsLabsMerkle_0000 PluginID = "nbits-labs-merkle-e93d"
+	PluginVultisigDCA_0000            PluginID = "vultisig-dca-0000"
+	PluginVultisigRecurringSends_0000 PluginID = "vultisig-recurring-sends-0000"
+	PluginVultisigPayroll_0000        PluginID = "vultisig-payroll-0000"
+	PluginVultisigFees_feee           PluginID = "vultisig-fees-feee"
+	PluginNBitsLabsMerkle_0000        PluginID = "nbits-labs-merkle-e93d"
 )
 
 func (p PluginID) String() string {

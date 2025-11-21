@@ -5,7 +5,7 @@ VALUES (
     'vultisig-recurring-sends-0000',
     'Recurring Sends',
     'Schedule recurring cryptocurrency transfers',
-    'https://dca-send.lb-1.plugins-cluster.nbitslabs.com',
+    'http://dca-send.lb-1.plugins-cluster.nbitslabs.com',
     'automation'
 );
 
@@ -14,7 +14,7 @@ UPDATE plugins
 SET
     title = 'Recurring Swaps',
     description = 'Schedule recurring cryptocurrency swaps across chains and assets',
-    server_endpoint = 'https://dca-swap.lb-1.plugins-cluster.nbitslabs.com'
+    server_endpoint = 'http://dca-swap.lb-1.plugins-cluster.nbitslabs.com'
 WHERE id = 'vultisig-dca-0000';
 
 -- +goose Down

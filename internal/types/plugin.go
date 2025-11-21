@@ -16,8 +16,18 @@ type Plugin struct {
 	Category       PluginCategory  `json:"category_id" validate:"required"`
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
-	LogoURL        string          `json:"logo_url,omitempty"` // New field, should be validated once migration is done.
-	Pricing        []types.Pricing `json:"pricing,omitempty"`  // New field for multiple pricing options
+	Pricing        []types.Pricing `json:"pricing,omitempty"`       // New field for multiple pricing options
+	LogoURL        string          `json:"logo_url,omitempty"`      // New field, should be validated once plugins have this data in db.
+	ThumbnailURL   string          `json:"thumbnail_url,omitempty"` // New field, should be validated once plugins have this data in db.
+	Images         []PluginImage   `json:"images,omitempty"`        // New field, should be validated once plugins have this data in db.
+}
+
+type PluginImage struct {
+	URL       string `json:"url"`
+	Caption   string `json:"caption"`
+	AltText   string `json:"alt_text"`
+	SortOrder int    `json:"sort_order"` // for carousels
+	ZIndex    int    `json:"z_index"`    // for overlays
 }
 
 // PluginWithRatings is used for API responses that include rating statistics

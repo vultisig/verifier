@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -73,6 +74,8 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 		var tagName *string
 		var tagCreatedAt *time.Time
 		var logoURL sql.NullString
+		var thumbnailURL sql.NullString
+		var imagesJSON []byte
 
 		nullablePricing := &nullablePricing{}
 
@@ -85,6 +88,8 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 			&plugin.CreatedAt,
 			&plugin.UpdatedAt,
 			&logoURL,
+			&thumbnailURL,
+			&imagesJSON,
 			&tagID,
 			&tagName,
 			&tagCreatedAt,
@@ -121,6 +126,16 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 			if logoURL.Valid && logoURL.String != "" {
 				plugin.LogoURL = logoURL.String
 			}
+			if thumbnailURL.Valid && thumbnailURL.String != "" {
+				plugin.ThumbnailURL = thumbnailURL.String
+			}
+			if len(imagesJSON) > 0 {
+				var imgs []itypes.PluginImage
+				if err := json.Unmarshal(imagesJSON, &imgs); err == nil {
+					plugin.Images = imgs
+				}
+			}
+
 			pluginMap[plugin.ID] = &plugin
 			pluginIDs = append(pluginIDs, plugin.ID)
 		}

@@ -21,6 +21,6 @@ func (s *Server) GetPricing(c echo.Context) error {
 		s.logger.WithError(err).Errorf("error finding pricing %s", pricingID)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgPricingGetFailed))
 	}
-
-	return c.JSON(http.StatusOK, pricing)
+	status := http.StatusOK
+	return c.JSON(status, NewSuccessResponse(status, pricing))
 }

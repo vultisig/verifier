@@ -250,7 +250,7 @@ func (s *Server) GetPlugins(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginsFailed))
 	}
 
-	return c.JSON(http.StatusOK, plugins)
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, plugins))
 }
 
 func (s *Server) GetPlugin(c echo.Context) error {

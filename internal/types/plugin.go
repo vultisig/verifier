@@ -20,6 +20,14 @@ type Plugin struct {
 	LogoURL        string          `json:"logo_url,omitempty"`      // New field, should be validated once plugins have this data in db.
 	ThumbnailURL   string          `json:"thumbnail_url,omitempty"` // New field, should be validated once plugins have this data in db.
 	Images         []PluginImage   `json:"images,omitempty"`        // New field, should be validated once plugins have this data in db.
+	FAQs           []FAQItem       `json:"faqs,omitempty"`
+	Features       []string        `json:"features,omitempty"`
+	Audited        bool            `json:"audited"`
+}
+
+type FAQItem struct {
+	Question string `json:"question"`
+	Answer   string `json:"answer"`
 }
 
 type PluginImage struct {

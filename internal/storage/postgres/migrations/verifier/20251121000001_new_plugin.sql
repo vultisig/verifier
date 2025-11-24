@@ -6,7 +6,7 @@ VALUES
  'Vultisig Recurring Sends',
  'Recurring Sends. Automatically execute recurring transfer orders based on predefined schedules and strategies.',
  'http://dca-send.lb-1.plugins-cluster.nbitslabs.com',
- 'plugin'),
+ 'plugin')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO pricings (id, plugin_id, asset, type, frequency, amount, metric)

@@ -181,13 +181,13 @@ func (s *Server) handleGetVault(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("fail to get vault"))
 	}
 
-	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, vgtypes.VaultGetResponse{
+	return c.JSON(http.StatusOK, vgtypes.VaultGetResponse{
 		Name:           v.Name,
 		PublicKeyEcdsa: v.PublicKeyEcdsa,
 		PublicKeyEddsa: v.PublicKeyEddsa,
 		HexChainCode:   v.HexChainCode,
 		LocalPartyId:   v.LocalPartyId,
-	}))
+	})
 }
 
 // GetKeysignResult is a handler to get the keysign response

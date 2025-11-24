@@ -44,23 +44,27 @@ jsonpath "$.data.reviews[0].created_at" exists
 GET http://localhost:8080/categories
 HTTP 200
 Content-Type: application/json
-# Go adds a newline so we need to use the raw string body format
-```json
-[{"id":"ai-agent","name":"AI Agent"},{"id":"plugin","name":"Plugin"}]
-```
+[Asserts]
+jsonpath "$.data" count == 2
+jsonpath "$.data[0].id" == "ai-agent"
+jsonpath "$.data[0].name" == "AI Agent"
+jsonpath "$.data[1].id" == "plugin"
+jsonpath "$.data[1].name" == "Plugin"
+
 
 GET http://localhost:8080/tags
 HTTP 200
 Content-Type: application/json
 [Asserts]
-jsonpath "$" exists
-jsonpath "$" count >= 2
-jsonpath "$[0].id" matches "{{uuid_regex}}"
-jsonpath "$[0].name" == "Trading"
-jsonpath "$[0].created_at" exists
-jsonpath "$[1].id" matches "{{uuid_regex}}"
-jsonpath "$[1].name" == "Operations"
-jsonpath "$[1].created_at" exists
+jsonpath "$.data" exists
+jsonpath "$.data" count == 2
+jsonpath "$.data[0].id" matches "{{uuid_regex}}"
+jsonpath "$.data[0].name" == "Trading"
+jsonpath "$.data[0].created_at" exists
+jsonpath "$.data[1].id" matches "{{uuid_regex}}"
+jsonpath "$.data[1].name" == "Operations"
+jsonpath "$.data[1].created_at" exists
+
 
 GET http://localhost:8080/pricing/00000000-0000-0000-0000-000000000002
 HTTP 200
@@ -102,3 +106,5 @@ jsonpath "$.data.hex_chain_code" == "c572b1fce3cdb451621f9f8535c95a0272bfcc2b47d
 
 GET http://localhost:8080/vault/exist/vultisig-payroll-0000/{{vault_payroll}}
 HTTP 200
+[Asserts]
+jsonpath "$.data.exists" == true

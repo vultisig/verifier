@@ -107,4 +107,4 @@ jsonpath "$.data.hex_chain_code" == "c572b1fce3cdb451621f9f8535c95a0272bfcc2b47d
 GET http://localhost:8080/vault/exist/vultisig-payroll-0000/{{vault_payroll}}
 HTTP 200
 [Asserts]
-jsonpath "$.data.exists" == "ok"
+jsonpath "$.data" == "ok"

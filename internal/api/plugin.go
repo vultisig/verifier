@@ -269,6 +269,49 @@ func (s *Server) GetPlugin(c echo.Context) error {
 	return c.JSON(http.StatusOK, plugin)
 }
 
+func (s *Server) GetInstalledPlugins(c echo.Context) error {
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok || publicKey == "" {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
+	}
+
+	// TODO(performance):
+	// This implementation checks plugins one-by-one using storage.Exist().
+	// This is NOT scalable because our current filename format:
+	//   {pluginId}-{publicKey}.vult
+	// prevents prefix-based listing.
+	//
+	// We SHOULD change the storage key format to:
+	//   vaults/{publicKey}/{pluginId}.vult
+	// and use List(prefix) instead of N calls to Exist().
+	// This will drastically improve performance and reduce storage load.
+
+	pluginList, err := s.db.FindPlugins(c.Request().Context(), types.PluginFilters{}, 1000, 0, "")
+	if err != nil {
+		s.logger.WithError(err).Error("failed to fetch plugins")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginsFailed))
+	}
+
+	var installedPlugins types.PluginsPaginatedList
+	installedPlugins.Plugins = make([]types.Plugin, 0)
+
+	for _, plugin := range pluginList.Plugins {
+		fileName := common.GetVaultBackupFilename(publicKey, string(plugin.ID))
+
+		exist, err := s.vaultStorage.Exist(fileName)
+		if err != nil {
+			s.logger.WithError(err).Error("failed to check plugin vault existence")
+			continue
+		}
+		if exist {
+			installedPlugins.Plugins = append(installedPlugins.Plugins, plugin)
+			installedPlugins.TotalCount++
+		}
+	}
+
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, installedPlugins))
+}
+
 func (s *Server) GetCategories(c echo.Context) error {
 	resp := []struct {
 		ID   string `json:"id"`

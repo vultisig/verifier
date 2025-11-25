@@ -130,6 +130,8 @@ const (
 	msgRequestValidationFailed = "request validation failed"
 	msgRequestProcessFailed    = "failed to process request"
 	msgRequestParseFailed      = "failed to parse request"
+	msgIssueCreditFailed       = "failed to issue credit"
+	msgGetUserFeesFailed       = "failed to get user fees"
 	msgProtoMarshalFailed      = "failed to proto marshal"
 	msgJSONMarshalFailed       = "failed to json marshal"
 )

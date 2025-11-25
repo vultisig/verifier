@@ -37,12 +37,12 @@ func (s *PolicyService) HandleScheduledFees(ctx context.Context, task *asynq.Tas
 	}
 	defer rows.Close()
 
+
 	var feesToInsert []struct {
 		publicKey string
 		policyId  string
 		amount    uint64
 	}
-
 	for rows.Next() {
 		var res struct {
 			publicKey string
@@ -63,7 +63,7 @@ func (s *PolicyService) HandleScheduledFees(ctx context.Context, task *asynq.Tas
 	}
 
 	for _, res := range feesToInsert {
-		err = s.db.InsertFee(ctx, nil, &types.Fee{
+		_, err = s.db.InsertFee(ctx, nil, &types.Fee{
 			PublicKey:      res.publicKey,
 			TxType:         types.TxTypeDebit,
 			Amount:         res.amount,

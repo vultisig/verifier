@@ -156,6 +156,10 @@ func (s *Server) StartServer() error {
 	feeGroup.GET("/publickey/:publicKey", s.GetPublicKeyFees)
 	feeGroup.POST("/collected", s.MarkCollected)
 
+	// user fee group. These should only be accessible by the plugin server
+	userFeeGroup := e.Group("/fee", s.VaultAuthMiddleware)
+	userFeeGroup.GET("/status", s.GetUserFees)
+
 	pluginsGroup := e.Group("/plugins")
 	pluginsGroup.GET("", s.GetPlugins)
 	pluginsGroup.GET("/:pluginId", s.GetPlugin)
@@ -467,6 +471,19 @@ func (s *Server) Auth(c echo.Context) error {
 	err = s.redis.Set(c.Request().Context(), cacheKey, req.PublicKey, 7*24*time.Hour) // Same as token expiration
 	if err != nil {
 		s.logger.WithError(err).Warnf("Failed to cache user info")
+	}
+
+	_, err = s.db.InsertFee(c.Request().Context(), nil, &vtypes.Fee{
+		PublicKey: req.PublicKey,
+		TxType:    vtypes.TxTypeCredit,
+		// Default trial fee
+		Amount:         5000000,
+		FeeType:        "trial",
+		UnderlyingType: "user",
+		UnderlyingID:   ethAddress,
+	})
+	if err != nil {
+		s.logger.WithError(err).Warn("Failed to insert trial fee, continuing with auth")
 	}
 
 	status := http.StatusOK

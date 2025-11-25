@@ -95,7 +95,7 @@ func (fi *FeeIndexer) updateTxStatus(ctx context.Context, tx storage.Tx) error {
 			}
 
 			//Insert fee
-			err = fi.db.InsertFee(ctx, dbTx, &types.Fee{
+			_, err = fi.db.InsertFee(ctx, dbTx, &types.Fee{
 				PublicKey:      tx.FromPublicKey,
 				TxType:         types.TxTypeDebit,
 				Amount:         txFee,

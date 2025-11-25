@@ -24,8 +24,7 @@ func (s *Server) GetPublicKeyFees(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetFeesFailed))
 	}
 
-	status := http.StatusOK
-	return c.JSON(status, NewSuccessResponse(status, fees))
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, fees))
 }
 
 func (s *Server) MarkCollected(c echo.Context) error {

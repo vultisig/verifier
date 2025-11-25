@@ -250,7 +250,7 @@ func (s *Server) GetPlugins(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginsFailed))
 	}
 
-	return c.JSON(http.StatusOK, plugins)
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, plugins))
 }
 
 func (s *Server) GetPlugin(c echo.Context) error {
@@ -266,7 +266,7 @@ func (s *Server) GetPlugin(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginFailed))
 	}
 
-	return c.JSON(http.StatusOK, plugin)
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, plugin))
 }
 
 func (s *Server) GetInstalledPlugins(c echo.Context) error {
@@ -326,7 +326,7 @@ func (s *Server) GetCategories(c echo.Context) error {
 			Name: types.PluginCategoryPlugin.String(),
 		},
 	}
-	return c.JSON(http.StatusOK, resp)
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, resp))
 }
 
 func (s *Server) GetTags(c echo.Context) error {
@@ -335,7 +335,7 @@ func (s *Server) GetTags(c echo.Context) error {
 		s.logger.WithError(err).Error("Failed to get tags")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetTagsFailed))
 	}
-	return c.JSON(http.StatusOK, tags)
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, tags))
 }
 
 func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
@@ -375,10 +375,10 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetTxsByPolicyIDFailed))
 	}
 
-	return c.JSON(http.StatusOK, types.TransactionHistoryPaginatedList{
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, types.TransactionHistoryPaginatedList{
 		History:    txs,
 		TotalCount: totalCount,
-	})
+	}))
 }
 
 func (s *Server) CreateReview(c echo.Context) error {
@@ -408,7 +408,7 @@ func (s *Server) CreateReview(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgCreateReviewFailed))
 	}
 
-	return c.JSON(http.StatusOK, created)
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, created))
 }
 
 func (s *Server) GetReviews(c echo.Context) error {
@@ -446,7 +446,7 @@ func (s *Server) GetReviews(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetReviewsFailed))
 	}
 
-	return c.JSON(http.StatusOK, reviews)
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, reviews))
 }
 
 func (s *Server) GetPluginAvgRating(c echo.Context) error {
@@ -461,7 +461,7 @@ func (s *Server) GetPluginAvgRating(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetAvgRatingFailed))
 	}
 
-	return c.JSON(http.StatusOK, avgRating)
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, avgRating))
 }
 
 func (s *Server) GetPluginRecipeSpecification(c echo.Context) error {
@@ -475,7 +475,7 @@ func (s *Server) GetPluginRecipeSpecification(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetRecipeSpecFailed))
 	}
 
-	return c.JSON(http.StatusOK, recipeSpec)
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, recipeSpec))
 }
 
 func (s *Server) GetPluginRecipeSpecificationSuggest(c echo.Context) error {
@@ -517,7 +517,7 @@ func (s *Server) GetPluginRecipeSpecificationSuggest(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgJSONMarshalFailed))
 	}
 
-	return c.JSON(http.StatusOK, res)
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, res))
 }
 
 func (s *Server) GetPluginRecipeFunctions(c echo.Context) error {
@@ -531,7 +531,7 @@ func (s *Server) GetPluginRecipeFunctions(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetRecipeFunctionsFailed))
 	}
 
-	return c.JSON(http.StatusOK, recipeFuncs)
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, recipeFuncs))
 }
 
 func (s *Server) GetPluginInstallationsCountByID(c echo.Context) error {
@@ -546,5 +546,5 @@ func (s *Server) GetPluginInstallationsCountByID(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgPluginInstallationCountFailed))
 	}
 
-	return c.JSON(http.StatusOK, count)
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, count))
 }

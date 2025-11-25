@@ -294,30 +294,30 @@ func (s *Server) GetVault(c echo.Context) error {
 	}
 	pluginId := c.Param("pluginId")
 	if pluginId == "" {
-		return c.JSON(http.StatusBadRequest, errors.New(msgRequiredPluginID))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
 	}
 	filePathName := common.GetVaultBackupFilename(publicKeyECDSA, pluginId)
 	content, err := s.vaultStorage.GetVault(filePathName)
 	if err != nil {
 		wrappedErr := fmt.Errorf("fail to read file in GetVault, err: %w", err)
 		s.logger.Error(wrappedErr)
-		return c.JSON(http.StatusInternalServerError, wrappedErr)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(wrappedErr.Error()))
 	}
 
 	v, err := common.DecryptVaultFromBackup(s.cfg.EncryptionSecret, content)
 	if err != nil {
 		wrappedErr := fmt.Errorf("fail to decrypt vault from the backup, err: %w", err)
 		s.logger.Error(wrappedErr)
-		return c.JSON(http.StatusInternalServerError, wrappedErr)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(wrappedErr.Error()))
 	}
 
-	return c.JSON(http.StatusOK, vgtypes.VaultGetResponse{
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, vgtypes.VaultGetResponse{
 		Name:           v.Name,
 		PublicKeyEcdsa: v.PublicKeyEcdsa,
 		PublicKeyEddsa: v.PublicKeyEddsa,
 		HexChainCode:   v.HexChainCode,
 		LocalPartyId:   v.LocalPartyId,
-	})
+	}))
 }
 
 // GetKeysignResult is a handler to get the keysign response
@@ -348,14 +348,14 @@ func (s *Server) isValidHash(hash string) bool {
 func (s *Server) ExistVault(c echo.Context) error {
 	publicKeyECDSA := c.Param("publicKeyECDSA")
 	if publicKeyECDSA == "" {
-		return c.JSON(http.StatusBadRequest, errors.New(msgRequiredPublicKey))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPublicKey))
 	}
 	if !s.isValidHash(publicKeyECDSA) {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidPublicKey))
 	}
 	pluginId := c.Param("pluginId")
 	if pluginId == "" {
-		return c.JSON(http.StatusBadRequest, errors.New(msgRequiredPluginID))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
 	}
 
 	filePathName := common.GetVaultBackupFilename(publicKeyECDSA, pluginId)
@@ -594,7 +594,7 @@ func (s *Server) GetActiveTokens(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetActiveTokensFailed))
 	}
 
-	return c.JSON(http.StatusOK, tokens)
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, tokens))
 }
 
 // notifyPluginServerDeletePlugin user would like to delete a plugin, we need to notify the plugin server

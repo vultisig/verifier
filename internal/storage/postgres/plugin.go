@@ -147,9 +147,9 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 					plugin.FAQs = faqs
 				}
 			}
-			if len(FeaturesJSON) > 0 {
+			if len(featuresJSON) > 0 {
 				var features []string
-				if err := json.Unmarshal(FeaturesJSON, &features); err == nil {
+				if err := json.Unmarshal(featuresJSON, &features); err == nil {
 					plugin.Features = features
 				}
 			}

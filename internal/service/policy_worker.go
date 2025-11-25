@@ -36,21 +36,33 @@ func (s *PolicyService) HandleScheduledFees(ctx context.Context, task *asynq.Tas
 		return fmt.Errorf("failed to query scheduled fees: %w", err)
 	}
 	defer rows.Close()
-	recurse := false
 
+
+	var feesToInsert []struct {
+		publicKey string
+		policyId  string
+		amount    uint64
+	}
 	for rows.Next() {
 		var res struct {
 			publicKey string
 			policyId  string
 			amount    uint64
 		}
-		if err := rows.Scan(&res.publicKey, &res.policyId, &res.amount); err != nil {
+		err := rows.Scan(&res.publicKey, &res.policyId, &res.amount)
+		if err != nil {
 			fmt.Println(err)
 			s.logger.WithError(err).Error("Failed to scan scheduled fee row")
 			return fmt.Errorf("failed to scan scheduled fee row: %w", err)
 		}
-		recurse = true
+		feesToInsert = append(feesToInsert, res)
+	}
 
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("error iterating rows: %w", err)
+	}
+
+	for _, res := range feesToInsert {
 		_, err = s.db.InsertFee(ctx, nil, &types.Fee{
 			PublicKey:      res.publicKey,
 			TxType:         types.TxTypeDebit,
@@ -71,19 +83,10 @@ func (s *PolicyService) HandleScheduledFees(ctx context.Context, task *asynq.Tas
 			"plugin_policy_id": res.policyId,
 			"amount":           res.amount,
 		}).Info("Inserted scheduled fee record")
-
 	}
 
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("error iterating rows: %w", err)
-	}
-
-	// In case of maintenance, down time etc, if may be the case that several bill cycles have been missed.
-	// Therefore we rerun the task with an updated next_billing_cycle value. If no values are returned by the
-	// subsequent query then we end.
-	if recurse {
-		rows.Close()
-		s.HandleScheduledFees(ctx, task)
+	if len(feesToInsert) > 0 {
+		return s.HandleScheduledFees(ctx, task)
 	}
 
 	return nil

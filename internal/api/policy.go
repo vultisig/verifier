@@ -94,7 +94,7 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgPolicyCreateFailed))
 	}
 
-	return c.JSON(http.StatusOK, newPolicy)
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, newPolicy))
 }
 
 func (s *Server) getVault(publicKeyECDSA, pluginId string) (*v1.Vault, error) {
@@ -202,7 +202,7 @@ func (s *Server) UpdatePluginPolicyById(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(fmt.Sprintf("failed to update policy: %s", policy.ID)))
 	}
 
-	return c.JSON(http.StatusOK, updatedPolicy)
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, updatedPolicy))
 }
 
 func (s *Server) DeletePluginPolicyById(c echo.Context) error {
@@ -253,7 +253,7 @@ func (s *Server) DeletePluginPolicyById(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgPolicyDeleteFailed))
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, map[string]string{"status": "deleted"}))
 }
 
 func (s *Server) GetPluginPolicyById(c echo.Context) error {
@@ -278,7 +278,7 @@ func (s *Server) GetPluginPolicyById(c echo.Context) error {
 	if policy.PublicKey != publicKey {
 		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgPublicKeyMismatch))
 	}
-	return c.JSON(http.StatusOK, policy)
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, policy))
 }
 
 func (s *Server) GetAllPluginPolicies(c echo.Context) error {
@@ -318,5 +318,5 @@ func (s *Server) GetAllPluginPolicies(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgPoliciesGetFailed))
 	}
 
-	return c.JSON(http.StatusOK, policies)
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, policies))
 }

@@ -293,7 +293,7 @@ func (s *Server) GetInstalledPlugins(c echo.Context) error {
 	}
 
 	var installedPlugins types.PluginsPaginatedList
-	installedPlugins.Plugins = make([]types.Plugin, 0)
+	installedPlugins.Plugins = make([]types.Plugin, 0, len(pluginList.Plugins))
 
 	for _, plugin := range pluginList.Plugins {
 		fileName := common.GetVaultBackupFilename(publicKey, string(plugin.ID))

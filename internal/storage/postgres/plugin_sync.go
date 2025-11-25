@@ -17,6 +17,12 @@ type PluginYAML struct {
 	Description    string                `yaml:"description"`
 	ServerEndpoint string                `yaml:"server_endpoint"`
 	Category       itypes.PluginCategory `yaml:"category"`
+	LogoURL        string                `yaml:"logo_url"`
+	ThumbnailURL   string                `yaml:"thumbnail_url"`
+	Images         []itypes.PluginImage  `yaml:"images"`
+	FAQs           []itypes.FAQItem      `yaml:"faqs"`
+	Features       []string              `yaml:"features"`
+	Audited        bool                  `yaml:"audited"`
 }
 
 type ProposedYAML struct {
@@ -38,8 +44,8 @@ func (p *PostgresBackend) SyncPluginsFromYAML(yamlPath string) error {
 	ctx := context.Background()
 	for _, plugin := range proposed.Plugins {
 		query := `
-			INSERT INTO plugins (id, title, description, server_endpoint, category, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+			INSERT INTO plugins (id, title, description, server_endpoint, category, created_at, updated_at, logo_url, thumbnail_url, images, faqs, features, audited)
+			VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), $6, $7, $8, $9, $10, $11)
 			ON CONFLICT (id)
 			DO UPDATE SET
 				title = EXCLUDED.title,
@@ -53,7 +59,13 @@ func (p *PostgresBackend) SyncPluginsFromYAML(yamlPath string) error {
 						OR plugins.category IS DISTINCT FROM EXCLUDED.category
 					THEN NOW()
 					ELSE plugins.updated_at
-				END
+				END,
+				logo_url = EXCLUDED.logo_url,
+				thumbnail_url = EXCLUDED.thumbnail_url,
+				images = EXCLUDED.images,
+				faqs = EXCLUDED.faqs,
+				features = EXCLUDED.features,
+				audited = EXCLUDED.audited
 		`
 
 		_, err = p.pool.Exec(ctx, query,
@@ -62,6 +74,12 @@ func (p *PostgresBackend) SyncPluginsFromYAML(yamlPath string) error {
 			plugin.Description,
 			plugin.ServerEndpoint,
 			string(plugin.Category),
+			plugin.LogoURL,
+			plugin.ThumbnailURL,
+			plugin.Images,
+			plugin.FAQs,
+			plugin.Features,
+			plugin.Audited,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to upsert plugin %s: %w", plugin.ID, err)

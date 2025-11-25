@@ -292,7 +292,7 @@ func (s *Server) GetInstalledPlugins(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginsFailed))
 	}
 
-	var installedPlugins types.PluginsPaginatedList
+	var installed types.PluginsPaginatedList
 	installedPlugins.Plugins = make([]types.Plugin, 0, len(pluginList.Plugins))
 
 	for _, plugin := range pluginList.Plugins {

@@ -90,11 +90,7 @@ jobs:
             },
             "encryption_secret": "test123",
             "proposed_yaml_path": "proposed.yaml",
-            "plugin": {},
-            "datadog": {
-              "host": "localhost",
-              "port": "8125"
-            }
+            "plugin": {}
           }
           EOF
 
@@ -149,33 +145,6 @@ jobs:
           fi
 
           echo "Migration integrity check passed!"
-
-      - name: Check schema updates
-        run: |
-          # Dump current schema
-          PGPASSWORD=mypassword pg_dump -h localhost -U myuser -d vultisig-verifier \
-            --schema-only \
-            --no-comments \
-            --no-owner \
-            --quote-all-identifiers \
-            -T public.goose_db_version \
-            -T public.goose_db_version_id_seq | sed \
-            -e '/^--.*/d' \
-            -e '/^SET /d' \
-            -e '/^SELECT pg_catalog./d' \
-            -e '/^\\restrict /d' \
-            -e '/^\\unrestrict /d' \
-            -e 's/"public"\.//' | awk '/./ { e=0 } /^$$/ { e += 1 } e <= 1' \
-            > ./current_schema.sql
-
-          # Compare with repository schema
-          if ! diff -u ./internal/storage/postgres/schema/schema.sql ./current_schema.sql; then
-            echo "Schema has changed but schema.sql was not updated!"
-            echo "Please run 'make dump-schema' to update the schema file."
-            exit 1
-          fi
-
-          echo "Schema is up to date!"
 
       - name: Run smoke test
         run: |

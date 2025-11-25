@@ -76,6 +76,9 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 		var logoURL sql.NullString
 		var thumbnailURL sql.NullString
 		var imagesJSON []byte
+		var faqJSON []byte
+		var featuresJSON []byte
+		var audited sql.NullBool
 
 		nullablePricing := &nullablePricing{}
 
@@ -90,6 +93,9 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 			&logoURL,
 			&thumbnailURL,
 			&imagesJSON,
+			&faqJSON,
+			&featuresJSON,
+			&audited,
 			&tagID,
 			&tagName,
 			&tagCreatedAt,
@@ -134,6 +140,23 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 				if err := json.Unmarshal(imagesJSON, &imgs); err == nil {
 					plugin.Images = imgs
 				}
+			}
+			if len(faqJSON) > 0 {
+				var faqs []itypes.FAQItem
+				if err := json.Unmarshal(faqJSON, &faqs); err == nil {
+					plugin.FAQs = faqs
+				}
+			}
+			if len(featuresJSON) > 0 {
+				var features []string
+				if err := json.Unmarshal(featuresJSON, &features); err == nil {
+					plugin.Features = features
+				}
+			}
+			if audited.Valid {
+				plugin.Audited = audited.Bool
+			} else {
+				plugin.Audited = false
 			}
 
 			pluginMap[plugin.ID] = &plugin

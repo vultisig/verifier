@@ -29,6 +29,11 @@ go build -o verifier cmd/verifier/main.go
 go build -o worker cmd/worker/main.go
 go build -o txindexer cmd/tx_indexer/main.go
 
+echo "Stopping services before binary replacement..."
+sudo systemctl stop verifier || true
+sudo systemctl stop txindexer || true
+sudo systemctl stop worker || true
+
 echo "Installing binaries to /usr/local/bin/..."
 sudo cp verifier /usr/local/bin/
 sudo cp txindexer /usr/local/bin/

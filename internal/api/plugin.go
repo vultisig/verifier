@@ -293,23 +293,23 @@ func (s *Server) GetInstalledPlugins(c echo.Context) error {
 	}
 
 	var installed types.PluginsPaginatedList
-	installedPlugins.Plugins = make([]types.Plugin, 0, len(pluginList.Plugins))
+	installed.Plugins = make([]types.Plugin, 0, len(pluginList.Plugins))
 
 	for _, plugin := range pluginList.Plugins {
 		fileName := common.GetVaultBackupFilename(publicKey, string(plugin.ID))
 
 		exist, err := s.vaultStorage.Exist(fileName)
 		if err != nil {
-			s.logger.WithError(err).Error("failed to check plugin vault existence")
+			s.logger.WithError(err).Errorf("failed to check vault existence for plugin %s", plugin.ID)
 			continue
 		}
 		if exist {
-			installedPlugins.Plugins = append(installedPlugins.Plugins, plugin)
-			installedPlugins.TotalCount++
+			installed.Plugins = append(installed.Plugins, plugin)
+			installed.TotalCount++
 		}
 	}
 
-	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, installedPlugins))
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, installed))
 }
 
 func (s *Server) GetCategories(c echo.Context) error {

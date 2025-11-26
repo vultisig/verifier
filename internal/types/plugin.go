@@ -29,16 +29,16 @@ type Plugin struct {
 }
 
 type FAQItem struct {
-	Question string `json:"question"`
-	Answer   string `json:"answer"`
+	Question string `json:"question" yaml:"question"`
+	Answer   string `json:"answer"  yaml:"answer"`
 }
 
 type PluginImage struct {
-	URL       string `json:"url"`
-	Caption   string `json:"caption"`
-	AltText   string `json:"alt_text"`
-	SortOrder int    `json:"sort_order"` // for carousels
-	ZIndex    int    `json:"z_index"`    // for overlays
+	URL       string `json:"url" yaml:"url"`
+	Caption   string `json:"caption" yaml:"caption"`
+	AltText   string `json:"alt_text" yaml:"alt_text"`
+	SortOrder int    `json:"sort_order" yaml:"sort_order"` // for carousels
+	ZIndex    int    `json:"z_index" yaml:"z_index"`       // for overlays
 }
 
 // PluginWithRatings is used for API responses that include rating statistics

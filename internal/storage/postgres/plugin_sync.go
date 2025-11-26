@@ -42,12 +42,12 @@ func (p *PostgresBackend) SyncPluginsFromYAML(yamlPath string) error {
 						OR plugins.description IS DISTINCT FROM EXCLUDED.description
 						OR plugins.server_endpoint IS DISTINCT FROM EXCLUDED.server_endpoint
 						OR plugins.category IS DISTINCT FROM EXCLUDED.category
-						OR logo_url IS DISTINCT FROM EXCLUDED.logo_url,
-						OR thumbnail_url IS DISTINCT FROM EXCLUDED.thumbnail_url,
-						OR images IS DISTINCT FROM EXCLUDED.images,
-						OR faqs IS DISTINCT FROM EXCLUDED.faqs,
-						OR features IS DISTINCT FROM EXCLUDED.features,
-						OR audited IS DISTINCT FROM EXCLUDED.audited
+						OR plugins.logo_url IS DISTINCT FROM EXCLUDED.logo_url
+						OR plugins.thumbnail_url IS DISTINCT FROM EXCLUDED.thumbnail_url
+						OR plugins.images IS DISTINCT FROM EXCLUDED.images
+						OR plugins.faqs IS DISTINCT FROM EXCLUDED.faqs
+						OR plugins.features IS DISTINCT FROM EXCLUDED.features
+						OR plugins.audited IS DISTINCT FROM EXCLUDED.audited
 					THEN NOW()
 					ELSE plugins.updated_at
 				END,

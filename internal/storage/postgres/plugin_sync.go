@@ -8,25 +8,10 @@ import (
 	"gopkg.in/yaml.v3"
 
 	itypes "github.com/vultisig/verifier/internal/types"
-	"github.com/vultisig/verifier/types"
 )
 
-type PluginYAML struct {
-	ID             types.PluginID        `yaml:"id"`
-	Title          string                `yaml:"title"`
-	Description    string                `yaml:"description"`
-	ServerEndpoint string                `yaml:"server_endpoint"`
-	Category       itypes.PluginCategory `yaml:"category"`
-	LogoURL        string                `yaml:"logo_url"`
-	ThumbnailURL   string                `yaml:"thumbnail_url"`
-	Images         []itypes.PluginImage  `yaml:"images"`
-	FAQs           []itypes.FAQItem      `yaml:"faqs"`
-	Features       []string              `yaml:"features"`
-	Audited        bool                  `yaml:"audited"`
-}
-
 type ProposedYAML struct {
-	Plugins []PluginYAML `yaml:"plugins"`
+	Plugins []itypes.Plugin `yaml:"plugins"`
 }
 
 func (p *PostgresBackend) SyncPluginsFromYAML(yamlPath string) error {

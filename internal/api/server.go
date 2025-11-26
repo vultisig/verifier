@@ -663,7 +663,7 @@ func (s *Server) DeletePlugin(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
 	if pluginID == vtypes.PluginVultisigFees_feee.String() {
-		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("Uninstall of fee plugin is forbidden"))
+		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("Unable to uninstall due to outstanding fees"))
 	}
 
 	if err := s.notifyPluginServerDeletePlugin(c.Request().Context(), vtypes.PluginID(pluginID), publicKey); err != nil {

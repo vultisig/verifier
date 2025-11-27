@@ -312,12 +312,11 @@ func (p *PostgresBackend) GetUserFees(
 			return nil, fmt.Errorf("failed to scan fee row: %w", err)
 		}
 
-		result.Fees = append(result.Fees, fee)
-
 		if fee.TxType == types.TxTypeCredit {
 			result.Balance += int64(fee.Amount)
 		} else if fee.TxType == types.TxTypeDebit {
 			result.Balance -= int64(fee.Amount)
+			result.Fees = append(result.Fees, fee)
 		}
 	}
 

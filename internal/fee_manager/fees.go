@@ -9,25 +9,29 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
 
+	"github.com/vultisig/verifier/internal/safety"
 	"github.com/vultisig/verifier/internal/storage"
 	vtypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/verifier/vault"
 )
 
 type FeeManagementService struct {
-	logger *logrus.Logger
-	db     storage.DatabaseStorage
-	vault  *vault.ManagementService
+	logger    *logrus.Logger
+	db        storage.DatabaseStorage
+	vault     *vault.ManagementService
+	safetyMgm *safety.Manager
 }
 
 func NewFeeManagementService(
 	logger *logrus.Logger,
 	db storage.DatabaseStorage,
-	vault *vault.ManagementService) *FeeManagementService {
+	vault *vault.ManagementService,
+	safetyMgm *safety.Manager) *FeeManagementService {
 	return &FeeManagementService{
-		logger: logger,
-		db:     db,
-		vault:  vault,
+		logger:    logger,
+		db:        db,
+		vault:     vault,
+		safetyMgm: safetyMgm,
 	}
 }
 
@@ -41,6 +45,11 @@ func (s *FeeManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.T
 	if err := json.Unmarshal(t.Payload(), &req); err != nil {
 		s.logger.WithError(err).Error("json.Unmarshal failed")
 		return fmt.Errorf("s.RegisterInstallation failed: %w", asynq.SkipRetry)
+	}
+
+	if err := s.safetyMgm.EnforceKeygen(ctx, req.PluginID); err != nil {
+		s.logger.WithError(err).Error("EnforceKeygen failed")
+		return fmt.Errorf("EnforceKeygen failed: %w", asynq.SkipRetry)
 	}
 
 	if err := s.RegisterInstallation(ctx, vtypes.PluginID(req.PluginID), req.PublicKey); err != nil {

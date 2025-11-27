@@ -6,9 +6,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
 
 	itypes "github.com/vultisig/verifier/internal/types"
+	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
 	"github.com/vultisig/verifier/types"
 )
 

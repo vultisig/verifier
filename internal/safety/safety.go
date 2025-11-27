@@ -56,20 +56,20 @@ func (m *Manager) enforce(ctx context.Context, pluginID, action string) error {
 	}
 
 	if !globalEnabled {
-		m.logger.Warn("blocked by global control flag",
-			"key", globalKey,
-			"plugin", pluginID,
-			"action", action,
-		)
+		m.logger.WithFields(logrus.Fields{
+			"key":    globalKey,
+			"plugin": pluginID,
+			"action": action,
+		}).Warn("blocked by global control flag")
 		return fmt.Errorf("%s disabled globally", action)
 	}
 
 	if !pluginEnabled {
-		m.logger.Warn("blocked by plugin control flag",
-			"key", pluginKey,
-			"plugin", pluginID,
-			"action", action,
-		)
+		m.logger.WithFields(logrus.Fields{
+			"key":    pluginKey,
+			"plugin": pluginID,
+			"action": action,
+		}).Warn("blocked by plugin control flag")
 		return fmt.Errorf("%s disabled for plugin %s", action, pluginID)
 	}
 

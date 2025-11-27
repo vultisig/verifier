@@ -9,6 +9,7 @@ import (
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/fee_manager"
 	"github.com/vultisig/verifier/internal/logging"
+	"github.com/vultisig/verifier/internal/safety"
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/plugin/tasks"
@@ -90,17 +91,21 @@ func main() {
 		chains,
 	)
 
+	safetyMgm := safety.NewManager(backendDB, logger)
+
 	vaultMgmService, err := vault.NewManagementService(
 		cfg.VaultService,
 		client,
 		vaultStorage,
 		txIndexerService,
+		safetyMgm,
 	)
 
 	feeMgmService := fee_manager.NewFeeManagementService(
 		logger,
 		backendDB,
 		vaultMgmService,
+		safetyMgm,
 	)
 
 	mux := asynq.NewServeMux()

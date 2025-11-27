@@ -8,12 +8,14 @@ import (
 
 	"github.com/spf13/viper"
 
+	"github.com/vultisig/verifier/internal/logging"
 	"github.com/vultisig/verifier/plugin/config"
 	tx_indexer_config "github.com/vultisig/verifier/plugin/tx_indexer/pkg/config"
 	"github.com/vultisig/verifier/vault_config"
 )
 
 type WorkerConfig struct {
+	LogFormat    logging.LogFormat         `mapstructure:"log_format" json:"log_format,omitempty"`
 	VaultService vault_config.Config       `mapstructure:"vault_service" json:"vault_service,omitempty"`
 	Redis        config.Redis              `mapstructure:"redis" json:"redis,omitempty"`
 	BlockStorage vault_config.BlockStorage `mapstructure:"block_storage" json:"block_storage,omitempty"`
@@ -22,7 +24,8 @@ type WorkerConfig struct {
 }
 
 type VerifierConfig struct {
-	Server struct {
+	LogFormat logging.LogFormat `mapstructure:"log_format" json:"log_format,omitempty"`
+	Server    struct {
 		Host      string `mapstructure:"host" json:"host,omitempty"`
 		Port      int64  `mapstructure:"port" json:"port,omitempty"`
 		JWTSecret string `mapstructure:"jwt_secret" json:"jwt_secret,omitempty"`
@@ -60,6 +63,7 @@ func ReadConfig(configName string) (*WorkerConfig, error) {
 	viper.AutomaticEnv()
 
 	viper.SetDefault("VaultService.VaultsFilePath", "vaults")
+	viper.SetDefault("log_format", "text")
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
@@ -88,6 +92,7 @@ func ReadVerifierConfig() (*VerifierConfig, error) {
 
 	// Set default values
 	viper.SetDefault("auth.nonce_expiry_minutes", 15)
+	viper.SetDefault("log_format", "text")
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
@@ -113,6 +118,8 @@ func ReadTxIndexerConfig() (*tx_indexer_config.Config, error) {
 	viper.AddConfigPath(".")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
+	
+	viper.SetDefault("log_format", "text")
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {

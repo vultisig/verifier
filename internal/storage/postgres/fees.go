@@ -7,6 +7,8 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
 	"github.com/vultisig/verifier/types"
 )
 
@@ -235,7 +237,7 @@ func (p *PostgresBackend) MarkFeesCollected(ctx context.Context, dbTx pgx.Tx, fe
 		PublicKey:      publicKey,
 		TxType:         types.TxTypeCredit,
 		Amount:         totalAmount,
-		FeeType:        "batch",
+		FeeType:        types.FeeTypeBatch,
 		Metadata:       metadataJSON,
 		UnderlyingType: "batch",
 		UnderlyingID:   fmt.Sprint(batchID),
@@ -326,4 +328,77 @@ func (p *PostgresBackend) GetUserFees(
 	}
 
 	return result, nil
+}
+
+func (p *PostgresBackend) UpdateBatchStatus(ctx context.Context, dbTx pgx.Tx, txHash string, status *rpc.TxOnChainStatus) error {
+	switch *status {
+	case rpc.TxOnChainSuccess:
+		_, err := dbTx.Exec(ctx, `
+           UPDATE fee_batches
+           SET status = 'COMPLETED'
+           WHERE collection_tx_id = $1
+       `, txHash)
+		if err != nil {
+			return fmt.Errorf("failed to update batch status to SUCCESS: %w", err)
+		}
+		return nil
+	case rpc.TxOnChainFail:
+		var batchID int64
+		var originalFee types.Fee
+		err := dbTx.QueryRow(ctx, `
+    SELECT 
+        fb.id,
+        f.policy_id,
+        f.public_key,
+        f.amount,
+        f.metadata,
+        f.underlying_type,
+        f.underlying_id
+    FROM fee_batches fb
+    JOIN fees f ON f.id = fb.batch_cutoff
+    WHERE fb.collection_tx_id = $1
+`, txHash).Scan(
+			&batchID,
+			&originalFee.PolicyID,
+			&originalFee.PublicKey,
+			&originalFee.Amount,
+			&originalFee.Metadata,
+			&originalFee.UnderlyingType,
+			&originalFee.UnderlyingID,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get batch and original fee: %w", err)
+		}
+
+		compensationFee := &types.Fee{
+			PolicyID:       originalFee.PolicyID,
+			PublicKey:      originalFee.PublicKey,
+			TxType:         types.TxTypeDebit,
+			Amount:         originalFee.Amount,
+			FeeType:        types.FeeTypeBatchFailed,
+			Metadata:       originalFee.Metadata,
+			UnderlyingType: "batch",
+			UnderlyingID:   fmt.Sprint(batchID),
+		}
+
+		_, err = p.InsertFee(ctx, dbTx, compensationFee)
+		if err != nil {
+			return fmt.Errorf("failed to insert compensation fee: %w", err)
+		}
+
+		_, err = dbTx.Exec(ctx, `
+           UPDATE fee_batches
+           SET status = 'FAILED'
+           WHERE collection_tx_id = $1
+       `, txHash)
+		if err != nil {
+			return fmt.Errorf("failed to update batch status to FAIL: %w", err)
+		}
+
+		return nil
+	case rpc.TxOnChainPending:
+		return nil
+	default:
+		return fmt.Errorf("unknown status: %s", *status)
+	}
 }

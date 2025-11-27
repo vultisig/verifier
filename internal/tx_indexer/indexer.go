@@ -120,7 +120,7 @@ func (fi *FeeIndexer) updateTxStatus(ctx context.Context, tx storage.Tx) error {
 			return fi.db.UpdateBatchStatus(ctx, dbTx, *tx.TxHash, newStatus)
 		})
 		if err != nil {
-			return fmt.Errorf("failed to insert fee: %w", err)
+			return fmt.Errorf("failed to update batch status: %w", err)
 		}
 	}
 	return nil

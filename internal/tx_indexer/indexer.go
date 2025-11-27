@@ -113,6 +113,9 @@ func (fi *FeeIndexer) updateTxStatus(ctx context.Context, tx storage.Tx) error {
 			return fmt.Errorf("failed to insert fee: %w", err)
 		}
 	} else if tx.PluginID == types.PluginVultisigFees_feee {
+		if tx.TxHash == nil {
+			return fmt.Errorf("nil tx hash")
+		}
 		err = fi.db.WithTransaction(ctx, func(ctx context.Context, dbTx pgx.Tx) error {
 			return fi.db.UpdateBatchStatus(ctx, dbTx, *tx.TxHash, newStatus)
 		})

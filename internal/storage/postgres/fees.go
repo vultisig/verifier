@@ -330,6 +330,10 @@ func (p *PostgresBackend) GetUserFees(
 }
 
 func (p *PostgresBackend) UpdateBatchStatus(ctx context.Context, dbTx pgx.Tx, txHash string, status *rpc.TxOnChainStatus) error {
+	if status == nil {
+		return fmt.Errorf("status cannot be nil")
+	}
+
 	switch *status {
 	case rpc.TxOnChainSuccess:
 		_, err := dbTx.Exec(ctx, `

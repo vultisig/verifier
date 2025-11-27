@@ -338,7 +338,7 @@ func (p *PostgresBackend) UpdateBatchStatus(ctx context.Context, dbTx pgx.Tx, tx
            WHERE collection_tx_id = $1
        `, txHash)
 		if err != nil {
-			return fmt.Errorf("failed to update batch status to SUCCESS: %w", err)
+			return fmt.Errorf("failed to update batch status to COMPLETED: %w", err)
 		}
 		return nil
 	case rpc.TxOnChainFail:
@@ -391,7 +391,7 @@ func (p *PostgresBackend) UpdateBatchStatus(ctx context.Context, dbTx pgx.Tx, tx
            WHERE collection_tx_id = $1
        `, txHash)
 		if err != nil {
-			return fmt.Errorf("failed to update batch status to FAIL: %w", err)
+			return fmt.Errorf("failed to update batch status to FAILED: %w", err)
 		}
 
 		return nil

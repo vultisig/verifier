@@ -1,14 +1,19 @@
 package config
 
-import "time"
+import (
+	"time"
+
+	"github.com/vultisig/verifier/internal/logging"
+)
 
 type Config struct {
-	Database         DatabaseConfig `mapstructure:"database" json:"database,omitempty"`
-	Rpc              RpcConfig      `mapstructure:"rpc" json:"rpc,omitempty"`
-	Interval         time.Duration  `mapstructure:"interval" json:"interval,omitempty"`
-	IterationTimeout time.Duration  `mapstructure:"iteration_timeout" json:"iteration_timeout,omitempty"`
-	MarkLostAfter    time.Duration  `mapstructure:"mark_lost_after" json:"mark_lost_after,omitempty"`
-	Concurrency      int            `mapstructure:"concurrency" json:"concurrency,omitempty"`
+	LogFormat        logging.LogFormat `mapstructure:"log_format" json:"log_format,omitempty"`
+	Database         DatabaseConfig    `mapstructure:"database" json:"database,omitempty"`
+	Rpc              RpcConfig         `mapstructure:"rpc" json:"rpc,omitempty"`
+	Interval         time.Duration     `mapstructure:"interval" json:"interval,omitempty"`
+	IterationTimeout time.Duration     `mapstructure:"iteration_timeout" json:"iteration_timeout,omitempty"`
+	MarkLostAfter    time.Duration     `mapstructure:"mark_lost_after" json:"mark_lost_after,omitempty"`
+	Concurrency      int               `mapstructure:"concurrency" json:"concurrency,omitempty"`
 }
 
 type DatabaseConfig struct {

@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/vultisig/verifier/config"
+	"github.com/vultisig/verifier/internal/logging"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	fee_tx_indexer "github.com/vultisig/verifier/internal/tx_indexer"
 	"github.com/vultisig/verifier/plugin/metrics"
@@ -17,12 +16,12 @@ import (
 func main() {
 	ctx := context.Background()
 
-	logger := logrus.New()
-
 	cfg, err := config.ReadTxIndexerConfig()
 	if err != nil {
 		panic(fmt.Errorf("config.ReadTxIndexerConfig: %w", err))
 	}
+
+	logger := logging.NewLogger(cfg.LogFormat)
 
 	rpcs, err := tx_indexer.Rpcs(ctx, cfg.Rpc)
 	if err != nil {

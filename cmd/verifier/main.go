@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	"github.com/hibiken/asynq"
-	"github.com/sirupsen/logrus"
 
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/api"
+	"github.com/vultisig/verifier/internal/logging"
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/plugin/tx_indexer"
@@ -24,7 +24,7 @@ func main() {
 		panic(err)
 	}
 
-	logger := logrus.New()
+	logger := logging.NewLogger(cfg.LogFormat)
 
 	redisStorage, err := storage.NewRedisStorage(cfg.Redis)
 	if err != nil {

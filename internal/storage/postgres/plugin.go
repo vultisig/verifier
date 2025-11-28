@@ -268,11 +268,31 @@ func (p *PostgresBackend) FindPlugins(
 		FROM %s p
 		LEFT JOIN plugin_tags pt ON p.id = pt.plugin_id
 		LEFT JOIN tags t ON pt.tag_id = t.id
-		LEFT JOIN pricings pr ON p.id = pr.plugin_id`,
-		PLUGINS_TABLE,
-	)
+		LEFT JOIN pricings pr ON p.id = pr.plugin_id
+		LEFT JOIN (
+			SELECT plugin_id, COUNT(*) AS installations
+			FROM plugin_installations
+			GROUP BY plugin_id
+		) inst ON inst.plugin_id = p.id
+		LEFT JOIN (
+			SELECT 
+				plugin_id,
+				COUNT(*) AS rates_count,
+				ROUND(AVG(rating)::numeric, 2) AS avg_rating
+			FROM reviews
+			GROUP BY plugin_id
+		) rv ON rv.plugin_id = p.id
+		`, PLUGINS_TABLE)
 
-	query := `SELECT p.*, t.*, pr.*` + joinQuery
+	query := `
+		SELECT
+			p.*,
+			t.*,
+			pr.*,
+			COALESCE(inst.installations, 0) AS installations,
+			COALESCE(rv.rates_count, 0) AS rates_count,
+			COALESCE(rv.avg_rating, 0) AS avg_rating
+		` + joinQuery
 	queryTotal := `SELECT COUNT(DISTINCT p.id) as total_count` + joinQuery
 
 	var args []any

@@ -6,6 +6,7 @@ import (
 
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/logging"
+	internalMetrics "github.com/vultisig/verifier/internal/metrics"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	fee_tx_indexer "github.com/vultisig/verifier/internal/tx_indexer"
 	"github.com/vultisig/verifier/plugin/metrics"
@@ -38,7 +39,27 @@ func main() {
 		panic(fmt.Sprintf("failed to initialize database: %v", err))
 	}
 
-	// Use no-op metrics implementation, disable metrics for now
+	// Initialize metrics based on configuration
+	var txMetrics metrics.TxIndexerMetrics
+
+	if cfg.Metrics.Enabled {
+		logger.Info("Metrics enabled, setting up Prometheus metrics")
+
+		// Start metrics HTTP server with TX indexer metrics
+		metricsConfig := internalMetrics.Config{
+			Enabled: true,
+			Host:    cfg.Metrics.Host,
+			Port:    cfg.Metrics.Port,
+		}
+		_ = internalMetrics.StartMetricsServer(metricsConfig, []string{internalMetrics.ServiceTxIndexer}, logger)
+
+		// Create TX indexer metrics implementation
+		txMetrics = internalMetrics.NewTxIndexerMetrics()
+	} else {
+		logger.Info("Metrics disabled, using no-op implementation")
+		txMetrics = metrics.NewNilTxIndexerMetrics()
+	}
+
 	worker := tx_indexer.NewWorker(
 		logger,
 		cfg.Interval,
@@ -47,7 +68,7 @@ func main() {
 		cfg.Concurrency,
 		txIndexerStore,
 		rpcs,
-		metrics.NewNilTxIndexerMetrics(), // no-op metrics implementation
+		txMetrics,
 	)
 
 	feeIndexer := fee_tx_indexer.NewFeeIndexer(

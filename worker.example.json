@@ -1,4 +1,5 @@
 {
+  "log_format": "text",
   "vault_service": {
     "relay": {
       "server": "https://api.vultisig.com/router"

@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	"github.com/hibiken/asynq"
-	"github.com/sirupsen/logrus"
 
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/fee_manager"
+	"github.com/vultisig/verifier/internal/logging"
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/plugin/tasks"
@@ -25,6 +25,8 @@ func main() {
 		panic(err)
 	}
 
+	logger := logging.NewLogger(cfg.LogFormat)
+
 	redisCfg := cfg.Redis
 	var redisConnOpt asynq.RedisConnOpt
 	if redisCfg.URI != "" {
@@ -40,7 +42,6 @@ func main() {
 			DB:       redisCfg.DB,
 		}
 	}
-	logger := logrus.StandardLogger()
 	client := asynq.NewClient(redisConnOpt)
 	vaultStorage, err := vault.NewBlockStorageImp(cfg.BlockStorage)
 	if err != nil {

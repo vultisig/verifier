@@ -112,7 +112,8 @@ func (fi *FeeIndexer) updateTxStatus(ctx context.Context, tx storage.Tx) error {
 		if err != nil {
 			return fmt.Errorf("failed to insert fee: %w", err)
 		}
-	} else if tx.PluginID == types.PluginVultisigFees_feee {
+	}
+	if tx.PluginID == types.PluginVultisigFees_feee {
 		if tx.TxHash == nil {
 			return fmt.Errorf("nil tx hash")
 		}

@@ -23,6 +23,9 @@ type Plugin struct {
 	FAQs           []FAQItem       `json:"faqs,omitempty"`
 	Features       []string        `json:"features,omitempty"`
 	Audited        bool            `json:"audited"`
+	RatesCount     int             `json:"rates_count"`
+	AvgRating      float64         `json:"avg_rating"`
+	Installations  int             `json:"installations"`
 }
 
 type FAQItem struct {

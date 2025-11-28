@@ -79,6 +79,9 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 		var faqJSON []byte
 		var featuresJSON []byte
 		var audited sql.NullBool
+		var installations sql.NullInt64
+		var ratesCount sql.NullInt64
+		var avgRating sql.NullFloat64
 
 		nullablePricing := &nullablePricing{}
 
@@ -108,6 +111,9 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 			&nullablePricing.PluginID,
 			&nullablePricing.CreatedAt,
 			&nullablePricing.UpdatedAt,
+			&installations,
+			&ratesCount,
+			&avgRating,
 		)
 		if err != nil {
 			return nil, err
@@ -158,6 +164,23 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 			} else {
 				plugin.Audited = false
 			}
+			if installations.Valid {
+				plugin.Installations = int(installations.Int64)
+			} else {
+				plugin.Installations = 0
+			}
+
+			if ratesCount.Valid {
+				plugin.RatesCount = int(ratesCount.Int64)
+			} else {
+				plugin.RatesCount = 0
+			}
+
+			if avgRating.Valid {
+				plugin.AvgRating = avgRating.Float64
+			} else {
+				plugin.AvgRating = 0
+			}
 
 			pluginMap[plugin.ID] = &plugin
 			pluginIDs = append(pluginIDs, plugin.ID)
@@ -177,15 +200,35 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 }
 
 func (p *PostgresBackend) FindPluginById(ctx context.Context, dbTx pgx.Tx, id types.PluginID) (*itypes.Plugin, error) {
-	query := fmt.Sprintf(
-		`SELECT p.*, t.*, pr.*
-		FROM %s p
-		LEFT JOIN plugin_tags pt ON p.id = pt.plugin_id
-		LEFT JOIN tags t ON pt.tag_id = t.id
-		LEFT JOIN pricings pr ON p.id = pr.plugin_id
-		WHERE p.id = $1;`,
-		PLUGINS_TABLE,
-	)
+	query := fmt.Sprintf(`
+	SELECT
+		p.*,
+		t.*,
+		pr.*,
+		COALESCE(inst.installations, 0) AS installations,
+		COALESCE(rv.rates_count, 0) AS rates_count,
+		COALESCE(rv.avg_rating, 0) AS avg_rating
+	FROM %s p
+	LEFT JOIN plugin_tags pt ON p.id = pt.plugin_id
+	LEFT JOIN tags t ON pt.tag_id = t.id
+	LEFT JOIN pricings pr ON p.id = pr.plugin_id
+	LEFT JOIN (
+		SELECT
+			plugin_id,
+			COUNT(*) AS installations
+		FROM plugin_installations
+		GROUP BY plugin_id
+	) inst ON inst.plugin_id = p.id
+	LEFT JOIN (
+		SELECT
+			plugin_id,
+			COUNT(*) AS rates_count,
+			ROUND(AVG(rating)::numeric, 2) AS avg_rating
+		FROM reviews
+		GROUP BY plugin_id
+	) rv ON rv.plugin_id = p.id
+	WHERE p.id = $1;
+	`, PLUGINS_TABLE)
 
 	var rows pgx.Rows
 	var err error

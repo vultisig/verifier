@@ -42,9 +42,11 @@ func RegisterMetrics(services []string, registry *prometheus.Registry, logger *l
 		case ServiceVault:
 			registerVaultMetrics(registry, logger)
 		case ServiceWorker:
-			registerWorkerMetrics(registry, logger)
+			// TODO: Implement worker metrics
+			logger.Debug("Worker metrics registration - TODO")
 		case ServiceHTTP:
-			registerHTTPMetrics(registry, logger)
+			// TODO: Implement HTTP metrics  
+			logger.Debug("HTTP metrics registration - TODO")
 		default:
 			logger.Warnf("Unknown service type for metrics registration: %s", service)
 		}
@@ -104,16 +106,3 @@ func registerVaultMetrics(registry *prometheus.Registry, logger *logrus.Logger) 
 	logger.Debug("Vault metrics registration - TODO")
 }
 
-// registerWorkerMetrics registers worker-related metrics
-func registerWorkerMetrics(registry *prometheus.Registry, logger *logrus.Logger) {
-	workerMetrics := NewWorkerMetrics()
-	workerMetrics.Register(registry)
-	logger.Debug("Worker metrics registered")
-}
-
-// registerHTTPMetrics registers HTTP-related metrics
-func registerHTTPMetrics(registry *prometheus.Registry, logger *logrus.Logger) {
-	httpMetrics := NewHTTPMetrics()
-	httpMetrics.Register(registry)
-	logger.Debug("HTTP metrics registered")
-}

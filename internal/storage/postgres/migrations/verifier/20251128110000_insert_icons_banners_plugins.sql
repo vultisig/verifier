@@ -29,8 +29,13 @@ BEGIN;
 UPDATE plugins
 SET
     logo_url = '',
-    thumbnail_url = '',
-WHERE id IN ('vultisig-recurring-sends-0000', 'vultisig-dca-0000', 'vultisig-fees-feee');
+    thumbnail_url = ''
+WHERE id IN ('vultisig-recurring-sends-0000', 'vultisig-dca-0000');
+
+UPDATE plugins
+SET
+    logo_url = ''
+WHERE id = 'vultisig-fees-feee';
 
 COMMIT;
 -- +goose StatementEnd

@@ -9,33 +9,33 @@ import (
 )
 
 type Plugin struct {
-	ID             types.PluginID  `json:"id" validate:"required"`
-	Title          string          `json:"title" validate:"required"`
-	Description    string          `json:"description" validate:"required"`
-	ServerEndpoint string          `json:"server_endpoint" validate:"required"`
-	Category       PluginCategory  `json:"category_id" validate:"required"`
-	CreatedAt      time.Time       `json:"created_at"`
-	UpdatedAt      time.Time       `json:"updated_at"`
-	Pricing        []types.Pricing `json:"pricing,omitempty"`       // New field for multiple pricing options
-	LogoURL        string          `json:"logo_url,omitempty"`      // New field, should be validated once plugins have this data in db.
-	ThumbnailURL   string          `json:"thumbnail_url,omitempty"` // New field, should be validated once plugins have this data in db.
-	Images         []PluginImage   `json:"images,omitempty"`        // New field, should be validated once plugins have this data in db.
-	FAQs           []FAQItem       `json:"faqs,omitempty"`
-	Features       []string        `json:"features,omitempty"`
-	Audited        bool            `json:"audited"`
+	ID             types.PluginID  `json:"id" yaml:"id"`
+	Title          string          `json:"title" yaml:"title" validate:"required"`
+	Description    string          `json:"description" yaml:"description" validate:"required"`
+	ServerEndpoint string          `json:"server_endpoint" yaml:"server_endpoint" validate:"required"`
+	Category       PluginCategory  `json:"category_id" yaml:"category" validate:"required"`
+	CreatedAt      time.Time       `json:"created_at" yaml:"-"`
+	UpdatedAt      time.Time       `json:"updated_at" yaml:"-"`
+	Pricing        []types.Pricing `json:"pricing,omitempty" yaml:"-"`
+	LogoURL        string          `json:"logo_url,omitempty"      yaml:"logo_url"`
+	ThumbnailURL   string          `json:"thumbnail_url,omitempty" yaml:"thumbnail_url"`
+	Images         []PluginImage   `json:"images,omitempty"        yaml:"images"`
+	FAQs           []FAQItem       `json:"faqs,omitempty"          yaml:"faqs"`
+	Features       []string        `json:"features,omitempty"      yaml:"features"`
+	Audited        bool            `json:"audited"                 yaml:"audited"`
 }
 
 type FAQItem struct {
-	Question string `json:"question"`
-	Answer   string `json:"answer"`
+	Question string `json:"question" yaml:"question"`
+	Answer   string `json:"answer"  yaml:"answer"`
 }
 
 type PluginImage struct {
-	URL       string `json:"url"`
-	Caption   string `json:"caption"`
-	AltText   string `json:"alt_text"`
-	SortOrder int    `json:"sort_order"` // for carousels
-	ZIndex    int    `json:"z_index"`    // for overlays
+	URL       string `json:"url" yaml:"url"`
+	Caption   string `json:"caption" yaml:"caption"`
+	AltText   string `json:"alt_text" yaml:"alt_text"`
+	SortOrder int    `json:"sort_order" yaml:"sort_order"` // for carousels
+	ZIndex    int    `json:"z_index" yaml:"z_index"`       // for overlays
 }
 
 // PluginWithRatings is used for API responses that include rating statistics

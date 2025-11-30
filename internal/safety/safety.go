@@ -36,12 +36,11 @@ func (m *Manager) enforce(ctx context.Context, pluginID, action string) error {
 
 	flags, err := m.db.GetControlFlags(ctx, globalKey, pluginKey)
 	if err != nil {
-		// choose fail-open or fail-closed; this is fail-open with loud log
-		m.logger.Error("control flag check failed",
-			"plugin", pluginID,
-			"action", action,
-			"err", err,
-		)
+		m.logger.WithFields(logrus.Fields{
+			"plugin": pluginID,
+			"action": action,
+			"err":    err,
+		}).Error("control flag check failed")
 		return nil
 	}
 

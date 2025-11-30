@@ -1,101 +1,24 @@
 plugins:
   - id: vultisig-dca-0000
     title: DCA Plugin
-    description: Dollar Cost Averaging automation plugin
+    description: Schedule recurring cryptocurrency swaps across chains and assets
     server_endpoint: https://dca.vultisigplugin.app
     category: plugin
-    logo_url: TODO
-    thumbnail_url: TODO
-    images:
-      - url: TODO
-        caption: TODO
-        alt_text: TODO
-        sort_order: 0
-        z_index: 0
-    faqs:
-      - question: TODO
-        answer: TODO
-    audited: TODO
-
-  - id: vultisig-payroll-0000
-    title: Payroll Plugin
-    description: Automated payroll distribution plugin
-    server_endpoint: https://plugin.vultisigplugin.app/payroll
-    category: plugin
-    logo_url: TODO
-    thumbnail_url: TODO
-    images:
-      - url: TODO
-        caption: TODO
-        alt_text: TODO
-        sort_order: 0
-        z_index: 0
-    faqs:
-      - question: TODO
-        answer: TODO
-    features:
-      - TODO
-    audited: TODO
+    logo_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_swap/icon.svg
+    thumbnail_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_swap/banner.png
 
   - id: vultisig-fees-feee
     title: Fees Plugin
     description: Transaction fees management plugin
     server_endpoint: ""
     category: plugin
-    logo_url: TODO
-    thumbnail_url: TODO
-    images:
-      - url: TODO
-        caption: TODO
-        alt_text: TODO
-        sort_order: 0
-        z_index: 0
-    faqs:
-      - question: TODO
-        answer: TODO
-    features:
-      - TODO
-    audited: TODO
+    logo_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/payment/icon.svg
 
 
-  - id: vultisig-copytrader-0000
-    title: Copy Trader Plugin
-    description: Copy trading automation plugin
-    server_endpoint: http://149.28.158.120:8081
-    category: ai-agent
-    logo_url: TODO
-    thumbnail_url: TODO
-    images:
-      - url: TODO
-        caption: TODO
-        alt_text: TODO
-        sort_order: 0
-        z_index: 0
-    faqs:
-      - question: TODO
-        answer: TODO
-    features:
-      - TODO
-    audited: TODO
-
-
-  - id: nbits-labs-merkle-e93d
-    title: Merkle Plugin
-    description: Merkle tree verification plugin
-    server_endpoint: ""
+  - id: vultisig-recurring-sends-0000
+    title: Recurring Send
+    description: Schedule recurring cryptocurrency transfers.
+    server_endpoint: TODO
     category: plugin
-    logo_url: TODO
-    thumbnail_url: TODO
-    images:
-      - url: TODO
-        caption: TODO
-        alt_text: TODO
-        sort_order: 0
-        z_index: 0
-    faqs:
-      - question: TODO
-        answer: TODO
-    features:
-      - TODO
-    audited: TODO
-
+    logo_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_send/icon.svg
+    thumbnail_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_send/banner.png

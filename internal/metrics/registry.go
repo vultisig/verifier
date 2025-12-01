@@ -95,8 +95,15 @@ func registerFeeMetrics(registry *prometheus.Registry, logger *logrus.Logger) {
 
 // registerTxIndexerMetrics registers tx_indexer-related metrics
 func registerTxIndexerMetrics(registry *prometheus.Registry, logger *logrus.Logger) {
-	txMetrics := NewTxIndexerMetrics()
-	txMetrics.Register(registry)
+	// Register each TX indexer metric individually with defensive pattern
+	registerIfNotExists(txIndexerTransactionStatus, "tx_indexer_transaction_status", registry, logger)
+	registerIfNotExists(txIndexerProcessingTotal, "tx_indexer_processing_total", registry, logger)
+	registerIfNotExists(txIndexerIterationDuration, "tx_indexer_iteration_duration", registry, logger)
+	registerIfNotExists(txIndexerLastProcessingTimestamp, "tx_indexer_last_processing_timestamp", registry, logger)
+	registerIfNotExists(txIndexerActiveTransactions, "tx_indexer_active_transactions", registry, logger)
+	registerIfNotExists(txIndexerProcessingErrors, "tx_indexer_processing_errors", registry, logger)
+	registerIfNotExists(txIndexerRPCErrors, "tx_indexer_rpc_errors", registry, logger)
+	registerIfNotExists(txIndexerChainHeight, "tx_indexer_chain_height", registry, logger)
 	logger.Debug("TX indexer metrics registered")
 }
 

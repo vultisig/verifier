@@ -104,20 +104,6 @@ func NewTxIndexerMetrics() metrics.TxIndexerMetrics {
 	return &TxIndexerMetrics{}
 }
 
-// Register registers all TX indexer metrics with the provided registry
-func (tim *TxIndexerMetrics) Register(registry metrics.Registry) {
-	registry.MustRegister(
-		txIndexerTransactionStatus,
-		txIndexerProcessingTotal,
-		txIndexerIterationDuration,
-		txIndexerLastProcessingTimestamp,
-		txIndexerActiveTransactions,
-		txIndexerProcessingErrors,
-		txIndexerRPCErrors,
-		txIndexerChainHeight,
-	)
-}
-
 // RecordTransactionStatus records a transaction status change
 func (tim *TxIndexerMetrics) RecordTransactionStatus(chain common.Chain, status string) {
 	txIndexerTransactionStatus.WithLabelValues(chain.String(), status).Inc()

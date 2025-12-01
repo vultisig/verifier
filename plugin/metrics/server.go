@@ -6,9 +6,6 @@ import (
 
 // PluginServerMetrics interface for collecting plugin server HTTP metrics
 type PluginServerMetrics interface {
-	// Register registers all metrics with the provided registry
-	Register(registry Registry)
-
 	// HTTP metrics recording methods
 	RecordHTTPRequest(method, path, status string, duration float64)
 	RecordHTTPError(method, path, status string)
@@ -26,8 +23,6 @@ func NewNilPluginServerMetrics() PluginServerMetrics {
 }
 
 // All methods are no-ops - safe to call, do nothing
-func (n *NilPluginServerMetrics) Register(registry Registry) {}
-
 func (n *NilPluginServerMetrics) RecordHTTPRequest(method, path, status string, duration float64) {}
 func (n *NilPluginServerMetrics) RecordHTTPError(method, path, status string) {}
 

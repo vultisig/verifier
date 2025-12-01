@@ -4,21 +4,32 @@ plugins:
     description: Schedule recurring cryptocurrency swaps across chains and assets
     server_endpoint: https://dca.vultisigplugin.app
     category: plugin
-    logo_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_swap/icon.svg
-    thumbnail_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_swap/banner.png
+    logo_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_swap/icon.jpg
+    thumbnail_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_swap/banner.jpg
+    features:
+    - Automated Dollar Cost Averaging processing
+    - Recurring Swaps from any Vultisig supported Asset to any Asset
+    - Fully Flexible Scheduling
+    - Automatic Execution
+    
+
 
   - id: vultisig-fees-feee
     title: Fees Plugin
     description: Transaction fees management plugin
     server_endpoint: ""
     category: plugin
-    logo_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/payment/icon.svg
-
+    logo_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/payment/icon.jpg
 
   - id: vultisig-recurring-sends-0000
     title: Recurring Send
     description: Schedule recurring cryptocurrency transfers.
-    server_endpoint: TODO
+    server_endpoint: http://dca-send.lb-1.plugins-cluster.nbitslabs.com
     category: plugin
-    logo_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_send/icon.svg
-    thumbnail_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_send/banner.png
+    logo_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_send/icon.jpg
+    thumbnail_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_send/banner.jpg
+    features:
+      - Automated Recurring Sends
+      - Works Across All Supported Assets
+      - Fully Flexible Scheduling
+      - Automatic Execution

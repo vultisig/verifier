@@ -37,8 +37,8 @@ type PluginImage struct {
 	URL       string `json:"url" yaml:"url"`
 	Caption   string `json:"caption" yaml:"caption,omitempty"`
 	AltText   string `json:"alt_text" yaml:"alt_text,omitempty"`
-	SortOrder int    `json:"sort_order" yaml:"alt_text,omitempty"` // for carousels
-	ZIndex    int    `json:"z_index" yaml:"z_index,omitempty"`     // for overlays
+	SortOrder int    `json:"sort_order" yaml:"sort_order,omitempty"` // for carousels
+	ZIndex    int    `json:"z_index" yaml:"z_index,omitempty"`       // for overlays
 }
 
 // PluginWithRatings is used for API responses that include rating statistics

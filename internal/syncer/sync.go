@@ -160,13 +160,14 @@ func (s *Syncer) CreatePolicyAsync(ctx context.Context, policySyncEntity itypes.
 	}
 
 	url := serverInfo.Addr + policyEndpoint
-	req, err := retryablehttp.NewRequest(http.MethodPost, url, bytes.NewBuffer(policyBytes))
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(policyBytes))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+serverInfo.ApiKey)
-	resp, err := s.client.Do(req)
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		policySyncEntity.Status = itypes.Failed
 		policySyncEntity.FailReason = fmt.Sprintf("failed to sync policy with plugin server(%s): %s", url, err.Error())

@@ -350,6 +350,14 @@ func (m *MockDatabaseStorage) GetAPIKey(ctx context.Context, apiKey string) (*it
 	return args.Get(0).(*itypes.APIKey), args.Error(1)
 }
 
+func (m *MockDatabaseStorage) GetAPIKeyByPluginId(ctx context.Context, pluginId string) (*itypes.APIKey, error) {
+	args := m.Called(ctx, pluginId)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.APIKey), args.Error(1)
+}
+
 func TestGenerateToken(t *testing.T) {
 	testCases := []struct {
 		name          string

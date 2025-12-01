@@ -29,3 +29,26 @@ func (p *PostgresBackend) GetAPIKey(ctx context.Context, apiKey string) (*types.
 	}
 	return &key, nil
 }
+
+func (p *PostgresBackend) GetAPIKeyByPluginId(ctx context.Context, pluginId string) (*types.APIKey, error) {
+	query := `
+		SELECT 
+			id, 
+			plugin_id, 
+			apikey, 
+			status, 
+			expires_at
+		FROM plugin_apikey
+		WHERE plugin_id = $1
+	`
+	var key types.APIKey
+	if err := p.pool.QueryRow(ctx, query, pluginId).Scan(
+		&key.ID,
+		&key.PluginID,
+		&key.ApiKey,
+		&key.Status,
+		&key.ExpiresAt); err != nil {
+		return nil, fmt.Errorf("fail to get API key: %w", err)
+	}
+	return &key, nil
+}

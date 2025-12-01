@@ -4,13 +4,13 @@ BEGIN;
 
 UPDATE plugins
 SET
-    features = '["Automated Recurring Sends","Works Across All Supported Assets"," Fully Flexible Scheduling","Automatic Execution"]',
+    features = '["Automated Recurring Sends","Works Across All Supported Assets","Fully Flexible Scheduling","Automatic Execution"]',
     audited = true 
 WHERE id = 'vultisig-recurring-sends-0000';
 
 UPDATE plugins
 SET
-    features = '["Automated Dollar Cost Averaging processing","Recurring Swaps from any Vultisig supported Asset to any Asset"," Fully Flexible Scheduling","Automatic Execution"]',
+    features = '["Automated Dollar Cost Averaging processing","Recurring Swaps from any Vultisig supported Asset to any Asset","Fully Flexible Scheduling","Automatic Execution"]',
     audited = true
 WHERE id = 'vultisig-dca-0000';
 
@@ -23,7 +23,7 @@ BEGIN;
 
 UPDATE plugins
 SET
-    features = '',
+    features = '[]',
     audited = false
 WHERE id IN ('vultisig-recurring-sends-0000', 'vultisig-dca-0000');
 

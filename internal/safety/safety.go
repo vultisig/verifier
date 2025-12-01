@@ -41,7 +41,7 @@ func (m *Manager) enforce(ctx context.Context, pluginID, action string) error {
 			"action": action,
 			"err":    err,
 		}).Error("control flag check failed")
-		return nil
+		return fmt.Errorf("GetControlFlags failed: %w", err)
 	}
 
 	// default: missing key => allowed = true

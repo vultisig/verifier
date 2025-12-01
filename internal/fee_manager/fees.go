@@ -44,17 +44,17 @@ func (s *FeeManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.T
 	var req vtypes.ReshareRequest
 	if err := json.Unmarshal(t.Payload(), &req); err != nil {
 		s.logger.WithError(err).Error("json.Unmarshal failed")
-		return fmt.Errorf("s.RegisterInstallation failed: %w", asynq.SkipRetry)
+		return fmt.Errorf("s.RegisterInstallation failed: %v: %w", err, asynq.SkipRetry)
 	}
 
 	if err := s.safetyMgm.EnforceKeygen(ctx, req.PluginID); err != nil {
 		s.logger.WithError(err).Error("EnforceKeygen failed")
-		return fmt.Errorf("EnforceKeygen failed: %w", asynq.SkipRetry)
+		return fmt.Errorf("EnforceKeygen failed: %v: %w", err, asynq.SkipRetry)
 	}
 
 	if err := s.RegisterInstallation(ctx, vtypes.PluginID(req.PluginID), req.PublicKey); err != nil {
 		s.logger.WithError(err).Error("s.RegisterInstallation failed")
-		return fmt.Errorf("s.RegisterInstallation failed: %w", asynq.SkipRetry)
+		return fmt.Errorf("s.RegisterInstallation failed: %v: %w", err, asynq.SkipRetry)
 	}
 
 	return nil

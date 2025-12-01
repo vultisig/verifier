@@ -6,6 +6,7 @@ plugins:
     category: plugin
     logo_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_swap/icon.jpg
     thumbnail_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_swap/banner.jpg
+    audited: true
     features:
     - Automated Dollar Cost Averaging processing
     - Recurring Swaps from any Vultisig supported Asset to any Asset
@@ -28,6 +29,7 @@ plugins:
     category: plugin
     logo_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_send/icon.jpg
     thumbnail_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_send/banner.jpg
+    audited: true
     features:
       - Automated Recurring Sends
       - Works Across All Supported Assets

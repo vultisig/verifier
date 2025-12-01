@@ -16,7 +16,7 @@ WHERE id = 'vultisig-dca-0000';
 
 UPDATE plugins
 SET
-    logo_url = 'https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/payment/icon.jpg'
+    logo_url = 'https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/payment/icon.jpg',
     thumbnail_url = 'https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/payment/banner.jpg'
 WHERE id = 'vultisig-fees-feee';
 

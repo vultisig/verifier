@@ -9,6 +9,7 @@ import (
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/api"
 	"github.com/vultisig/verifier/internal/logging"
+	internalMetrics "github.com/vultisig/verifier/internal/metrics"
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/plugin/tx_indexer"
@@ -81,6 +82,25 @@ func main() {
 		supportedChains,
 	)
 
+	// Initialize metrics based on configuration
+	var httpMetrics *internalMetrics.HTTPMetrics
+	if cfg.Metrics.Enabled {
+		logger.Info("Metrics enabled, setting up Prometheus metrics")
+
+		// Start metrics HTTP server with HTTP metrics
+		services := []string{internalMetrics.ServiceHTTP}
+		_ = internalMetrics.StartMetricsServer(internalMetrics.Config{
+			Enabled: true,
+			Host:    cfg.Metrics.Host,
+			Port:    cfg.Metrics.Port,
+		}, services, logger)
+
+		// Create HTTP metrics implementation
+		httpMetrics = internalMetrics.NewHTTPMetrics()
+	} else {
+		logger.Info("Verifier metrics disabled")
+	}
+
 	server := api.NewServer(
 		*cfg,
 		db,
@@ -90,6 +110,7 @@ func main() {
 		inspector,
 		cfg.Server.JWTSecret,
 		txIndexerService,
+		httpMetrics,
 	)
 	if err := server.StartServer(); err != nil {
 		panic(err)

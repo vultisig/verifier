@@ -9,7 +9,7 @@ type PluginServerMetrics interface {
 	// HTTP metrics recording methods
 	RecordHTTPRequest(method, path, status string, duration float64)
 	RecordHTTPError(method, path, status string)
-	
+
 	// Middleware integration
 	HTTPMiddleware() echo.MiddlewareFunc
 }
@@ -24,7 +24,7 @@ func NewNilPluginServerMetrics() PluginServerMetrics {
 
 // All methods are no-ops - safe to call, do nothing
 func (n *NilPluginServerMetrics) RecordHTTPRequest(method, path, status string, duration float64) {}
-func (n *NilPluginServerMetrics) RecordHTTPError(method, path, status string) {}
+func (n *NilPluginServerMetrics) RecordHTTPError(method, path, status string)                     {}
 
 func (n *NilPluginServerMetrics) HTTPMiddleware() echo.MiddlewareFunc {
 	// Return pass-through middleware that does nothing

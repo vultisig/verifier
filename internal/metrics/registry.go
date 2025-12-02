@@ -10,9 +10,6 @@ import (
 
 // Service names for metrics registration
 const (
-	ServiceAuth      = "auth"
-	ServicePlugin    = "plugin"
-	ServicePolicy    = "policy"
 	ServiceFee       = "fee"
 	ServiceTxIndexer = "tx_indexer"
 	ServiceVault     = "vault"
@@ -29,12 +26,6 @@ func RegisterMetrics(services []string, registry *prometheus.Registry, logger *l
 	// Register service-specific metrics
 	for _, service := range services {
 		switch service {
-		case ServiceAuth:
-			registerAuthMetrics(registry, logger)
-		case ServicePlugin:
-			registerPluginMetrics(registry, logger)
-		case ServicePolicy:
-			registerPolicyMetrics(registry, logger)
 		case ServiceFee:
 			registerFeeMetrics(registry, logger)
 		case ServiceTxIndexer:
@@ -42,8 +33,7 @@ func RegisterMetrics(services []string, registry *prometheus.Registry, logger *l
 		case ServiceVault:
 			registerVaultMetrics(registry, logger)
 		case ServiceWorker:
-			// TODO: Implement worker metrics
-			logger.Debug("Worker metrics registration - TODO")
+			registerWorkerMetrics(registry, logger)
 		case ServiceHTTP:
 			// TODO: Implement HTTP metrics  
 			logger.Debug("HTTP metrics registration - TODO")
@@ -69,24 +59,6 @@ func registerIfNotExists(collector prometheus.Collector, name string, registry *
 	}
 }
 
-// registerAuthMetrics registers authentication-related metrics
-func registerAuthMetrics(registry *prometheus.Registry, logger *logrus.Logger) {
-	// TODO: Implement auth metrics
-	logger.Debug("Auth metrics registration - TODO")
-}
-
-// registerPluginMetrics registers plugin-related metrics
-func registerPluginMetrics(registry *prometheus.Registry, logger *logrus.Logger) {
-	// TODO: Implement plugin metrics
-	logger.Debug("Plugin metrics registration - TODO")
-}
-
-// registerPolicyMetrics registers policy-related metrics
-func registerPolicyMetrics(registry *prometheus.Registry, logger *logrus.Logger) {
-	// TODO: Implement policy metrics
-	logger.Debug("Policy metrics registration - TODO")
-}
-
 // registerFeeMetrics registers fee-related metrics
 func registerFeeMetrics(registry *prometheus.Registry, logger *logrus.Logger) {
 	// TODO: Implement fee metrics
@@ -105,6 +77,20 @@ func registerTxIndexerMetrics(registry *prometheus.Registry, logger *logrus.Logg
 	registerIfNotExists(txIndexerRPCErrors, "tx_indexer_rpc_errors", registry, logger)
 	registerIfNotExists(txIndexerChainHeight, "tx_indexer_chain_height", registry, logger)
 	logger.Debug("TX indexer metrics registered")
+}
+
+// registerWorkerMetrics registers worker-related metrics
+func registerWorkerMetrics(registry *prometheus.Registry, logger *logrus.Logger) {
+	// Register each worker metric individually with defensive pattern
+	registerIfNotExists(workerTasksTotal, "worker_tasks_total", registry, logger)
+	registerIfNotExists(workerTaskDuration, "worker_task_duration", registry, logger)
+	registerIfNotExists(workerTasksActive, "worker_tasks_active", registry, logger)
+	registerIfNotExists(workerVaultOperationsTotal, "worker_vault_operations_total", registry, logger)
+	registerIfNotExists(workerVaultOperationDuration, "worker_vault_operation_duration", registry, logger)
+	registerIfNotExists(workerSignaturesGenerated, "worker_signatures_generated", registry, logger)
+	registerIfNotExists(workerErrorsTotal, "worker_errors_total", registry, logger)
+	registerIfNotExists(workerLastTaskTimestamp, "worker_last_task_timestamp", registry, logger)
+	logger.Debug("Worker metrics registered")
 }
 
 // registerVaultMetrics registers vault-related metrics

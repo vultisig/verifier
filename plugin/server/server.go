@@ -23,6 +23,7 @@ import (
 	"github.com/vultisig/mobile-tss-lib/tss"
 	vv "github.com/vultisig/verifier/common/vultisig_validator"
 	"github.com/vultisig/verifier/plugin"
+	"github.com/vultisig/verifier/plugin/metrics"
 	"github.com/vultisig/verifier/plugin/policy"
 	"github.com/vultisig/verifier/plugin/redis"
 	"github.com/vultisig/verifier/plugin/tasks"
@@ -35,16 +36,17 @@ import (
 )
 
 type Server struct {
-	cfg            Config
-	redis          *redis.Redis
-	vaultStorage   vault.Storage
-	client         *asynq.Client
-	inspector      *asynq.Inspector
-	policy         policy.Service
-	spec           plugin.Spec
-	logger         *logrus.Logger
-	middlewares    []echo.MiddlewareFunc
+	cfg          Config
+	redis        *redis.Redis
+	vaultStorage vault.Storage
+	client       *asynq.Client
+	inspector    *asynq.Inspector
+	policy       policy.Service
+	spec         plugin.Spec
+	logger       *logrus.Logger
+	middlewares  []echo.MiddlewareFunc
 	authMiddleware echo.MiddlewareFunc
+	metrics      metrics.PluginServerMetrics
 }
 
 // NewServer returns a new server.
@@ -57,6 +59,7 @@ func NewServer(
 	inspector *asynq.Inspector,
 	spec plugin.Spec,
 	middlewares []echo.MiddlewareFunc,
+	metrics metrics.PluginServerMetrics, // Optional: pass nil to disable metrics
 ) *Server {
 	return &Server{
 		cfg:          cfg,
@@ -68,6 +71,7 @@ func NewServer(
 		logger:       logrus.WithField("pkg", "server").Logger,
 		policy:       policy,
 		middlewares:  middlewares,
+		metrics:      metrics,
 	}
 }
 
@@ -78,7 +82,15 @@ func (s *Server) SetAuthMiddleware(auth echo.MiddlewareFunc) {
 func (s *Server) Start(ctx context.Context) error {
 	e := echo.New()
 
-	e.Use(s.middlewares...)
+	// Prepare middlewares slice with optional metrics middleware
+	middlewares := s.middlewares
+	if s.metrics != nil {
+		// Prepend metrics middleware to the beginning of the slice
+		middlewares = append([]echo.MiddlewareFunc{s.metrics.HTTPMiddleware()}, middlewares...)
+	}
+
+	// Add all middlewares
+	e.Use(middlewares...)
 
 	e.Validator = &vv.VultisigValidator{Validator: validator.New()}
 

@@ -69,6 +69,14 @@ func (w *Worker) TxIndexerRepo() storage.TxIndexerRepo {
 	return w.repo
 }
 
+func (w *Worker) Metrics() metrics.TxIndexerMetrics {
+	return w.metrics
+}
+
+func (w *Worker) Clients() SupportedRpcs {
+	return w.clients
+}
+
 func (w *Worker) start(aliveCtx context.Context) error {
 	err := w.updatePendingTxs()
 	if err != nil {

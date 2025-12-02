@@ -14,6 +14,7 @@ type Config struct {
 	IterationTimeout time.Duration     `mapstructure:"iteration_timeout" json:"iteration_timeout,omitempty"`
 	MarkLostAfter    time.Duration     `mapstructure:"mark_lost_after" json:"mark_lost_after,omitempty"`
 	Concurrency      int               `mapstructure:"concurrency" json:"concurrency,omitempty"`
+	Metrics          MetricsConfig     `mapstructure:"metrics" json:"metrics,omitempty"`
 }
 
 type DatabaseConfig struct {
@@ -38,4 +39,10 @@ type RpcConfig struct {
 
 type RpcItem struct {
 	URL string `mapstructure:"url" json:"url,omitempty"`
+}
+
+type MetricsConfig struct {
+	Enabled bool   `mapstructure:"enabled" json:"enabled,omitempty"`
+	Host    string `mapstructure:"host" json:"host,omitempty"`
+	Port    int    `mapstructure:"port" json:"port,omitempty"`
 }

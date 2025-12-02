@@ -23,6 +23,18 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
+
+      - name: Install Clang
+        run: sudo apt-get install -y clang
+
+      - name: Install dkls libraries
+        run: |
+          wget https://github.com/vultisig/go-wrappers/archive/refs/heads/master.tar.gz
+          tar -xzf master.tar.gz
+          cd go-wrappers-master
+          sudo mkdir -p /usr/local/lib/dkls
+          sudo cp --recursive includes /usr/local/lib/dkls
+
       - name: Run tests
         run: go test ./...
 

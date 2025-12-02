@@ -9,6 +9,7 @@ import (
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/fee_manager"
 	"github.com/vultisig/verifier/internal/logging"
+	internalMetrics "github.com/vultisig/verifier/internal/metrics"
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/plugin/tasks"
@@ -103,11 +104,36 @@ func main() {
 		vaultMgmService,
 	)
 
+	// Initialize metrics based on configuration
+	var workerMetrics *internalMetrics.WorkerMetrics
+	if cfg.Metrics.Enabled {
+		logger.Info("Metrics enabled, setting up Prometheus metrics")
+
+		// Start metrics HTTP server with worker metrics
+		services := []string{internalMetrics.ServiceWorker}
+		_ = internalMetrics.StartMetricsServer(internalMetrics.Config{
+			Enabled: true,
+			Host:    cfg.Metrics.Host,
+			Port:    cfg.Metrics.Port,
+		}, services, logger)
+
+		// Create worker metrics instance
+		workerMetrics = internalMetrics.NewWorkerMetrics()
+	} else {
+		logger.Info("Worker metrics disabled")
+	}
+
 	mux := asynq.NewServeMux()
-	mux.HandleFunc(tasks.TypeKeyGenerationDKLS, vaultMgmService.HandleKeyGenerationDKLS)
-	mux.HandleFunc(tasks.TypeKeySignDKLS, vaultMgmService.HandleKeySignDKLS)
-	mux.HandleFunc(tasks.TypeReshareDKLS, feeMgmService.HandleReshareDKLS)
-	mux.HandleFunc(tasks.TypeRecurringFeeRecord, policyService.HandleScheduledFees)
+
+	// Wrap handlers with metrics collection
+	mux.HandleFunc(tasks.TypeKeyGenerationDKLS,
+		internalMetrics.WithWorkerMetrics(vaultMgmService.HandleKeyGenerationDKLS, "keygen", workerMetrics))
+	mux.HandleFunc(tasks.TypeKeySignDKLS,
+		internalMetrics.WithWorkerMetrics(vaultMgmService.HandleKeySignDKLS, "keysign", workerMetrics))
+	mux.HandleFunc(tasks.TypeReshareDKLS,
+		internalMetrics.WithWorkerMetrics(feeMgmService.HandleReshareDKLS, "reshare", workerMetrics))
+	mux.HandleFunc(tasks.TypeRecurringFeeRecord,
+		internalMetrics.WithWorkerMetrics(policyService.HandleScheduledFees, "fees", workerMetrics))
 
 	if err := srv.Run(mux); err != nil {
 		panic(fmt.Errorf("could not run server: %w", err))

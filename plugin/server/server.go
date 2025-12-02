@@ -45,6 +45,7 @@ type Server struct {
 	spec         plugin.Spec
 	logger       *logrus.Logger
 	middlewares  []echo.MiddlewareFunc
+	authMiddleware echo.MiddlewareFunc
 	metrics      metrics.PluginServerMetrics
 }
 
@@ -74,6 +75,10 @@ func NewServer(
 	}
 }
 
+func (s *Server) SetAuthMiddleware(auth echo.MiddlewareFunc) {
+	s.authMiddleware = auth
+}
+
 func (s *Server) Start(ctx context.Context) error {
 	e := echo.New()
 
@@ -98,7 +103,7 @@ func (s *Server) Start(ctx context.Context) error {
 	vlt.GET("/sign/response/:taskId", s.handleGetKeysignResult)
 	vlt.DELETE("/:pluginId/:publicKeyECDSA", s.handleDeleteVault)
 
-	plg := e.Group("/plugin")
+	plg := e.Group("/plugin", s.VerifierAuthMiddleware)
 	plg.POST("/policy", s.handleCreatePluginPolicy)
 	plg.PUT("/policy", s.handleUpdatePluginPolicyById)
 	plg.GET("/recipe-specification", s.handleGetRecipeSpecification)

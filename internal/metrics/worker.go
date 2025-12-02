@@ -103,19 +103,6 @@ func NewWorkerMetrics() *WorkerMetrics {
 	return &WorkerMetrics{}
 }
 
-// Register registers all worker metrics with the provided registry
-func (wm *WorkerMetrics) Register(registry *prometheus.Registry) {
-	registry.MustRegister(
-		workerTasksTotal,
-		workerTaskDuration,
-		workerTasksActive,
-		workerVaultOperationsTotal,
-		workerVaultOperationDuration,
-		workerSignaturesGenerated,
-		workerErrorsTotal,
-		workerLastTaskTimestamp,
-	)
-}
 
 // RecordTaskCompleted records a successfully completed task
 func (wm *WorkerMetrics) RecordTaskCompleted(taskType string, duration float64) {
@@ -188,6 +175,8 @@ func WithWorkerMetrics(handler asynq.HandlerFunc, taskType string, metrics *Work
 				metrics.RecordVaultOperation("keygen", "completed", duration)
 			case "reshare":
 				metrics.RecordVaultOperation("reshare", "completed", duration)
+			case "fees":
+				metrics.RecordVaultOperation("fees", "completed", duration)
 			}
 		}
 

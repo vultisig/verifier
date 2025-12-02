@@ -26,8 +26,6 @@ func RegisterMetrics(services []string, registry *prometheus.Registry, logger *l
 	// Register service-specific metrics
 	for _, service := range services {
 		switch service {
-		case ServiceFee:
-			registerFeeMetrics(registry, logger)
 		case ServiceTxIndexer:
 			registerTxIndexerMetrics(registry, logger)
 		case ServiceWorker:
@@ -54,12 +52,6 @@ func registerIfNotExists(collector prometheus.Collector, name string, registry *
 	} else {
 		logger.Debugf("Successfully registered %s", name)
 	}
-}
-
-// registerFeeMetrics registers fee-related metrics
-func registerFeeMetrics(registry *prometheus.Registry, logger *logrus.Logger) {
-	// TODO: Implement fee metrics
-	logger.Debug("Fee metrics registration - TODO")
 }
 
 // registerTxIndexerMetrics registers tx_indexer-related metrics

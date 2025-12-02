@@ -73,7 +73,6 @@ func registerTxIndexerMetrics(registry *prometheus.Registry, logger *logrus.Logg
 	registerIfNotExists(txIndexerProcessingErrors, "tx_indexer_processing_errors", registry, logger)
 	registerIfNotExists(txIndexerRPCErrors, "tx_indexer_rpc_errors", registry, logger)
 	registerIfNotExists(txIndexerChainHeight, "tx_indexer_chain_height", registry, logger)
-	logger.Debug("TX indexer metrics registered")
 }
 
 // registerWorkerMetrics registers worker-related metrics
@@ -87,7 +86,6 @@ func registerWorkerMetrics(registry *prometheus.Registry, logger *logrus.Logger)
 	registerIfNotExists(workerSignaturesGenerated, "worker_signatures_generated", registry, logger)
 	registerIfNotExists(workerErrorsTotal, "worker_errors_total", registry, logger)
 	registerIfNotExists(workerLastTaskTimestamp, "worker_last_task_timestamp", registry, logger)
-	logger.Debug("Worker metrics registered")
 }
 
 // registerHTTPMetrics registers HTTP-related metrics
@@ -96,5 +94,4 @@ func registerHTTPMetrics(registry *prometheus.Registry, logger *logrus.Logger) {
 	registerIfNotExists(httpRequestsTotal, "http_requests_total", registry, logger)
 	registerIfNotExists(httpRequestDuration, "http_request_duration", registry, logger)
 	registerIfNotExists(httpActiveRequests, "http_active_requests", registry, logger)
-	logger.Debug("HTTP metrics registered")
 }

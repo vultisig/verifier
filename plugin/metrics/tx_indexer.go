@@ -12,9 +12,6 @@ type Registry interface {
 
 // TxIndexerMetrics interface for collecting transaction indexer metrics
 type TxIndexerMetrics interface {
-	// Register registers all metrics with the provided registry
-	Register(registry Registry)
-	
 	// RecordTransactionStatus records a transaction status change
 	RecordTransactionStatus(chain common.Chain, status string)
 	
@@ -49,7 +46,6 @@ func NewNilTxIndexerMetrics() TxIndexerMetrics {
 }
 
 // All methods are no-ops - safe to call, do nothing
-func (n *NilTxIndexerMetrics) Register(registry Registry) {}
 func (n *NilTxIndexerMetrics) RecordTransactionStatus(chain common.Chain, status string) {}
 func (n *NilTxIndexerMetrics) RecordProcessing(chain common.Chain) {}
 func (n *NilTxIndexerMetrics) RecordIterationDuration(chain common.Chain, duration float64) {}

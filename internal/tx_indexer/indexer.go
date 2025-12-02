@@ -131,7 +131,11 @@ func (fi *FeeIndexer) updatePendingTxs() error {
 	ctx, cancel := context.WithTimeout(context.Background(), fi.worker.IterationTimeout())
 	defer cancel()
 
+	start := time.Now()
 	fi.logger.Info("worker tick")
+
+	// Update last processing timestamp
+	fi.worker.Metrics().SetLastProcessingTimestamp(float64(time.Now().Unix()))
 
 	eg := &errgroup.Group{}
 	eg.SetLimit(fi.worker.Concurrency())
@@ -156,6 +160,12 @@ func (fi *FeeIndexer) updatePendingTxs() error {
 	err := eg.Wait()
 	if err != nil {
 		return fmt.Errorf("eg.Wait: %w", err)
+	}
+
+	// Record iteration duration for each supported chain
+	duration := time.Since(start).Seconds()
+	for chain := range fi.worker.Clients() {
+		fi.worker.Metrics().RecordIterationDuration(chain, duration)
 	}
 
 	fi.logger.WithField("tx_count", count.Load()).Info("tx statuses updated")

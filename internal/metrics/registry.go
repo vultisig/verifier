@@ -30,13 +30,10 @@ func RegisterMetrics(services []string, registry *prometheus.Registry, logger *l
 			registerFeeMetrics(registry, logger)
 		case ServiceTxIndexer:
 			registerTxIndexerMetrics(registry, logger)
-		case ServiceVault:
-			registerVaultMetrics(registry, logger)
 		case ServiceWorker:
 			registerWorkerMetrics(registry, logger)
 		case ServiceHTTP:
-			// TODO: Implement HTTP metrics  
-			logger.Debug("HTTP metrics registration - TODO")
+			registerHTTPMetrics(registry, logger)
 		default:
 			logger.Warnf("Unknown service type for metrics registration: %s", service)
 		}
@@ -93,9 +90,11 @@ func registerWorkerMetrics(registry *prometheus.Registry, logger *logrus.Logger)
 	logger.Debug("Worker metrics registered")
 }
 
-// registerVaultMetrics registers vault-related metrics
-func registerVaultMetrics(registry *prometheus.Registry, logger *logrus.Logger) {
-	// TODO: Implement vault metrics
-	logger.Debug("Vault metrics registration - TODO")
+// registerHTTPMetrics registers HTTP-related metrics
+func registerHTTPMetrics(registry *prometheus.Registry, logger *logrus.Logger) {
+	// Register each HTTP metric individually with defensive pattern
+	registerIfNotExists(httpRequestsTotal, "http_requests_total", registry, logger)
+	registerIfNotExists(httpRequestDuration, "http_request_duration", registry, logger)
+	registerIfNotExists(httpActiveRequests, "http_active_requests", registry, logger)
+	logger.Debug("HTTP metrics registered")
 }
-

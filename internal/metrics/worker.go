@@ -145,7 +145,7 @@ func (wm *WorkerMetrics) RecordTaskFinished(taskType string) {
 func (wm *WorkerMetrics) RecordVaultOperation(operation, status string, duration float64) {
 	workerVaultOperationsTotal.WithLabelValues(operation, status).Inc()
 	workerVaultOperationDuration.WithLabelValues(operation).Observe(duration)
-	
+
 	// Special case: count successful signatures
 	if operation == "keysign" && status == "completed" {
 		workerSignaturesGenerated.Inc()
@@ -179,13 +179,11 @@ func WithWorkerMetrics(handler asynq.HandlerFunc, taskType string, metrics *Work
 			metrics.RecordError(taskType, classifyError(err))
 		} else {
 			metrics.RecordTaskCompleted(taskType, duration)
-			
+
 			// Record task-specific success metrics
 			switch taskType {
 			case "keysign":
 				metrics.RecordVaultOperation("keysign", "completed", duration)
-				// Assume one signature per successful keysign task
-				// (In reality, this might be multiple signatures, but we can't tell from wrapper level)
 			case "keygen":
 				metrics.RecordVaultOperation("keygen", "completed", duration)
 			case "reshare":
@@ -202,7 +200,7 @@ func classifyError(err error) string {
 	if err == nil {
 		return "none"
 	}
-	
+
 	errStr := err.Error()
 	switch {
 	case strings.Contains(errStr, "timeout"):

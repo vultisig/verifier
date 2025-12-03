@@ -173,7 +173,7 @@ func (s *PolicyService) UpdatePolicy(ctx context.Context, policy types.PluginPol
 	}
 
 	// Sync policy synchronously - if this fails, the entire operation fails
-	if err := s.syncer.CreatePolicyAsync(ctx, syncPolicyEntity); err != nil {
+	if err := s.syncer.CreatePolicySync(ctx, policy); err != nil {
 		s.logger.WithError(err).Error("failed to sync policy with plugin server")
 		return nil, fmt.Errorf("failed to sync policy with plugin server: %w", err)
 	}

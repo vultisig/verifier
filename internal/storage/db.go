@@ -109,4 +109,5 @@ type RatingRepository interface {
 
 type ApiKeyRepository interface {
 	GetAPIKey(ctx context.Context, apiKey string) (*itypes.APIKey, error)
+	GetAPIKeyByPluginId(ctx context.Context, pluginId string) (*itypes.APIKey, error)
 }

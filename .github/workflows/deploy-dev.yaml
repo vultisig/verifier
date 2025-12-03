@@ -79,14 +79,7 @@ jobs:
 
       - name: Deploy to Kubernetes
         run: |
-          kubectl -n ${{ env.NS }} apply -f deploy/dev/01_minio.yaml
-          kubectl -n ${{ env.NS }} apply -f deploy/dev/01_relay.yaml
-          kubectl -n ${{ env.NS }} apply -f deploy/dev/01_verifier.yaml
-          kubectl -n ${{ env.NS }} apply -f deploy/dev/01_vault_service.yaml
-          kubectl -n ${{ env.NS }} apply -f deploy/dev/02_verifier.yaml
-          kubectl -n ${{ env.NS }} apply -f deploy/dev/03_worker.yaml
-          kubectl -n ${{ env.NS }} apply -f deploy/dev/04_tx_indexer.yaml
-          kubectl -n ${{ env.NS }} apply -f deploy/dev/05_ingress.yaml
+          kubectl -n ${{ env.NS }} apply -f deploy/dev
 
           kubectl -n ${{ env.NS }} rollout status deployment/verifier --timeout=300s
           kubectl -n ${{ env.NS }} rollout status deployment/worker --timeout=300s

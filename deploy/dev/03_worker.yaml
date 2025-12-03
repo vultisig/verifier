@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  labels:
+    app: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8088"
+        prometheus.io/path: "/metrics"
+    spec:
+      imagePullSecrets:
+        - name: ghcr
+      containers:
+        - name: worker
+          image: busybox
+          command: ["/app/main"]
+          ports:
+            - containerPort: 80
+              name: health
+            - containerPort: 8088
+              name: metrics
+          env:
+            - name: VAULT_SERVICE_RELAY_SERVER
+              valueFrom:
+                secretKeyRef:
+                  name: relay
+                  key: url
+            - name: VAULT_SERVICE_LOCALPARTYPREFIX
+              valueFrom:
+                configMapKeyRef:
+                  name: vault-service
+                  key: local-party-prefix
+            - name: VAULT_SERVICE_ENCRYPTIONSECRET
+              valueFrom:
+                secretKeyRef:
+                  name: encryption
+                  key: secret
+            - name: VAULT_SERVICE_DOSETUPMSG
+              value: "true"
+            - name: DATABASE_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: postgres
+                  key: dsn
+            - name: REDIS_URI
+              valueFrom:
+                secretKeyRef:
+                  name: redis
+                  key: uri
+            - name: BLOCK_STORAGE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: minio
+                  key: host
+            - name: BLOCK_STORAGE_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: minio
+                  key: region
+            - name: BLOCK_STORAGE_ACCESSKEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio
+                  key: root-user
+            - name: BLOCK_STORAGE_SECRETKEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio
+                  key: root-password
+            - name: BLOCK_STORAGE_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: minio
+                  key: bucket
+            - name: LOG_FORMAT
+              valueFrom:
+                configMapKeyRef:
+                  name: verifier
+                  key: log-format
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

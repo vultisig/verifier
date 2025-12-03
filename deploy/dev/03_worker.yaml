@@ -32,7 +32,7 @@ spec:
           env:
             - name: VAULT_SERVICE_RELAY_SERVER
               valueFrom:
-                secretKeyRef:
+                configMapKeyRef:
                   name: relay
                   key: url
             - name: VAULT_SERVICE_LOCALPARTYPREFIX

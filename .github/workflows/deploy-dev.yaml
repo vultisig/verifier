@@ -80,6 +80,7 @@ jobs:
       - name: Deploy to Kubernetes
         run: |
           kubectl -n ${{ env.NS }} apply -f deploy/dev/01_minio.yaml
+          kubectl -n ${{ env.NS }} apply -f deploy/dev/01_relay.yaml
           kubectl -n ${{ env.NS }} apply -f deploy/dev/01_verifier.yaml
           kubectl -n ${{ env.NS }} apply -f deploy/dev/01_vault_service.yaml
           kubectl -n ${{ env.NS }} apply -f deploy/dev/02_verifier.yaml

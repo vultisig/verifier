@@ -36,17 +36,17 @@ import (
 )
 
 type Server struct {
-	cfg          Config
-	redis        *redis.Redis
-	vaultStorage vault.Storage
-	client       *asynq.Client
-	inspector    *asynq.Inspector
-	policy       policy.Service
-	spec         plugin.Spec
-	logger       *logrus.Logger
-	middlewares  []echo.MiddlewareFunc
+	cfg            Config
+	redis          *redis.Redis
+	vaultStorage   vault.Storage
+	client         *asynq.Client
+	inspector      *asynq.Inspector
+	policy         policy.Service
+	spec           plugin.Spec
+	logger         *logrus.Logger
+	middlewares    []echo.MiddlewareFunc
 	authMiddleware echo.MiddlewareFunc
-	metrics      metrics.PluginServerMetrics
+	metrics        metrics.PluginServerMetrics
 }
 
 // NewServer returns a new server.

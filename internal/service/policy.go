@@ -204,15 +204,19 @@ func (s *PolicyService) DeletePolicy(ctx context.Context, policyID uuid.UUID, pl
 		return fmt.Errorf("failed to get policy: %w", err)
 	}
 
-	// Sync policy synchronously - if this fails, the entire operation fails
+	// Try to sync policy deletion with plugin server (best effort)
+	// Don't fail the entire operation if sync fails - verifier DB is source of truth
 	if err := s.syncer.DeletePolicySync(ctx, *policy); err != nil {
-		s.logger.WithError(err).Error("failed to sync policy deletion with plugin server")
-		return fmt.Errorf("failed to sync policy deletion with plugin server: %w", err)
+		s.logger.WithError(err).WithFields(logrus.Fields{
+			"policy_id": policyID,
+			"plugin_id": pluginID,
+		}).Warn("Failed to sync policy deletion with plugin server, proceeding with verifier deletion")
 	}
 
+	// Always delete from verifier database (source of truth)
 	err = s.db.DeletePluginPolicyTx(ctx, tx, policyID)
 	if err != nil {
-		return fmt.Errorf("failed to delete policy: %w", err)
+		return fmt.Errorf("failed to delete policy from verifier: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {

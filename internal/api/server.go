@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/hibiken/asynq"
+	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
@@ -477,17 +478,12 @@ func (s *Server) Auth(c echo.Context) error {
 		s.logger.WithError(err).Warnf("Failed to cache user info")
 	}
 
-	_, err = s.db.InsertFee(c.Request().Context(), nil, &vtypes.Fee{
-		PublicKey: req.PublicKey,
-		TxType:    vtypes.TxTypeCredit,
-		// Default trial fee
-		Amount:         5000000,
-		FeeType:        "trial",
-		UnderlyingType: "user",
-		UnderlyingID:   ethAddress,
+	err = s.db.WithTransaction(c.Request().Context(), func(ctx context.Context, tx pgx.Tx) error {
+		_, _, err := s.db.IsTrialActive(ctx, tx, req.PublicKey)
+		return err
 	})
 	if err != nil {
-		s.logger.WithError(err).Warn("Failed to insert trial fee, continuing with auth")
+		s.logger.WithError(err).Warnf("Failed to check trial info")
 	}
 
 	status := http.StatusOK

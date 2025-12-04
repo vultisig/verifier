@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -55,6 +56,7 @@ type FeeRepository interface {
 	MarkFeesCollected(ctx context.Context, dbTx pgx.Tx, feeIDs []uint64, txHash string, totalAmount uint64) error
 	GetUserFees(ctx context.Context, publicKey string) (*types.UserFeeStatus, error)
 	UpdateBatchStatus(ctx context.Context, dbTx pgx.Tx, txHash string, status *rpc.TxOnChainStatus) error
+	IsTrialActive(ctx context.Context, dbTx pgx.Tx, pubKey string) (bool, time.Duration, error)
 }
 
 type PluginPolicySyncRepository interface {

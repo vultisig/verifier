@@ -675,12 +675,9 @@ func (s *Server) DeletePlugin(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("Unable to uninstall due to outstanding fees"))
 	}
 
-	// Try to notify plugin server of deletion
-	// Don't fail the entire operation if sync fails - verifier DB is source of truth
 	if err := s.notifyPluginServerDeletePlugin(c.Request().Context(), vtypes.PluginID(pluginID), publicKey); err != nil {
-		s.logger.WithError(err).WithFields(logrus.Fields{
-			"plugin_id": pluginID,
-		}).Warn("Failed to notify plugin server for deletion, proceeding with verifier cleanup")
+		s.logger.WithError(err).Errorf("Failed to notify plugin server for deletion of plugin %s", pluginID)
+		return c.JSON(http.StatusServiceUnavailable, NewErrorResponseWithMessage(msgPluginServerUnavailable))
 	}
 	// remove plugin policies
 	if err := s.policyService.DeleteAllPolicies(c.Request().Context(), vtypes.PluginID(pluginID), publicKey); err != nil {

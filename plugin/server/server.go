@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -239,6 +240,12 @@ func (s *Server) handleDeleteVault(c echo.Context) error {
 
 	fileName := vcommon.GetVaultBackupFilename(publicKeyECDSA, pluginId)
 	if err := s.vaultStorage.DeleteFile(fileName); err != nil {
+		// Check if it's a "file not found" error
+		if os.IsNotExist(err) {
+			// File doesn't exist - deletion "succeeded" (idempotent)
+			return c.NoContent(http.StatusOK)
+		}
+		// Real error (S3 failure, permissions, etc.)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse(err.Error()))
 	}
 	return c.NoContent(http.StatusOK)

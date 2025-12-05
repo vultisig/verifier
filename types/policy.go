@@ -38,7 +38,9 @@ type PluginPolicy struct {
 	Signature     string          `json:"signature" validate:"required"`
 	Recipe        string          `json:"recipe" validate:"required"`  // base64 encoded recipe protobuf bytes
 	Billing       []BillingPolicy `json:"billing" validate:"required"` // This will be populated later
-	Active        bool            `json:"active" validate:"required"`
+	//TODO: Add Immediate to policy signature verification in both FE and BE
+	Immediate bool `json:"immediate" validate:"required"`
+	Active    bool `json:"active" validate:"required"`
 }
 
 func (p *PluginPolicy) GetRecipe() (*rtypes.Policy, error) {

@@ -126,12 +126,12 @@ var _ WorkerMetricsInterface = (*WorkerMetrics)(nil)
 var _ WorkerMetricsInterface = (*NoOpWorkerMetrics)(nil)
 
 // NoOpWorkerMetrics implementations - all methods are no-ops
-func (n *NoOpWorkerMetrics) RecordTaskCompleted(taskType string, duration float64) {}
-func (n *NoOpWorkerMetrics) RecordTaskFailed(taskType string, duration float64)    {}
-func (n *NoOpWorkerMetrics) RecordTaskStarted(taskType string)                     {}
-func (n *NoOpWorkerMetrics) RecordTaskFinished(taskType string)                    {}
+func (n *NoOpWorkerMetrics) RecordTaskCompleted(taskType string, duration float64)           {}
+func (n *NoOpWorkerMetrics) RecordTaskFailed(taskType string, duration float64)              {}
+func (n *NoOpWorkerMetrics) RecordTaskStarted(taskType string)                               {}
+func (n *NoOpWorkerMetrics) RecordTaskFinished(taskType string)                              {}
 func (n *NoOpWorkerMetrics) RecordVaultOperation(operation, status string, duration float64) {}
-func (n *NoOpWorkerMetrics) RecordError(taskType, errorType string)               {}
+func (n *NoOpWorkerMetrics) RecordError(taskType, errorType string)                          {}
 
 // RecordTaskCompleted records a successfully completed task
 func (wm *WorkerMetrics) RecordTaskCompleted(taskType string, duration float64) {

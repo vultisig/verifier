@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,7 @@ import (
 	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
+	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/microcosm-cc/bluemonday"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -44,6 +46,30 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		s.logger.Debug("SIGN FEE PLUGIN MESSAGES")
 		return s.validateAndSign(c, &req, types.FeeDefaultPolicy, uuid.New())
 	} else {
+		var (
+			isTrialActive bool
+			err           error
+		)
+		err = s.db.WithTransaction(c.Request().Context(), func(ctx context.Context, tx pgx.Tx) error {
+			isTrialActive, _, err = s.db.IsTrialActive(ctx, tx, req.PublicKey)
+			return err
+		})
+		if err != nil {
+			s.logger.WithError(err).Warnf("Failed to check trial info")
+		}
+
+		if !isTrialActive {
+			filePathName := common.GetVaultBackupFilename(req.PublicKey, ptypes.PluginVultisigFees_feee.String())
+			exist, err := s.vaultStorage.Exist(filePathName)
+			if err != nil {
+				s.logger.WithError(err).Error("failed to check vault existence")
+				return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgInternalError))
+			}
+			if !exist {
+				return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgAccessDeniedBilling))
+			}
+		}
+
 		policy, err := s.db.GetPluginPolicy(c.Request().Context(), req.PolicyID)
 		if err != nil {
 			return fmt.Errorf("failed to get policy from database: %w", err)

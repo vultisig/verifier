@@ -217,6 +217,11 @@ func (m *MockDatabaseStorage) UpdateBatchStatus(ctx context.Context, dbTx pgx.Tx
 	return args.Error(0)
 }
 
+func (m *MockDatabaseStorage) IsTrialActive(ctx context.Context, dbTx pgx.Tx, pubKey string) (bool, time.Duration, error) {
+	args := m.Called(ctx, dbTx, pubKey)
+	return args.Get(0).(bool), args.Get(1).(time.Duration), args.Error(2)
+}
+
 func (m *MockDatabaseStorage) FindPricingById(ctx context.Context, id uuid.UUID) (*types.Pricing, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {

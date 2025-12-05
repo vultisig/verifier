@@ -17,11 +17,12 @@ type ErrorResponse struct {
 
 // Error messages
 const (
-	msgMissingAuthHeader = "missing authorization header"
-	msgInvalidAuthHeader = "invalid authorization header format"
-	msgUnauthorized      = "unauthorized"
-	msgInternalError     = "an internal error occurred"
-	msgAccessDenied      = "access denied: token not authorized for this vault"
+	msgMissingAuthHeader   = "missing authorization header"
+	msgInvalidAuthHeader   = "invalid authorization header format"
+	msgUnauthorized        = "unauthorized"
+	msgInternalError       = "an internal error occurred"
+	msgAccessDenied        = "access denied: token not authorized for this vault"
+	msgAccessDeniedBilling = "access denied: install billing app first"
 
 	// Token
 	msgMissingTokenID              = "missing tokenId"

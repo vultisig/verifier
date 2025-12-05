@@ -31,10 +31,12 @@ type CreditMetadata struct {
 
 // UserFeeStatus represents the fee status and balance for a user
 type UserFeeStatus struct {
-	PublicKey    string `json:"public_key"`
-	Balance      int64  `json:"balance"` // Current balance (can be negative)
-	UnpaidAmount int64  `json:"unpaid_amount"`
-	Fees         []*Fee `json:"fees"`
+	PublicKey      string        `json:"public_key"`
+	Balance        int64         `json:"balance"` // Current balance (can be negative)
+	UnpaidAmount   int64         `json:"unpaid_amount"`
+	IsTrialActive  bool          `json:"is_trial_active"`
+	TrialRemaining time.Duration `json:"trial_remaining"`
+	Fees           []*Fee        `json:"fees"`
 }
 
 type Fee struct {

@@ -49,6 +49,7 @@ type PluginServiceStorage interface {
 	FindReviewByUserAndPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, userAddress string) (*types.ReviewDto, error)
 
 	FindPluginById(ctx context.Context, dbTx pgx.Tx, id ptypes.PluginID) (*types.Plugin, error)
+	GetAPIKeyByPluginId(ctx context.Context, pluginId string) (*types.APIKey, error)
 }
 
 type PluginService struct {
@@ -197,9 +198,13 @@ func (s *PluginService) GetPluginRecipeSpecification(ctx context.Context, plugin
 	if err != nil {
 		return nil, fmt.Errorf("failed to find plugin: %w", err)
 	}
+	keyInfo, err := s.db.GetAPIKeyByPluginId(ctx, pluginID)
+	if err != nil || keyInfo == nil {
+		return nil, fmt.Errorf("failed to find plugin server info: %w", err)
+	}
 
 	// Call plugin server endpoint
-	recipeSpec, err := s.fetchRecipeSpecificationFromPlugin(ctx, plugin.ServerEndpoint)
+	recipeSpec, err := s.fetchRecipeSpecificationFromPlugin(ctx, plugin.ServerEndpoint, keyInfo.ApiKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch recipe specification from plugin: %w", err)
 	}
@@ -232,6 +237,10 @@ func (s *PluginService) GetPluginRecipeSpecificationSuggest(
 	if err != nil {
 		return nil, fmt.Errorf("failed to find plugin: %w", err)
 	}
+	keyInfo, err := s.db.GetAPIKeyByPluginId(ctx, pluginID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find plugin server info: %w", err)
+	}
 
 	type req struct {
 		Configuration map[string]any `json:"configuration"`
@@ -242,7 +251,8 @@ func (s *PluginService) GetPluginRecipeSpecificationSuggest(
 		http.MethodPost,
 		plugin.ServerEndpoint+"/plugin/recipe-specification/suggest",
 		map[string]string{
-			"Content-Type": "application/json",
+			"Content-Type":  "application/json",
+			"Authorization": "Bearer " + keyInfo.ApiKey,
 		},
 		req{
 			Configuration: configuration,
@@ -318,7 +328,7 @@ func (s *PluginService) GetPluginRecipeFunctions(ctx context.Context, pluginID s
 }
 
 // Helper method to call plugin server
-func (s *PluginService) fetchRecipeSpecificationFromPlugin(ctx context.Context, serverEndpoint string) (*rtypes.RecipeSchema, error) {
+func (s *PluginService) fetchRecipeSpecificationFromPlugin(ctx context.Context, serverEndpoint, token string) (*rtypes.RecipeSchema, error) {
 	url := fmt.Sprintf("%s/plugin/recipe-specification", strings.TrimSuffix(serverEndpoint, "/"))
 
 	s.logger.Debugf("[fetchRecipeSpecificationFromPlugin] Calling plugin endpoint: %s\n", url)
@@ -327,6 +337,7 @@ func (s *PluginService) fetchRecipeSpecificationFromPlugin(ctx context.Context, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
+	req.Header.Add("Authorization", "Bearer "+token)
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)

@@ -25,11 +25,13 @@ func DefaultMiddlewares() []echo.MiddlewareFunc {
 // VictoriaMetricsLogger creates a middleware that logs HTTP requests in Victoria Metrics compatible format
 func VictoriaMetricsLogger() echo.MiddlewareFunc {
 	return middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
-		LogURI:      true,
-		LogStatus:   true,
-		LogMethod:   true,
-		LogLatency:  true,
-		LogRemoteIP: true,
+		LogURI:           true,
+		LogStatus:        true,
+		LogMethod:        true,
+		LogLatency:       true,
+		LogRemoteIP:      true,
+		LogError:         true,
+		LogContentLength: true,
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
 			// Use fmt.Printf to output JSON in Victoria Metrics compatible format
 			logEntry := map[string]interface{}{

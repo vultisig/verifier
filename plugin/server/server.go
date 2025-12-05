@@ -63,6 +63,11 @@ func NewServer(
 	metrics metrics.PluginServerMetrics, // Optional: pass nil to disable metrics
 	logger *logrus.Logger, // Pass your configured logger for consistent formatting
 ) *Server {
+	// Guard against nil logger to avoid startup panics
+	if logger == nil {
+		logger = logrus.New()
+	}
+
 	return &Server{
 		cfg:          cfg,
 		redis:        redis,

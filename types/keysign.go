@@ -8,7 +8,7 @@ import (
 
 	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
-	"github.com/vultisig/recipes/ethereum"
+	"github.com/vultisig/recipes/chain/evm/ethereum"
 	vgcommon "github.com/vultisig/vultisig-go/common"
 )
 

@@ -97,9 +97,9 @@ func (r *Repo) GetAllPluginPolicies(ctx context.Context, publicKey string, plugi
 func (r *Repo) InsertPluginPolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error) {
 	query := `
   	INSERT INTO plugin_policies (
-      id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe, immediate
+      id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe, immediate_start
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-    RETURNING id, public_key,  plugin_id, plugin_version, policy_version, signature, active, recipe, immediate
+    RETURNING id, public_key,  plugin_id, plugin_version, policy_version, signature, active, recipe, immediate_start
 	`
 
 	var insertedPolicy types.PluginPolicy
@@ -112,7 +112,7 @@ func (r *Repo) InsertPluginPolicy(ctx context.Context, policy types.PluginPolicy
 		policy.Signature,
 		policy.Active,
 		policy.Recipe,
-		policy.Immediate,
+		policy.ImmediateStart,
 	).Scan(
 		&insertedPolicy.ID,
 		&insertedPolicy.PublicKey,
@@ -122,7 +122,7 @@ func (r *Repo) InsertPluginPolicy(ctx context.Context, policy types.PluginPolicy
 		&insertedPolicy.Signature,
 		&insertedPolicy.Active,
 		&insertedPolicy.Recipe,
-		&insertedPolicy.Immediate,
+		&insertedPolicy.ImmediateStart,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert policy: %w", err)

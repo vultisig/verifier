@@ -224,9 +224,9 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {
 	query := `
   	INSERT INTO plugin_policies (
-      id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe, immediate
+      id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe, immediate_start
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-    RETURNING id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe, immediate
+    RETURNING id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe, immediate_start
 	`
 
 	var insertedPolicy types.PluginPolicy
@@ -240,7 +240,7 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		policy.Signature,
 		policy.Active,
 		policy.Recipe,
-		policy.Immediate,
+		policy.ImmediateStart,
 	).Scan(
 		&insertedPolicy.ID,
 		&insertedPolicy.PublicKey,
@@ -250,7 +250,7 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		&insertedPolicy.Signature,
 		&insertedPolicy.Active,
 		&insertedPolicy.Recipe,
-		&insertedPolicy.Immediate,
+		&insertedPolicy.ImmediateStart,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert policy: %w", err)

@@ -199,7 +199,7 @@ func (s *PluginService) GetPluginRecipeSpecification(ctx context.Context, plugin
 		return nil, fmt.Errorf("failed to find plugin: %w", err)
 	}
 	keyInfo, err := s.db.GetAPIKeyByPluginId(ctx, pluginID)
-	if err != nil {
+	if err != nil || keyInfo == nil {
 		return nil, fmt.Errorf("failed to find plugin server info: %w", err)
 	}
 

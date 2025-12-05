@@ -45,6 +45,14 @@ func Rpcs(ctx context.Context, cfg config.RpcConfig) (SupportedRpcs, error) {
 		rpcs[common.XRP] = xrpRpc
 	}
 
+	if cfg.Zcash.URL != "" {
+		zcashRpc, err := rpc.NewZcash(cfg.Zcash.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Zcash RPC client: %w", err)
+		}
+		rpcs[common.Zcash] = zcashRpc
+	}
+
 	evmChains := map[common.Chain]config.RpcItem{
 		common.Ethereum:    cfg.Ethereum,
 		common.Avalanche:   cfg.Avalanche,
@@ -85,6 +93,8 @@ func Chains() (SupportedChains, error) {
 	chains[common.XRP] = chain.NewXRPIndexer(xrpl.NewSDK(
 		nil,
 	))
+
+	chains[common.Zcash] = chain.NewZcashIndexer()
 
 	evmChains := []common.Chain{
 		common.Ethereum,

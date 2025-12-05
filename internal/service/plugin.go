@@ -304,6 +304,16 @@ func (s *PluginService) GetPluginRecipeFunctions(ctx context.Context, pluginID s
 		funcs = append(funcs, f)
 	}
 	sort.Strings(funcs)
+	plugin, err := s.db.FindPluginById(ctx, nil, ptypes.PluginID(pluginID))
+	if err != nil {
+		return types.RecipeFunctions{}, fmt.Errorf("failed to find plugin: %w", err)
+	}
+	// if plugin is not free
+	if len(plugin.Pricing) > 0 {
+		funcs = append(funcs, "Fee deduction authorization")
+	}
+	// all plugins should have Vault balance visibility
+	funcs = append(funcs, "Vault balance visibility")
 
 	recipeFuncs := types.RecipeFunctions{
 		ID:        pluginID,

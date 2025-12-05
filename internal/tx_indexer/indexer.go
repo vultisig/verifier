@@ -113,6 +113,17 @@ func (fi *FeeIndexer) updateTxStatus(ctx context.Context, tx storage.Tx) error {
 			return fmt.Errorf("failed to insert fee: %w", err)
 		}
 	}
+	if tx.PluginID == types.PluginVultisigFees_feee {
+		if tx.TxHash == nil {
+			return fmt.Errorf("nil tx hash")
+		}
+		err = fi.db.WithTransaction(ctx, func(ctx context.Context, dbTx pgx.Tx) error {
+			return fi.db.UpdateBatchStatus(ctx, dbTx, *tx.TxHash, newStatus)
+		})
+		if err != nil {
+			return fmt.Errorf("failed to update batch status: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -120,7 +131,11 @@ func (fi *FeeIndexer) updatePendingTxs() error {
 	ctx, cancel := context.WithTimeout(context.Background(), fi.worker.IterationTimeout())
 	defer cancel()
 
+	start := time.Now()
 	fi.logger.Info("worker tick")
+
+	// Update last processing timestamp
+	fi.worker.Metrics().SetLastProcessingTimestamp(float64(time.Now().Unix()))
 
 	eg := &errgroup.Group{}
 	eg.SetLimit(fi.worker.Concurrency())
@@ -145,6 +160,12 @@ func (fi *FeeIndexer) updatePendingTxs() error {
 	err := eg.Wait()
 	if err != nil {
 		return fmt.Errorf("eg.Wait: %w", err)
+	}
+
+	// Record iteration duration for each supported chain
+	duration := time.Since(start).Seconds()
+	for chain := range fi.worker.Clients() {
+		fi.worker.Metrics().RecordIterationDuration(chain, duration)
 	}
 
 	fi.logger.WithField("tx_count", count.Load()).Info("tx statuses updated")

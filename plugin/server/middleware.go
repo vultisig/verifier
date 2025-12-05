@@ -18,3 +18,10 @@ func DefaultMiddlewares() []echo.MiddlewareFunc {
 		)),
 	}
 }
+
+func (s *Server) VerifierAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	if s.authMiddleware == nil {
+		return next
+	}
+	return s.authMiddleware(next)
+}

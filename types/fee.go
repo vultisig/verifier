@@ -19,6 +19,8 @@ const (
 	FeeTypeTrial           = "trial"
 	FeeSubscriptionFee     = "subscription_fee"
 	FeeTxExecFee           = "transaction_execution_fee"
+	FeeTypeBatch           = "batch"
+	FeeTypeBatchFailed     = "batch_failed"
 )
 
 type CreditMetadata struct {

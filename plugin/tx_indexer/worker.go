@@ -69,6 +69,14 @@ func (w *Worker) TxIndexerRepo() storage.TxIndexerRepo {
 	return w.repo
 }
 
+func (w *Worker) Metrics() metrics.TxIndexerMetrics {
+	return w.metrics
+}
+
+func (w *Worker) Clients() SupportedRpcs {
+	return w.clients
+}
+
 func (w *Worker) start(aliveCtx context.Context) error {
 	err := w.updatePendingTxs()
 	if err != nil {
@@ -165,10 +173,10 @@ func (w *Worker) UpdateTxStatus(ctx context.Context, tx storage.Tx) (*rpc.TxOnCh
 		w.metrics.RecordProcessingError(chain, "set_status")
 		return nil, fmt.Errorf("w.repo.SetOnChainStatus: %w", err)
 	}
-	
+
 	// Record successful status change
 	w.metrics.RecordTransactionStatus(chain, string(newStatus))
-	
+
 	w.logger.WithFields(fields).Infof("status updated, newStatus=%s", newStatus)
 	return &newStatus, nil
 }
@@ -187,7 +195,7 @@ func (w *Worker) updatePendingTxs() error {
 	eg.SetLimit(w.concurrency)
 	ch := w.repo.GetPendingTxs(ctx)
 	count := &atomic.Uint64{}
-	
+
 	for _row := range ch {
 		row := _row
 		eg.Go(func() error {

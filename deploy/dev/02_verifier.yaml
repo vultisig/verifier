@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verifier
+  labels:
+    app: verifier
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: verifier
+  template:
+    metadata:
+      labels:
+        app: verifier
+      annotations:
+        prometheus.io/scrape: "false"
+    spec:
+      imagePullSecrets:
+        - name: ghcr
+      containers:
+        - name: verifier
+          image: busybox
+          command: ["/app/main"]
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            - name: SERVER_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: verifier
+                  key: server-host
+            - name: SERVER_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: verifier
+                  key: server-port
+            - name: SERVER_JWTSECRET
+              valueFrom:
+                secretKeyRef:
+                  name: jwt
+                  key: secret
+            - name: DATABASE_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: postgres
+                  key: dsn
+            - name: REDIS_URI
+              valueFrom:
+                secretKeyRef:
+                  name: redis
+                  key: uri
+            - name: BLOCK_STORAGE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: minio
+                  key: host
+            - name: BLOCK_STORAGE_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: minio
+                  key: region
+            - name: BLOCK_STORAGE_ACCESSKEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio
+                  key: root-user
+            - name: BLOCK_STORAGE_SECRETKEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio
+                  key: root-password
+            - name: BLOCK_STORAGE_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: minio
+                  key: bucket
+            - name: ENCRYPTION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: encryption
+                  key: secret
+            - name: LOG_FORMAT
+              valueFrom:
+                configMapKeyRef:
+                  name: verifier
+                  key: log-format
+            - name: AUTH_NONCE_EXPIRY_MINUTES
+              valueFrom:
+                configMapKeyRef:
+                  name: verifier
+                  key: auth-nonce-expiry-minutes
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: verifier
+  labels:
+    app: verifier
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+  selector:
+    app: verifier

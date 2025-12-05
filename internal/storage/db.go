@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	itypes "github.com/vultisig/verifier/internal/types"
+	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
 	"github.com/vultisig/verifier/types"
 )
 
@@ -53,6 +54,7 @@ type FeeRepository interface {
 	InsertPluginInstallation(ctx context.Context, dbTx pgx.Tx, pluginID types.PluginID, publicKey string) error
 	MarkFeesCollected(ctx context.Context, dbTx pgx.Tx, feeIDs []uint64, txHash string, totalAmount uint64) error
 	GetUserFees(ctx context.Context, publicKey string) (*types.UserFeeStatus, error)
+	UpdateBatchStatus(ctx context.Context, dbTx pgx.Tx, txHash string, status *rpc.TxOnChainStatus) error
 }
 
 type PluginPolicySyncRepository interface {
@@ -107,4 +109,5 @@ type RatingRepository interface {
 
 type ApiKeyRepository interface {
 	GetAPIKey(ctx context.Context, apiKey string) (*itypes.APIKey, error)
+	GetAPIKeyByPluginId(ctx context.Context, pluginId string) (*itypes.APIKey, error)
 }

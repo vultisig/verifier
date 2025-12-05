@@ -1,4 +1,5 @@
 {
+  "log_format": "text",
   "database": {
     "dsn": "postgres://myuser:mypassword@localhost:5432/vultisig-verifier?sslmode=disable"
   },
@@ -49,5 +50,10 @@
   "interval": "10s",
   "iteration_timeout": "3m",
   "mark_lost_after": "3h",
-  "concurrency": 50
+  "concurrency": 50,
+  "metrics": {
+    "enabled": true,
+    "host": "0.0.0.0",
+    "port": 8088
+  }
 }

@@ -12,30 +12,27 @@ type Registry interface {
 
 // TxIndexerMetrics interface for collecting transaction indexer metrics
 type TxIndexerMetrics interface {
-	// Register registers all metrics with the provided registry
-	Register(registry Registry)
-	
 	// RecordTransactionStatus records a transaction status change
 	RecordTransactionStatus(chain common.Chain, status string)
-	
+
 	// RecordProcessing records a processed transaction
 	RecordProcessing(chain common.Chain)
-	
+
 	// RecordIterationDuration records the time spent in an iteration
 	RecordIterationDuration(chain common.Chain, duration float64)
-	
+
 	// SetLastProcessingTimestamp sets the timestamp of the last processing run
 	SetLastProcessingTimestamp(timestamp float64)
-	
+
 	// SetActiveTransactions sets the number of active transactions
 	SetActiveTransactions(chain common.Chain, status string, count float64)
-	
+
 	// RecordProcessingError records a processing error
 	RecordProcessingError(chain common.Chain, errorType string)
-	
+
 	// RecordRPCError records an RPC error
 	RecordRPCError(chain common.Chain)
-	
+
 	// SetChainHeight sets the current block height for a chain
 	SetChainHeight(chain common.Chain, height float64)
 }
@@ -49,12 +46,12 @@ func NewNilTxIndexerMetrics() TxIndexerMetrics {
 }
 
 // All methods are no-ops - safe to call, do nothing
-func (n *NilTxIndexerMetrics) Register(registry Registry) {}
-func (n *NilTxIndexerMetrics) RecordTransactionStatus(chain common.Chain, status string) {}
-func (n *NilTxIndexerMetrics) RecordProcessing(chain common.Chain) {}
+func (n *NilTxIndexerMetrics) RecordTransactionStatus(chain common.Chain, status string)    {}
+func (n *NilTxIndexerMetrics) RecordProcessing(chain common.Chain)                          {}
 func (n *NilTxIndexerMetrics) RecordIterationDuration(chain common.Chain, duration float64) {}
-func (n *NilTxIndexerMetrics) SetLastProcessingTimestamp(timestamp float64) {}
-func (n *NilTxIndexerMetrics) SetActiveTransactions(chain common.Chain, status string, count float64) {}
+func (n *NilTxIndexerMetrics) SetLastProcessingTimestamp(timestamp float64)                 {}
+func (n *NilTxIndexerMetrics) SetActiveTransactions(chain common.Chain, status string, count float64) {
+}
 func (n *NilTxIndexerMetrics) RecordProcessingError(chain common.Chain, errorType string) {}
-func (n *NilTxIndexerMetrics) RecordRPCError(chain common.Chain) {}
-func (n *NilTxIndexerMetrics) SetChainHeight(chain common.Chain, height float64) {}
+func (n *NilTxIndexerMetrics) RecordRPCError(chain common.Chain)                          {}
+func (n *NilTxIndexerMetrics) SetChainHeight(chain common.Chain, height float64)          {}

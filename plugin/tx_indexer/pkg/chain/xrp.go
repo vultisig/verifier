@@ -84,13 +84,13 @@ func (x *XRPIndexer) computeHashFromSignedTx(signedTxBytes []byte) (string, erro
 	// 1. Use the fully serialized signed transaction (including TxnSignature)
 	// 2. Prefix with "TXN\0" (0x54584E00)
 	// 3. Hash with SHA512-half
-	
+
 	// XRP transaction ID prefix: "TXN\0"
 	txnPrefix := []byte{0x54, 0x58, 0x4E, 0x00}
-	
+
 	// Construct the full preimage: TXN prefix + signed transaction bytes
 	preimage := append(append([]byte{}, txnPrefix...), signedTxBytes...)
-	
+
 	// Compute SHA512-half (this is how XRP computes transaction IDs)
 	hash := sha512Half(preimage)
 

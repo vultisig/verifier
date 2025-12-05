@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
 
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/storage"
@@ -211,6 +212,11 @@ func (m *MockDatabaseStorage) GetUserFees(ctx context.Context, publicKey string)
 	return args.Get(0).(*types.UserFeeStatus), args.Error(1)
 }
 
+func (m *MockDatabaseStorage) UpdateBatchStatus(ctx context.Context, dbTx pgx.Tx, txHash string, status *rpc.TxOnChainStatus) error {
+	args := m.Called(ctx, dbTx, txHash, status)
+	return args.Error(0)
+}
+
 func (m *MockDatabaseStorage) FindPricingById(ctx context.Context, id uuid.UUID) (*types.Pricing, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
@@ -338,6 +344,14 @@ func (m *MockDatabaseStorage) WithTransaction(ctx context.Context, fn func(ctx c
 }
 func (m *MockDatabaseStorage) GetAPIKey(ctx context.Context, apiKey string) (*itypes.APIKey, error) {
 	args := m.Called(ctx, apiKey)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.APIKey), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) GetAPIKeyByPluginId(ctx context.Context, pluginId string) (*itypes.APIKey, error) {
+	args := m.Called(ctx, pluginId)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

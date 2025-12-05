@@ -22,7 +22,6 @@ type blockchairTxResponse struct {
 		Transaction struct {
 			BlockID       int    `json:"block_id"`
 			Hash          string `json:"hash"`
-			IsConfirmed   bool   `json:"is_confirmed"`
 			Confirmations int    `json:"confirmations"`
 		} `json:"transaction"`
 	} `json:"data"`
@@ -43,6 +42,10 @@ func NewZcash(baseURL string) (*Zcash, error) {
 	}, nil
 }
 
+// GetTxStatus retrieves the on-chain status of a Zcash transaction by its hash.
+// Returns TxOnChainPending if the transaction is not yet confirmed or not found,
+// TxOnChainSuccess if the transaction is confirmed with at least one confirmation,
+// or an error if the HTTP request or response parsing fails.
 func (z *Zcash) GetTxStatus(ctx context.Context, txHash string) (TxOnChainStatus, error) {
 	if ctx.Err() != nil {
 		return "", ctx.Err()

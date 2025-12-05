@@ -44,7 +44,7 @@ type Server struct {
 	inspector      *asynq.Inspector
 	policy         policy.Service
 	spec           plugin.Spec
-	logger         *logrus.Logger
+	logger         *logrus.Entry
 	middlewares    []echo.MiddlewareFunc
 	authMiddleware echo.MiddlewareFunc
 	metrics        metrics.PluginServerMetrics
@@ -61,6 +61,7 @@ func NewServer(
 	spec plugin.Spec,
 	middlewares []echo.MiddlewareFunc,
 	metrics metrics.PluginServerMetrics, // Optional: pass nil to disable metrics
+	logger *logrus.Logger, // Pass your configured logger for consistent formatting
 ) *Server {
 	return &Server{
 		cfg:          cfg,
@@ -69,7 +70,7 @@ func NewServer(
 		inspector:    inspector,
 		vaultStorage: vaultStorage,
 		spec:         spec,
-		logger:       logrus.WithField("pkg", "server").Logger,
+		logger:       logger.WithField("pkg", "server"),
 		policy:       policy,
 		middlewares:  middlewares,
 		metrics:      metrics,

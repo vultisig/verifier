@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/vultisig/mobile-tss-lib/tss"
-	"github.com/vultisig/recipes/ethereum"
+	"github.com/vultisig/recipes/chain/evm/ethereum"
 )
 
 type EvmIndexer struct {

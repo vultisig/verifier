@@ -625,3 +625,32 @@ func (p *PostgresBackend) GetPluginInstallationsCount(ctx context.Context, plugi
 	}
 	return resp, nil
 }
+
+func (p *PostgresBackend) GetControlFlags(ctx context.Context, k1, k2 string) (map[string]bool, error) {
+	result := make(map[string]bool, 2)
+
+	const q = `
+        SELECT key, enabled
+        FROM control_flags
+        WHERE key IN ($1, $2)
+    `
+	rows, err := p.pool.Query(ctx, q, k1, k2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var k string
+		var enabled bool
+		if err := rows.Scan(&k, &enabled); err != nil {
+			return nil, err
+		}
+		result[k] = enabled
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}

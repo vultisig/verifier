@@ -214,7 +214,6 @@ func (wm *WorkerMetrics) Handler(taskType string, handler asynq.HandlerFunc) asy
 	})
 }
 
-
 // classifyError provides basic error classification for metrics
 func classifyError(err error) string {
 	if err == nil {

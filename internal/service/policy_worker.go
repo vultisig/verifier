@@ -37,7 +37,6 @@ func (s *PolicyService) HandleScheduledFees(ctx context.Context, task *asynq.Tas
 	}
 	defer rows.Close()
 
-
 	var feesToInsert []struct {
 		publicKey string
 		policyId  string

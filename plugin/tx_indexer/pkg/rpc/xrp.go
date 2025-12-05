@@ -34,8 +34,8 @@ type XRPTransactionMeta struct {
 }
 
 type XRPRequest struct {
-	Method string      `json:"method"`
-	Params []any       `json:"params"`
+	Method string `json:"method"`
+	Params []any  `json:"params"`
 }
 
 type XRPTransactionParams struct {

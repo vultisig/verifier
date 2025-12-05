@@ -41,8 +41,13 @@ type Syncer struct {
 	client  *retryablehttp.Client
 	storage storage.DatabaseStorage
 
-	cacheLocker              sync.Locker
-	pluginServerAddressCache map[ptypes.PluginID]string
+	cacheLocker           sync.Locker
+	pluginServerInfoCache map[ptypes.PluginID]*ServerInfo
+}
+
+type ServerInfo struct {
+	Addr   string
+	ApiKey string
 }
 
 func NewPolicySyncer(storage storage.DatabaseStorage) *Syncer {
@@ -52,40 +57,47 @@ func NewPolicySyncer(storage storage.DatabaseStorage) *Syncer {
 	retryClient.Logger = logger
 	retryClient.RetryMax = maxRetries
 	return &Syncer{
-		logger:                   logger,
-		client:                   retryClient,
-		storage:                  storage,
-		pluginServerAddressCache: make(map[ptypes.PluginID]string),
-		cacheLocker:              &sync.Mutex{},
+		logger:                logger,
+		client:                retryClient,
+		storage:               storage,
+		pluginServerInfoCache: make(map[ptypes.PluginID]*ServerInfo),
+		cacheLocker:           &sync.Mutex{},
 	}
 }
 
-func (s *Syncer) getServerAddr(ctx context.Context, pluginID ptypes.PluginID) (string, error) {
+func (s *Syncer) getServerInfo(ctx context.Context, pluginID ptypes.PluginID) (*ServerInfo, error) {
 	s.cacheLocker.Lock()
 	defer s.cacheLocker.Unlock()
 
-	if addr, ok := s.pluginServerAddressCache[pluginID]; ok {
-		return addr, nil
+	if info, ok := s.pluginServerInfoCache[pluginID]; ok {
+		return info, nil
 	}
 
-	addr, err := s.getServerAddrFromStorage(ctx, pluginID)
+	addr, err := s.getServerInfoFromStorage(ctx, pluginID)
 	if err != nil {
-		return "", fmt.Errorf("failed to get server address from storage: %w", err)
+		return nil, fmt.Errorf("failed to get server address from storage: %w", err)
 	}
-	s.pluginServerAddressCache[pluginID] = addr
+	s.pluginServerInfoCache[pluginID] = addr
 	return addr, nil
 }
 
-func (s *Syncer) getServerAddrFromStorage(ctx context.Context, pluginID ptypes.PluginID) (string, error) {
+func (s *Syncer) getServerInfoFromStorage(ctx context.Context, pluginID ptypes.PluginID) (*ServerInfo, error) {
 	if err := contexthelper.CheckCancellation(ctx); err != nil {
-		return "", err
+		return nil, err
 	}
 	s.logger.Infof("pluginid: %s", pluginID.String())
 	plugin, err := s.storage.FindPluginById(ctx, nil, pluginID)
 	if err != nil {
-		return "", fmt.Errorf("failed to find plugin by id: %w", err)
+		return nil, fmt.Errorf("failed to find plugin by id: %w", err)
 	}
-	return plugin.ServerEndpoint, nil
+	apiKey, err := s.storage.GetAPIKeyByPluginId(ctx, pluginID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get api key by id: %w", err)
+	}
+	return &ServerInfo{
+		plugin.ServerEndpoint,
+		apiKey.ApiKey,
+	}, nil
 }
 
 // Creates a policy in a synchronous manner.
@@ -94,13 +106,19 @@ func (s *Syncer) CreatePolicySync(ctx context.Context, pluginPolicy types.Plugin
 	if err != nil {
 		return fmt.Errorf("fail to marshal policy: %v", err)
 	}
-	serverEndpoint, err := s.getServerAddr(ctx, pluginPolicy.PluginID)
+	serverInfo, err := s.getServerInfo(ctx, pluginPolicy.PluginID)
 	if err != nil {
 		return fmt.Errorf("failed to get server address: %w", err)
 	}
 
-	url := serverEndpoint + policyEndpoint
-	resp, err := s.client.Post(url, "application/json", bytes.NewBuffer(policyBytes))
+	url := serverInfo.Addr + policyEndpoint
+	req, err := retryablehttp.NewRequest(http.MethodPost, url, bytes.NewBuffer(policyBytes))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+serverInfo.ApiKey)
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to sync policy with plugin server(%s): %s", url, err.Error())
 	}
@@ -130,7 +148,7 @@ func (s *Syncer) CreatePolicyAsync(ctx context.Context, policySyncEntity itypes.
 	if err != nil {
 		return fmt.Errorf("fail to marshal policy: %v", err)
 	}
-	serverEndpoint, err := s.getServerAddr(ctx, policySyncEntity.PluginID)
+	serverInfo, err := s.getServerInfo(ctx, policySyncEntity.PluginID)
 	if err != nil {
 		policySyncEntity.Status = itypes.Failed
 		policySyncEntity.FailReason = fmt.Sprintf("failed to get server address: %s", err)
@@ -141,8 +159,15 @@ func (s *Syncer) CreatePolicyAsync(ctx context.Context, policySyncEntity itypes.
 		return fmt.Errorf("failed to get server address: %w", err)
 	}
 
-	url := serverEndpoint + policyEndpoint
-	resp, err := s.client.Post(url, "application/json", bytes.NewBuffer(policyBytes))
+	url := serverInfo.Addr + policyEndpoint
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(policyBytes))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+serverInfo.ApiKey)
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		policySyncEntity.Status = itypes.Failed
 		policySyncEntity.FailReason = fmt.Sprintf("failed to sync policy with plugin server(%s): %s", url, err.Error())
@@ -243,17 +268,18 @@ func (s *Syncer) DeletePolicySync(ctx context.Context, pluginPolicy types.Plugin
 		return fmt.Errorf("failed to marshal request body: %v", err)
 	}
 
-	serverEndpoint, err := s.getServerAddr(ctx, pluginPolicy.PluginID)
+	serverInfo, err := s.getServerInfo(ctx, pluginPolicy.PluginID)
 	if err != nil {
 		return fmt.Errorf("failed to get server address: %w", err)
 	}
 
-	url := serverEndpoint + policyEndpoint + "/" + pluginPolicy.ID.String()
+	url := serverInfo.Addr + policyEndpoint + "/" + pluginPolicy.ID.String()
 	req, err := http.NewRequest(http.MethodDelete, url, bytes.NewBuffer(reqBodyBytes))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+serverInfo.ApiKey)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -292,7 +318,7 @@ func (s *Syncer) DeletePolicyAsync(ctx context.Context, syncEntity itypes.Plugin
 		return fmt.Errorf("fail to marshal request body: %v", err)
 	}
 
-	serverEndpoint, err := s.getServerAddr(ctx, syncEntity.PluginID)
+	serverInfo, err := s.getServerInfo(ctx, syncEntity.PluginID)
 	if err != nil {
 		syncEntity.Status = itypes.Failed
 		syncEntity.FailReason = fmt.Sprintf("failed to get server address: %s", err)
@@ -303,7 +329,7 @@ func (s *Syncer) DeletePolicyAsync(ctx context.Context, syncEntity itypes.Plugin
 		return fmt.Errorf("failed to get server address: %w", err)
 	}
 
-	url := serverEndpoint + policyEndpoint + "/" + syncEntity.PolicyID.String()
+	url := serverInfo.Addr + policyEndpoint + "/" + syncEntity.PolicyID.String()
 	req, err := retryablehttp.NewRequest(http.MethodDelete, url, bytes.NewBuffer(reqBodyBytes))
 	if err != nil {
 		syncEntity.Status = itypes.Failed
@@ -315,6 +341,7 @@ func (s *Syncer) DeletePolicyAsync(ctx context.Context, syncEntity itypes.Plugin
 		return fmt.Errorf("fail to create request, err: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+serverInfo.ApiKey)
 
 	resp, err := s.client.Do(req)
 	if err != nil {

@@ -33,23 +33,23 @@ func VictoriaMetricsLogger() echo.MiddlewareFunc {
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
 			// Use fmt.Printf to output JSON in Victoria Metrics compatible format
 			logEntry := map[string]interface{}{
-				"_msg":         "HTTP request",
-				"timestamp":    v.StartTime.Format("2006-01-02T15:04:05.000Z07:00"),
-				"level":        "info",
-				"method":       v.Method,
-				"uri":          v.URI,
-				"status":       v.Status,
-				"latency_ms":   v.Latency.Milliseconds(),
-				"remote_ip":    v.RemoteIP,
-				"user_agent":   c.Request().UserAgent(),
-				"bytes_in":     v.ContentLength,
-				"service":      "plugin-server",
+				"_msg":       "HTTP request",
+				"timestamp":  v.StartTime.Format("2006-01-02T15:04:05.000Z07:00"),
+				"level":      "info",
+				"method":     v.Method,
+				"uri":        v.URI,
+				"status":     v.Status,
+				"latency_ms": v.Latency.Milliseconds(),
+				"remote_ip":  v.RemoteIP,
+				"user_agent": c.Request().UserAgent(),
+				"bytes_in":   v.ContentLength,
+				"service":    "plugin-server",
 			}
-			
+
 			if v.Error != nil {
 				logEntry["error"] = v.Error.Error()
 			}
-			
+
 			jsonBytes, _ := json.Marshal(logEntry)
 			fmt.Println(string(jsonBytes))
 			return nil

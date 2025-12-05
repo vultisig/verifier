@@ -1,0 +1,236 @@
+package metrics
+
+import (
+	"context"
+	"strings"
+	"time"
+
+	"github.com/hibiken/asynq"
+	"github.com/prometheus/client_golang/prometheus"
+)
+
+var (
+	// Task processing metrics
+	workerTasksTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "verifier",
+			Subsystem: "worker",
+			Name:      "tasks_total",
+			Help:      "Total number of tasks processed by type and status",
+		},
+		[]string{"task_type", "status"}, // status: completed, failed
+	)
+
+	workerTaskDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "verifier",
+			Subsystem: "worker",
+			Name:      "task_duration_seconds",
+			Help:      "Duration of task processing by type",
+			Buckets:   prometheus.DefBuckets,
+		},
+		[]string{"task_type"},
+	)
+
+	workerTasksActive = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "verifier",
+			Subsystem: "worker",
+			Name:      "tasks_active",
+			Help:      "Number of currently active tasks by type",
+		},
+		[]string{"task_type"},
+	)
+
+	// Vault operation metrics
+	workerVaultOperationsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "verifier",
+			Subsystem: "worker",
+			Name:      "vault_operations_total",
+			Help:      "Total number of vault operations by operation and status",
+		},
+		[]string{"operation", "status"}, // operation: keygen, keysign, reshare
+	)
+
+	workerVaultOperationDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "verifier",
+			Subsystem: "worker",
+			Name:      "vault_operation_duration_seconds",
+			Help:      "Duration of vault operations by type",
+			Buckets:   prometheus.DefBuckets,
+		},
+		[]string{"operation"},
+	)
+
+	workerSignaturesGenerated = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "verifier",
+			Subsystem: "worker",
+			Name:      "signatures_generated_total",
+			Help:      "Total number of successful signatures generated",
+		},
+	)
+
+	// Error tracking
+	workerErrorsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "verifier",
+			Subsystem: "worker",
+			Name:      "errors_total",
+			Help:      "Total number of errors by task type and error type",
+		},
+		[]string{"task_type", "error_type"},
+	)
+
+	// Health tracking
+	workerLastTaskTimestamp = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: "verifier",
+			Subsystem: "worker",
+			Name:      "last_task_timestamp",
+			Help:      "Timestamp of when worker last processed a task",
+		},
+	)
+)
+
+// WorkerMetricsInterface defines the contract for worker metrics
+type WorkerMetricsInterface interface {
+	RecordTaskCompleted(taskType string, duration float64)
+	RecordTaskFailed(taskType string, duration float64)
+	RecordTaskStarted(taskType string)
+	RecordTaskFinished(taskType string)
+	RecordVaultOperation(operation, status string, duration float64)
+	RecordError(taskType, errorType string)
+	Handler(taskType string, handler asynq.HandlerFunc) asynq.HandlerFunc
+}
+
+// WorkerMetrics provides methods to update worker-related metrics
+type WorkerMetrics struct{}
+
+// NewWorkerMetrics creates a new instance of WorkerMetrics
+func NewWorkerMetrics() *WorkerMetrics {
+	return &WorkerMetrics{}
+}
+
+// NoOpWorkerMetrics provides a no-op implementation of worker metrics
+type NoOpWorkerMetrics struct{}
+
+// NewNoOpWorkerMetrics creates a new instance of NoOpWorkerMetrics
+func NewNoOpWorkerMetrics() *NoOpWorkerMetrics {
+	return &NoOpWorkerMetrics{}
+}
+
+// Ensure both implementations satisfy the interface
+var _ WorkerMetricsInterface = (*WorkerMetrics)(nil)
+var _ WorkerMetricsInterface = (*NoOpWorkerMetrics)(nil)
+
+// NoOpWorkerMetrics implementations - all methods are no-ops
+func (n *NoOpWorkerMetrics) RecordTaskCompleted(taskType string, duration float64)           {}
+func (n *NoOpWorkerMetrics) RecordTaskFailed(taskType string, duration float64)              {}
+func (n *NoOpWorkerMetrics) RecordTaskStarted(taskType string)                               {}
+func (n *NoOpWorkerMetrics) RecordTaskFinished(taskType string)                              {}
+func (n *NoOpWorkerMetrics) RecordVaultOperation(operation, status string, duration float64) {}
+func (n *NoOpWorkerMetrics) RecordError(taskType, errorType string)                          {}
+
+// Handler returns the original handler without any metrics wrapping
+func (n *NoOpWorkerMetrics) Handler(taskType string, handler asynq.HandlerFunc) asynq.HandlerFunc {
+	return handler
+}
+
+// RecordTaskCompleted records a successfully completed task
+func (wm *WorkerMetrics) RecordTaskCompleted(taskType string, duration float64) {
+	workerTasksTotal.WithLabelValues(taskType, "completed").Inc()
+	workerTaskDuration.WithLabelValues(taskType).Observe(duration)
+	workerLastTaskTimestamp.SetToCurrentTime()
+}
+
+// RecordTaskFailed records a failed task
+func (wm *WorkerMetrics) RecordTaskFailed(taskType string, duration float64) {
+	workerTasksTotal.WithLabelValues(taskType, "failed").Inc()
+	workerTaskDuration.WithLabelValues(taskType).Observe(duration)
+	workerLastTaskTimestamp.SetToCurrentTime()
+}
+
+// RecordTaskStarted records when a task starts (increments active count)
+func (wm *WorkerMetrics) RecordTaskStarted(taskType string) {
+	workerTasksActive.WithLabelValues(taskType).Inc()
+}
+
+// RecordTaskFinished records when a task finishes (decrements active count)
+func (wm *WorkerMetrics) RecordTaskFinished(taskType string) {
+	workerTasksActive.WithLabelValues(taskType).Dec()
+}
+
+// RecordVaultOperation records a vault operation (keygen, keysign, reshare)
+func (wm *WorkerMetrics) RecordVaultOperation(operation, status string, duration float64) {
+	workerVaultOperationsTotal.WithLabelValues(operation, status).Inc()
+	workerVaultOperationDuration.WithLabelValues(operation).Observe(duration)
+
+	// Special case: count successful signatures
+	if operation == "keysign" && status == "completed" {
+		workerSignaturesGenerated.Inc()
+	}
+}
+
+// RecordError records an error during task processing
+func (wm *WorkerMetrics) RecordError(taskType, errorType string) {
+	workerErrorsTotal.WithLabelValues(taskType, errorType).Inc()
+}
+
+// Handler wraps a task handler with worker metrics collection
+func (wm *WorkerMetrics) Handler(taskType string, handler asynq.HandlerFunc) asynq.HandlerFunc {
+	return asynq.HandlerFunc(func(ctx context.Context, task *asynq.Task) error {
+		start := time.Now()
+		wm.RecordTaskStarted(taskType)
+		defer wm.RecordTaskFinished(taskType)
+
+		// Execute the task
+		err := handler.ProcessTask(ctx, task)
+		duration := time.Since(start).Seconds()
+
+		// Record results
+		if err != nil {
+			wm.RecordTaskFailed(taskType, duration)
+			wm.RecordError(taskType, classifyError(err))
+		} else {
+			wm.RecordTaskCompleted(taskType, duration)
+
+			// Record task-specific success metrics
+			switch taskType {
+			case "keysign":
+				wm.RecordVaultOperation("keysign", "completed", duration)
+			case "keygen":
+				wm.RecordVaultOperation("keygen", "completed", duration)
+			case "reshare":
+				wm.RecordVaultOperation("reshare", "completed", duration)
+			case "fees":
+				wm.RecordVaultOperation("fees", "completed", duration)
+			}
+		}
+
+		return err
+	})
+}
+
+// classifyError provides basic error classification for metrics
+func classifyError(err error) string {
+	if err == nil {
+		return "none"
+	}
+
+	errStr := err.Error()
+	switch {
+	case strings.Contains(errStr, "timeout"):
+		return "timeout"
+	case strings.Contains(errStr, "context"):
+		return "context_cancelled"
+	case strings.Contains(errStr, "network") || strings.Contains(errStr, "connection"):
+		return "network"
+	case strings.Contains(errStr, "validation") || strings.Contains(errStr, "invalid"):
+		return "validation"
+	default:
+		return "unknown"
+	}
+}

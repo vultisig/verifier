@@ -105,7 +105,7 @@ func main() {
 	)
 
 	// Initialize metrics based on configuration
-	var workerMetrics *internalMetrics.WorkerMetrics
+	var workerMetrics internalMetrics.WorkerMetricsInterface
 	if cfg.Metrics.Enabled {
 		logger.Info("Metrics enabled, setting up Prometheus metrics")
 
@@ -121,6 +121,7 @@ func main() {
 		workerMetrics = internalMetrics.NewWorkerMetrics()
 	} else {
 		logger.Info("Worker metrics disabled")
+		workerMetrics = internalMetrics.NewNoOpWorkerMetrics()
 	}
 
 	mux := asynq.NewServeMux()

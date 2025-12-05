@@ -42,15 +42,10 @@ func RegisterMetrics(services []string, registry *prometheus.Registry, logger *l
 func registerIfNotExists(collector prometheus.Collector, name string, registry *prometheus.Registry, logger *logrus.Logger) {
 	if err := registry.Register(collector); err != nil {
 		var alreadyRegErr prometheus.AlreadyRegisteredError
-		if errors.As(err, &alreadyRegErr) {
-			// This is expected on restart/reload - just debug log
-			logger.Debugf("%s already registered", name)
-		} else {
+		if !errors.As(err, &alreadyRegErr) {
 			// This is a real problem (descriptor mismatch, etc.) - log error but don't fail
 			logger.Errorf("Failed to register %s: %v", name, err)
 		}
-	} else {
-		logger.Debugf("Successfully registered %s", name)
 	}
 }
 

@@ -95,6 +95,16 @@ var (
 	)
 )
 
+// WorkerMetricsInterface defines the contract for worker metrics
+type WorkerMetricsInterface interface {
+	RecordTaskCompleted(taskType string, duration float64)
+	RecordTaskFailed(taskType string, duration float64)
+	RecordTaskStarted(taskType string)
+	RecordTaskFinished(taskType string)
+	RecordVaultOperation(operation, status string, duration float64)
+	RecordError(taskType, errorType string)
+}
+
 // WorkerMetrics provides methods to update worker-related metrics
 type WorkerMetrics struct{}
 
@@ -102,6 +112,26 @@ type WorkerMetrics struct{}
 func NewWorkerMetrics() *WorkerMetrics {
 	return &WorkerMetrics{}
 }
+
+// NoOpWorkerMetrics provides a no-op implementation of worker metrics
+type NoOpWorkerMetrics struct{}
+
+// NewNoOpWorkerMetrics creates a new instance of NoOpWorkerMetrics
+func NewNoOpWorkerMetrics() *NoOpWorkerMetrics {
+	return &NoOpWorkerMetrics{}
+}
+
+// Ensure both implementations satisfy the interface
+var _ WorkerMetricsInterface = (*WorkerMetrics)(nil)
+var _ WorkerMetricsInterface = (*NoOpWorkerMetrics)(nil)
+
+// NoOpWorkerMetrics implementations - all methods are no-ops
+func (n *NoOpWorkerMetrics) RecordTaskCompleted(taskType string, duration float64) {}
+func (n *NoOpWorkerMetrics) RecordTaskFailed(taskType string, duration float64)    {}
+func (n *NoOpWorkerMetrics) RecordTaskStarted(taskType string)                     {}
+func (n *NoOpWorkerMetrics) RecordTaskFinished(taskType string)                    {}
+func (n *NoOpWorkerMetrics) RecordVaultOperation(operation, status string, duration float64) {}
+func (n *NoOpWorkerMetrics) RecordError(taskType, errorType string)               {}
 
 // RecordTaskCompleted records a successfully completed task
 func (wm *WorkerMetrics) RecordTaskCompleted(taskType string, duration float64) {
@@ -144,12 +174,8 @@ func (wm *WorkerMetrics) RecordError(taskType, errorType string) {
 }
 
 // WithWorkerMetrics wraps a task handler with worker metrics collection
-func WithWorkerMetrics(handler asynq.HandlerFunc, taskType string, metrics *WorkerMetrics) asynq.HandlerFunc {
+func WithWorkerMetrics(handler asynq.HandlerFunc, taskType string, metrics WorkerMetricsInterface) asynq.HandlerFunc {
 	return asynq.HandlerFunc(func(ctx context.Context, task *asynq.Task) error {
-		// If metrics are disabled, just run the handler
-		if metrics == nil {
-			return handler.ProcessTask(ctx, task)
-		}
 
 		start := time.Now()
 		metrics.RecordTaskStarted(taskType)

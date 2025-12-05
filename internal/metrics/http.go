@@ -50,15 +50,6 @@ func NewHTTPMetrics() *HTTPMetrics {
 	return &HTTPMetrics{}
 }
 
-// Register registers all HTTP metrics with the provided registry
-func (hm *HTTPMetrics) Register(registry *prometheus.Registry) {
-	registry.MustRegister(
-		httpRequestsTotal,
-		httpRequestDuration,
-		httpActiveRequests,
-	)
-}
-
 // Middleware returns an Echo middleware for HTTP metrics collection
 func (hm *HTTPMetrics) Middleware() echo.MiddlewareFunc {
 	return echo.MiddlewareFunc(func(next echo.HandlerFunc) echo.HandlerFunc {

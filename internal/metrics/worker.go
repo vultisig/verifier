@@ -103,7 +103,6 @@ func NewWorkerMetrics() *WorkerMetrics {
 	return &WorkerMetrics{}
 }
 
-
 // RecordTaskCompleted records a successfully completed task
 func (wm *WorkerMetrics) RecordTaskCompleted(taskType string, duration float64) {
 	workerTasksTotal.WithLabelValues(taskType, "completed").Inc()

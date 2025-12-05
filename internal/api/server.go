@@ -110,12 +110,12 @@ func NewServer(
 
 func (s *Server) StartServer() error {
 	e := echo.New()
-	
+
 	// Add HTTP metrics middleware if enabled
 	if s.httpMetrics != nil {
 		e.Use(s.httpMetrics.Middleware())
 	}
-	
+
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit("2M")) // set maximum allowed size for a request body to 2M

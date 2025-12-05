@@ -104,12 +104,12 @@ func (s *Server) Start(ctx context.Context) error {
 	vlt.GET("/sign/response/:taskId", s.handleGetKeysignResult)
 	vlt.DELETE("/:pluginId/:publicKeyECDSA", s.handleDeleteVault)
 
-	plg := e.Group("/plugin")
-	plg.POST("/policy", s.handleCreatePluginPolicy, s.VerifierAuthMiddleware)
-	plg.PUT("/policy", s.handleUpdatePluginPolicyById, s.VerifierAuthMiddleware)
+	plg := e.Group("/plugin", s.VerifierAuthMiddleware)
+	plg.POST("/policy", s.handleCreatePluginPolicy)
+	plg.PUT("/policy", s.handleUpdatePluginPolicyById)
 	plg.GET("/recipe-specification", s.handleGetRecipeSpecification)
 	plg.POST("/recipe-specification/suggest", s.handleGetRecipeSpecificationSuggest)
-	plg.DELETE("/policy/:policyId", s.handleDeletePluginPolicyById, s.VerifierAuthMiddleware)
+	plg.DELETE("/policy/:policyId", s.handleDeletePluginPolicyById)
 
 	eg := &errgroup.Group{}
 	eg.Go(func() error {

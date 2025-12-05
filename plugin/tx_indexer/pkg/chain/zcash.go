@@ -361,4 +361,3 @@ func writeCompactSizeZ(buf *bytes.Buffer, v uint64) {
 		_ = binary.Write(buf, binary.LittleEndian, v)
 	}
 }
-

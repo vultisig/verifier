@@ -103,4 +103,3 @@ func (z *Zcash) GetTxStatus(ctx context.Context, txHash string) (TxOnChainStatus
 	// Transaction is confirmed
 	return TxOnChainSuccess, nil
 }
-

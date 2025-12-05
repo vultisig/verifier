@@ -172,6 +172,6 @@ func (w *Worker) collectMetrics(tasks []Scheduler) {
 			stuckCount++
 		}
 	}
-	
+
 	w.metrics.SetStuckPolicies(float64(stuckCount))
 }

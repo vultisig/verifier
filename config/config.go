@@ -126,7 +126,7 @@ func ReadTxIndexerConfig() (*tx_indexer_config.Config, error) {
 	viper.AddConfigPath(".")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
-	
+
 	viper.SetDefault("log_format", "text")
 
 	if err := viper.ReadInConfig(); err != nil {

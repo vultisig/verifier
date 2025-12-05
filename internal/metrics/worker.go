@@ -103,6 +103,7 @@ type WorkerMetricsInterface interface {
 	RecordTaskFinished(taskType string)
 	RecordVaultOperation(operation, status string, duration float64)
 	RecordError(taskType, errorType string)
+	Handler(taskType string, handler asynq.HandlerFunc) asynq.HandlerFunc
 }
 
 // WorkerMetrics provides methods to update worker-related metrics
@@ -132,6 +133,11 @@ func (n *NoOpWorkerMetrics) RecordTaskStarted(taskType string)                  
 func (n *NoOpWorkerMetrics) RecordTaskFinished(taskType string)                              {}
 func (n *NoOpWorkerMetrics) RecordVaultOperation(operation, status string, duration float64) {}
 func (n *NoOpWorkerMetrics) RecordError(taskType, errorType string)                          {}
+
+// Handler returns the original handler without any metrics wrapping
+func (n *NoOpWorkerMetrics) Handler(taskType string, handler asynq.HandlerFunc) asynq.HandlerFunc {
+	return handler
+}
 
 // RecordTaskCompleted records a successfully completed task
 func (wm *WorkerMetrics) RecordTaskCompleted(taskType string, duration float64) {
@@ -173,13 +179,12 @@ func (wm *WorkerMetrics) RecordError(taskType, errorType string) {
 	workerErrorsTotal.WithLabelValues(taskType, errorType).Inc()
 }
 
-// WithWorkerMetrics wraps a task handler with worker metrics collection
-func WithWorkerMetrics(handler asynq.HandlerFunc, taskType string, metrics WorkerMetricsInterface) asynq.HandlerFunc {
+// Handler wraps a task handler with worker metrics collection
+func (wm *WorkerMetrics) Handler(taskType string, handler asynq.HandlerFunc) asynq.HandlerFunc {
 	return asynq.HandlerFunc(func(ctx context.Context, task *asynq.Task) error {
-
 		start := time.Now()
-		metrics.RecordTaskStarted(taskType)
-		defer metrics.RecordTaskFinished(taskType)
+		wm.RecordTaskStarted(taskType)
+		defer wm.RecordTaskFinished(taskType)
 
 		// Execute the task
 		err := handler.ProcessTask(ctx, task)
@@ -187,27 +192,28 @@ func WithWorkerMetrics(handler asynq.HandlerFunc, taskType string, metrics Worke
 
 		// Record results
 		if err != nil {
-			metrics.RecordTaskFailed(taskType, duration)
-			metrics.RecordError(taskType, classifyError(err))
+			wm.RecordTaskFailed(taskType, duration)
+			wm.RecordError(taskType, classifyError(err))
 		} else {
-			metrics.RecordTaskCompleted(taskType, duration)
+			wm.RecordTaskCompleted(taskType, duration)
 
 			// Record task-specific success metrics
 			switch taskType {
 			case "keysign":
-				metrics.RecordVaultOperation("keysign", "completed", duration)
+				wm.RecordVaultOperation("keysign", "completed", duration)
 			case "keygen":
-				metrics.RecordVaultOperation("keygen", "completed", duration)
+				wm.RecordVaultOperation("keygen", "completed", duration)
 			case "reshare":
-				metrics.RecordVaultOperation("reshare", "completed", duration)
+				wm.RecordVaultOperation("reshare", "completed", duration)
 			case "fees":
-				metrics.RecordVaultOperation("fees", "completed", duration)
+				wm.RecordVaultOperation("fees", "completed", duration)
 			}
 		}
 
 		return err
 	})
 }
+
 
 // classifyError provides basic error classification for metrics
 func classifyError(err error) string {

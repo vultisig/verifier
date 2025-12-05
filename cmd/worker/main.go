@@ -128,13 +128,13 @@ func main() {
 
 	// Wrap handlers with metrics collection
 	mux.HandleFunc(tasks.TypeKeyGenerationDKLS,
-		internalMetrics.WithWorkerMetrics(vaultMgmService.HandleKeyGenerationDKLS, "keygen", workerMetrics))
+		workerMetrics.Handler("keygen", vaultMgmService.HandleKeyGenerationDKLS))
 	mux.HandleFunc(tasks.TypeKeySignDKLS,
-		internalMetrics.WithWorkerMetrics(vaultMgmService.HandleKeySignDKLS, "keysign", workerMetrics))
+		workerMetrics.Handler("keysign", vaultMgmService.HandleKeySignDKLS))
 	mux.HandleFunc(tasks.TypeReshareDKLS,
-		internalMetrics.WithWorkerMetrics(feeMgmService.HandleReshareDKLS, "reshare", workerMetrics))
+		workerMetrics.Handler("reshare", feeMgmService.HandleReshareDKLS))
 	mux.HandleFunc(tasks.TypeRecurringFeeRecord,
-		internalMetrics.WithWorkerMetrics(policyService.HandleScheduledFees, "fees", workerMetrics))
+		workerMetrics.Handler("fees", policyService.HandleScheduledFees))
 
 	if err := srv.Run(mux); err != nil {
 		panic(fmt.Errorf("could not run server: %w", err))

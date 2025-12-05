@@ -44,7 +44,7 @@ type Server struct {
 	inspector      *asynq.Inspector
 	policy         policy.Service
 	spec           plugin.Spec
-	logger         *logrus.Logger
+	logger         *logrus.Entry
 	middlewares    []echo.MiddlewareFunc
 	authMiddleware echo.MiddlewareFunc
 	metrics        metrics.PluginServerMetrics
@@ -61,7 +61,13 @@ func NewServer(
 	spec plugin.Spec,
 	middlewares []echo.MiddlewareFunc,
 	metrics metrics.PluginServerMetrics, // Optional: pass nil to disable metrics
+	logger *logrus.Logger, // Pass your configured logger for consistent formatting
 ) *Server {
+	// Guard against nil logger to avoid startup panics
+	if logger == nil {
+		logger = logrus.New()
+	}
+
 	return &Server{
 		cfg:          cfg,
 		redis:        redis,
@@ -69,7 +75,7 @@ func NewServer(
 		inspector:    inspector,
 		vaultStorage: vaultStorage,
 		spec:         spec,
-		logger:       logrus.WithField("pkg", "server").Logger,
+		logger:       logger.WithField("pkg", "server"),
 		policy:       policy,
 		middlewares:  middlewares,
 		metrics:      metrics,
@@ -104,12 +110,12 @@ func (s *Server) Start(ctx context.Context) error {
 	vlt.GET("/sign/response/:taskId", s.handleGetKeysignResult)
 	vlt.DELETE("/:pluginId/:publicKeyECDSA", s.handleDeleteVault)
 
-	plg := e.Group("/plugin", s.VerifierAuthMiddleware)
-	plg.POST("/policy", s.handleCreatePluginPolicy)
-	plg.PUT("/policy", s.handleUpdatePluginPolicyById)
+	plg := e.Group("/plugin")
+	plg.POST("/policy", s.handleCreatePluginPolicy, s.VerifierAuthMiddleware)
+	plg.PUT("/policy", s.handleUpdatePluginPolicyById, s.VerifierAuthMiddleware)
 	plg.GET("/recipe-specification", s.handleGetRecipeSpecification)
 	plg.POST("/recipe-specification/suggest", s.handleGetRecipeSpecificationSuggest)
-	plg.DELETE("/policy/:policyId", s.handleDeletePluginPolicyById)
+	plg.DELETE("/policy/:policyId", s.handleDeletePluginPolicyById, s.VerifierAuthMiddleware)
 
 	eg := &errgroup.Group{}
 	eg.Go(func() error {

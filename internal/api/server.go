@@ -127,7 +127,7 @@ func (s *Server) StartServer() error {
 
 	e.Validator = &vv.VultisigValidator{Validator: validator.New()}
 
-	e.GET("/ping", s.Ping)
+	e.GET("/healthz", s.Ping)
 
 	// Auth endpoints - not requiring authentication
 	e.POST("/auth", s.Auth)

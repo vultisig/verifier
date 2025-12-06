@@ -55,7 +55,6 @@ func main() {
 	}()
 
 	inspector := asynq.NewInspector(redisConnOpt)
-
 	vaultStorage, err := vault.NewBlockStorageImp(cfg.BlockStorage)
 	if err != nil {
 		panic(err)

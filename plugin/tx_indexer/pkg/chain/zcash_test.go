@@ -289,4 +289,3 @@ func TestZcashIndexer_KeyDerivationConsistency(t *testing.T) {
 
 	t.Logf("✓ Key derivation is consistent")
 }
-

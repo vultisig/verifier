@@ -57,11 +57,6 @@ spec:
               value: "0.0.0.0"
             - name: METRICS_PORT
               value: "8088"
-            - name: RPC_BITCOIN_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: blockchair
-                  key: url
             - name: RPC_XRP_URL
               valueFrom:
                 configMapKeyRef:

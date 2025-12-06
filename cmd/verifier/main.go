@@ -61,7 +61,7 @@ func main() {
 		panic(err)
 	}
 
-	db, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil)
+	db, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil, cfg.ProposedYAMLPath)
 	if err != nil {
 		logger.Fatalf("Failed to connect to database: %v", err)
 	}

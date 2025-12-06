@@ -36,6 +36,7 @@ WORKDIR /app
 COPY --from=builder /app/verifier .
 COPY --from=builder /usr/local/lib/dkls /usr/local/lib/dkls
 COPY verifier.example.json config.json
+COPY proposed.yaml proposed.yaml
 
 ENV LD_LIBRARY_PATH=/usr/local/lib/dkls/includes/linux/:$LD_LIBRARY_PATH
 

@@ -62,11 +62,6 @@ spec:
                 configMapKeyRef:
                   name: blockchair
                   key: url
-            - name: RPC_ZCASH_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: rpc
-                  key: zcash
             - name: RPC_XRP_URL
               valueFrom:
                 configMapKeyRef:
@@ -117,16 +112,6 @@ spec:
                 configMapKeyRef:
                   name: rpc
                   key: solana
-            - name: RPC_CRONOS_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: rpc
-                  key: cronos
-            - name: RPC_ZKSYNC_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: rpc
-                  key: zksync
           resources:
             requests:
               memory: "64Mi"

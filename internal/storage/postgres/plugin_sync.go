@@ -26,6 +26,19 @@ func (p *PostgresBackend) SyncPluginsFromYAML(yamlPath string) error {
 		return fmt.Errorf("failed to unmarshal yaml: %w", err)
 	}
 
+	// Normalize nil slices to empty so we don't send NULL to NOT NULL JSONB columns.
+	for i := range proposed.Plugins {
+		if proposed.Plugins[i].Images == nil {
+			proposed.Plugins[i].Images = []itypes.PluginImage{}
+		}
+		if proposed.Plugins[i].FAQs == nil {
+			proposed.Plugins[i].FAQs = []itypes.FAQItem{}
+		}
+		if proposed.Plugins[i].Features == nil {
+			proposed.Plugins[i].Features = []string{}
+		}
+	}
+
 	ctx := context.Background()
 	for _, plugin := range proposed.Plugins {
 		query := `

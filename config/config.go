@@ -15,14 +15,13 @@ import (
 )
 
 type WorkerConfig struct {
-	LogFormat        logging.LogFormat         `mapstructure:"log_format" json:"log_format,omitempty"`
-	VaultService     vault_config.Config       `mapstructure:"vault_service" json:"vault_service,omitempty"`
-	Redis            config.Redis              `mapstructure:"redis" json:"redis,omitempty"`
-	BlockStorage     vault_config.BlockStorage `mapstructure:"block_storage" json:"block_storage,omitempty"`
-	Database         config.Database           `mapstructure:"database" json:"database,omitempty"`
-	Fees             FeesConfig                `mapstructure:"fees" json:"fees"`
-	Metrics          MetricsConfig             `mapstructure:"metrics" json:"metrics,omitempty"`
-	ProposedYAMLPath string                    `mapstructure:"proposed_yaml_path" json:"proposed_yaml_path,omitempty"`
+	LogFormat    logging.LogFormat         `mapstructure:"log_format" json:"log_format,omitempty"`
+	VaultService vault_config.Config       `mapstructure:"vault_service" json:"vault_service,omitempty"`
+	Redis        config.Redis              `mapstructure:"redis" json:"redis,omitempty"`
+	BlockStorage vault_config.BlockStorage `mapstructure:"block_storage" json:"block_storage,omitempty"`
+	Database     config.Database           `mapstructure:"database" json:"database,omitempty"`
+	Fees         FeesConfig                `mapstructure:"fees" json:"fees"`
+	Metrics      MetricsConfig             `mapstructure:"metrics" json:"metrics,omitempty"`
 }
 
 type VerifierConfig struct {

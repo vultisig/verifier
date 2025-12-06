@@ -30,6 +30,5 @@
     "enabled": true,
     "host": "0.0.0.0",
     "port": 8088
-  },
-  "proposed_yaml_path": "proposed.yaml"
+  }
 }

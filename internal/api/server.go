@@ -23,6 +23,7 @@ import (
 	vv "github.com/vultisig/verifier/common/vultisig_validator"
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/clientutil"
+	internalMetrics "github.com/vultisig/verifier/internal/metrics"
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/sigutil"
 	"github.com/vultisig/verifier/internal/storage"
@@ -49,6 +50,7 @@ type Server struct {
 	feeService       service.Fees
 	authService      *service.AuthService
 	txIndexerService *tx_indexer.Service
+	httpMetrics      *internalMetrics.HTTPMetrics
 	logger           *logrus.Logger
 }
 
@@ -62,6 +64,7 @@ func NewServer(
 	inspector *asynq.Inspector,
 	jwtSecret string,
 	txIndexerService *tx_indexer.Service,
+	httpMetrics *internalMetrics.HTTPMetrics,
 ) *Server {
 
 	var err error
@@ -101,11 +104,18 @@ func NewServer(
 		pluginService:    pluginService,
 		feeService:       feeService,
 		txIndexerService: txIndexerService,
+		httpMetrics:      httpMetrics,
 	}
 }
 
 func (s *Server) StartServer() error {
 	e := echo.New()
+
+	// Add HTTP metrics middleware if enabled
+	if s.httpMetrics != nil {
+		e.Use(s.httpMetrics.Middleware())
+	}
+
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit("2M")) // set maximum allowed size for a request body to 2M
@@ -117,7 +127,7 @@ func (s *Server) StartServer() error {
 
 	e.Validator = &vv.VultisigValidator{Validator: validator.New()}
 
-	e.GET("/ping", s.Ping)
+	e.GET("/healthz", s.Ping)
 
 	// Auth endpoints - not requiring authentication
 	e.POST("/auth", s.Auth)

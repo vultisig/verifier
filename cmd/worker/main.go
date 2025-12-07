@@ -10,6 +10,7 @@ import (
 	"github.com/vultisig/verifier/internal/fee_manager"
 	"github.com/vultisig/verifier/internal/logging"
 	"github.com/vultisig/verifier/internal/safety"
+	internalMetrics "github.com/vultisig/verifier/internal/metrics"
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/plugin/tasks"
@@ -108,11 +109,37 @@ func main() {
 		safetyMgm,
 	)
 
+	// Initialize metrics based on configuration
+	var workerMetrics internalMetrics.WorkerMetricsInterface
+	if cfg.Metrics.Enabled {
+		logger.Info("Metrics enabled, setting up Prometheus metrics")
+
+		// Start metrics HTTP server with worker metrics
+		services := []string{internalMetrics.ServiceWorker}
+		_ = internalMetrics.StartMetricsServer(internalMetrics.Config{
+			Enabled: true,
+			Host:    cfg.Metrics.Host,
+			Port:    cfg.Metrics.Port,
+		}, services, logger)
+
+		// Create worker metrics instance
+		workerMetrics = internalMetrics.NewWorkerMetrics()
+	} else {
+		logger.Info("Worker metrics disabled")
+		workerMetrics = internalMetrics.NewNoOpWorkerMetrics()
+	}
+
 	mux := asynq.NewServeMux()
-	mux.HandleFunc(tasks.TypeKeyGenerationDKLS, vaultMgmService.HandleKeyGenerationDKLS)
-	mux.HandleFunc(tasks.TypeKeySignDKLS, vaultMgmService.HandleKeySignDKLS)
-	mux.HandleFunc(tasks.TypeReshareDKLS, feeMgmService.HandleReshareDKLS)
-	mux.HandleFunc(tasks.TypeRecurringFeeRecord, policyService.HandleScheduledFees)
+
+	// Wrap handlers with metrics collection
+	mux.HandleFunc(tasks.TypeKeyGenerationDKLS,
+		workerMetrics.Handler("keygen", vaultMgmService.HandleKeyGenerationDKLS))
+	mux.HandleFunc(tasks.TypeKeySignDKLS,
+		workerMetrics.Handler("keysign", vaultMgmService.HandleKeySignDKLS))
+	mux.HandleFunc(tasks.TypeReshareDKLS,
+		workerMetrics.Handler("reshare", feeMgmService.HandleReshareDKLS))
+	mux.HandleFunc(tasks.TypeRecurringFeeRecord,
+		workerMetrics.Handler("fees", policyService.HandleScheduledFees))
 
 	if err := srv.Run(mux); err != nil {
 		panic(fmt.Errorf("could not run server: %w", err))

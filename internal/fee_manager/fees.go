@@ -44,7 +44,7 @@ func (s *FeeManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.T
 	var req vtypes.ReshareRequest
 	if err := json.Unmarshal(t.Payload(), &req); err != nil {
 		s.logger.WithError(err).Error("json.Unmarshal failed")
-		return fmt.Errorf("s.RegisterInstallation failed: %v: %w", err, asynq.SkipRetry)
+		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
 	}
 
 	if err := s.safetyMgm.EnforceKeygen(ctx, req.PluginID); err != nil {

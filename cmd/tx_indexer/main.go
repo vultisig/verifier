@@ -34,7 +34,7 @@ func main() {
 		panic(fmt.Errorf("storage.NewPostgresTxIndexStore: %w", err))
 	}
 
-	backendDB, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil)
+	backendDB, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil, "")
 	if err != nil {
 		panic(fmt.Sprintf("failed to initialize database: %v", err))
 	}

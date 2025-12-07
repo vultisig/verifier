@@ -41,8 +41,9 @@ type VerifierConfig struct {
 		// pointer so it must be explicitly set to false, no value considered as enabled
 		Enabled *bool `mapstructure:"enabled" json:"enabled,omitempty"`
 	} `mapstructure:"auth" json:"auth"`
-	Fees    FeesConfig    `mapstructure:"fees" json:"fees"`
-	Metrics MetricsConfig `mapstructure:"metrics" json:"metrics,omitempty"`
+	Fees             FeesConfig    `mapstructure:"fees" json:"fees"`
+	Metrics          MetricsConfig `mapstructure:"metrics" json:"metrics,omitempty"`
+	ProposedYAMLPath string        `mapstructure:"proposed_yaml_path" json:"proposed_yaml_path,omitempty"`
 }
 
 type FeesConfig struct {

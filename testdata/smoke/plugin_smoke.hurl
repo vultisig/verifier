@@ -17,5 +17,3 @@ jsonpath "$.configuration.definitions" exists
 jsonpath "$.configuration.properties" exists
 jsonpath "$.configuration_example" exists
 jsonpath "$.supported_resources" exists
-
-

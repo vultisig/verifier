@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -427,12 +426,12 @@ func (p *PostgresBackend) IsTrialActive(
 	var createdAt time.Time
 	err := dbTx.QueryRow(ctx, queryTrialStartDate, pubKey).Scan(&createdAt)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			_, err := p.InsertFee(ctx, dbTx, &types.Fee{
 				PublicKey:      pubKey,
 				TxType:         types.TxTypeCredit,
 				Amount:         0,
-				FeeType:        "trial",
+				FeeType:        types.FeeTypeTrial,
 				UnderlyingType: "user",
 				UnderlyingID:   "trial",
 			})

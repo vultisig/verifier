@@ -105,6 +105,7 @@ func (s *Server) GetUserFees(c echo.Context) error {
 	})
 	if err != nil {
 		s.logger.WithError(err).Warnf("Failed to check trial info")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetUserTrialInfo))
 	}
 
 	return c.JSON(http.StatusOK, status)

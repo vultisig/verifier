@@ -430,7 +430,7 @@ func (p *PostgresBackend) IsTrialActive(
 			_, err := p.InsertFee(ctx, dbTx, &types.Fee{
 				PublicKey:      pubKey,
 				TxType:         types.TxTypeCredit,
-				Amount:         0,
+				Amount:         1,
 				FeeType:        types.FeeTypeTrial,
 				UnderlyingType: "user",
 				UnderlyingID:   "trial",

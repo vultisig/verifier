@@ -1,4 +1,4 @@
-GET http://localhost:8080/ping
+GET http://localhost:8080/healthz
 HTTP 200
 
 GET http://localhost:8080/plugins

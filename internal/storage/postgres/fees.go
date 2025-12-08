@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -37,6 +38,14 @@ const (
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id
         `
+	queryTrialStartDate = `SELECT created_at
+        FROM fees
+        WHERE public_key      = $1
+          AND fee_type        = 'trial'
+        ORDER BY created_at DESC
+        LIMIT 1;`
+
+	trialDuration = 7 * 24 * time.Hour
 )
 
 func (p *PostgresBackend) InsertFee(ctx context.Context, dbTx pgx.Tx, fee *types.Fee) (uint64, error) {
@@ -404,4 +413,43 @@ func (p *PostgresBackend) UpdateBatchStatus(ctx context.Context, dbTx pgx.Tx, tx
 	default:
 		return fmt.Errorf("unknown status: %s", *status)
 	}
+}
+
+func (p *PostgresBackend) IsTrialActive(
+	ctx context.Context,
+	dbTx pgx.Tx,
+	pubKey string,
+) (bool, time.Duration, error) {
+	if dbTx == nil {
+		return false, 0, fmt.Errorf("dbTx is nil")
+	}
+	var createdAt time.Time
+	err := dbTx.QueryRow(ctx, queryTrialStartDate, pubKey).Scan(&createdAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			_, err := p.InsertFee(ctx, dbTx, &types.Fee{
+				PublicKey:      pubKey,
+				TxType:         types.TxTypeCredit,
+				Amount:         0,
+				FeeType:        types.FeeTypeTrial,
+				UnderlyingType: "user",
+				UnderlyingID:   "trial",
+			})
+			if err != nil {
+				return false, 0, fmt.Errorf("failed to insert trial record: %w", err)
+			}
+			return true, trialDuration, nil
+		}
+		return false, 0, fmt.Errorf("failed to query TrialStartDate: %w", err)
+	}
+
+	trialExpiresAt := createdAt.Add(trialDuration)
+	isActive := trialExpiresAt.After(time.Now())
+
+	trialRemaining := time.Until(trialExpiresAt)
+	if trialRemaining < 0 {
+		trialRemaining = 0
+	}
+
+	return isActive, trialRemaining, nil
 }

@@ -3,18 +3,20 @@ package vault
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 
-	"github.com/vultisig/verifier/vault_config"
-
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/sirupsen/logrus"
+
+	"github.com/vultisig/verifier/vault_config"
 )
 
 type Storage interface {
@@ -67,6 +69,12 @@ func (bs *BlockStorageImp) FileExist(fileName string) (bool, error) {
 		Key:    aws.String(fileName),
 	})
 	if err != nil {
+		var aerr awserr.Error
+		if errors.As(err, &aerr) {
+			if aerr.Code() == s3.ErrCodeNoSuchKey || aerr.Code() == "NotFound" {
+				return false, nil
+			}
+		}
 		return false, fmt.Errorf("failed to check if file exists: %w", err)
 	}
 	return true, nil

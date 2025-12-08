@@ -1,8 +1,10 @@
 package api
 
 import (
+	"context"
 	"net/http"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/vultisig/verifier/types"
 )
@@ -17,6 +19,22 @@ func (s *Server) GetPublicKeyFees(c echo.Context) error {
 	}
 
 	publicKey := c.Param("publicKey")
+
+	var (
+		isTrialActive bool
+		err           error
+	)
+	err = s.db.WithTransaction(c.Request().Context(), func(ctx context.Context, tx pgx.Tx) error {
+		isTrialActive, _, err = s.db.IsTrialActive(ctx, tx, publicKey)
+		return err
+	})
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetFeesFailed))
+	}
+
+	if isTrialActive {
+		return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, []*types.Fee{}))
+	}
 
 	fees, err := s.feeService.PublicKeyGetFeeInfo(c.Request().Context(), publicKey)
 	if err != nil {
@@ -79,6 +97,15 @@ func (s *Server) GetUserFees(c echo.Context) error {
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get user fees")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetUserFeesFailed))
+	}
+
+	err = s.db.WithTransaction(c.Request().Context(), func(ctx context.Context, tx pgx.Tx) error {
+		status.IsTrialActive, status.TrialRemaining, err = s.db.IsTrialActive(ctx, tx, publicKey)
+		return err
+	})
+	if err != nil {
+		s.logger.WithError(err).Warnf("Failed to check trial info")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetUserTrialInfo))
 	}
 
 	return c.JSON(http.StatusOK, status)

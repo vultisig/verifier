@@ -12,6 +12,7 @@ import (
 
 	ecommon "github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
 	v1 "github.com/vultisig/commondata/go/vultisig/vault/v1"
 	"github.com/vultisig/recipes/engine"
@@ -76,6 +77,30 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 	}
 	if policy.PublicKey != publicKey {
 		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgPublicKeyMismatch))
+	}
+
+	var (
+		isTrialActive bool
+		err           error
+	)
+	err = s.db.WithTransaction(c.Request().Context(), func(ctx context.Context, tx pgx.Tx) error {
+		isTrialActive, _, err = s.db.IsTrialActive(ctx, tx, publicKey)
+		return err
+	})
+	if err != nil {
+		s.logger.WithError(err).Warnf("Failed to check trial info")
+	}
+
+	if !isTrialActive {
+		filePathName := common.GetVaultBackupFilename(publicKey, vtypes.PluginVultisigFees_feee.String())
+		exist, err := s.vaultStorage.Exist(filePathName)
+		if err != nil {
+			s.logger.WithError(err).Error("failed to check vault existence")
+			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgInternalError))
+		}
+		if !exist {
+			return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgAccessDeniedBilling))
+		}
 	}
 
 	if !s.verifyPolicySignature(policy) {

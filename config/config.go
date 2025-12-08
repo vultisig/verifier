@@ -21,6 +21,7 @@ type WorkerConfig struct {
 	BlockStorage vault_config.BlockStorage `mapstructure:"block_storage" json:"block_storage,omitempty"`
 	Database     config.Database           `mapstructure:"database" json:"database,omitempty"`
 	Fees         FeesConfig                `mapstructure:"fees" json:"fees"`
+	Metrics      MetricsConfig             `mapstructure:"metrics" json:"metrics,omitempty"`
 }
 
 type VerifierConfig struct {
@@ -40,11 +41,19 @@ type VerifierConfig struct {
 		// pointer so it must be explicitly set to false, no value considered as enabled
 		Enabled *bool `mapstructure:"enabled" json:"enabled,omitempty"`
 	} `mapstructure:"auth" json:"auth"`
-	Fees FeesConfig `mapstructure:"fees" json:"fees"`
+	Fees             FeesConfig    `mapstructure:"fees" json:"fees"`
+	Metrics          MetricsConfig `mapstructure:"metrics" json:"metrics,omitempty"`
+	ProposedYAMLPath string        `mapstructure:"proposed_yaml_path" json:"proposed_yaml_path,omitempty"`
 }
 
 type FeesConfig struct {
 	USDCAddress string `mapstructure:"usdc_address" json:"usdc_address,omitempty"`
+}
+
+type MetricsConfig struct {
+	Enabled bool   `mapstructure:"enabled" json:"enabled,omitempty"`
+	Host    string `mapstructure:"host" json:"host,omitempty"`
+	Port    int    `mapstructure:"port" json:"port,omitempty"`
 }
 
 func GetConfigure() (*WorkerConfig, error) {

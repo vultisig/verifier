@@ -22,8 +22,8 @@ import (
 	"github.com/microcosm-cc/bluemonday"
 	"google.golang.org/protobuf/encoding/protojson"
 
+	"github.com/vultisig/recipes/chain/evm/ethereum"
 	"github.com/vultisig/recipes/engine"
-	"github.com/vultisig/recipes/ethereum"
 	rtypes "github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/internal/conv"
 	"github.com/vultisig/verifier/internal/types"

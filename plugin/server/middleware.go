@@ -26,9 +26,9 @@ func DefaultMiddlewares(logger *logrus.Logger) []echo.MiddlewareFunc {
 // The logger should be configured with JSONFormatter and FieldMap to use "_msg" field.
 func VictoriaMetricsLogger(logger *logrus.Logger) echo.MiddlewareFunc {
 	return middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
-		// Skipper: func(c echo.Context) bool {
-		// 	return c.Path() == "/healthz"
-		// },
+		Skipper: func(c echo.Context) bool {
+			return c.Path() == "/healthz"
+		},
 		LogURI:           true,
 		LogStatus:        true,
 		LogMethod:        true,

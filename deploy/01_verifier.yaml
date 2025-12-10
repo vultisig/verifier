@@ -36,7 +36,7 @@ spec:
                 configMapKeyRef:
                   name: verifier
                   key: server-port
-            - name: SERVER_JWTSECRET
+            - name: SERVER_JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: jwt
@@ -61,12 +61,12 @@ spec:
                 configMapKeyRef:
                   name: minio
                   key: region
-            - name: BLOCK_STORAGE_ACCESSKEY
+            - name: BLOCK_STORAGE_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
                   name: minio
                   key: root-user
-            - name: BLOCK_STORAGE_SECRETKEY
+            - name: BLOCK_STORAGE_SECRET
               valueFrom:
                 secretKeyRef:
                   name: minio
@@ -101,13 +101,8 @@ spec:
               value: "8088"
             - name: PROPOSED_YAML_PATH
               value: "proposed.yaml"
-            - name: FEES_USDCADDRESS
+            - name: FEES_USDC_ADDRESS
               value: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
-            - name: FEES_RECIPIENTWHITELIST
-              valueFrom:
-                configMapKeyRef:
-                  name: verifier
-                  key: fees-recipient-white-list
           resources:
             requests:
               memory: "64Mi"

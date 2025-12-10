@@ -35,18 +35,18 @@ spec:
                 configMapKeyRef:
                   name: relay
                   key: url
-            - name: VAULT_SERVICE_LOCALPARTYPREFIX
+            - name: VAULT_SERVICE_LOCAL_PARTY_PREFIX
               valueFrom:
                 configMapKeyRef:
                   name: vault-service
                   key: local-party-prefix
-            - name: VAULT_SERVICE_ENCRYPTIONSECRET
+            - name: VAULT_SERVICE_ENCRYPTION_SECRET
               valueFrom:
                 secretKeyRef:
                   name: encryption
                   key: secret
-            - name: VAULT_SERVICE_DOSETUPMSG
-              value: "true"
+            - name: VAULT_SERVICE_DO_SETUP_MSG
+              value: "false"
             - name: DATABASE_DSN
               valueFrom:
                 secretKeyRef:
@@ -67,12 +67,12 @@ spec:
                 configMapKeyRef:
                   name: minio
                   key: region
-            - name: BLOCK_STORAGE_ACCESSKEY
+            - name: BLOCK_STORAGE_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
                   name: minio
                   key: root-user
-            - name: BLOCK_STORAGE_SECRETKEY
+            - name: BLOCK_STORAGE_SECRET
               valueFrom:
                 secretKeyRef:
                   name: minio

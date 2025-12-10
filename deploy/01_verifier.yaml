@@ -93,6 +93,21 @@ spec:
                   key: auth-nonce-expiry-minutes
             - name: AUTH_ENABLED
               value: "true"
+            - name: METRICS_ENABLED
+              value: "true"
+            - name: METRICS_HOST
+              value: "0.0.0.0"
+            - name: METRICS_PORT
+              value: "8088"
+            - name: PROPOSED_YAML_PATH
+              value: "proposed.yaml"
+            - name: FEES_USDCADDRESS
+              value: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+            - name: FEES_RECIPIENTWHITELIST
+              valueFrom:
+                configMapKeyRef:
+                  name: verifier
+                  key: fees-recipient-white-list
           resources:
             requests:
               memory: "64Mi"

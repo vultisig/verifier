@@ -8,12 +8,13 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/vultisig/verifier/plugin/metrics"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/graceful"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
 	"github.com/vultisig/vultisig-go/common"
-	"golang.org/x/sync/errgroup"
 )
 
 type Worker struct {

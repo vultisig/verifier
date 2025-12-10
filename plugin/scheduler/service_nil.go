@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/vultisig/verifier/types"
 )
 
@@ -15,14 +14,14 @@ func NewNilService() *NilService {
 	return &NilService{}
 }
 
-func (s *NilService) Create(_ context.Context, _ pgx.Tx, _ types.PluginPolicy) error {
+func (s *NilService) Create(_ context.Context, _ types.PluginPolicy) error {
 	return nil
 }
 
-func (s *NilService) Update(_ context.Context, _ pgx.Tx, _, _ types.PluginPolicy) error {
+func (s *NilService) Update(_ context.Context, _, _ types.PluginPolicy) error {
 	return nil
 }
 
-func (s *NilService) Delete(_ context.Context, _ pgx.Tx, _ uuid.UUID) error {
+func (s *NilService) Delete(_ context.Context, _ uuid.UUID) error {
 	return nil
 }

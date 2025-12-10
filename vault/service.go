@@ -7,6 +7,7 @@ import (
 	"plugin"
 
 	"github.com/google/uuid"
+	"github.com/vultisig/verifier/internal/safety"
 	"github.com/vultisig/verifier/plugin/tx_indexer"
 	"github.com/vultisig/verifier/vault_config"
 
@@ -41,6 +42,7 @@ type ManagementService struct {
 	plugin           plugin.Plugin
 	vaultStorage     Storage
 	txIndexerService *tx_indexer.Service
+	safetyMgm        *safety.Manager
 }
 
 // NewManagementService creates a new instance of the ManagementService
@@ -49,6 +51,7 @@ func NewManagementService(
 	queueClient *asynq.Client,
 	storage Storage,
 	txIndexerService *tx_indexer.Service,
+	safetyMgm *safety.Manager,
 ) (*ManagementService, error) {
 	logger := logrus.WithField("service", "vault-management").Logger
 
@@ -58,6 +61,7 @@ func NewManagementService(
 		logger:           logger,
 		vaultStorage:     storage,
 		txIndexerService: txIndexerService,
+		safetyMgm:        safetyMgm,
 	}, nil
 }
 
@@ -78,6 +82,9 @@ func (s *ManagementService) HandleKeyGenerationDKLS(ctx context.Context, t *asyn
 	}).Info("Joining keygen")
 	if err := req.IsValid(); err != nil {
 		return fmt.Errorf("invalid vault create request: %s: %w", err, asynq.SkipRetry)
+	}
+	if err := s.safetyMgm.EnforceKeygen(ctx, req.PluginID); err != nil {
+		return fmt.Errorf("EnforceKeygen failed: %v: %w", err, asynq.SkipRetry)
 	}
 
 	dklsService, err := NewDKLSTssService(s.cfg, s.vaultStorage, s.queueClient)
@@ -118,25 +125,29 @@ func (s *ManagementService) HandleKeySignDKLS(ctx context.Context, t *asynq.Task
 	if err := contexthelper.CheckCancellation(ctx); err != nil {
 		return err
 	}
-	var p vtypes.KeysignRequest
-	if err := json.Unmarshal(t.Payload(), &p); err != nil {
+	var req vtypes.KeysignRequest
+	if err := json.Unmarshal(t.Payload(), &req); err != nil {
 		s.logger.WithError(err).Error("json.Unmarshal failed")
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
 	}
 	s.logger.WithFields(logrus.Fields{
-		"PublicKey": p.PublicKey,
-		"session":   p.SessionID,
-		"Messages":  len(p.Messages),
-		"PluginID":  p.PluginID,
-		"PolicyID":  p.PolicyID,
+		"PublicKey": req.PublicKey,
+		"session":   req.SessionID,
+		"Messages":  len(req.Messages),
+		"PluginID":  req.PluginID,
+		"PolicyID":  req.PolicyID,
 	}).Info("joining keysign")
+
+	if err := s.safetyMgm.EnforceKeysign(ctx, req.PluginID); err != nil {
+		return fmt.Errorf("EnforceKeysign failed: %v: %w", err, asynq.SkipRetry)
+	}
 
 	dklsService, err := NewDKLSTssService(s.cfg, s.vaultStorage, s.queueClient)
 	if err != nil {
 		return fmt.Errorf("NewDKLSTssService failed: %s: %w", err, asynq.SkipRetry)
 	}
 
-	signatures, err := dklsService.ProcessDKLSKeysign(p)
+	signatures, err := dklsService.ProcessDKLSKeysign(req)
 	if err != nil {
 		s.logger.WithError(err).Error("join keysign failed")
 		return fmt.Errorf("join keysign failed: %v: %w", err, asynq.SkipRetry)
@@ -157,7 +168,7 @@ func (s *ManagementService) HandleKeySignDKLS(ctx context.Context, t *asynq.Task
 		return fmt.Errorf("t.ResultWriter.Write failed: %v: %w", err, asynq.SkipRetry)
 	}
 
-	for _, msg := range p.Messages {
+	for _, msg := range req.Messages {
 		if msg.TxIndexerID == "" {
 			continue // not from plugin
 		}

@@ -113,3 +113,7 @@ type ApiKeyRepository interface {
 	GetAPIKey(ctx context.Context, apiKey string) (*itypes.APIKey, error)
 	GetAPIKeyByPluginId(ctx context.Context, pluginId string) (*itypes.APIKey, error)
 }
+
+type ControlFlagsRepository interface {
+	GetControlFlags(ctx context.Context, k1, k2 string) (map[string]bool, error)
+}

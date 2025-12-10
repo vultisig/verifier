@@ -92,7 +92,7 @@ spec:
                   name: verifier
                   key: auth-nonce-expiry-minutes
             - name: AUTH_ENABLED
-              value: true
+              value: "true"
           resources:
             requests:
               memory: "64Mi"

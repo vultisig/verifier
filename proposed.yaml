@@ -1,7 +1,7 @@
 plugins:
   - id: vultisig-dca-0000
     title: DCA Plugin
-    description: Schedule recurring cryptocurrency swaps across chains and assets
+    description: Automate your long-term investments with the Recurring Swaps app. Securely and automatically convert any Vultisig-supported asset into any other asset on a recurring schedule. Define the asset, amount, and time interval. Your vault executes the schedule without the need for third parties, contracts or bots.
     server_endpoint: https://plugin-dca-swap.lb.services.1conf.com
     category: plugin
     logo_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_swap/icon.jpg
@@ -24,7 +24,7 @@ plugins:
 
   - id: vultisig-recurring-sends-0000
     title: Recurring Send
-    description: Schedule recurring cryptocurrency transfers.
+    description: Automate your outgoing transfers with the Recurring Sends App. Securely schedule recurring payments to any address, for any asset supported in Vultisig. Set the destination, amount, and interval. Your devices approve the setup, and your vault handles the execution automatically.
     server_endpoint: https://plugin-dca-send.lb.services.1conf.com
     category: plugin
     logo_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_send/icon.jpg

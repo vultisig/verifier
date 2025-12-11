@@ -139,7 +139,7 @@ func testPlugin(url, expectedID, expectedTitle string) bool {
 	allPassed := true
 
 	// Test 1: Recipe Specification
-	fmt.Printf("  [1/9] GET /plugin/recipe-specification ... ")
+	fmt.Printf("  [1/8] GET /plugin/recipe-specification ... ")
 	recipeURL := strings.TrimSuffix(url, "/") + "/plugin/recipe-specification"
 	spec, err := testRecipeSpecification(recipeURL, expectedID, expectedTitle)
 	if err != nil {
@@ -296,6 +296,10 @@ func testRecipeSpecification(url, expectedID, expectedTitle string) (*RecipeSpec
 	// Validate expected values if provided
 	if expectedID != "" && pluginID != expectedID {
 		return nil, fmt.Errorf("plugin_id mismatch: expected %s, got %s", expectedID, pluginID)
+	}
+
+	if expectedTitle != "" && pluginName != expectedTitle {
+		return nil, fmt.Errorf("plugin_name mismatch: expected %s, got %s", expectedTitle, pluginName)
 	}
 
 	spec := &RecipeSpec{

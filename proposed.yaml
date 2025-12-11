@@ -1,6 +1,6 @@
 plugins:
   - id: vultisig-dca-0000
-    title: DCA Plugin
+    title: Recurring Swaps
     description: Automate your long-term investments with the Recurring Swaps app. Securely and automatically convert any Vultisig-supported asset into any other asset on a recurring schedule. Define the asset, amount, and time interval. Your vault executes the schedule without the need for third parties, contracts or bots.
     server_endpoint: https://plugin-dca-swap.lb.services.1conf.com
     category: plugin

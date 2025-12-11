@@ -47,6 +47,7 @@ func NewMigrationManager(logger *logrus.Logger, pool *pgxpool.Pool, dir string) 
 
 func (m *MigrationManager) Migrate() error {
 	m.logger.Info("Starting plugin database migration...")
+	goose.SetLogger(logrus.StandardLogger())
 	goose.SetBaseFS(pluginMigrations)
 	defer goose.SetBaseFS(nil)
 	if err := goose.SetDialect("postgres"); err != nil {

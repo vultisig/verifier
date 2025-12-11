@@ -82,9 +82,9 @@ This tool is used in `.github/workflows/plugin-smoke-tests.yaml` to automaticall
 
 ## For Plugin Developers
 
-Your plugin server must implement at minimum:
+Your plugin server must implement all of the following endpoints:
 
-### Required
+### 1. Recipe Specification (Required)
 ```
 GET /plugin/recipe-specification
 ```
@@ -111,10 +111,15 @@ Returns:
 - `supported_resources` (array) - List of supported resource types
 - `permissions` (array) - List of required permissions
 
-### Recommended
-- `GET /vault/exist/:pluginId/:publicKey`
-- `GET /vault/get/:pluginId/:publicKey`
-- `POST /vault/reshare`
-- `DELETE /vault/:pluginId/:publicKey`
+### 2. Vault Endpoints (Required)
+- `GET /vault/exist/:pluginId/:publicKey` - Check if vault exists
+- `GET /vault/get/:pluginId/:publicKey` - Retrieve vault metadata
+- `POST /vault/reshare` - Create or reshare vault
+- `DELETE /vault/:pluginId/:publicKey` - Delete vault
 
-All endpoints should return valid JSON with appropriate HTTP status codes.
+### 3. Policy Endpoints (Required)
+- `POST /plugin/policy` - Create a new policy
+- `PUT /plugin/policy` - Update an existing policy
+- `DELETE /plugin/policy/:policyId` - Delete a policy
+
+All endpoints must return valid HTTP status codes (200, 400, 401, 404) to indicate proper implementation. Authentication errors (401) and validation errors (400) are acceptable, but unexpected errors (500+) will fail the test.

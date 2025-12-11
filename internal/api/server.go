@@ -24,6 +24,7 @@ import (
 	vv "github.com/vultisig/verifier/common/vultisig_validator"
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/clientutil"
+	"github.com/vultisig/verifier/internal/logging"
 	internalMetrics "github.com/vultisig/verifier/internal/metrics"
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/sigutil"
@@ -117,7 +118,7 @@ func (s *Server) StartServer() error {
 		e.Use(s.httpMetrics.Middleware())
 	}
 
-	e.Use(middleware.Logger())
+	e.Use(logging.LoggerMiddleware(logrus.StandardLogger()))
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit("2M")) // set maximum allowed size for a request body to 2M
 	e.Use(middleware.CORS())

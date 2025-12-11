@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: verifier
+  name: verifier-dashboard
   labels:
     grafana-dashboard: "true"
 data:
-  verifier.json: |
+  verifier-dashboard.json: |
     {
       "id": null,
       "links": [],

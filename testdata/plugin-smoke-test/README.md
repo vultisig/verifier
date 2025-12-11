@@ -47,7 +47,7 @@ Plugin 1/2
   ID:    vultisig-dca-0000
   Title: DCA Plugin
 
-  [1/9] GET /plugin/recipe-specification ... ✅
+  [1/8] GET /plugin/recipe-specification ... ✅
         Plugin ID: vultisig-dca-0000
         Plugin Name: Recurring Swaps
   [2/8] GET /vault/exist/:pluginId/:publicKey ... ✅

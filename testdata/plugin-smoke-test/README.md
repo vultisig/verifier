@@ -115,7 +115,7 @@ go build -o plugin-smoke-test testdata/plugin-smoke-test/main.go
 
 ## CI Integration
 
-This tool is used in `.github/workflows/plugin-smoke-tests.yaml` to automatically test all plugins whenever:
+This tool is used in GitHub Actions (`.github/workflows/plugin-smoke-tests.yaml`) to automatically test all plugins whenever:
 
 * `proposed.yaml` changes, or
 * the smoke test tool / workflow itself changes.

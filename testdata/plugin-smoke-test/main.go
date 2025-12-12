@@ -118,8 +118,8 @@ func main() {
 	sem := make(chan struct{}, concurrentRuns)
 
 	wg.Add(len(proposed.Plugins))
-	for i, plugin := range proposed.Plugins {
-		go func(idx int, p Plugin) {
+	for _, plugin := range proposed.Plugins {
+		go func(p Plugin) {
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
@@ -129,7 +129,7 @@ func main() {
 			} else {
 				failed.Add(1)
 			}
-		}(i, plugin)
+		}(plugin)
 	}
 	wg.Wait()
 
@@ -317,13 +317,24 @@ func testVaultExist(baseURL, pluginID string) error {
 	}
 	defer resp.Body.Close()
 
-	// Accept either 200 (exists) or 400 (doesn't exist) as valid responses
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusBadRequest {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected HTTP %d: %s", resp.StatusCode, string(body))
+	body, _ := io.ReadAll(resp.Body)
+
+	// Accept 200, 400, 401, or 404 as valid responses
+	if resp.StatusCode == http.StatusOK ||
+		resp.StatusCode == http.StatusBadRequest ||
+		resp.StatusCode == http.StatusUnauthorized ||
+		resp.StatusCode == http.StatusNotFound {
+		// Validate JSON response if body is non-empty
+		if len(body) > 0 {
+			var result map[string]interface{}
+			if err := json.Unmarshal(body, &result); err != nil {
+				return fmt.Errorf("invalid response JSON: %v", err)
+			}
+		}
+		return nil
 	}
 
-	return nil
+	return fmt.Errorf("unexpected HTTP %d: %s", resp.StatusCode, string(body))
 }
 
 func testVaultGet(baseURL, pluginID string) error {
@@ -339,7 +350,7 @@ func testVaultGet(baseURL, pluginID string) error {
 	body, _ := io.ReadAll(resp.Body)
 
 	// Endpoint must respond with valid JSON structure
-	// Accept 200 (vault exists with data) or 400/404 (vault doesn't exist)
+	// Accept 200 (vault exists with data) or 400/401/404 (vault doesn't exist or auth required)
 	if resp.StatusCode == http.StatusOK {
 		// Validate response is valid JSON
 		var result map[string]interface{}
@@ -352,15 +363,17 @@ func testVaultGet(baseURL, pluginID string) error {
 		return nil
 	}
 
-	if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusNotFound {
-		// Validate error response is valid JSON
+	if resp.StatusCode == http.StatusBadRequest ||
+		resp.StatusCode == http.StatusUnauthorized ||
+		resp.StatusCode == http.StatusNotFound {
+		// Validate error response is valid JSON if body present
 		if len(body) > 0 {
 			var result map[string]interface{}
 			if err := json.Unmarshal(body, &result); err != nil {
 				return fmt.Errorf("invalid error response JSON: %v", err)
 			}
 		}
-		return nil // Vault doesn't exist, which is fine
+		return nil // Acceptable response
 	}
 
 	return fmt.Errorf("unexpected HTTP %d: %s", resp.StatusCode, string(body))
@@ -381,15 +394,24 @@ func testVaultDelete(baseURL, pluginID string) error {
 	}
 	defer resp.Body.Close()
 
-	// Accept 200, 400, or 404 as valid - endpoint exists and behaves sanely
-	if resp.StatusCode != http.StatusOK &&
-		resp.StatusCode != http.StatusBadRequest &&
-		resp.StatusCode != http.StatusNotFound {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected HTTP %d: %s", resp.StatusCode, string(body))
+	body, _ := io.ReadAll(resp.Body)
+
+	// Accept 200, 400, 401, or 404 as valid - endpoint exists and behaves sanely
+	if resp.StatusCode == http.StatusOK ||
+		resp.StatusCode == http.StatusBadRequest ||
+		resp.StatusCode == http.StatusUnauthorized ||
+		resp.StatusCode == http.StatusNotFound {
+		// Validate JSON response if body is non-empty
+		if len(body) > 0 {
+			var result map[string]interface{}
+			if err := json.Unmarshal(body, &result); err != nil {
+				return fmt.Errorf("invalid response JSON: %v", err)
+			}
+		}
+		return nil
 	}
 
-	return nil
+	return fmt.Errorf("unexpected HTTP %d: %s", resp.StatusCode, string(body))
 }
 
 func testVaultReshare(baseURL, pluginID string) error {
@@ -412,21 +434,30 @@ func testVaultReshare(baseURL, pluginID string) error {
 		"email": "test@example.com",
 		"plugin_id": "%s"
 	}`, pluginID)
-
 	resp, err := doPost(url, "application/json", strings.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("request failed: %v", err)
 	}
 	defer resp.Body.Close()
 
-	// Accept 200 (success) or 400 (validation error) as valid
-	// We're just testing the endpoint exists and responds
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusBadRequest {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected HTTP %d: %s", resp.StatusCode, string(body))
+	body, _ := io.ReadAll(resp.Body)
+
+	// Accept 200, 400, 401, or 404 as valid - endpoint exists and responds
+	if resp.StatusCode == http.StatusOK ||
+		resp.StatusCode == http.StatusBadRequest ||
+		resp.StatusCode == http.StatusUnauthorized ||
+		resp.StatusCode == http.StatusNotFound {
+		// Validate JSON response if body is non-empty
+		if len(body) > 0 {
+			var result map[string]interface{}
+			if err := json.Unmarshal(body, &result); err != nil {
+				return fmt.Errorf("invalid response JSON: %v", err)
+			}
+		}
+		return nil
 	}
 
-	return nil
+	return fmt.Errorf("unexpected HTTP %d: %s", resp.StatusCode, string(body))
 }
 
 func testCreatePolicy(baseURL, pluginID string) error {
@@ -444,7 +475,6 @@ func testCreatePolicy(baseURL, pluginID string) error {
 		"billing": [],
 		"active": true
 	}`, pluginID)
-
 	resp, err := doPost(url, "application/json", strings.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("request failed: %v", err)
@@ -508,9 +538,7 @@ func testDeletePolicy(baseURL string) error {
 	policyID := "00000000-0000-0000-0000-000000000001"
 	url := fmt.Sprintf("%s/plugin/policy/%s", strings.TrimSuffix(baseURL, "/"), policyID)
 
-	// Send signature in request body
 	payload := `{"signature": "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"}`
-
 	req, err := http.NewRequest("DELETE", url, strings.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %v", err)

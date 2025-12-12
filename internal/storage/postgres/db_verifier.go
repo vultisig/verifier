@@ -24,6 +24,7 @@ func NewVerifierMigrationManager(pool *pgxpool.Pool) *VerifierMigrationManager {
 
 func (v *VerifierMigrationManager) Migrate() error {
 	logrus.Info("Starting verifier database migration...")
+	goose.SetLogger(logrus.StandardLogger())
 	goose.SetBaseFS(verifierMigrations)
 	defer goose.SetBaseFS(nil)
 	if err := goose.SetDialect("postgres"); err != nil {

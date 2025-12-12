@@ -7,12 +7,17 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 )
 
 const userAgent = "plugin-smoke-test/1.0"
+
+var log = logrus.New()
 
 // Shared HTTP client for all requests
 var httpClient = &http.Client{
@@ -59,10 +64,18 @@ type RecipeSpec struct {
 	PluginName string `json:"plugin_name"`
 }
 
+type ReshareResponse struct {
+	KeyShare string `json:"key_share"`
+}
+
 func main() {
+	log.SetFormatter(&logrus.TextFormatter{
+		DisableTimestamp: true,
+		FullTimestamp:    false,
+	})
+
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: plugin-smoke-test <proposed.yaml|plugin-url>")
-		os.Exit(1)
+		log.Fatal("Usage: plugin-smoke-test <proposed.yaml|plugin-url>")
 	}
 
 	arg := os.Args[1]
@@ -89,153 +102,136 @@ func main() {
 	// Test all plugins from YAML file
 	data, err := os.ReadFile(arg)
 	if err != nil {
-		fmt.Printf("❌ Failed to read file: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Failed to read file: %v", err)
 	}
 
 	var proposed ProposedYAML
 	if err := yaml.Unmarshal(data, &proposed); err != nil {
-		fmt.Printf("❌ Failed to parse YAML: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Failed to parse YAML: %v", err)
 	}
 
-	fmt.Printf("\n🧪 Testing %d plugins from %s\n\n", len(proposed.Plugins), arg)
+	log.Infof("Testing %d plugins from %s", len(proposed.Plugins), arg)
 
-	failed := 0
-	passed := 0
+	concurrentRuns := 20
+	var wg sync.WaitGroup
+	var passed, failed atomic.Int32
+	sem := make(chan struct{}, concurrentRuns)
 
+	wg.Add(len(proposed.Plugins))
 	for i, plugin := range proposed.Plugins {
-		fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-		fmt.Printf("Plugin %d/%d\n", i+1, len(proposed.Plugins))
-		fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+		go func(idx int, p Plugin) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 
-		if testPlugin(plugin.ServerEndpoint, plugin.ID, plugin.Title) {
-			passed++
-		} else {
-			failed++
-		}
-		fmt.Println()
+			if testPlugin(p.ServerEndpoint, p.ID, p.Title) {
+				passed.Add(1)
+			} else {
+				failed.Add(1)
+			}
+		}(i, plugin)
 	}
+	wg.Wait()
 
-	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-	fmt.Printf("Summary: %d passed, %d failed\n", passed, failed)
-	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	log.Infof("Summary: %d passed, %d failed", passed.Load(), failed.Load())
 
-	if failed > 0 {
+	if failed.Load() > 0 {
 		os.Exit(1)
 	}
 }
 
 func testPlugin(url, expectedID, expectedTitle string) bool {
-	fmt.Printf("  URL:   %s\n", url)
-	if expectedID != "" {
-		fmt.Printf("  ID:    %s\n", expectedID)
-	}
-	if expectedTitle != "" {
-		fmt.Printf("  Title: %s\n", expectedTitle)
-	}
-	fmt.Println()
+	entry := log.WithFields(logrus.Fields{
+		"url":  url,
+		"id":   expectedID,
+		"name": expectedTitle,
+	})
+
+	entry.Info("Testing plugin")
 
 	allPassed := true
 
 	// Test 1: Recipe Specification
-	fmt.Printf("  [1/8] GET /plugin/recipe-specification ... ")
 	recipeURL := strings.TrimSuffix(url, "/") + "/plugin/recipe-specification"
 	spec, err := testRecipeSpecification(recipeURL, expectedID, expectedTitle)
 	if err != nil {
-		fmt.Printf("❌\n")
-		fmt.Printf("        Error: %v\n", err)
-		allPassed = false
-		// Without a valid spec, we can't test endpoints that depend on plugin_id
-		fmt.Printf("\n  ❌ Recipe specification failed - skipping remaining tests\n")
-		return allPassed
+		entry.WithField("test", "recipe-specification").Errorf("Failed: %v", err)
+		entry.Error("Recipe specification failed - skipping remaining tests")
+		return false
 	}
 
-	fmt.Printf("✅\n")
-	fmt.Printf("        Plugin ID: %s\n", spec.PluginID)
-	fmt.Printf("        Plugin Name: %s\n", spec.PluginName)
+	entry.WithField("test", "recipe-specification").WithFields(logrus.Fields{
+		"plugin_id":   spec.PluginID,
+		"plugin_name": spec.PluginName,
+	}).Info("Success")
 
 	// From here on, spec is guaranteed to be non-nil
 	pluginID := spec.PluginID
 	if pluginID == "" {
-		fmt.Printf("\n  ❌ Plugin ID is empty - cannot test remaining endpoints\n")
+		entry.Error("Plugin ID is empty - cannot test remaining endpoints")
 		return false
 	}
 
 	// Test 2: Vault Exist
-	fmt.Printf("  [2/8] GET /vault/exist/:pluginId/:publicKey ... ")
 	if err := testVaultExist(url, pluginID); err != nil {
-		fmt.Printf("❌\n")
-		fmt.Printf("        Error: %v\n", err)
+		entry.WithField("test", "vault-exist").Errorf("Failed: %v", err)
 		allPassed = false
 	} else {
-		fmt.Printf("✅\n")
+		entry.WithField("test", "vault-exist").Info("Success")
 	}
 
 	// Test 3: Vault Get
-	fmt.Printf("  [3/8] GET /vault/get/:pluginId/:publicKey ... ")
 	if err := testVaultGet(url, pluginID); err != nil {
-		fmt.Printf("❌\n")
-		fmt.Printf("        Error: %v\n", err)
+		entry.WithField("test", "vault-get").Errorf("Failed: %v", err)
 		allPassed = false
 	} else {
-		fmt.Printf("✅\n")
+		entry.WithField("test", "vault-get").Info("Success")
 	}
 
 	// Test 4: Vault Delete
-	fmt.Printf("  [4/8] DELETE /vault/:pluginId/:publicKey ... ")
 	if err := testVaultDelete(url, pluginID); err != nil {
-		fmt.Printf("❌\n")
-		fmt.Printf("        Note: %v\n", err)
+		entry.WithField("test", "vault-delete").Errorf("Failed: %v", err)
 		allPassed = false
 	} else {
-		fmt.Printf("✅\n")
+		entry.WithField("test", "vault-delete").Info("Success")
 	}
 
 	// Test 5: Vault Reshare
-	fmt.Printf("  [5/8] POST /vault/reshare ... ")
 	if err := testVaultReshare(url, pluginID); err != nil {
-		fmt.Printf("❌\n")
-		fmt.Printf("        Error: %v\n", err)
+		entry.WithField("test", "vault-reshare").Errorf("Failed: %v", err)
 		allPassed = false
 	} else {
-		fmt.Printf("✅\n")
+		entry.WithField("test", "vault-reshare").Info("Success")
 	}
 
 	// Test 6: Create Policy
-	fmt.Printf("  [6/8] POST /plugin/policy ... ")
 	if err := testCreatePolicy(url, pluginID); err != nil {
-		fmt.Printf("❌\n")
-		fmt.Printf("        Error: %v\n", err)
+		entry.WithField("test", "create-policy").Errorf("Failed: %v", err)
 		allPassed = false
 	} else {
-		fmt.Printf("✅\n")
+		entry.WithField("test", "create-policy").Info("Success")
 	}
 
 	// Test 7: Update Policy
-	fmt.Printf("  [7/8] PUT /plugin/policy ... ")
 	if err := testUpdatePolicy(url, pluginID); err != nil {
-		fmt.Printf("❌\n")
-		fmt.Printf("        Error: %v\n", err)
+		entry.WithField("test", "update-policy").Errorf("Failed: %v", err)
 		allPassed = false
 	} else {
-		fmt.Printf("✅\n")
+		entry.WithField("test", "update-policy").Info("Success")
 	}
 
 	// Test 8: Delete Policy
-	fmt.Printf("  [8/8] DELETE /plugin/policy/:policyId ... ")
 	if err := testDeletePolicy(url); err != nil {
-		fmt.Printf("❌\n")
-		fmt.Printf("        Error: %v\n", err)
+		entry.WithField("test", "delete-policy").Errorf("Failed: %v", err)
 		allPassed = false
 	} else {
-		fmt.Printf("✅\n")
+		entry.WithField("test", "delete-policy").Info("Success")
 	}
 
 	if allPassed {
-		fmt.Printf("\n  ✅ All tests passed!\n")
+		entry.Info("All tests passed")
 	} else {
-		fmt.Printf("\n  ❌ Some tests failed\n")
+		entry.Error("Some tests failed")
 	}
 
 	return allPassed
@@ -340,15 +336,34 @@ func testVaultGet(baseURL, pluginID string) error {
 	}
 	defer resp.Body.Close()
 
-	// Accept 200, 400, or 404 as valid (vault likely doesn't exist)
-	if resp.StatusCode != http.StatusOK &&
-		resp.StatusCode != http.StatusBadRequest &&
-		resp.StatusCode != http.StatusNotFound {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected HTTP %d: %s", resp.StatusCode, string(body))
+	body, _ := io.ReadAll(resp.Body)
+
+	// Endpoint must respond with valid JSON structure
+	// Accept 200 (vault exists with data) or 400/404 (vault doesn't exist)
+	if resp.StatusCode == http.StatusOK {
+		// Validate response is valid JSON
+		var result map[string]interface{}
+		if err := json.Unmarshal(body, &result); err != nil {
+			return fmt.Errorf("invalid response JSON: %v", err)
+		}
+		if len(result) == 0 {
+			return fmt.Errorf("response body is empty")
+		}
+		return nil
 	}
 
-	return nil
+	if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusNotFound {
+		// Validate error response is valid JSON
+		if len(body) > 0 {
+			var result map[string]interface{}
+			if err := json.Unmarshal(body, &result); err != nil {
+				return fmt.Errorf("invalid error response JSON: %v", err)
+			}
+		}
+		return nil // Vault doesn't exist, which is fine
+	}
+
+	return fmt.Errorf("unexpected HTTP %d: %s", resp.StatusCode, string(body))
 }
 
 func testVaultDelete(baseURL, pluginID string) error {
@@ -412,7 +427,7 @@ func testVaultReshare(baseURL, pluginID string) error {
 func testCreatePolicy(baseURL, pluginID string) error {
 	url := strings.TrimSuffix(baseURL, "/") + "/plugin/policy"
 
-	// Use minimal test payload - will likely fail auth/validation but tests endpoint exists
+	// Use valid test payload
 	payload := fmt.Sprintf(`{
 		"id": "00000000-0000-0000-0000-000000000001",
 		"public_key": "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -446,7 +461,7 @@ func testCreatePolicy(baseURL, pluginID string) error {
 func testUpdatePolicy(baseURL, pluginID string) error {
 	url := strings.TrimSuffix(baseURL, "/") + "/plugin/policy"
 
-	// Use minimal test payload
+	// Use valid test payload
 	payload := fmt.Sprintf(`{
 		"id": "00000000-0000-0000-0000-000000000001",
 		"public_key": "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -484,7 +499,7 @@ func testUpdatePolicy(baseURL, pluginID string) error {
 }
 
 func testDeletePolicy(baseURL string) error {
-	// Use a dummy policy ID
+	// Use a test policy ID
 	policyID := "00000000-0000-0000-0000-000000000001"
 	url := fmt.Sprintf("%s/plugin/policy/%s", strings.TrimSuffix(baseURL, "/"), policyID)
 

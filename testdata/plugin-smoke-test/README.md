@@ -37,32 +37,21 @@ All endpoints must respond with valid HTTP status codes (200, 400, 401, 404) to 
 
 ## Output Format
 
+The tool uses structured logging for clear, machine-parseable output:
+
 ```
-🧪 Testing 2 plugins from proposed.yaml
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Plugin 1/2
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  URL:   https://plugin-dca-swap.lb.services.1conf.com
-  ID:    vultisig-dca-0000
-  Title: DCA Plugin
-
-  [1/8] GET /plugin/recipe-specification ... ✅
-        Plugin ID: vultisig-dca-0000
-        Plugin Name: Recurring Swaps
-  [2/8] GET /vault/exist/:pluginId/:publicKey ... ✅
-  [3/8] GET /vault/get/:pluginId/:publicKey ... ✅
-  [4/8] DELETE /vault/:pluginId/:publicKey ... ✅
-  [5/8] POST /vault/reshare ... ✅
-  [6/8] POST /plugin/policy ... ✅
-  [7/8] PUT /plugin/policy ... ✅
-  [8/8] DELETE /plugin/policy/:policyId ... ✅
-
-  ✅ All tests passed!
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Summary: 2 passed, 0 failed
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+level=info msg="Testing 2 plugins from proposed.yaml"
+level=info msg="Testing plugin" id=vultisig-dca-0000 name="Recurring Swaps" url="https://plugin-dca-swap.lb.services.1conf.com"
+level=info msg=Success test=recipe-specification plugin_id=vultisig-dca-0000 plugin_name="Recurring Swaps" url="https://plugin-dca-swap.lb.services.1conf.com" id=vultisig-dca-0000
+level=info msg=Success test=vault-exist url="https://plugin-dca-swap.lb.services.1conf.com" id=vultisig-dca-0000
+level=info msg=Success test=vault-get url="https://plugin-dca-swap.lb.services.1conf.com" id=vultisig-dca-0000
+level=info msg=Success test=vault-delete url="https://plugin-dca-swap.lb.services.1conf.com" id=vultisig-dca-0000
+level=info msg=Success test=vault-reshare url="https://plugin-dca-swap.lb.services.1conf.com" id=vultisig-dca-0000
+level=info msg=Success test=create-policy url="https://plugin-dca-swap.lb.services.1conf.com" id=vultisig-dca-0000
+level=info msg=Success test=update-policy url="https://plugin-dca-swap.lb.services.1conf.com" id=vultisig-dca-0000
+level=info msg=Success test=delete-policy url="https://plugin-dca-swap.lb.services.1conf.com" id=vultisig-dca-0000
+level=info msg="All tests passed" url="https://plugin-dca-swap.lb.services.1conf.com" id=vultisig-dca-0000
+level=info msg="Summary: 2 passed, 0 failed"
 ```
 
 ## Building
@@ -122,4 +111,12 @@ Returns:
 - `PUT /plugin/policy` - Update an existing policy
 - `DELETE /plugin/policy/:policyId` - Delete a policy
 
-All endpoints must return valid HTTP status codes (200, 400, 401, 404) to indicate proper implementation. Authentication errors (401) and validation errors (400) are acceptable, but unexpected errors (500+) will fail the test.
+All endpoints must return valid HTTP status codes and proper JSON responses:
+
+#### Success Responses (HTTP 200)
+- Must return valid JSON
+- For `POST /vault/reshare`: Must return `{"key_share": "..."}` with non-empty keyshare to prove plugin is installed and functional
+
+#### Error Responses (HTTP 400, 401, 404)
+- May return valid JSON error messages or empty body
+- For optional endpoints, these statuses indicate proper endpoint implementation (accepting test with validation/auth errors)

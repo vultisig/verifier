@@ -1,6 +1,6 @@
 plugins:
   - id: vultisig-dca-0000
-    title: DCA Plugin
+    title: Recurring Swaps
     description: Automate your long-term investments with the Recurring Swaps app. Securely and automatically convert any Vultisig-supported asset into any other asset on a recurring schedule. Define the asset, amount, and time interval. Your vault executes the schedule without the need for third parties, contracts or bots.
     server_endpoint: https://plugin-dca-swap.lb.services.1conf.com
     category: plugin
@@ -23,7 +23,7 @@ plugins:
         answer: A fixed fee of $0.50 USDC per executed trade is charged and added to your account’s fee balance. As with all Vultisig apps, the Fee Management app will deduct the accumulated balance on the due date, which you can see in the Billing section of the app store. There is no minimum DCA amount – you are free to DCA any amount you like.
 
   - id: vultisig-recurring-sends-0000
-    title: Recurring Send
+    title: Recurring Sends
     description: Automate your outgoing transfers with the Recurring Sends App. Securely schedule recurring payments to any address, for any asset supported in Vultisig. Set the destination, amount, and interval. Your devices approve the setup, and your vault handles the execution automatically.
     server_endpoint: https://plugin-dca-send.lb.services.1conf.com
     category: plugin

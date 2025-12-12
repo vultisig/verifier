@@ -395,6 +395,11 @@ func testVaultDelete(baseURL, pluginID string) error {
 func testVaultReshare(baseURL, pluginID string) error {
 	url := strings.TrimSuffix(baseURL, "/") + "/vault/reshare"
 
+	// NOTE: This is a lightweight API contract smoke test.
+	// It verifies that plugin endpoints exist and respond with proper HTTP status codes.
+	// Full E2E tests (including real reshare + key_share validation via verifier+DB)
+	// are planned as a separate integration test suite.
+
 	// Use minimal valid payload
 	payload := fmt.Sprintf(`{
 		"name": "smoke-test-vault",

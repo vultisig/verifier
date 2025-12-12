@@ -6,11 +6,6 @@ on:
       - 'proposed.yaml'
       - '.github/workflows/plugin-smoke-tests.yaml'
       - 'testdata/plugin-smoke-test/**'
-  pull_request:
-    paths:
-      - 'proposed.yaml'
-      - '.github/workflows/plugin-smoke-tests.yaml'
-      - 'testdata/plugin-smoke-test/**'
 
 jobs:
   test-plugins:

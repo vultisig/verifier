@@ -75,7 +75,7 @@ func main() {
 	})
 
 	if len(os.Args) < 2 {
-		log.Fatal("Usage: plugin-smoke-test <proposed.yaml|plugin-url>")
+		log.Fatal("Usage: plugin-smoke-test <proposed.yaml|plugin-url> [plugin-id] [plugin-title]")
 	}
 
 	arg := os.Args[1]
@@ -481,16 +481,25 @@ func testCreatePolicy(baseURL, pluginID string) error {
 	}
 	defer resp.Body.Close()
 
-	// Accept 200, 400 (validation), or 401 (auth) as valid responses
-	// We're just checking the endpoint exists
-	if resp.StatusCode != http.StatusOK &&
-		resp.StatusCode != http.StatusBadRequest &&
-		resp.StatusCode != http.StatusUnauthorized {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected HTTP %d: %s", resp.StatusCode, string(body))
+	body, _ := io.ReadAll(resp.Body)
+
+	// Accept 200, 400 (validation), 401 (auth), or 404 (not found) as valid responses
+	if resp.StatusCode == http.StatusOK ||
+		resp.StatusCode == http.StatusCreated ||
+		resp.StatusCode == http.StatusBadRequest ||
+		resp.StatusCode == http.StatusUnauthorized ||
+		resp.StatusCode == http.StatusNotFound {
+		// Validate JSON response if body is non-empty
+		if len(body) > 0 {
+			var result map[string]interface{}
+			if err := json.Unmarshal(body, &result); err != nil {
+				return fmt.Errorf("invalid response JSON: %v", err)
+			}
+		}
+		return nil
 	}
 
-	return nil
+	return fmt.Errorf("unexpected HTTP %d: %s", resp.StatusCode, string(body))
 }
 
 func testUpdatePolicy(baseURL, pluginID string) error {
@@ -521,16 +530,24 @@ func testUpdatePolicy(baseURL, pluginID string) error {
 	}
 	defer resp.Body.Close()
 
+	body, _ := io.ReadAll(resp.Body)
+
 	// Accept 200, 400 (validation), 401 (auth), or 404 (not found) as valid
-	if resp.StatusCode != http.StatusOK &&
-		resp.StatusCode != http.StatusBadRequest &&
-		resp.StatusCode != http.StatusUnauthorized &&
-		resp.StatusCode != http.StatusNotFound {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected HTTP %d: %s", resp.StatusCode, string(body))
+	if resp.StatusCode == http.StatusOK ||
+		resp.StatusCode == http.StatusBadRequest ||
+		resp.StatusCode == http.StatusUnauthorized ||
+		resp.StatusCode == http.StatusNotFound {
+		// Validate JSON response if body is non-empty
+		if len(body) > 0 {
+			var result map[string]interface{}
+			if err := json.Unmarshal(body, &result); err != nil {
+				return fmt.Errorf("invalid response JSON: %v", err)
+			}
+		}
+		return nil
 	}
 
-	return nil
+	return fmt.Errorf("unexpected HTTP %d: %s", resp.StatusCode, string(body))
 }
 
 func testDeletePolicy(baseURL string) error {
@@ -551,14 +568,23 @@ func testDeletePolicy(baseURL string) error {
 	}
 	defer resp.Body.Close()
 
+	body, _ := io.ReadAll(resp.Body)
+
 	// Accept 200, 400 (validation), 401 (auth), or 404 (not found) as valid
-	if resp.StatusCode != http.StatusOK &&
-		resp.StatusCode != http.StatusBadRequest &&
-		resp.StatusCode != http.StatusUnauthorized &&
-		resp.StatusCode != http.StatusNotFound {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected HTTP %d: %s", resp.StatusCode, string(body))
+	if resp.StatusCode == http.StatusOK ||
+		resp.StatusCode == http.StatusNoContent ||
+		resp.StatusCode == http.StatusBadRequest ||
+		resp.StatusCode == http.StatusUnauthorized ||
+		resp.StatusCode == http.StatusNotFound {
+		// Validate JSON response if body is non-empty
+		if len(body) > 0 {
+			var result map[string]interface{}
+			if err := json.Unmarshal(body, &result); err != nil {
+				return fmt.Errorf("invalid response JSON: %v", err)
+			}
+		}
+		return nil
 	}
 
-	return nil
+	return fmt.Errorf("unexpected HTTP %d: %s", resp.StatusCode, string(body))
 }

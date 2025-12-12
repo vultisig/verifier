@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
 
-	"github.com/vultisig/verifier/internal/safety"
 	"github.com/vultisig/verifier/internal/storage"
+	"github.com/vultisig/verifier/safety"
 	vtypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/verifier/vault"
 )

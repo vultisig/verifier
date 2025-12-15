@@ -24,6 +24,9 @@ FROM debian:bookworm
 COPY --from=builder /usr/src/app/bin/out/ /usr/local/bin/
 COPY --from=builder /usr/local/lib/dkls /usr/local/lib/dkls
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /usr/src/app/proposed.yaml /app/proposed.yaml
 ENV LD_LIBRARY_PATH=/usr/local/lib/dkls/includes/linux/:$LD_LIBRARY_PATH
+
+WORKDIR /app
 
 CMD ["verifier"]

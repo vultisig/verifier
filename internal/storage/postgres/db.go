@@ -46,6 +46,7 @@ func NewPostgresBackend(dsn string, opts *MigrationOptions, proposedYAMLPath str
 	}
 
 	if proposedYAMLPath != "" {
+		logrus.Infof("Syncing plugins from YAML at %s", proposedYAMLPath)
 		err = backend.SyncPluginsFromYAML(proposedYAMLPath)
 		if err != nil {
 			logrus.Warnf("Failed to sync plugins from YAML: %v", err)

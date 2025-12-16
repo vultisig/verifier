@@ -7,8 +7,8 @@ import (
 	"plugin"
 
 	"github.com/google/uuid"
-	"github.com/vultisig/verifier/internal/safety"
 	"github.com/vultisig/verifier/plugin/tx_indexer"
+	"github.com/vultisig/verifier/safety"
 	"github.com/vultisig/verifier/vault_config"
 
 	"github.com/hibiken/asynq"

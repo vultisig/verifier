@@ -34,12 +34,10 @@ jobs:
           cd go-wrappers-master
           sudo mkdir -p /usr/local/lib/dkls
           sudo cp --recursive includes /usr/local/lib/dkls
-
       - name: Run tests
         run: |
           export LD_LIBRARY_PATH=/usr/local/lib/dkls/includes/linux/:$LD_LIBRARY_PATH
           go test ./...
-
       # - name: Run vet
       #   run: go vet ./...
 
@@ -50,7 +48,6 @@ jobs:
             gofmt -s -l .
             exit 1
           fi
-
   build:
     needs: test
     runs-on: ubuntu-22.04
@@ -69,7 +66,6 @@ jobs:
           go build -o verifier cmd/verifier/main.go
           go build -o tx_indexer cmd/tx_indexer/main.go
           go build -o worker cmd/worker/main.go
-
   deploy-production:
     needs: [test, build]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/release/')

@@ -54,14 +54,14 @@ sudo mkdir -p /var/lib/vultisig
 sudo chown $USER:$USER /var/lib/vultisig
 echo "Binary installation successful:"
 ls -la /usr/local/bin/verifier /usr/local/bin/txindexer /usr/local/bin/worker
-echo "Installing configuration files..."
+echo "Updating configuration file..."
 # Verify proposed.yaml exists before copying
 if [ ! -f "proposed.yaml" ]; then
     echo "ERROR: proposed.yaml not found in $DEPLOY_PATH"
     exit 1
 fi
 sudo cp proposed.yaml /var/lib/vultisig/
-echo "Configuration files installation successful:"
+echo "Configuration file updated:"
 ls -la /var/lib/vultisig/proposed.yaml
 echo "Restarting systemd services..."
 sudo systemctl restart verifier

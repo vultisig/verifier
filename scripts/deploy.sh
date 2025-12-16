@@ -35,6 +35,7 @@ echo "Installing binaries to /usr/local/bin/..."
 sudo cp verifier /usr/local/bin/
 sudo cp txindexer /usr/local/bin/
 sudo cp worker /usr/local/bin/
+sudo cp proposed.yaml /usr/local/bin/
 sudo chmod +x /usr/local/bin/verifier /usr/local/bin/txindexer /usr/local/bin/worker
 # Verify binaries were installed
 if [ ! -f "/usr/local/bin/verifier" ]; then

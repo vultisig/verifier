@@ -476,7 +476,7 @@ func (t *DKLSTssService) processKeysignInbound(
 				return nil
 			}
 		}
-		time.After(time.Millisecond * 100)
+		time.Sleep(time.Millisecond * 100)
 	}
 }
 

@@ -371,7 +371,7 @@ func (t *DKLSTssService) processQcInbound(handle Handle,
 				return encodedPublicKey, chainCode, nil
 			}
 		}
-		time.After(time.Millisecond * 100)
+		time.Sleep(time.Millisecond * 100)
 	}
 
 }

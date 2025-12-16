@@ -415,6 +415,6 @@ func (t *DKLSTssService) processKeygenInbound(handle Handle,
 				return encodedPublicKey, chainCode, err
 			}
 		}
-		time.After(time.Millisecond * 100)
+		time.Sleep(time.Millisecond * 100)
 	}
 }

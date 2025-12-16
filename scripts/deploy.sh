@@ -35,7 +35,6 @@ echo "Installing binaries to /usr/local/bin/..."
 sudo cp verifier /usr/local/bin/
 sudo cp txindexer /usr/local/bin/
 sudo cp worker /usr/local/bin/
-sudo cp proposed.yaml /usr/local/bin/
 sudo chmod +x /usr/local/bin/verifier /usr/local/bin/txindexer /usr/local/bin/worker
 # Verify binaries were installed
 if [ ! -f "/usr/local/bin/verifier" ]; then
@@ -55,6 +54,15 @@ sudo mkdir -p /var/lib/vultisig
 sudo chown $USER:$USER /var/lib/vultisig
 echo "Binary installation successful:"
 ls -la /usr/local/bin/verifier /usr/local/bin/txindexer /usr/local/bin/worker
+echo "Installing configuration files..."
+# Verify proposed.yaml exists before copying
+if [ ! -f "proposed.yaml" ]; then
+    echo "ERROR: proposed.yaml not found in $DEPLOY_PATH"
+    exit 1
+fi
+sudo cp proposed.yaml /var/lib/vultisig/
+echo "Configuration files installation successful:"
+ls -la /var/lib/vultisig/proposed.yaml
 echo "Restarting systemd services..."
 sudo systemctl restart verifier
 sudo systemctl restart txindexer

@@ -432,53 +432,51 @@ func (t *DKLSTssService) processKeysignInbound(
 	relayClient := vgrelay.NewRelayClient(t.cfg.Relay.Server)
 	start := time.Now()
 	for {
-		select {
-		case <-time.After(time.Millisecond * 100):
-			if time.Since(start) > time.Minute {
-				t.isKeysignFinished.Store(true)
-				return TssKeyGenTimeout
-			}
-			messages, err := relayClient.DownloadMessages(sessionID, localPartyID, messageID)
-			if err != nil {
-				t.logger.Error("fail to get messages", "error", err)
+		if time.Since(start) > time.Minute {
+			t.isKeysignFinished.Store(true)
+			return TssKeyGenTimeout
+		}
+		messages, err := relayClient.DownloadMessages(sessionID, localPartyID, messageID)
+		if err != nil {
+			t.logger.Error("fail to get messages", "error", err)
+			continue
+		}
+		for _, message := range messages {
+			if message.From == localPartyID {
 				continue
 			}
-			for _, message := range messages {
-				if message.From == localPartyID {
-					continue
-				}
-				cacheKey := fmt.Sprintf("%s-%s-%s", sessionID, localPartyID, message.Hash)
-				if messageID != "" {
-					cacheKey = fmt.Sprintf("%s-%s-%s-%s", sessionID, localPartyID, messageID, message.Hash)
-				}
-				if _, found := messageCache.Load(cacheKey); found {
-					t.logger.Infof("Message already applied, skipping,hash: %s", message.Hash)
-					continue
-				}
+			cacheKey := fmt.Sprintf("%s-%s-%s", sessionID, localPartyID, message.Hash)
+			if messageID != "" {
+				cacheKey = fmt.Sprintf("%s-%s-%s-%s", sessionID, localPartyID, messageID, message.Hash)
+			}
+			if _, found := messageCache.Load(cacheKey); found {
+				t.logger.Infof("Message already applied, skipping,hash: %s", message.Hash)
+				continue
+			}
 
-				rawBody, err := t.decodeDecryptMessage(message.Body, hexEncryptionKey)
-				if err != nil {
-					t.logger.Error("fail to decode inbound message", "error", err)
-					continue
-				}
-				// decode to get raw message
-				t.logger.Infoln("Received message from", message.From)
-				isFinished, err := mpcWrapper.SignSessionInputMessage(handle, rawBody)
-				if err != nil {
-					t.logger.Error("fail to apply input message", "error", err)
-					continue
-				}
-				messageCache.Store(cacheKey, true)
-				hashStr := message.Hash
-				if err := relayClient.DeleteMessageFromServer(sessionID, localPartyID, hashStr, messageID); err != nil {
-					t.logger.Error("fail to delete message", "error", err)
-				}
-				if isFinished {
-					t.isKeysignFinished.Store(true)
-					return nil
-				}
+			rawBody, err := t.decodeDecryptMessage(message.Body, hexEncryptionKey)
+			if err != nil {
+				t.logger.Error("fail to decode inbound message", "error", err)
+				continue
+			}
+			// decode to get raw message
+			t.logger.Infoln("Received message from", message.From)
+			isFinished, err := mpcWrapper.SignSessionInputMessage(handle, rawBody)
+			if err != nil {
+				t.logger.Error("fail to apply input message", "error", err)
+				continue
+			}
+			messageCache.Store(cacheKey, true)
+			hashStr := message.Hash
+			if err := relayClient.DeleteMessageFromServer(sessionID, localPartyID, hashStr, messageID); err != nil {
+				t.logger.Error("fail to delete message", "error", err)
+			}
+			if isFinished {
+				t.isKeysignFinished.Store(true)
+				return nil
 			}
 		}
+		time.Sleep(time.Millisecond * 100)
 	}
 }
 

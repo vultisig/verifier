@@ -61,11 +61,11 @@ if [ ! -f "proposed.yaml" ]; then
     exit 1
 fi
 sudo cp proposed.yaml /var/lib/vultisig/
-+# Verify proposed.yaml was successfully copied
-+if [ ! -f "/var/lib/vultisig/proposed.yaml" ]; then
-+    echo "ERROR: proposed.yaml not found in /var/lib/vultisig/"
-+    exit 1
-+fi
+# Verify proposed.yaml was successfully copied
+if [ ! -f "/var/lib/vultisig/proposed.yaml" ]; then
+    echo "ERROR: proposed.yaml not found in /var/lib/vultisig/"
+    exit 1
+fi
 echo "Configuration file copied:"
 ls -la /var/lib/vultisig/proposed.yaml
 echo "Restarting systemd services..."

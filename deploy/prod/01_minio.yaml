@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: minio
-data:
-  host: "https://sgp1.digitaloceanspaces.com"
-  region: "us-east-1"
-  bucket: "plugins-prod-verifier"

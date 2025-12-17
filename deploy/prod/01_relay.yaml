@@ -1,6 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: relay
-data:
-  url: "https://api.vultisig.com/router"

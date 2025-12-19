@@ -239,7 +239,6 @@ func (t *DKLSTssService) keygen(sessionID string,
 		"keygen_committee": keygenCommittee,
 		"attempt":          attempt,
 	}).Info("Keygen")
-	t.isKeygenFinished.Store(false)
 	relayClient := vgrelay.NewRelayClient(t.cfg.Relay.Server)
 	mpcKeygenWrapper := t.GetMPCKeygenWrapper(isEdDSA)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
@@ -319,7 +318,6 @@ func (t *DKLSTssService) processKeygenInbound(handle Handle,
 	start := time.Now()
 	for {
 		if time.Since(start) > (time.Minute * 2) { // 2 minute timeout
-			t.isKeygenFinished.Store(true)
 			t.logger.Error("keygen timeout")
 			return "", "", TssKeyGenTimeout
 		}
@@ -386,7 +384,6 @@ func (t *DKLSTssService) processKeygenInbound(handle Handle,
 					}
 					chainCode = hex.EncodeToString(chainCodeBytes)
 				}
-				t.isKeygenFinished.Store(true)
 				err = t.localStateAccessor.SaveLocalState(encodedPublicKey, encodedShare)
 				return encodedPublicKey, chainCode, err
 			}

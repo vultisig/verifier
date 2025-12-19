@@ -149,7 +149,6 @@ func (t *DKLSTssService) reshare(vault *vaultType.Vault,
 		}).Infof("Reshare attempt %d,", attempt)
 	mpcWrapper := t.GetMPCKeygenWrapper(isEdDSA)
 	var keyshareHandle Handle
-	t.isKeygenFinished.Store(false)
 	if len(publicKey) > 0 {
 		// we need to get the shares
 		keyshare, err := t.localStateAccessor.GetLocalState(publicKey)

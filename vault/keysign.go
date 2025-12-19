@@ -132,7 +132,6 @@ func (t *DKLSTssService) keysign(sessionID string,
 	if len(keysignCommittee) == 0 {
 		return nil, fmt.Errorf("keysign committee is empty")
 	}
-	t.isKeysignFinished.Store(false)
 	relayClient := vgrelay.NewRelayClient(t.cfg.Relay.Server)
 	mpcWrapper := t.GetMPCKeygenWrapper(isEdDSA)
 	t.logger.WithFields(logrus.Fields{
@@ -239,6 +238,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 	}()
 
 	eg := &errgroup.Group{}
+
 	eg.Go(func() error {
 		er := t.processKeysignOutbound(
 			sessionHandle,
@@ -250,18 +250,16 @@ func (t *DKLSTssService) keysign(sessionID string,
 			isEdDSA,
 		)
 		if er != nil {
-			return fmt.Errorf("failed to processKeysignOutbound: %w", er)
+			t.logger.Error("failed to processKeysignOutbound: ", "error", er)
 		}
-		return nil
-	})
-	eg.Go(func() error {
-		er := t.processKeysignInbound(
+		er = t.processKeysignInbound(
 			sessionHandle,
 			sessionID,
 			hexEncryptionKey,
 			localPartyID,
 			isEdDSA,
 			messageID,
+			keysignCommittee,
 		)
 		if er != nil {
 			return fmt.Errorf("failed to processKeysignInbound: %w", er)
@@ -393,12 +391,8 @@ func (t *DKLSTssService) processKeysignOutbound(
 			t.logger.Error("failed to get output message", "error", err)
 		}
 		if len(outbound) == 0 {
-			if t.isKeysignFinished.Load() {
-				// we are finished
-				return nil
-			}
-			time.Sleep(time.Millisecond * 100)
-			continue
+			// we are finished
+			return nil
 		}
 		encodedOutbound := base64.StdEncoding.EncodeToString(outbound)
 		for i := 0; i < len(parties); i++ {
@@ -426,6 +420,7 @@ func (t *DKLSTssService) processKeysignInbound(
 	localPartyID string,
 	isEdDSA bool,
 	messageID string,
+	parties []string,
 ) error {
 	var messageCache sync.Map
 	mpcWrapper := t.GetMPCKeygenWrapper(isEdDSA)
@@ -433,7 +428,6 @@ func (t *DKLSTssService) processKeysignInbound(
 	start := time.Now()
 	for {
 		if time.Since(start) > time.Minute {
-			t.isKeysignFinished.Store(true)
 			return TssKeyGenTimeout
 		}
 		messages, err := relayClient.DownloadMessages(sessionID, localPartyID, messageID)
@@ -471,8 +465,10 @@ func (t *DKLSTssService) processKeysignInbound(
 			if err := relayClient.DeleteMessageFromServer(sessionID, localPartyID, hashStr, messageID); err != nil {
 				t.logger.Error("fail to delete message", "error", err)
 			}
+			if err := t.processKeysignOutbound(handle, sessionID, hexEncryptionKey, parties, localPartyID, messageID, isEdDSA); err != nil {
+				t.logger.Error("failed to processKeysignOutbound: ", "error", err)
+			}
 			if isFinished {
-				t.isKeysignFinished.Store(true)
 				return nil
 			}
 		}

@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/vultisig/verifier/vault_config"
@@ -34,8 +33,6 @@ type DKLSTssService struct {
 	messenger          *relay.MessengerImp
 	logger             *logrus.Logger
 	localStateAccessor *LocalStateAccessorImp
-	isKeygenFinished   *atomic.Bool
-	isKeysignFinished  *atomic.Bool
 	storage            Storage
 	queueClient        *asynq.Client
 }
@@ -46,8 +43,6 @@ func NewDKLSTssService(cfg vault_config.Config,
 	return &DKLSTssService{
 		cfg:                cfg,
 		logger:             logrus.WithField("service", "dkls").Logger,
-		isKeygenFinished:   &atomic.Bool{},
-		isKeysignFinished:  &atomic.Bool{},
 		storage:            storage,
 		localStateAccessor: NewLocalStateAccessorImp(nil),
 		queueClient:        queueClient,
@@ -244,7 +239,6 @@ func (t *DKLSTssService) keygen(sessionID string,
 		"keygen_committee": keygenCommittee,
 		"attempt":          attempt,
 	}).Info("Keygen")
-	t.isKeygenFinished.Store(false)
 	relayClient := vgrelay.NewRelayClient(t.cfg.Relay.Server)
 	mpcKeygenWrapper := t.GetMPCKeygenWrapper(isEdDSA)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
@@ -268,15 +262,12 @@ func (t *DKLSTssService) keygen(sessionID string,
 			t.logger.Error("failed to free keygen session", "error", err)
 		}
 	}()
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-	go func() {
-		if err := t.processKeygenOutbound(handle, sessionID, hexEncryptionKey, keygenCommittee, localPartyID, isEdDSA, wg); err != nil {
-			t.logger.Error("failed to process keygen outbound", "error", err)
-		}
-	}()
-	publicKey, chainCode, err := t.processKeygenInbound(handle, sessionID, hexEncryptionKey, isEdDSA, localPartyID, wg)
-	wg.Wait()
+
+	if err := t.processKeygenOutbound(handle, sessionID, hexEncryptionKey, keygenCommittee, localPartyID, isEdDSA); err != nil {
+		t.logger.Error("failed to process keygen outbound", "error", err)
+	}
+
+	publicKey, chainCode, err := t.processKeygenInbound(handle, sessionID, hexEncryptionKey, isEdDSA, localPartyID, keygenCommittee)
 	return publicKey, chainCode, err
 }
 
@@ -285,35 +276,16 @@ func (t *DKLSTssService) processKeygenOutbound(handle Handle,
 	hexEncryptionKey string,
 	parties []string,
 	localPartyID string,
-	isEdDSA bool,
-	wg *sync.WaitGroup) error {
-	defer wg.Done()
+	isEdDSA bool) error {
 	messenger := relay.NewMessenger(t.cfg.Relay.Server, sessionID, hexEncryptionKey, true, "")
 	mpcKeygenWrapper := t.GetMPCKeygenWrapper(isEdDSA)
-	var startTime *time.Time
 	for {
 		outbound, err := mpcKeygenWrapper.KeygenSessionOutputMessage(handle)
 		if err != nil {
 			t.logger.Error("failed to get output message", "error", err)
 		}
 		if len(outbound) == 0 {
-			if t.isKeygenFinished.Load() {
-				// even when the local party is finished , we better to wait for a little while to guarantee the outbound message is sent
-				if startTime == nil {
-					n := time.Now()
-					startTime = &n
-					continue
-				}
-
-				if time.Since(*startTime) < time.Second {
-					continue
-				}
-
-				// we are finished
-				return nil
-			}
-			time.Sleep(time.Millisecond * 100)
-			continue
+			return nil
 		}
 		encodedOutbound := base64.StdEncoding.EncodeToString(outbound)
 		for i := 0; i < len(parties); i++ {
@@ -339,15 +311,13 @@ func (t *DKLSTssService) processKeygenInbound(handle Handle,
 	hexEncryptionKey string,
 	isEdDSA bool,
 	localPartyID string,
-	wg *sync.WaitGroup) (string, string, error) {
-	defer wg.Done()
+	keygenCommittee []string) (string, string, error) {
 	var messageCache sync.Map
 	mpcKeygenWrapper := t.GetMPCKeygenWrapper(isEdDSA)
 	relayClient := vgrelay.NewRelayClient(t.cfg.Relay.Server)
 	start := time.Now()
 	for {
 		if time.Since(start) > (time.Minute * 2) { // 2 minute timeout
-			t.isKeygenFinished.Store(true)
 			t.logger.Error("keygen timeout")
 			return "", "", TssKeyGenTimeout
 		}
@@ -381,6 +351,10 @@ func (t *DKLSTssService) processKeygenInbound(handle Handle,
 			if err := relayClient.DeleteMessageFromServer(sessionID, localPartyID, message.Hash, ""); err != nil {
 				t.logger.Error("fail to delete message", "error", err)
 			}
+			time.Sleep(50 * time.Millisecond)
+			if err := t.processKeygenOutbound(handle, sessionID, hexEncryptionKey, keygenCommittee, localPartyID, isEdDSA); err != nil {
+				t.logger.Error("failed to process keygen outbound", "error", err)
+			}
 			if isFinished {
 				t.logger.Infoln("Keygen finished")
 				result, err := mpcKeygenWrapper.KeygenSessionFinish(handle)
@@ -410,7 +384,6 @@ func (t *DKLSTssService) processKeygenInbound(handle Handle,
 					}
 					chainCode = hex.EncodeToString(chainCodeBytes)
 				}
-				t.isKeygenFinished.Store(true)
 				err = t.localStateAccessor.SaveLocalState(encodedPublicKey, encodedShare)
 				return encodedPublicKey, chainCode, err
 			}

@@ -348,8 +348,8 @@ func (s *Server) GetCategories(c echo.Context) error {
 			Name: types.PluginCategoryAIAgent.String(),
 		},
 		{
-			ID:   string(types.PluginCategoryPlugin),
-			Name: types.PluginCategoryPlugin.String(),
+			ID:   string(types.PluginCategoryApp),
+			Name: types.PluginCategoryApp.String(),
 		},
 	}
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, resp))

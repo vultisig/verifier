@@ -25,7 +25,7 @@ jsonpath "$.data.title" exists
 jsonpath "$.data.description" exists
 jsonpath "$.data.server_endpoint" exists
 jsonpath "$.data.pricing" exists
-jsonpath "$.data.category_id" == "plugin"
+jsonpath "$.data.category_id" == "app"
 jsonpath "$.data.created_at" exists
 jsonpath "$.data.updated_at" exists
 
@@ -48,8 +48,8 @@ Content-Type: application/json
 jsonpath "$.data" count == 2
 jsonpath "$.data[0].id" == "ai-agent"
 jsonpath "$.data[0].name" == "AI Agent"
-jsonpath "$.data[1].id" == "plugin"
-jsonpath "$.data[1].name" == "Plugin"
+jsonpath "$.data[1].id" == "app"
+jsonpath "$.data[1].name" == "App"
 
 
 GET http://localhost:8080/tags

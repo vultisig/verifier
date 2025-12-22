@@ -4,13 +4,13 @@ type PluginCategory string
 
 const (
 	PluginCategoryAIAgent PluginCategory = "ai-agent"
-	PluginCategoryPlugin  PluginCategory = "plugin"
+	PluginCategoryApp     PluginCategory = "app"
 )
 
 // IsValid checks if the plugin category is valid
 func (pc PluginCategory) IsValid() bool {
 	switch pc {
-	case PluginCategoryAIAgent, PluginCategoryPlugin:
+	case PluginCategoryAIAgent, PluginCategoryApp:
 		return true
 	}
 	return false
@@ -21,8 +21,8 @@ func (pc PluginCategory) String() string {
 	switch pc {
 	case PluginCategoryAIAgent:
 		return "AI Agent"
-	case PluginCategoryPlugin:
-		return "Plugin"
+	case PluginCategoryApp:
+		return "App"
 	}
 	return ""
 }

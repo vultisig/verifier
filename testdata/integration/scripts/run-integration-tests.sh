@@ -67,6 +67,14 @@ HEX_CHAIN_CODE=$(jq -r '.reshare.hex_chain_code' "$FIXTURE_FILE")
 LOCAL_PARTY_ID=$(jq -r '.reshare.local_party_id' "$FIXTURE_FILE")
 EMAIL=$(jq -r '.reshare.email' "$FIXTURE_FILE")
 
+# Validate parsed values
+if [ -z "$VAULT_PUBKEY" ] || [ "$VAULT_PUBKEY" = "null" ] || \
+   [ -z "$VAULT_NAME" ] || [ "$VAULT_NAME" = "null" ] || \
+   [ -z "$RESHARE_SESSION_ID" ] || [ "$RESHARE_SESSION_ID" = "null" ]; then
+    echo "❌ Error: Failed to parse required fields from fixture file"
+    exit 1
+fi
+
 # Policy test constants
 POLICY_ID_CREATE="00000000-0000-0000-0000-000000000001"
 POLICY_SIGNATURE="0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
@@ -84,7 +92,9 @@ fi
 EVM_FIXTURE_JSON=$("$ITUTIL" evm-fixture --output json)
 TX_B64=$(echo "$EVM_FIXTURE_JSON" | jq -r '.tx_b64')
 MSG_B64=$(echo "$EVM_FIXTURE_JSON" | jq -r '.msg_b64')
-if [ -z "$TX_B64" ] || [ -z "$MSG_B64" ] || [ "$TX_B64" = "null" ] || [ "$MSG_B64" = "null" ]; then
+MSG_SHA256_B64=$(echo "$EVM_FIXTURE_JSON" | jq -r '.msg_sha256_b64')
+if [ -z "$TX_B64" ] || [ -z "$MSG_B64" ] || [ -z "$MSG_SHA256_B64" ] || \
+   [ "$TX_B64" = "null" ] || [ "$MSG_B64" = "null" ] || [ "$MSG_SHA256_B64" = "null" ]; then
     echo "❌ Error: Failed to generate test EVM transaction"
     exit 1
 fi
@@ -148,17 +158,9 @@ for i in $(seq 0 $((PLUGIN_COUNT - 1))); do
     # Plugin-specific values
     PLUGIN_API_KEY="integration-test-apikey-$PLUGIN_ID"
 
-    case "$PLUGIN_ID" in
-        "vultisig-dca-0000")
-            POLICY_ID_SIGNER="00000000-0000-0000-0000-000000000011"
-            ;;
-        "vultisig-recurring-sends-0000")
-            POLICY_ID_SIGNER="00000000-0000-0000-0000-000000000012"
-            ;;
-        *)
-            POLICY_ID_SIGNER="00000000-0000-0000-0000-000000000099"
-            ;;
-    esac
+    # Generate policy ID dynamically based on plugin index (matches seed-db logic: i+11)
+    POLICY_INDEX=$((i + 11))
+    POLICY_ID_SIGNER=$(printf "00000000-0000-0000-0000-0000000000%02d" "$POLICY_INDEX")
 
     # Generate wrapper .hurl file with [Options] variables, then include template
     OUTPUT_FILE="$GENERATED_DIR/${PLUGIN_ID}.hurl"
@@ -187,6 +189,7 @@ variable: PLUGIN_API_KEY="${PLUGIN_API_KEY}"
 variable: POLICY_ID_SIGNER="${POLICY_ID_SIGNER}"
 variable: EVM_TX_B64="${TX_B64}"
 variable: EVM_MSG_B64="${MSG_B64}"
+variable: EVM_MSG_SHA256_B64="${MSG_SHA256_B64}"
 HTTP 200
 [Asserts]
 jsonpath "\$.data.id" == "${PLUGIN_ID}"

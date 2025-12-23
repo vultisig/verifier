@@ -180,7 +180,7 @@ Content-Type: application/json
     {
       "message": "{{EVM_MSG_B64}}",
       "chain": "Ethereum",
-      "hash": "{{EVM_MSG_B64}}",
+      "hash": "{{EVM_MSG_SHA256_B64}}",
       "hash_function": "SHA256"
     }
   ]

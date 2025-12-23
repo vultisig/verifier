@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -194,7 +195,9 @@ func evmFixtureCmd() *cobra.Command {
 
 			value := new(big.Int)
 			if valueWei != "" {
-				value.SetString(valueWei, 10)
+				if _, ok := value.SetString(valueWei, 10); !ok {
+					return fmt.Errorf("invalid value: %q is not a valid base-10 integer", valueWei)
+				}
 			} else {
 				value.SetInt64(1000000000000000) // 0.001 ETH default
 			}
@@ -237,17 +240,24 @@ func evmFixtureCmd() *cobra.Command {
 			// Hash-to-sign must match what verifier computes from tx bytes
 			signer := ethtypes.LatestSignerForChainID(chainIDBig)
 			hash := signer.Hash(tx)
-			msgB64 := base64.StdEncoding.EncodeToString(hash.Bytes())
+			msgBytes := hash.Bytes()
+			msgB64 := base64.StdEncoding.EncodeToString(msgBytes)
+
+			// Compute SHA256 of the message bytes for the hash field
+			msgSha256 := sha256.Sum256(msgBytes)
+			msgSha256B64 := base64.StdEncoding.EncodeToString(msgSha256[:])
 
 			switch outputFormat {
 			case "shell":
 				fmt.Printf("TX_B64=%s\n", txB64)
 				fmt.Printf("MSG_B64=%s\n", msgB64)
+				fmt.Printf("MSG_SHA256_B64=%s\n", msgSha256B64)
 			case "json":
-				fmt.Printf(`{"tx_b64":"%s","msg_b64":"%s"}`+"\n", txB64, msgB64)
+				fmt.Printf(`{"tx_b64":"%s","msg_b64":"%s","msg_sha256_b64":"%s"}`+"\n", txB64, msgB64, msgSha256B64)
 			default:
 				fmt.Println(txB64)
 				fmt.Println(msgB64)
+				fmt.Println(msgSha256B64)
 			}
 
 			return nil
@@ -567,7 +577,8 @@ func seedVaultCmd() *cobra.Command {
 
 			log.Println("🗄️  Seeding vault fixtures to S3/MinIO...")
 
-			// Upload vault for each plugin
+			// Upload vault for each plugin, tracking failures
+			var failedUploads []string
 			for _, plugin := range proposed.Plugins {
 				key := fmt.Sprintf("%s-%s.vult", plugin.ID, fixture.Vault.PublicKey)
 
@@ -580,10 +591,15 @@ func seedVaultCmd() *cobra.Command {
 
 				if err != nil {
 					log.Printf("  ❌ Failed to upload %s: %v\n", key, err)
+					failedUploads = append(failedUploads, key)
 					continue
 				}
 
 				log.Printf("  ✅ Uploaded: %s\n", key)
+			}
+
+			if len(failedUploads) > 0 {
+				return fmt.Errorf("failed to upload %d vault(s): %v", len(failedUploads), failedUploads)
 			}
 
 			log.Println("✅ Vault seeding completed!")

@@ -2,7 +2,7 @@
 # https://github.com/vultisig/go-wrappers.git
 DYLD_LIBRARY=../go-wrappers/includes/darwin/:$LD_LIBRARY_PATH
 
-.PHONY: up up-dev down down-dev build build-dev seed-db run-server run-worker dump-schema
+.PHONY: up up-dev down down-dev build build-dev seed-db seed-integration-db run-server run-worker dump-schema test-integration
 
 up:
 	@docker compose up -d --remove-orphans;
@@ -24,6 +24,14 @@ build-dev:
 
 seed-db:
 	VS_VERIFIER_CONFIG_NAME=verifier.example go run testdata/scripts/seed_db.go
+
+# Seed integration database with plugins from proposed.yaml
+seed-integration-db:
+	VS_VERIFIER_CONFIG_NAME=verifier.example go run testdata/integration/scripts/seed_integration_db.go
+
+# Run integration tests through verifier API with vault fixture (requires verifier running with auth disabled)
+test-integration:
+	@./testdata/integration/scripts/run-integration-tests.sh
 
 # Run the verifier server
 run-server:

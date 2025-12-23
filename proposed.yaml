@@ -17,9 +17,9 @@ plugins:
         answer: A recurring swap is a dollar-cost averaging (DCA) strategy in which you invest a fixed amount in an asset at regular intervals, regardless of the current price. With the Recurring Swaps App, this process is fully automated. You choose the assets, amounts, and time intervals in advance, and your purchases are executed automatically after setup. No manual input is needed, making the app well-suited for long-term investing or strategic on-chain executions.
       - question: How does the Recurring Swaps App work?
         answer: As with all Vultisig apps, you install the app and grant it permissions for specific DCA automations. Each automation is independent and will only execute trades according to the parameters you define (from asset, to asset, amount, and time interval). If you want to stop a DCA automation, you can simply delete it and no further trades will be executed.
-      - question: What are the risks or what can I lose by using Reoccurring Swaps?
+      - question: What are the risks or what can I lose by using Recurring Swaps?
         answer: You still bear the full market risk of the assets you choose to DCA into. Their value can go down as well as up, and you may lose some or all of the amount you invest. The DCA app only automates your recurring trades; it does not remove or reduce price risk. Also, Vultisig does not have a global overview of your strategies or timing, so you are responsible for reviewing and managing your DCA setups.
-      - question: What fees apply, or minimum amounts apply when using the Reoccurring Swaps App?
+      - question: What fees apply, or minimum amounts apply when using the Recurring Swaps App?
         answer: A fixed fee of $0.50 USDC per executed trade is charged and added to your account’s fee balance. As with all Vultisig apps, the Fee Management app will deduct the accumulated balance on the due date, which you can see in the Billing section of the app store. There is no minimum DCA amount – you are free to DCA any amount you like.
 
   - id: vultisig-recurring-sends-0000

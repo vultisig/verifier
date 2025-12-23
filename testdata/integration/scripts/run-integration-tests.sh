@@ -4,9 +4,10 @@ set -euo pipefail
 # Error trap for better debugging
 trap 'echo "❌ Error on line $LINENO: $BASH_COMMAND"; exit 1' ERR
 
-# Integration test runner using Hurl with vault fixture support
-# Generates tests from proposed.yaml and runs them in parallel through verifier API
-# Requires: auth enabled, vault token seeded in database, JWT bearer token
+# Integration test runner using Hurl with parallel execution
+# Generates per-plugin wrapper .hurl files that include the main template
+# Runs single hurl invocation with --jobs for parallelism
+# Produces one combined HTML report + one JUnit XML
 
 VERIFIER_URL="${VERIFIER_URL:-http://localhost:8080}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -34,9 +35,9 @@ for cmd in yq jq hurl; do
     if ! command -v $cmd &> /dev/null; then
         echo "❌ Error: $cmd is not installed"
         case $cmd in
-            yq) echo "   Install with: brew install yq" ;;
-            jq) echo "   Install with: brew install jq" ;;
-            hurl) echo "   Install with: brew install hurl" ;;
+            yq) echo "   Install: brew install yq (macOS) or sudo snap install yq (Linux)" ;;
+            jq) echo "   Install: brew install jq (macOS) or sudo apt install jq (Linux)" ;;
+            hurl) echo "   Install: brew install hurl (macOS) or see https://hurl.dev" ;;
         esac
         exit 1
     fi
@@ -65,9 +66,8 @@ HEX_ENCRYPTION_KEY=$(jq -r '.reshare.hex_encryption_key' "$FIXTURE_FILE")
 HEX_CHAIN_CODE=$(jq -r '.reshare.hex_chain_code' "$FIXTURE_FILE")
 LOCAL_PARTY_ID=$(jq -r '.reshare.local_party_id' "$FIXTURE_FILE")
 EMAIL=$(jq -r '.reshare.email' "$FIXTURE_FILE")
-# Note: OLD_PARTIES is hardcoded in template since Hurl can't render JSON arrays
 
-# Policy test constants (using test values from smoke tests)
+# Policy test constants
 POLICY_ID_CREATE="00000000-0000-0000-0000-000000000001"
 POLICY_SIGNATURE="0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 POLICY_RECIPE="CgA="
@@ -75,14 +75,16 @@ POLICY_RECIPE="CgA="
 # Generate JWT token for policy endpoints
 JWT_SECRET="mysecret"
 JWT_TOKEN=$("$ITUTIL" jwt --secret "$JWT_SECRET" --pubkey "$VAULT_PUBKEY")
-if [ $? -ne 0 ] || [ -z "$JWT_TOKEN" ]; then
+if [ -z "$JWT_TOKEN" ]; then
     echo "❌ Error: Failed to generate JWT token"
     exit 1
 fi
 
-# Generate test EVM transaction for plugin-signer tests (base64-encoded)
-eval "$("$ITUTIL" evm-fixture --output shell)"
-if [ -z "$TX_B64" ] || [ -z "$MSG_B64" ]; then
+# Generate test EVM transaction for plugin-signer tests (using JSON output + jq)
+EVM_FIXTURE_JSON=$("$ITUTIL" evm-fixture --output json)
+TX_B64=$(echo "$EVM_FIXTURE_JSON" | jq -r '.tx_b64')
+MSG_B64=$(echo "$EVM_FIXTURE_JSON" | jq -r '.msg_b64')
+if [ -z "$TX_B64" ] || [ -z "$MSG_B64" ] || [ "$TX_B64" = "null" ] || [ "$MSG_B64" = "null" ]; then
     echo "❌ Error: Failed to generate test EVM transaction"
     exit 1
 fi
@@ -105,19 +107,27 @@ fi
 echo "   ✅ Verifier is healthy"
 echo ""
 
-# Create directories
+# Create directories and clean up
 mkdir -p "$GENERATED_DIR"
 mkdir -p "$RESULTS_DIR"
-rm -f "$GENERATED_DIR"/*.vars
-rm -f "$RESULTS_DIR/hurl.log"
+rm -f "$GENERATED_DIR"/*.hurl
+rm -f "$RESULTS_DIR/junit.xml"
+rm -rf "$RESULTS_DIR/html"
 
-# Read plugins from proposed.yaml and generate tests
+# Check template exists
+if [ ! -f "$TEMPLATE_FILE" ]; then
+    echo "❌ Error: Template file not found: $TEMPLATE_FILE"
+    exit 1
+fi
+
+# Read plugins from proposed.yaml and generate per-plugin wrapper .hurl files
 echo "📝 Generating tests from proposed.yaml..."
 PROPOSED_FILE="$REPO_ROOT/proposed.yaml"
 if [ ! -f "$PROPOSED_FILE" ]; then
     echo "❌ Error: proposed.yaml not found at $PROPOSED_FILE"
     exit 1
 fi
+
 PLUGIN_COUNT=$(yq eval '.plugins | length' "$PROPOSED_FILE")
 echo "   Found $PLUGIN_COUNT plugins"
 echo ""
@@ -135,8 +145,7 @@ for i in $(seq 0 $((PLUGIN_COUNT - 1))); do
 
     echo "🔧 Generating: $PLUGIN_TITLE ($PLUGIN_ID)"
 
-    # Determine plugin-specific API key and policy ID
-    # API keys follow format: integration-test-apikey-<plugin_id> (from seed_integration_db.go)
+    # Plugin-specific values
     PLUGIN_API_KEY="integration-test-apikey-$PLUGIN_ID"
 
     case "$PLUGIN_ID" in
@@ -147,116 +156,156 @@ for i in $(seq 0 $((PLUGIN_COUNT - 1))); do
             POLICY_ID_SIGNER="00000000-0000-0000-0000-000000000012"
             ;;
         *)
-            # Generate a generic policy ID for any other plugins
             POLICY_ID_SIGNER="00000000-0000-0000-0000-000000000099"
             ;;
     esac
 
-    # Generate variables file for this plugin (Hurl native approach - no sed escaping issues)
-    # Note: OLD_PARTIES is hardcoded in template since Hurl can't render JSON arrays from variables
-    # Note: Values must be quoted to prevent Hurl from interpreting hex strings as numbers
-    VARS_FILE="$GENERATED_DIR/${PLUGIN_ID}.vars"
-    cat > "$VARS_FILE" <<EOF
-PLUGIN_ID="$PLUGIN_ID"
-VAULT_PUBKEY="$VAULT_PUBKEY"
-VAULT_NAME="$VAULT_NAME"
-RESHARE_SESSION_ID="$RESHARE_SESSION_ID"
-HEX_ENCRYPTION_KEY="$HEX_ENCRYPTION_KEY"
-HEX_CHAIN_CODE="$HEX_CHAIN_CODE"
-LOCAL_PARTY_ID="$LOCAL_PARTY_ID"
-EMAIL="$EMAIL"
-POLICY_ID_CREATE="$POLICY_ID_CREATE"
-POLICY_SIGNATURE="$POLICY_SIGNATURE"
-POLICY_RECIPE="$POLICY_RECIPE"
-JWT_TOKEN="$JWT_TOKEN"
-PLUGIN_API_KEY="$PLUGIN_API_KEY"
-POLICY_ID_SIGNER="$POLICY_ID_SIGNER"
-EVM_TX_B64="$TX_B64"
-EVM_MSG_B64="$MSG_B64"
+    # Generate wrapper .hurl file with [Options] variables, then include template
+    OUTPUT_FILE="$GENERATED_DIR/${PLUGIN_ID}.hurl"
+    cat > "$OUTPUT_FILE" <<EOF
+# Auto-generated wrapper for $PLUGIN_ID
+# Sets variables via [Options], then includes the main test template
+
+# Dummy request to set variables for all subsequent requests
+# This GET will succeed and set variables for the included template
+GET ${VERIFIER_URL}/plugins/${PLUGIN_ID}
+[Options]
+variable: VERIFIER_URL="${VERIFIER_URL}"
+variable: PLUGIN_ID="${PLUGIN_ID}"
+variable: VAULT_PUBKEY="${VAULT_PUBKEY}"
+variable: VAULT_NAME="${VAULT_NAME}"
+variable: RESHARE_SESSION_ID="${RESHARE_SESSION_ID}"
+variable: HEX_ENCRYPTION_KEY="${HEX_ENCRYPTION_KEY}"
+variable: HEX_CHAIN_CODE="${HEX_CHAIN_CODE}"
+variable: LOCAL_PARTY_ID="${LOCAL_PARTY_ID}"
+variable: EMAIL="${EMAIL}"
+variable: POLICY_ID_CREATE="${POLICY_ID_CREATE}"
+variable: POLICY_SIGNATURE="${POLICY_SIGNATURE}"
+variable: POLICY_RECIPE="${POLICY_RECIPE}"
+variable: JWT_TOKEN="${JWT_TOKEN}"
+variable: PLUGIN_API_KEY="${PLUGIN_API_KEY}"
+variable: POLICY_ID_SIGNER="${POLICY_ID_SIGNER}"
+variable: EVM_TX_B64="${TX_B64}"
+variable: EVM_MSG_B64="${MSG_B64}"
+HTTP 200
+[Asserts]
+jsonpath "\$.data.id" == "${PLUGIN_ID}"
+
+# Include the main test template (all tests after this use the variables above)
 EOF
 
-    ((GENERATED_COUNT++))
+    # Append the template content (skip the first test since we already did it as the variable setter)
+    # Extract everything after "# Test 2:" to avoid duplicating Test 1
+    sed -n '/^# Test 2:/,$p' "$TEMPLATE_FILE" >> "$OUTPUT_FILE"
+
+    GENERATED_COUNT=$((GENERATED_COUNT + 1))
 done
 
 echo ""
-echo "📂 Generated $GENERATED_COUNT variable files in $GENERATED_DIR"
+echo "📂 Generated $GENERATED_COUNT wrapper files in $GENERATED_DIR"
 echo ""
 
-# Check template exists
-if [ ! -f "$TEMPLATE_FILE" ]; then
-    echo "❌ Error: Template file not found: $TEMPLATE_FILE"
-    exit 1
-fi
-
-# Run tests using Hurl's native variables file approach
+# Run ALL tests in a single hurl invocation with parallelism
 echo "🚀 Running tests in parallel (jobs: $HURL_JOBS)..."
 echo "========================================"
 echo ""
 
-set +e
-HURL_EXIT=0
+# Disable ERR trap during hurl execution
+trap - ERR
 
-# Run hurl for each plugin with its variables file
-PASSED_PLUGINS=""
-FAILED_PLUGINS=""
+hurl \
+    --test \
+    --jobs "$HURL_JOBS" \
+    --error-format long \
+    --report-html "$RESULTS_DIR/html" \
+    --report-junit "$RESULTS_DIR/junit.xml" \
+    "$GENERATED_DIR"/*.hurl 2>&1 | tee "$RESULTS_DIR/hurl.log"
 
-for VARS_FILE in "$GENERATED_DIR"/*.vars; do
-    PLUGIN_NAME=$(basename "$VARS_FILE" .vars)
-    echo "▶ Testing: $PLUGIN_NAME"
+HURL_EXIT=${PIPESTATUS[0]}
 
-    hurl \
-        --test \
-        --error-format long \
-        --variables-file "$VARS_FILE" \
-        --report-html "$RESULTS_DIR/html" \
-        --report-junit "$RESULTS_DIR/junit.xml" \
-        "$TEMPLATE_FILE" 2>&1 | tee -a "$RESULTS_DIR/hurl.log"
+# Re-enable ERR trap
+trap 'echo "❌ Error on line $LINENO: $BASH_COMMAND"; exit 1' ERR
 
-    THIS_EXIT=${PIPESTATUS[0]}
-    if [ "$THIS_EXIT" -ne 0 ]; then
-        HURL_EXIT=$THIS_EXIT
-        FAILED_PLUGINS="$FAILED_PLUGINS$PLUGIN_NAME\n"
+echo ""
+echo "========================================"
+echo "📊 Test Summary (from JUnit XML)"
+echo "========================================"
+
+# Parse JUnit XML for stable summary
+if [ -f "$RESULTS_DIR/junit.xml" ]; then
+    # Extract counts from JUnit XML using sed (portable across Linux/macOS)
+    TOTAL_TESTS=$(sed -n 's/.*tests="\([0-9]*\)".*/\1/p' "$RESULTS_DIR/junit.xml" | head -1)
+    TOTAL_FAILURES=$(sed -n 's/.*failures="\([0-9]*\)".*/\1/p' "$RESULTS_DIR/junit.xml" | head -1)
+    TOTAL_ERRORS=$(sed -n 's/.*errors="\([0-9]*\)".*/\1/p' "$RESULTS_DIR/junit.xml" | head -1)
+    TOTAL_TIME=$(sed -n 's/.*<testsuite.*time="\([0-9.]*\)".*/\1/p' "$RESULTS_DIR/junit.xml" | head -1)
+
+    TOTAL_TESTS=${TOTAL_TESTS:-0}
+    TOTAL_FAILURES=${TOTAL_FAILURES:-0}
+    TOTAL_ERRORS=${TOTAL_ERRORS:-0}
+    TOTAL_TIME=${TOTAL_TIME:-0}
+
+    PASSED_COUNT=$((TOTAL_TESTS - TOTAL_FAILURES - TOTAL_ERRORS))
+    FAILED_COUNT=$((TOTAL_FAILURES + TOTAL_ERRORS))
+
+    echo ""
+    echo "📊 Results: $PASSED_COUNT passed, $FAILED_COUNT failed (${TOTAL_TIME}s)"
+    echo ""
+
+    # List passed/failed test files
+    # JUnit XML may have all testcases on one line, so split first
+    # Self-closing <testcase ... /> means passed, <testcase>...<failure>...</testcase> means failed
+
+    echo "✅ Passed:"
+    # Split testcases onto separate lines, find self-closing ones, extract name
+    PASSED_TESTS=$(sed 's/<testcase/\n<testcase/g' "$RESULTS_DIR/junit.xml" | \
+        grep '<testcase.*\/>' | \
+        sed -n 's/.*name="\([^"]*\)".*/\1/p' | \
+        sed 's|.*/||; s|\.hurl$||')
+    if [ -n "$PASSED_TESTS" ]; then
+        echo "$PASSED_TESTS" | while read -r testcase; do
+            echo "   $testcase"
+        done
     else
-        PASSED_PLUGINS="$PASSED_PLUGINS$PLUGIN_NAME\n"
+        echo "   (none)"
     fi
-done
-set -e
 
-echo ""
-echo "========================================"
-echo "📊 Detailed Summary"
-echo "========================================"
+    echo ""
+    echo "❌ Failed:"
+    # Check if any failures exist
+    if grep -q '<failure' "$RESULTS_DIR/junit.xml" 2>/dev/null; then
+        # Find testcases with failure children (non-self-closing)
+        sed 's/<testcase/\n<testcase/g' "$RESULTS_DIR/junit.xml" | \
+            grep -v '\/>' | grep '<testcase' | \
+            sed -n 's/.*name="\([^"]*\)".*/\1/p' | \
+            sed 's|.*/||; s|\.hurl$||' | while read -r testcase; do
+            echo "   $testcase"
+        done
+    else
+        echo "   (none)"
+    fi
 
-# Show results by plugin name
-echo ""
-echo "✅ Passed:"
-if [ -n "$PASSED_PLUGINS" ]; then
-    echo -e "$PASSED_PLUGINS" | grep -v '^$' | while read plugin; do echo "   $plugin"; done
+    # Show slowest tests - extract name and time, sort by time
+    echo ""
+    echo "🐢 Slowest tests:"
+    # Split testcases, extract time and name
+    sed 's/<testcase/\n<testcase/g' "$RESULTS_DIR/junit.xml" | \
+        grep '<testcase' | \
+        sed -n 's/.*time="\([0-9.]*\)".*name="\([^"]*\)".*/\1 \2/p; s/.*name="\([^"]*\)".*time="\([0-9.]*\)".*/\2 \1/p' | \
+        sed 's| .*/| |; s|\.hurl$||' | \
+        sort -rn | head -5 | \
+        awk '{printf "   %6.2fs  %s\n", $1, $2}' 2>/dev/null || echo "   (no timing data)"
 else
-    echo "   (none)"
-fi
+    echo "⚠️  JUnit XML not found, falling back to log parsing"
 
-echo ""
-echo "❌ Failed:"
-if [ -n "$FAILED_PLUGINS" ]; then
-    echo -e "$FAILED_PLUGINS" | grep -v '^$' | while read plugin; do echo "   $plugin"; done
-else
-    echo "   (none)"
-fi
+    # Fallback to hurl output parsing
+    PASSED_COUNT=$(grep -cE "^Success\s+" "$RESULTS_DIR/hurl.log" 2>/dev/null || true)
+    FAILED_COUNT=$(grep -cE "^Failure\s+" "$RESULTS_DIR/hurl.log" 2>/dev/null || true)
+    PASSED_COUNT=${PASSED_COUNT:-0}
+    FAILED_COUNT=${FAILED_COUNT:-0}
 
-echo ""
-echo "🐢 Slowest tests:"
-grep -E "^(Success|Failure)\s+.* in [0-9]+ ms\)" "$RESULTS_DIR/hurl.log" 2>/dev/null \
-    | awk '{
-        # Extract duration from "(N request(s) in M ms)"
-        for(i=1; i<=NF; i++) {
-            if($(i+1) == "ms)") { ms=$i; break }
-        }
-        print ms
-      }' \
-    | sort -nr \
-    | head -5 \
-    | awk '{printf "   %6sms\n",$1}' || echo "   (no timing data)"
+    echo ""
+    echo "📊 Results: $PASSED_COUNT passed, $FAILED_COUNT failed"
+fi
 
 echo ""
 echo "📁 Reports saved to: $RESULTS_DIR"

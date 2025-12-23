@@ -1,17 +1,17 @@
 # Integration tests for {{PLUGIN_ID}}
 # Generated from proposed.yaml with vault fixture support
-# Tests run through verifier API at http://localhost:8080
+# Tests run through verifier API at {{VERIFIER_URL}}
 # Auth is enabled for policy endpoint tests (JWT required)
 
 # Test 1: Get Plugin Details
-GET http://localhost:8080/plugins/{{PLUGIN_ID}}
+GET {{VERIFIER_URL}}/plugins/{{PLUGIN_ID}}
 HTTP 200
 [Asserts]
 jsonpath "$.data.id" == "{{PLUGIN_ID}}"
 jsonpath "$.data.title" exists
 
 # Test 2: Recipe Specification
-GET http://localhost:8080/plugins/{{PLUGIN_ID}}/recipe-specification
+GET {{VERIFIER_URL}}/plugins/{{PLUGIN_ID}}/recipe-specification
 HTTP 200
 [Asserts]
 jsonpath "$.data.plugin_id" == "{{PLUGIN_ID}}"
@@ -19,7 +19,7 @@ jsonpath "$.data.plugin_name" exists
 jsonpath "$.data.supported_resources" exists
 
 # Test 3: Reshare Vault (POST - main plugin server interaction)
-POST http://localhost:8080/vault/reshare
+POST {{VERIFIER_URL}}/vault/reshare
 Authorization: Bearer {{JWT_TOKEN}}
 Content-Type: application/json
 {
@@ -39,7 +39,7 @@ jsonpath "$.status" == 200
 jsonpath "$.data" exists
 
 # Test 4: Reshare Vault Again (Idempotency check - should return "already_exists")
-POST http://localhost:8080/vault/reshare
+POST {{VERIFIER_URL}}/vault/reshare
 Authorization: Bearer {{JWT_TOKEN}}
 Content-Type: application/json
 {
@@ -63,7 +63,7 @@ jsonpath "$.data" exists
 # Policy creation requires a valid signature from the derived Ethereum private key.
 # Without implementing BIP32 child key derivation + signing, this endpoint cannot return 200.
 # For integration testing of plugin execution flow, use /plugin-signer/sign endpoints instead.
-POST http://localhost:8080/plugin/policy
+POST {{VERIFIER_URL}}/plugin/policy
 Authorization: Bearer {{JWT_TOKEN}}
 Content-Type: application/json
 {
@@ -82,7 +82,7 @@ HTTP 400
 jsonpath "$.error" exists
 
 # Test 6: Policy endpoint requires JWT (test auth enforcement)
-POST http://localhost:8080/plugin/policy
+POST {{VERIFIER_URL}}/plugin/policy
 Content-Type: application/json
 {
   "id": "test-no-auth",
@@ -100,13 +100,13 @@ HTTP 401
 jsonpath "$.error" exists
 
 # Test 7: Get Policy endpoint requires JWT
-GET http://localhost:8080/plugin/policy/test-id
+GET {{VERIFIER_URL}}/plugin/policy/test-id
 HTTP 401
 [Asserts]
 jsonpath "$.error" exists
 
 # Test 8: Get Policy with JWT (test endpoint with auth - invalid ID format returns 400)
-GET http://localhost:8080/plugin/policy/test-id
+GET {{VERIFIER_URL}}/plugin/policy/test-id
 Authorization: Bearer {{JWT_TOKEN}}
 HTTP 400
 [Asserts]
@@ -124,7 +124,7 @@ jsonpath "$.error" exists
 #   - TX indexer + Redis + Asynq enqueuing
 
 # Test 9: /plugin-signer/sign requires API key
-POST http://localhost:8080/plugin-signer/sign
+POST {{VERIFIER_URL}}/plugin-signer/sign
 Content-Type: application/json
 {
   "plugin_id": "{{PLUGIN_ID}}",
@@ -138,7 +138,7 @@ jsonpath "$.error" exists
 
 
 # Test 10: /plugin-signer/sign with invalid API key
-POST http://localhost:8080/plugin-signer/sign
+POST {{VERIFIER_URL}}/plugin-signer/sign
 Authorization: Bearer invalid-api-key-12345
 Content-Type: application/json
 {
@@ -153,7 +153,7 @@ jsonpath "$.error" exists
 
 
 # Test 11: /plugin-signer/sign with empty messages (400 - bad request)
-POST http://localhost:8080/plugin-signer/sign
+POST {{VERIFIER_URL}}/plugin-signer/sign
 Authorization: Bearer {{PLUGIN_API_KEY}}
 Content-Type: application/json
 {
@@ -167,7 +167,7 @@ HTTP 400
 jsonpath "$.error" exists
 
 # Test 12: /plugin-signer/sign with valid request (enqueues task)
-POST http://localhost:8080/plugin-signer/sign
+POST {{VERIFIER_URL}}/plugin-signer/sign
 Authorization: Bearer {{PLUGIN_API_KEY}}
 Content-Type: application/json
 {
@@ -195,14 +195,14 @@ jsonpath "$.data.task_ids" count == 1
 
 
 # Test 13: GET /plugin-signer/sign/response/:taskId requires API key
-GET http://localhost:8080/plugin-signer/sign/response/{{task_id}}
+GET {{VERIFIER_URL}}/plugin-signer/sign/response/{{task_id}}
 HTTP 401
 [Asserts]
 jsonpath "$.error" exists
 
 
 # Test 14: GET /plugin-signer/sign/response/:taskId with API key
-GET http://localhost:8080/plugin-signer/sign/response/{{task_id}}
+GET {{VERIFIER_URL}}/plugin-signer/sign/response/{{task_id}}
 Authorization: Bearer {{PLUGIN_API_KEY}}
 HTTP *
 # Accept any HTTP code - task may be pending/processing/failed without DKLS worker

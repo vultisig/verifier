@@ -261,6 +261,7 @@ func (t *DKLSTssService) processQcInbound(handle Handle,
 	isEdDSA bool,
 	localPartyID string,
 	isInNewCommittee bool, parties []string) (string, string, error) {
+	t.processedInitiateDeviceMessage.Store(false)
 	var messageCache sync.Map
 	mpcWrapper := t.GetMPCKeygenWrapper(isEdDSA)
 	relayClient := vgrelay.NewRelayClient(t.cfg.Relay.Server)
@@ -285,6 +286,13 @@ func (t *DKLSTssService) processQcInbound(handle Handle,
 			if _, found := messageCache.Load(cacheKey); found {
 				t.logger.Infof("Message already applied, skipping,hash: %s", message.Hash)
 				continue
+			}
+			// this assume the first member in parties is the initiator
+			if t.processedInitiateDeviceMessage.Load() == false && message.From != parties[0] {
+				t.logger.Info("waiting for message from party 1")
+				continue
+			} else {
+				t.processedInitiateDeviceMessage.Store(true)
 			}
 			inboundBody, err := t.decodeDecryptMessage(message.Body, hexEncryptionKey)
 			if err != nil {

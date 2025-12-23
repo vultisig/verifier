@@ -178,7 +178,7 @@ jobs:
 
       - name: Run integration tests
         run: |
-          bash testdata/integration/run-tests.sh
+          bash testdata/integration/scripts/run-integration-tests.sh
         env:
           VERIFIER_URL: http://localhost:8080
           HURL_JOBS: 4

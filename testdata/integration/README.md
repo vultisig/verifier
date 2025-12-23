@@ -5,10 +5,6 @@ Plugin integration tests using Hurl with parallel execution.
 ## Quick Start
 
 ```bash
-# From repo root
-bash testdata/integration/run-tests.sh
-
-# Or using make
 make test-integration
 ```
 

@@ -164,7 +164,7 @@ jobs:
       - name: Seed integration database
         run: |
           export VS_VERIFIER_CONFIG_NAME=config
-          ./testdata/integration/bin/itutil seed-db --proposed proposed.yaml
+          ./testdata/integration/bin/itutil seed-db --proposed proposed.yaml --fixture testdata/integration/fixture.json
 
       - name: Seed vault fixtures to MinIO
         run: |

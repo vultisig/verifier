@@ -30,6 +30,71 @@ import (
 // itutil - Integration Test Utility
 // Unified CLI tool for integration test helpers
 
+// generatePermissivePolicy creates a permissive policy that allows ETH transfers,
+// ERC20 transfers, and ERC20 approvals to any target address.
+func generatePermissivePolicy(targetAddr string) (string, error) {
+	policy := &recipetypes.Policy{
+		Id:          "permissive-test-policy",
+		Name:        "Permissive Test Policy",
+		Description: "Allows all transactions for testing",
+		Version:     1,
+		Author:      "integration-test",
+		Rules: []*recipetypes.Rule{
+			{
+				Id:          "allow-ethereum-eth-transfer",
+				Resource:    "ethereum.eth.transfer",
+				Effect:      recipetypes.Effect_EFFECT_ALLOW,
+				Description: "Allow Ethereum transfers",
+				Target: &recipetypes.Target{
+					TargetType: recipetypes.TargetType_TARGET_TYPE_ADDRESS,
+					Target: &recipetypes.Target_Address{
+						Address: targetAddr,
+					},
+				},
+				ParameterConstraints: []*recipetypes.ParameterConstraint{
+					{
+						ParameterName: "amount",
+						Constraint: &recipetypes.Constraint{
+							Type: recipetypes.ConstraintType_CONSTRAINT_TYPE_ANY,
+						},
+					},
+				},
+			},
+			{
+				Id:          "allow-ethereum-erc20-transfer",
+				Resource:    "ethereum.erc20.transfer",
+				Effect:      recipetypes.Effect_EFFECT_ALLOW,
+				Description: "Allow ERC20 transfers",
+				Target: &recipetypes.Target{
+					TargetType: recipetypes.TargetType_TARGET_TYPE_ADDRESS,
+					Target: &recipetypes.Target_Address{
+						Address: targetAddr,
+					},
+				},
+			},
+			{
+				Id:          "allow-ethereum-erc20-approve",
+				Resource:    "ethereum.erc20.approve",
+				Effect:      recipetypes.Effect_EFFECT_ALLOW,
+				Description: "Allow ERC20 approvals",
+				Target: &recipetypes.Target{
+					TargetType: recipetypes.TargetType_TARGET_TYPE_ADDRESS,
+					Target: &recipetypes.Target_Address{
+						Address: targetAddr,
+					},
+				},
+			},
+		},
+	}
+
+	data, err := proto.Marshal(policy)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal policy: %w", err)
+	}
+
+	return base64.StdEncoding.EncodeToString(data), nil
+}
+
 func main() {
 	rootCmd := &cobra.Command{
 		Use:   "itutil",
@@ -213,66 +278,12 @@ func policyB64Cmd() *cobra.Command {
 				return fmt.Errorf("only --allow-all is currently supported")
 			}
 
-			policy := &recipetypes.Policy{
-				Id:          "permissive-test-policy",
-				Name:        "Permissive Test Policy",
-				Description: "Allows all transactions for testing",
-				Version:     1,
-				Author:      "integration-test",
-				Rules: []*recipetypes.Rule{
-					{
-						Id:          "allow-ethereum-eth-transfer",
-						Resource:    "ethereum.eth.transfer",
-						Effect:      recipetypes.Effect_EFFECT_ALLOW,
-						Description: "Allow Ethereum transfers",
-						Target: &recipetypes.Target{
-							TargetType: recipetypes.TargetType_TARGET_TYPE_ADDRESS,
-							Target: &recipetypes.Target_Address{
-								Address: targetAddr,
-							},
-						},
-						ParameterConstraints: []*recipetypes.ParameterConstraint{
-							{
-								ParameterName: "amount",
-								Constraint: &recipetypes.Constraint{
-									Type: recipetypes.ConstraintType_CONSTRAINT_TYPE_ANY,
-								},
-							},
-						},
-					},
-					{
-						Id:          "allow-ethereum-erc20-transfer",
-						Resource:    "ethereum.erc20.transfer",
-						Effect:      recipetypes.Effect_EFFECT_ALLOW,
-						Description: "Allow ERC20 transfers",
-						Target: &recipetypes.Target{
-							TargetType: recipetypes.TargetType_TARGET_TYPE_ADDRESS,
-							Target: &recipetypes.Target_Address{
-								Address: targetAddr,
-							},
-						},
-					},
-					{
-						Id:          "allow-ethereum-erc20-approve",
-						Resource:    "ethereum.erc20.approve",
-						Effect:      recipetypes.Effect_EFFECT_ALLOW,
-						Description: "Allow ERC20 approvals",
-						Target: &recipetypes.Target{
-							TargetType: recipetypes.TargetType_TARGET_TYPE_ADDRESS,
-							Target: &recipetypes.Target_Address{
-								Address: targetAddr,
-							},
-						},
-					},
-				},
-			}
-
-			data, err := proto.Marshal(policy)
+			policyB64, err := generatePermissivePolicy(targetAddr)
 			if err != nil {
-				return fmt.Errorf("failed to marshal policy: %w", err)
+				return err
 			}
 
-			fmt.Println(base64.StdEncoding.EncodeToString(data))
+			fmt.Println(policyB64)
 			return nil
 		},
 	}
@@ -302,11 +313,12 @@ type PluginConfig struct {
 
 func seedDBCmd() *cobra.Command {
 	var proposedFile string
+	var fixtureFile string
 	var dsn string
 
 	cmd := &cobra.Command{
 		Use:   "seed-db",
-		Short: "Seed the database with plugins from proposed.yaml",
+		Short: "Seed the database with plugins from proposed.yaml and vault token from fixture",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
 
@@ -328,6 +340,20 @@ func seedDBCmd() *cobra.Command {
 			var proposed ProposedYAML
 			if err := yaml.Unmarshal(proposedYAML, &proposed); err != nil {
 				return fmt.Errorf("failed to parse %s: %w", proposedFile, err)
+			}
+
+			// Read fixture.json to get vault public key
+			var vaultPubkey string
+			if fixtureFile != "" {
+				fixtureData, err := os.ReadFile(fixtureFile)
+				if err != nil {
+					return fmt.Errorf("failed to read fixture file: %w", err)
+				}
+				var fixture FixtureJSON
+				if err := json.Unmarshal(fixtureData, &fixture); err != nil {
+					return fmt.Errorf("failed to parse fixture JSON: %w", err)
+				}
+				vaultPubkey = fixture.Vault.PublicKey
 			}
 
 			pool, err := pgxpool.New(ctx, dsn)
@@ -389,6 +415,76 @@ func seedDBCmd() *cobra.Command {
 				log.Printf("  ✅ Plugin %s seeded (API Key: %s)\n", plugin.ID, apiKey)
 			}
 
+			// Insert vault token for JWT authentication (if fixture was provided)
+			if vaultPubkey != "" {
+				tokenID := "integration-token-1" // Must match jwt command default
+				now := time.Now()
+				expiresAt := now.Add(365 * 24 * time.Hour) // 1 year expiry
+
+				log.Printf("  🔑 Inserting vault token for pubkey: %s...\n", vaultPubkey[:16]+"...")
+
+				_, err = tx.Exec(ctx, `
+					INSERT INTO vault_tokens (token_id, public_key, expires_at, last_used_at)
+					VALUES ($1, $2, $3, $4)
+					ON CONFLICT (token_id) DO UPDATE SET
+						public_key = EXCLUDED.public_key,
+						expires_at = EXCLUDED.expires_at,
+						last_used_at = EXCLUDED.last_used_at,
+						revoked_at = NULL,
+						updated_at = NOW()
+				`, tokenID, vaultPubkey, expiresAt, now)
+
+				if err != nil {
+					tx.Rollback(ctx)
+					return fmt.Errorf("failed to insert vault token: %w", err)
+				}
+
+				log.Printf("  ✅ Vault token seeded (token_id: %s)\n", tokenID)
+
+				// Insert test policies for each plugin (for plugin-signer tests)
+				log.Println("  📋 Inserting test policies...")
+
+				// Target address for policy rules (allows transfers to this address)
+				targetAddr := "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0"
+
+				// Generate permissive policy dynamically
+				permissiveRecipe, err := generatePermissivePolicy(targetAddr)
+				if err != nil {
+					tx.Rollback(ctx)
+					return fmt.Errorf("failed to generate permissive policy: %w", err)
+				}
+
+				for i, plugin := range proposed.Plugins {
+					// Generate deterministic policy ID based on plugin index
+					policyID := fmt.Sprintf("00000000-0000-0000-0000-0000000000%02d", i+11)
+
+					// Insert a permissive test policy
+					_, err = tx.Exec(ctx, `
+						INSERT INTO plugin_policies (id, public_key, plugin_id, plugin_version, policy_version, signature, recipe, active)
+						VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+						ON CONFLICT (id) DO UPDATE SET
+							public_key = EXCLUDED.public_key,
+							plugin_id = EXCLUDED.plugin_id,
+							plugin_version = EXCLUDED.plugin_version,
+							policy_version = EXCLUDED.policy_version,
+							signature = EXCLUDED.signature,
+							recipe = EXCLUDED.recipe,
+							active = EXCLUDED.active,
+							updated_at = NOW()
+					`, policyID, vaultPubkey, plugin.ID, "1.0.0", 1,
+						"0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+						permissiveRecipe,
+						true)
+
+					if err != nil {
+						tx.Rollback(ctx)
+						return fmt.Errorf("failed to insert policy for plugin %s: %w", plugin.ID, err)
+					}
+
+					log.Printf("  ✅ Policy %s seeded for plugin %s\n", policyID, plugin.ID)
+				}
+			}
+
 			if err := tx.Commit(ctx); err != nil {
 				return fmt.Errorf("failed to commit transaction: %w", err)
 			}
@@ -400,6 +496,7 @@ func seedDBCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&proposedFile, "proposed", "proposed.yaml", "Path to proposed.yaml")
+	cmd.Flags().StringVar(&fixtureFile, "fixture", "testdata/integration/fixture.json", "Path to fixture.json (for vault token)")
 	cmd.Flags().StringVar(&dsn, "dsn", "", "Database DSN (defaults to config)")
 
 	return cmd

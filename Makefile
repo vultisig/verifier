@@ -1,8 +1,17 @@
 # adjust to point to your local go-wrappers repo
 # https://github.com/vultisig/go-wrappers.git
 DYLD_LIBRARY=../go-wrappers/includes/darwin/:$LD_LIBRARY_PATH
+VS_VERIFIER_CONFIG_NAME ?= verifier.example
+VERIFIER_URL ?= http://localhost:8080
 
-.PHONY: up up-dev down down-dev build build-dev seed-db seed-integration-db run-server run-worker dump-schema test-integration
+HURL_JOBS ?= 4
+S3_ENDPOINT ?= http://localhost:9000
+S3_ACCESS_KEY ?= minioadmin
+S3_SECRET_KEY ?= minioadmin
+S3_BUCKET ?= vultisig-verifier
+ITUTIL := testdata/integration/bin/itutil
+
+.PHONY: up up-dev down down-dev build build-dev seed-db run-server run-worker dump-schema build-itutil integration-seed test-integration itest
 
 up:
 	@docker compose up -d --remove-orphans;
@@ -25,13 +34,26 @@ build-dev:
 seed-db:
 	VS_VERIFIER_CONFIG_NAME=verifier.example go run testdata/scripts/seed_db.go
 
-# Seed integration database with plugins from proposed.yaml
-seed-integration-db:
-	VS_VERIFIER_CONFIG_NAME=verifier.example go run testdata/integration/scripts/seed_integration_db.go
 
-# Run integration tests through verifier API with vault fixture (requires verifier running with auth disabled)
-test-integration:
-	@./testdata/integration/scripts/run-integration-tests.sh
+build-itutil:
+	@go build -o $(ITUTIL) ./testdata/integration/cmd/itutil
+
+integration-seed: build-itutil
+	@echo "Seeding DB + vault fixtures..."
+	@VS_VERIFIER_CONFIG_NAME=$(VS_VERIFIER_CONFIG_NAME) \
+	$(ITUTIL) seed-db --proposed proposed.yaml --fixture testdata/integration/fixture.json
+	@$(ITUTIL) seed-vault \
+		--fixture testdata/integration/fixture.json \
+		--proposed proposed.yaml \
+		--s3-endpoint $(S3_ENDPOINT) \
+		--s3-access-key $(S3_ACCESS_KEY) \
+		--s3-secret-key $(S3_SECRET_KEY) \
+		--s3-bucket $(S3_BUCKET)
+
+test-integration: integration-seed
+	@VERIFIER_URL=$(VERIFIER_URL) HURL_JOBS=$(HURL_JOBS) \
+	bash testdata/integration/scripts/run-integration-tests.sh
+itest: test-integration
 
 # Run the verifier server
 run-server:

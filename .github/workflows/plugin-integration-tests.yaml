@@ -94,7 +94,7 @@ jobs:
           yq --version
 
       - name: Install hurl
-        uses: gacts/install-hurl@v1.3.2
+        uses: gacts/install-hurl@v1.2.1
 
       - name: Create integration test config
         run: |

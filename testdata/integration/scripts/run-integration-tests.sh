@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+# Error trap for better debugging
+trap 'echo "❌ Error on line $LINENO: $BASH_COMMAND"; exit 1' ERR
+
 # Integration test runner using Hurl with vault fixture support
 # Generates tests from proposed.yaml and runs them in parallel through verifier API
 # Requires: auth enabled, vault token seeded in database, JWT bearer token
@@ -61,8 +64,8 @@ RESHARE_SESSION_ID=$(jq -r '.reshare.session_id' "$FIXTURE_FILE")
 HEX_ENCRYPTION_KEY=$(jq -r '.reshare.hex_encryption_key' "$FIXTURE_FILE")
 HEX_CHAIN_CODE=$(jq -r '.reshare.hex_chain_code' "$FIXTURE_FILE")
 LOCAL_PARTY_ID=$(jq -r '.reshare.local_party_id' "$FIXTURE_FILE")
-OLD_PARTIES=$(jq -c '.reshare.old_parties' "$FIXTURE_FILE")
 EMAIL=$(jq -r '.reshare.email' "$FIXTURE_FILE")
+# Note: OLD_PARTIES is hardcoded in template since Hurl can't render JSON arrays
 
 # Policy test constants (using test values from smoke tests)
 POLICY_ID_CREATE="00000000-0000-0000-0000-000000000001"
@@ -89,7 +92,6 @@ echo "   Vault Public Key: $VAULT_PUBKEY"
 echo "   Vault Name: $VAULT_NAME"
 echo "   Session ID: $RESHARE_SESSION_ID"
 echo "   Local Party ID: $LOCAL_PARTY_ID"
-echo "   Old Parties: $OLD_PARTIES"
 echo ""
 
 # Check if verifier is running
@@ -106,7 +108,8 @@ echo ""
 # Create directories
 mkdir -p "$GENERATED_DIR"
 mkdir -p "$RESULTS_DIR"
-rm -f "$GENERATED_DIR"/*.hurl
+rm -f "$GENERATED_DIR"/*.vars
+rm -f "$RESULTS_DIR/hurl.log"
 
 # Read plugins from proposed.yaml and generate tests
 echo "📝 Generating tests from proposed.yaml..."
@@ -149,48 +152,74 @@ for i in $(seq 0 $((PLUGIN_COUNT - 1))); do
             ;;
     esac
 
-    # Generate test file from template
-    TEST_FILE="$GENERATED_DIR/${PLUGIN_ID}.hurl"
-    sed -e "s|{{PLUGIN_ID}}|$PLUGIN_ID|g" \
-        -e "s|{{VAULT_PUBKEY}}|$VAULT_PUBKEY|g" \
-        -e "s|{{VAULT_NAME}}|$VAULT_NAME|g" \
-        -e "s|{{RESHARE_SESSION_ID}}|$RESHARE_SESSION_ID|g" \
-        -e "s|{{HEX_ENCRYPTION_KEY}}|$HEX_ENCRYPTION_KEY|g" \
-        -e "s|{{HEX_CHAIN_CODE}}|$HEX_CHAIN_CODE|g" \
-        -e "s|{{LOCAL_PARTY_ID}}|$LOCAL_PARTY_ID|g" \
-        -e "s|{{OLD_PARTIES}}|$OLD_PARTIES|g" \
-        -e "s|{{EMAIL}}|$EMAIL|g" \
-        -e "s|{{POLICY_ID_CREATE}}|$POLICY_ID_CREATE|g" \
-        -e "s|{{POLICY_SIGNATURE}}|$POLICY_SIGNATURE|g" \
-        -e "s|{{POLICY_RECIPE}}|$POLICY_RECIPE|g" \
-        -e "s|{{JWT_TOKEN}}|$JWT_TOKEN|g" \
-        -e "s|{{PLUGIN_API_KEY}}|$PLUGIN_API_KEY|g" \
-        -e "s|{{POLICY_ID_SIGNER}}|$POLICY_ID_SIGNER|g" \
-        -e "s|{{EVM_TX_B64}}|$TX_B64|g" \
-        -e "s|{{EVM_MSG_B64}}|$MSG_B64|g" \
-        "$TEMPLATE_FILE" > "$TEST_FILE"
+    # Generate variables file for this plugin (Hurl native approach - no sed escaping issues)
+    # Note: OLD_PARTIES is hardcoded in template since Hurl can't render JSON arrays from variables
+    # Note: Values must be quoted to prevent Hurl from interpreting hex strings as numbers
+    VARS_FILE="$GENERATED_DIR/${PLUGIN_ID}.vars"
+    cat > "$VARS_FILE" <<EOF
+PLUGIN_ID="$PLUGIN_ID"
+VAULT_PUBKEY="$VAULT_PUBKEY"
+VAULT_NAME="$VAULT_NAME"
+RESHARE_SESSION_ID="$RESHARE_SESSION_ID"
+HEX_ENCRYPTION_KEY="$HEX_ENCRYPTION_KEY"
+HEX_CHAIN_CODE="$HEX_CHAIN_CODE"
+LOCAL_PARTY_ID="$LOCAL_PARTY_ID"
+EMAIL="$EMAIL"
+POLICY_ID_CREATE="$POLICY_ID_CREATE"
+POLICY_SIGNATURE="$POLICY_SIGNATURE"
+POLICY_RECIPE="$POLICY_RECIPE"
+JWT_TOKEN="$JWT_TOKEN"
+PLUGIN_API_KEY="$PLUGIN_API_KEY"
+POLICY_ID_SIGNER="$POLICY_ID_SIGNER"
+EVM_TX_B64="$TX_B64"
+EVM_MSG_B64="$MSG_B64"
+EOF
 
     ((GENERATED_COUNT++))
 done
 
 echo ""
-echo "📂 Generated $GENERATED_COUNT test files in $GENERATED_DIR"
+echo "📂 Generated $GENERATED_COUNT variable files in $GENERATED_DIR"
 echo ""
 
-# Run all tests in parallel using Hurl's directory mode
+# Check template exists
+if [ ! -f "$TEMPLATE_FILE" ]; then
+    echo "❌ Error: Template file not found: $TEMPLATE_FILE"
+    exit 1
+fi
+
+# Run tests using Hurl's native variables file approach
 echo "🚀 Running tests in parallel (jobs: $HURL_JOBS)..."
 echo "========================================"
 echo ""
 
 set +e
-hurl \
-    --test \
-    --jobs "$HURL_JOBS" \
-    --error-format long \
-    --report-html "$RESULTS_DIR/html" \
-    --report-junit "$RESULTS_DIR/junit.xml" \
-    "$GENERATED_DIR"/*.hurl 2>&1 | tee "$RESULTS_DIR/hurl.log"
-HURL_EXIT=${PIPESTATUS[0]}
+HURL_EXIT=0
+
+# Run hurl for each plugin with its variables file
+PASSED_PLUGINS=""
+FAILED_PLUGINS=""
+
+for VARS_FILE in "$GENERATED_DIR"/*.vars; do
+    PLUGIN_NAME=$(basename "$VARS_FILE" .vars)
+    echo "▶ Testing: $PLUGIN_NAME"
+
+    hurl \
+        --test \
+        --error-format long \
+        --variables-file "$VARS_FILE" \
+        --report-html "$RESULTS_DIR/html" \
+        --report-junit "$RESULTS_DIR/junit.xml" \
+        "$TEMPLATE_FILE" 2>&1 | tee -a "$RESULTS_DIR/hurl.log"
+
+    THIS_EXIT=${PIPESTATUS[0]}
+    if [ "$THIS_EXIT" -ne 0 ]; then
+        HURL_EXIT=$THIS_EXIT
+        FAILED_PLUGINS="$FAILED_PLUGINS$PLUGIN_NAME\n"
+    else
+        PASSED_PLUGINS="$PASSED_PLUGINS$PLUGIN_NAME\n"
+    fi
+done
 set -e
 
 echo ""
@@ -198,14 +227,22 @@ echo "========================================"
 echo "📊 Detailed Summary"
 echo "========================================"
 
-# Parse results from hurl output (format: "Success /path/file.hurl (N request(s) in M ms)")
+# Show results by plugin name
 echo ""
 echo "✅ Passed:"
-grep -E "^Success\s+" "$RESULTS_DIR/hurl.log" 2>/dev/null | sed 's|^Success .*/||; s| (.*||' || echo "   (none)"
+if [ -n "$PASSED_PLUGINS" ]; then
+    echo -e "$PASSED_PLUGINS" | grep -v '^$' | while read plugin; do echo "   $plugin"; done
+else
+    echo "   (none)"
+fi
 
 echo ""
 echo "❌ Failed:"
-grep -E "^Failure\s+" "$RESULTS_DIR/hurl.log" 2>/dev/null | sed 's|^Failure .*/||; s| (.*||' || echo "   (none)"
+if [ -n "$FAILED_PLUGINS" ]; then
+    echo -e "$FAILED_PLUGINS" | grep -v '^$' | while read plugin; do echo "   $plugin"; done
+else
+    echo "   (none)"
+fi
 
 echo ""
 echo "🐢 Slowest tests:"
@@ -215,13 +252,11 @@ grep -E "^(Success|Failure)\s+.* in [0-9]+ ms\)" "$RESULTS_DIR/hurl.log" 2>/dev/
         for(i=1; i<=NF; i++) {
             if($(i+1) == "ms)") { ms=$i; break }
         }
-        # Get filename from path
-        n=split($2, parts, "/");
-        print ms "\t" parts[n]
+        print ms
       }' \
     | sort -nr \
     | head -5 \
-    | awk '{printf "   %6sms  %s\n",$1,$2}' || echo "   (no timing data)"
+    | awk '{printf "   %6sms\n",$1}' || echo "   (no timing data)"
 
 echo ""
 echo "📁 Reports saved to: $RESULTS_DIR"

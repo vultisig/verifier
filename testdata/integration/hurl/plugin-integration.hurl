@@ -29,7 +29,7 @@ Content-Type: application/json
   "hex_encryption_key": "{{HEX_ENCRYPTION_KEY}}",
   "hex_chain_code": "{{HEX_CHAIN_CODE}}",
   "local_party_id": "{{LOCAL_PARTY_ID}}",
-  "old_parties": {{OLD_PARTIES}},
+  "old_parties": ["party1","party2"],
   "email": "{{EMAIL}}",
   "plugin_id": "{{PLUGIN_ID}}"
 }
@@ -49,7 +49,7 @@ Content-Type: application/json
   "hex_encryption_key": "{{HEX_ENCRYPTION_KEY}}",
   "hex_chain_code": "{{HEX_CHAIN_CODE}}",
   "local_party_id": "{{LOCAL_PARTY_ID}}",
-  "old_parties": {{OLD_PARTIES}},
+  "old_parties": ["party1","party2"],
   "email": "{{EMAIL}}",
   "plugin_id": "{{PLUGIN_ID}}"
 }

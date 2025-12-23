@@ -9,9 +9,12 @@ on:
 
   # Also allow manual trigger and on relevant file changes
   workflow_dispatch:
-  push:
+  pull_request:
     paths:
       - 'testdata/integration/**'
+      - 'internal/api/**'
+      - 'internal/service/**'
+      - 'vault/**'
       - '.github/workflows/plugin-integration-tests.yaml'
 
 jobs:
@@ -49,6 +52,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 1
 
       - name: Build MinIO image
         run: docker build -f Dockerfile.minio -t vultisig-minio .
@@ -88,7 +94,7 @@ jobs:
           yq --version
 
       - name: Install hurl
-        uses: gacts/install-hurl@v1.2.1    
+        uses: gacts/install-hurl@v1.3.2
 
       - name: Create integration test config
         run: |
@@ -201,12 +207,6 @@ jobs:
           if [ -f verifier.pid ]; then
             kill $(cat verifier.pid) 2>/dev/null || true
             rm verifier.pid
-          fi
-
-          # Stop worker
-          if [ -f worker.pid ]; then
-            kill $(cat worker.pid) 2>/dev/null || true
-            rm worker.pid
           fi
 
           # Stop MinIO

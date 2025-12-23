@@ -54,13 +54,14 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.24.2'
+          cache: true
 
       - name: Download go-wrappers
         run: |
           git clone https://github.com/vultisig/go-wrappers.git ../go-wrappers
 
       - name: Install hurl
-        uses: gacts/install-hurl@v1.2.1
+        uses: gacts/install-hurl@v1.3.2
 
       - name: Create test config
         run: |

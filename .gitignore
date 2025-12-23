@@ -53,3 +53,5 @@ tmp/
 .air.*.toml
 bin/
 testdata/integration/test-results/
+testdata/integration/bin/
+testdata/integration/hurl/generated/

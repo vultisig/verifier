@@ -13,6 +13,8 @@ TEMPLATE_FILE="$INTEGRATION_DIR/hurl/plugin-integration.hurl"
 FIXTURE_FILE="$INTEGRATION_DIR/fixture.json"
 GENERATED_DIR="$INTEGRATION_DIR/hurl/generated"
 RESULTS_DIR="$INTEGRATION_DIR/test-results"
+BIN_DIR="$INTEGRATION_DIR/bin"
+ITUTIL="$BIN_DIR/itutil"
 
 # Parallel jobs (default 4, override with HURL_JOBS env var)
 HURL_JOBS="${HURL_JOBS:-4}"
@@ -37,6 +39,15 @@ for cmd in yq jq hurl; do
     fi
 done
 
+# Build itutil if needed
+if [ ! -f "$ITUTIL" ] || [ "$INTEGRATION_DIR/cmd/itutil/main.go" -nt "$ITUTIL" ]; then
+    echo "🔨 Building itutil..."
+    mkdir -p "$BIN_DIR"
+    (cd "$REPO_ROOT" && go build -o "$ITUTIL" ./testdata/integration/cmd/itutil)
+    echo "   ✅ Built $ITUTIL"
+    echo ""
+fi
+
 # Read fixture metadata
 if [ ! -f "$FIXTURE_FILE" ]; then
     echo "❌ Error: Fixture file not found: $FIXTURE_FILE"
@@ -60,14 +71,14 @@ POLICY_RECIPE="CgA="
 
 # Generate JWT token for policy endpoints
 JWT_SECRET="mysecret"
-JWT_TOKEN=$(cd "$REPO_ROOT" && go run "$SCRIPT_DIR/generate-jwt-token.go" "$JWT_SECRET" "$VAULT_PUBKEY")
+JWT_TOKEN=$("$ITUTIL" jwt --secret "$JWT_SECRET" --pubkey "$VAULT_PUBKEY")
 if [ $? -ne 0 ] || [ -z "$JWT_TOKEN" ]; then
     echo "❌ Error: Failed to generate JWT token"
     exit 1
 fi
 
 # Generate test EVM transaction for plugin-signer tests (base64-encoded)
-eval "$(cd "$REPO_ROOT" && go run "$SCRIPT_DIR/generate-test-evm-tx.go")"
+eval "$("$ITUTIL" evm-fixture --output shell)"
 if [ -z "$TX_B64" ] || [ -z "$MSG_B64" ]; then
     echo "❌ Error: Failed to generate test EVM transaction"
     exit 1

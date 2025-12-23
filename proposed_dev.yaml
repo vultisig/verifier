@@ -2,7 +2,7 @@ plugins:
   - id: vultisig-dca-0000
     title: Recurring Swaps
     description: Automate your long-term investments with the Recurring Swaps app. Securely and automatically convert any Vultisig-supported asset into any other asset on a recurring schedule. Define the asset, amount, and time interval. Your vault executes the schedule without the need for third parties, contracts or bots.
-    server_endpoint: https://plugin-dca-swap.prod.plugins.vultisig.com
+    server_endpoint: http://server-swap.plugin-dca.svc.cluster.local
     category: app
     logo_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_swap/icon.jpg
     thumbnail_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_swap/banner.jpg
@@ -20,12 +20,12 @@ plugins:
       - question: What are the risks or what can I lose by using Reoccurring Swaps?
         answer: You still bear the full market risk of the assets you choose to DCA into. Their value can go down as well as up, and you may lose some or all of the amount you invest. The DCA app only automates your recurring trades; it does not remove or reduce price risk. Also, Vultisig does not have a global overview of your strategies or timing, so you are responsible for reviewing and managing your DCA setups.
       - question: What fees apply, or minimum amounts apply when using the Reoccurring Swaps App?
-        answer: A fixed fee of $0.50 USDC per executed trade is charged and added to your account’s fee balance. As with all Vultisig apps, the Fee Management app will deduct the accumulated balance on the due date, which you can see in the Billing section of the app store. There is no minimum DCA amount – you are free to DCA any amount you like.
+        answer: A fixed fee of $0.50 USDC per executed trade is charged and added to your account's fee balance. As with all Vultisig apps, the Fee Management app will deduct the accumulated balance on the due date, which you can see in the Billing section of the app store. There is no minimum DCA amount – you are free to DCA any amount you like.
 
   - id: vultisig-recurring-sends-0000
     title: Recurring Sends
     description: Automate your outgoing transfers with the Recurring Sends App. Securely schedule recurring payments to any address, for any asset supported in Vultisig. Set the destination, amount, and interval. Your devices approve the setup, and your vault handles the execution automatically.
-    server_endpoint: https://plugin-dca-send.prod.plugins.vultisig.com
+    server_endpoint: http://server-send.plugin-dca.svc.cluster.local
     category: app
     logo_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_send/icon.jpg
     thumbnail_url: https://raw.githubusercontent.com/vultisig/verifier/main/assets/plugins/recurring_send/banner.jpg

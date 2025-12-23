@@ -140,7 +140,7 @@ jobs:
       - name: Start verifier
         run: |
           export LD_LIBRARY_PATH=../go-wrappers/includes/linux/:$LD_LIBRARY_PATH
-          export VS_CONFIG_NAME=config
+          export VS_VERIFIER_CONFIG_NAME=config
 
           ./verifier &
           echo $! > verifier.pid
@@ -163,7 +163,7 @@ jobs:
 
       - name: Seed integration database
         run: |
-          export VS_CONFIG_NAME=config
+          export VS_VERIFIER_CONFIG_NAME=config
           ./testdata/integration/bin/itutil seed-db --proposed proposed.yaml
 
       - name: Seed vault fixtures to MinIO

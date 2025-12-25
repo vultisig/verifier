@@ -34,7 +34,7 @@ RUN echo 'root = "."' > .air.toml && \
     echo '  exclude_regex = ["_test.go"]' >> .air.toml 
 
 COPY verifier.example.json config.json
-COPY proposed.yaml proposed.yaml
+COPY proposed_dev.yaml proposed.yaml
 
 # Run the application
 CMD ["air"]

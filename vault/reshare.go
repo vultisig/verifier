@@ -61,6 +61,8 @@ func (t *DKLSTssService) ProcessReshare(vault *vaultType.Vault,
 	if err != nil {
 		return fmt.Errorf("failed to reshare ECDSA: %w", err)
 	}
+	//Need to wait for extension downloads everything and will be ready for next
+	time.Sleep(500 * time.Millisecond)
 	t.logger.Infof("start reshare eddsa")
 	eddsaPubkey, _, err := t.reshareWithRetry(vault, sessionID, hexEncryptionKey, partiesJoined, vault.PublicKeyEddsa, true)
 	if err != nil {

@@ -10,7 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/vultisig/verifier/internal/storage"
-	"github.com/vultisig/verifier/safety"
 	vtypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/verifier/vault"
 )
@@ -19,18 +18,18 @@ type FeeManagementService struct {
 	logger    *logrus.Logger
 	db        storage.DatabaseStorage
 	vault     *vault.ManagementService
-	safetyMgm *safety.Manager
+	safetyMgm vault.SafetyManager
 }
 
 func NewFeeManagementService(
 	logger *logrus.Logger,
 	db storage.DatabaseStorage,
-	vault *vault.ManagementService,
-	safetyMgm *safety.Manager) *FeeManagementService {
+	vaultSvc *vault.ManagementService,
+	safetyMgm vault.SafetyManager) *FeeManagementService {
 	return &FeeManagementService{
 		logger:    logger,
 		db:        db,
-		vault:     vault,
+		vault:     vaultSvc,
 		safetyMgm: safetyMgm,
 	}
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/vultisig/verifier/plugin/tx_indexer"
-	"github.com/vultisig/verifier/safety"
 	"github.com/vultisig/verifier/vault_config"
 
 	"github.com/hibiken/asynq"
@@ -42,7 +41,7 @@ type ManagementService struct {
 	plugin           plugin.Plugin
 	vaultStorage     Storage
 	txIndexerService *tx_indexer.Service
-	safetyMgm        *safety.Manager
+	safetyMgm        SafetyManager
 }
 
 // NewManagementService creates a new instance of the ManagementService
@@ -51,9 +50,14 @@ func NewManagementService(
 	queueClient *asynq.Client,
 	storage Storage,
 	txIndexerService *tx_indexer.Service,
-	safetyMgm *safety.Manager,
+	safetyMgm SafetyManager,
 ) (*ManagementService, error) {
 	logger := logrus.WithField("service", "vault-management").Logger
+
+	// Use NoOp if nil is passed
+	if safetyMgm == nil {
+		safetyMgm = &NoOpSafetyManager{}
+	}
 
 	return &ManagementService{
 		cfg:              cfg,

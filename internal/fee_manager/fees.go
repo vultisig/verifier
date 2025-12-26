@@ -24,12 +24,12 @@ type FeeManagementService struct {
 func NewFeeManagementService(
 	logger *logrus.Logger,
 	db storage.DatabaseStorage,
-	vaultSvc *vault.ManagementService,
+	vault *vault.ManagementService,
 	safetyMgm vault.SafetyManager) *FeeManagementService {
 	return &FeeManagementService{
 		logger:    logger,
 		db:        db,
-		vault:     vaultSvc,
+		vault:     vault,
 		safetyMgm: safetyMgm,
 	}
 }

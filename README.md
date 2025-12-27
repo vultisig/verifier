@@ -78,7 +78,6 @@ Each service uses its corresponding example file as the default config.json in b
 **Authentication:** `/auth` (POST), `/auth/refresh` (POST)
 
 **Vault Management:**
-- Create: `/vault/create` (POST)
 - Reshare: `/vault/reshare` (POST)
 - Get: `/vault/get/:pubKey` (GET)
 - Check: `/vault/exist/:pubKey` (GET)
@@ -100,7 +99,13 @@ Each service uses its corresponding example file as the default config.json in b
 - `/vault` - Vault storage implementations
 
 **Testing:**
-Run `go test ./[path]/...`
+```bash
+# Unit tests
+go test ./[path]/...
+
+# Plugin integration tests
+make test-integration                      # Run all tests
+```
 
 ## License
 

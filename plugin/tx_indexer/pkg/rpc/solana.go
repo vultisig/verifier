@@ -3,6 +3,8 @@ package rpc
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -40,6 +42,10 @@ func (s *Solana) GetTxStatus(ctx context.Context, txHash string) (TxOnChainStatu
 		Encoding: solana.EncodingBase64,
 	})
 	if err != nil {
+		// If rate limited (429), wait before returning to slow down polling
+		if strings.Contains(err.Error(), "429") || strings.Contains(err.Error(), "Too many requests") {
+			time.Sleep(5 * time.Second)
+		}
 		return TxOnChainPending, nil
 	}
 

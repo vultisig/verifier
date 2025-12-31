@@ -30,6 +30,7 @@ import (
 	"github.com/vultisig/verifier/plugin/tasks"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
 	ptypes "github.com/vultisig/verifier/types"
+	vtypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/vultisig-go/common"
 )
 
@@ -395,6 +396,13 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgPublicKeyMismatch))
 	}
 
+	// Fetch plugin to get app name
+	plugin, err := s.pluginService.GetPluginWithRating(c.Request().Context(), string(oldPolicy.PluginID))
+	if err != nil {
+		s.logger.WithError(err).Errorf("s.pluginService.GetPluginWithRating: %s", oldPolicy.PluginID)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginFailed))
+	}
+
 	txs, totalCount, err := s.txIndexerService.GetByPolicyID(c.Request().Context(), policyUUID, skip, take)
 	if err != nil {
 		s.logger.WithError(err).Errorf("s.txIndexerService.GetByPolicyID: %s", policyID)
@@ -402,7 +410,52 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, types.TransactionHistoryPaginatedList{
-		History:    txs,
+		History:    types.FromStorageTxs(txs, plugin.Title),
+		TotalCount: totalCount,
+	}))
+}
+
+func (s *Server) GetPluginTransactionHistory(c echo.Context) error {
+	pluginID := c.Param("pluginId")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
+	}
+
+	skip, take, err := conv.PageParamsFromCtx(c, 0, 20)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidPagination))
+	}
+
+	if take > 100 {
+		take = 100
+	}
+
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok || publicKey == "" {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
+	}
+
+	// Fetch plugin to get app name
+	plugin, err := s.pluginService.GetPluginWithRating(c.Request().Context(), pluginID)
+	if err != nil {
+		s.logger.WithError(err).Errorf("s.pluginService.GetPluginWithRating: %s", pluginID)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginFailed))
+	}
+
+	txs, totalCount, err := s.txIndexerService.GetByPluginIDAndPublicKey(
+		c.Request().Context(),
+		vtypes.PluginID(pluginID),
+		publicKey,
+		skip,
+		take,
+	)
+	if err != nil {
+		s.logger.WithError(err).Errorf("s.txIndexerService.GetByPluginIDAndPublicKey: %s", pluginID)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get transactions by plugin ID"))
+	}
+
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, types.TransactionHistoryPaginatedList{
+		History:    types.FromStorageTxs(txs, plugin.Title),
 		TotalCount: totalCount,
 	}))
 }

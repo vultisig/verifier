@@ -24,6 +24,8 @@ type TxIndexerRepo interface {
 	GetTxsInTimeRange(ctx context.Context, policyID uuid.UUID, from, to time.Time) <-chan RowsStream[Tx]
 	GetByPolicyID(ctx context.Context, policyID uuid.UUID, skip, take uint32) <-chan RowsStream[Tx]
 	CountByPolicyID(ctx context.Context, policyID uuid.UUID) (uint32, error)
+	GetByPluginIDAndPublicKey(ctx context.Context, pluginID types.PluginID, publicKey string, skip, take uint32) <-chan RowsStream[Tx]
+	CountByPluginIDAndPublicKey(ctx context.Context, pluginID types.PluginID, publicKey string) (uint32, error)
 }
 
 type TxStatus string

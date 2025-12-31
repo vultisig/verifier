@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
+	"github.com/vultisig/verifier/types"
 )
 
 type PostgresTxIndexStore struct {
@@ -285,6 +286,41 @@ func (p *PostgresTxIndexStore) CountByPolicyID(c context.Context, policyID uuid.
 		ctx,
 		`SELECT COUNT(*) FROM tx_indexer WHERE policy_id = $1`,
 		policyID,
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("p.pool.QueryRow: %w", err)
+	}
+	return count, nil
+}
+
+func (p *PostgresTxIndexStore) GetByPluginIDAndPublicKey(
+	c context.Context,
+	pluginID types.PluginID,
+	publicKey string,
+	skip, take uint32,
+) <-chan RowsStream[Tx] {
+	return GetRowsStream[Tx](
+		c,
+		p.pool,
+		TxFromRow,
+		`SELECT * FROM tx_indexer WHERE plugin_id = $1 AND from_public_key = $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4`,
+		pluginID,
+		publicKey,
+		take,
+		skip,
+	)
+}
+
+func (p *PostgresTxIndexStore) CountByPluginIDAndPublicKey(c context.Context, pluginID types.PluginID, publicKey string) (uint32, error) {
+	ctx, cancel := context.WithTimeout(c, defaultTimeout)
+	defer cancel()
+
+	var count uint32
+	err := p.pool.QueryRow(
+		ctx,
+		`SELECT COUNT(*) FROM tx_indexer WHERE plugin_id = $1 AND from_public_key = $2`,
+		pluginID,
+		publicKey,
 	).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("p.pool.QueryRow: %w", err)

@@ -48,6 +48,7 @@ type Tx struct {
 	FromPublicKey string               `json:"from_public_key" validate:"required"`
 	ToPublicKey   string               `json:"to_public_key" validate:"required"`
 	ProposedTxHex string               `json:"proposed_tx_hex" validate:"required"`
+	Amount        *string              `json:"amount"`
 	Status        TxStatus             `json:"status" validate:"required"`
 	StatusOnChain *rpc.TxOnChainStatus `json:"status_onchain"`
 	Lost          bool                 `json:"lost"`
@@ -82,4 +83,5 @@ type CreateTxDto struct {
 	FromPublicKey string
 	ToPublicKey   string
 	ProposedTxHex string
+	Amount        string
 }

@@ -20,6 +20,7 @@ type PluginTransactionResponse struct {
 	ToPublicKey   string               `json:"to_public_key"`
 	ChainID       int                  `json:"chain_id"`
 	TokenID       string               `json:"token_id"`
+	Amount        *string              `json:"amount"` // Transaction amount in base units
 	TxHash        *string              `json:"tx_hash"`
 	Status        storage.TxStatus     `json:"status"`
 	StatusOnChain *rpc.TxOnChainStatus `json:"status_onchain"`
@@ -41,6 +42,7 @@ func FromStorageTxs(txs []storage.Tx, appName string) []PluginTransactionRespons
 			ToPublicKey:   tx.ToPublicKey,
 			ChainID:       tx.ChainID,
 			TokenID:       tx.TokenID,
+			Amount:        tx.Amount,
 			TxHash:        tx.TxHash,
 			Status:        tx.Status,
 			StatusOnChain: tx.StatusOnChain,

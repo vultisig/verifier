@@ -52,6 +52,7 @@ func (p *PostgresTxIndexStore) createTx(ctx context.Context, tx Tx) error {
                         from_public_key,
                         to_public_key,
                         proposed_tx_hex,
+                        amount,
                         status,
                         status_onchain,
                         lost,
@@ -73,7 +74,8 @@ func (p *PostgresTxIndexStore) createTx(ctx context.Context, tx Tx) error {
           $12,
           $13,
           $14,
-          $15
+          $15,
+          $16
 )`, tx.ID,
 		tx.PluginID,
 		tx.TxHash,
@@ -83,6 +85,7 @@ func (p *PostgresTxIndexStore) createTx(ctx context.Context, tx Tx) error {
 		tx.FromPublicKey,
 		tx.ToPublicKey,
 		tx.ProposedTxHex,
+		tx.Amount,
 		tx.Status,
 		tx.StatusOnChain,
 		tx.Lost,
@@ -237,6 +240,11 @@ func (p *PostgresTxIndexStore) CreateTx(c context.Context, req CreateTxDto) (Tx,
 		return Tx{}, fmt.Errorf("uuid.NewRandom: %w", err)
 	}
 
+	var amount *string
+	if req.Amount != "" {
+		amount = &req.Amount
+	}
+
 	tx := Tx{
 		ID:            id,
 		PluginID:      req.PluginID,
@@ -247,6 +255,7 @@ func (p *PostgresTxIndexStore) CreateTx(c context.Context, req CreateTxDto) (Tx,
 		FromPublicKey: req.FromPublicKey,
 		ToPublicKey:   req.ToPublicKey,
 		ProposedTxHex: req.ProposedTxHex,
+		Amount:        amount,
 		Status:        TxProposed,
 		StatusOnChain: nil,
 		Lost:          false,
@@ -406,6 +415,7 @@ func TxFromRow(rows pgx.Rows) (Tx, error) {
 		&tx.BroadcastedAt,
 		&tx.CreatedAt,
 		&tx.UpdatedAt,
+		&tx.Amount, // Added at end by ALTER TABLE
 	)
 	if err != nil {
 		return Tx{}, fmt.Errorf("rows.Scan: %w", err)

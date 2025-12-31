@@ -456,7 +456,7 @@ func (s *Server) GetPluginTransactionHistory(c echo.Context) error {
 	)
 	if err != nil {
 		s.logger.WithError(err).Errorf("s.txIndexerService.GetByPluginIDAndPublicKey: %s", pluginID)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get transactions by plugin ID"))
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetTxsByPluginIDFailed))
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, types.TransactionHistoryPaginatedList{

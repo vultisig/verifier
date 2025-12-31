@@ -399,6 +399,7 @@ func GetRowsStream[T any](
 
 func TxFromRow(rows pgx.Rows) (Tx, error) {
 	var tx Tx
+	var statusOnChain *string
 	err := rows.Scan(
 		&tx.ID,
 		&tx.PluginID,
@@ -410,7 +411,7 @@ func TxFromRow(rows pgx.Rows) (Tx, error) {
 		&tx.ToPublicKey,
 		&tx.ProposedTxHex,
 		&tx.Status,
-		&tx.StatusOnChain,
+		&statusOnChain,
 		&tx.Lost,
 		&tx.BroadcastedAt,
 		&tx.CreatedAt,
@@ -419,6 +420,10 @@ func TxFromRow(rows pgx.Rows) (Tx, error) {
 	)
 	if err != nil {
 		return Tx{}, fmt.Errorf("rows.Scan: %w", err)
+	}
+	if statusOnChain != nil {
+		s := rpc.TxOnChainStatus(*statusOnChain)
+		tx.StatusOnChain = &s
 	}
 	return tx, nil
 }

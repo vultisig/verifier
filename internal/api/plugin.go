@@ -29,7 +29,6 @@ import (
 	"github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/plugin/tasks"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
-	ptypes "github.com/vultisig/verifier/types"
 	vtypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/vultisig-go/common"
 )
@@ -37,13 +36,13 @@ import (
 func (s *Server) SignPluginMessages(c echo.Context) error {
 	s.logger.Debug("PLUGIN SERVER: SIGN MESSAGES")
 
-	var req ptypes.PluginKeysignRequest
+	var req vtypes.PluginKeysignRequest
 	if err := c.Bind(&req); err != nil {
 		return fmt.Errorf("fail to parse request, err: %w", err)
 	}
 
 	// Get policy from database
-	if req.PluginID == ptypes.PluginVultisigFees_feee.String() {
+	if req.PluginID == vtypes.PluginVultisigFees_feee.String() {
 		s.logger.Debug("SIGN FEE PLUGIN MESSAGES")
 		return s.validateAndSign(c, &req, types.FeeDefaultPolicy, uuid.New())
 	} else {
@@ -60,7 +59,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		}
 
 		if !isTrialActive {
-			filePathName := common.GetVaultBackupFilename(req.PublicKey, ptypes.PluginVultisigFees_feee.String())
+			filePathName := common.GetVaultBackupFilename(req.PublicKey, vtypes.PluginVultisigFees_feee.String())
 			exist, err := s.vaultStorage.Exist(filePathName)
 			if err != nil {
 				s.logger.WithError(err).Error("failed to check vault existence")
@@ -77,7 +76,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		}
 
 		// Validate policy matches plugin
-		if policy.PluginID != ptypes.PluginID(req.PluginID) {
+		if policy.PluginID != vtypes.PluginID(req.PluginID) {
 			return fmt.Errorf("policy plugin ID mismatch")
 		}
 
@@ -111,7 +110,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	}
 }
 
-func (s *Server) validateAndSign(c echo.Context, req *ptypes.PluginKeysignRequest, recipe *rtypes.Policy, policyID uuid.UUID) error {
+func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignRequest, recipe *rtypes.Policy, policyID uuid.UUID) error {
 	if len(req.Messages) == 0 {
 		return errors.New("no messages to sign")
 	}
@@ -202,7 +201,7 @@ func (s *Server) validateAndSign(c echo.Context, req *ptypes.PluginKeysignReques
 
 	var matchedRule *rtypes.Rule
 	//TODO: fee plugin priority for testing purposes
-	if req.PluginID == ptypes.PluginVultisigFees_feee.String() {
+	if req.PluginID == vtypes.PluginVultisigFees_feee.String() {
 		matchedRule, err = ngn.Evaluate(types.FeeDefaultPolicy, firstKeysignMessage.Chain, txBytesEvaluate)
 		if err != nil {
 			return fmt.Errorf("tx not allowed to execute: %w", err)
@@ -218,7 +217,7 @@ func (s *Server) validateAndSign(c echo.Context, req *ptypes.PluginKeysignReques
 	amount := extractAmountFromRule(matchedRule)
 
 	txToTrack, err := s.txIndexerService.CreateTx(c.Request().Context(), storage.CreateTxDto{
-		PluginID:      ptypes.PluginID(req.PluginID),
+		PluginID:      vtypes.PluginID(req.PluginID),
 		ChainID:       firstKeysignMessage.Chain,
 		PolicyID:      policyID,
 		FromPublicKey: req.PublicKey,
@@ -625,7 +624,7 @@ func (s *Server) GetPluginInstallationsCountByID(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
 	}
 
-	count, err := s.policyService.GetPluginInstallationsCount(c.Request().Context(), ptypes.PluginID(pluginID))
+	count, err := s.policyService.GetPluginInstallationsCount(c.Request().Context(), vtypes.PluginID(pluginID))
 	if err != nil {
 		s.logger.WithError(err).Errorf("Failed to get installation count for pluginId: %s", pluginID)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgPluginInstallationCountFailed))

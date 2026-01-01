@@ -697,19 +697,30 @@ func extractAmountFromRule(rule *rtypes.Rule) string {
 	return ""
 }
 
-// extractTokenIDFromRule extracts the token address from a matched rule's parameter constraints.
-// For send transactions, it looks for "asset" parameter.
-// For swap transactions, it looks for "from_asset" parameter.
+// extractTokenIDFromRule extracts the token address from a matched rule.
+// After metarule processing:
+// - For ERC20 sends: Target.Address contains the token contract address
+// - For 1inch swaps: "desc.srcToken" parameter contains the source token
 // Returns empty string for native token transfers.
 func extractTokenIDFromRule(rule *rtypes.Rule) string {
 	if rule == nil {
 		return ""
 	}
 
+	// Case 1: ERC20 transfer - the Target.Address is the token contract
+	resource := rule.GetResource()
+	if strings.Contains(resource, ".erc20.transfer") {
+		if target := rule.GetTarget(); target != nil {
+			if addr := target.GetAddress(); addr != "" {
+				return addr
+			}
+		}
+	}
+
+	// Case 2: Check parameter constraints for 1inch swap (srcToken)
 	for _, pc := range rule.GetParameterConstraints() {
 		paramName := pc.GetParameterName()
-		// Check for send asset or swap from_asset
-		if paramName == "asset" || paramName == "from_asset" {
+		if paramName == "srcToken" {
 			constraint := pc.GetConstraint()
 			if constraint != nil {
 				if fixedVal := constraint.GetFixedValue(); fixedVal != "" {
@@ -722,21 +733,51 @@ func extractTokenIDFromRule(rule *rtypes.Rule) string {
 	return ""
 }
 
-// extractToAddressFromRule extracts the recipient address from a matched rule's parameter constraints.
-// Checks various parameter names used across different transaction types and chains.
+// extractToAddressFromRule extracts the recipient address from a matched rule.
+// After metarule processing, checks various parameter names:
+// - EVM ERC20: "recipient"
+// - EVM native: Target.Address
+// - 1inch swap: "desc.dstReceiver"
+// - Solana native: "account_to"
+// - Solana SPL: "account_destination"
+// - Bitcoin/UTXO: "output_address_0"
+// - XRP/THORChain: "recipient"
 func extractToAddressFromRule(rule *rtypes.Rule) string {
 	if rule == nil {
 		return ""
 	}
 
+	// For EVM native transfers, the recipient is in Target.Address
+	resource := rule.GetResource()
+	if strings.Contains(resource, ".eth.transfer") ||
+		strings.Contains(resource, ".bnb.transfer") ||
+		strings.Contains(resource, ".matic.transfer") ||
+		strings.Contains(resource, ".avax.transfer") {
+		if target := rule.GetTarget(); target != nil {
+			if addr := target.GetAddress(); addr != "" {
+				return addr
+			}
+		}
+	}
+
+	// Check parameter constraints for various recipient parameter names
+	recipientParams := []string{
+		"recipient",           // EVM ERC20, XRP, THORChain
+		"dstReceiver",         // 1inch swap
+		"account_to",          // Solana native
+		"account_destination", // Solana SPL
+		"output_address_0",    // Bitcoin/UTXO
+	}
+
 	for _, pc := range rule.GetParameterConstraints() {
 		paramName := pc.GetParameterName()
-		// Check for various recipient parameter names across chains/protocols
-		if paramName == "to_address" || paramName == "recipient" || paramName == "account_to" {
-			constraint := pc.GetConstraint()
-			if constraint != nil {
-				if fixedVal := constraint.GetFixedValue(); fixedVal != "" {
-					return fixedVal
+		for _, recipientParam := range recipientParams {
+			if paramName == recipientParam {
+				constraint := pc.GetConstraint()
+				if constraint != nil {
+					if fixedVal := constraint.GetFixedValue(); fixedVal != "" {
+						return fixedVal
+					}
 				}
 			}
 		}

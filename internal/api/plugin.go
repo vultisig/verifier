@@ -213,14 +213,18 @@ func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignReques
 		}
 	}
 
-	// Extract amount from matched rule's parameter constraints
+	// Extract transaction details from matched rule's parameter constraints
 	amount := extractAmountFromRule(matchedRule)
+	tokenID := extractTokenIDFromRule(matchedRule)
+	toAddress := extractToAddressFromRule(matchedRule)
 
 	txToTrack, err := s.txIndexerService.CreateTx(c.Request().Context(), storage.CreateTxDto{
 		PluginID:      vtypes.PluginID(req.PluginID),
 		ChainID:       firstKeysignMessage.Chain,
 		PolicyID:      policyID,
+		TokenID:       tokenID,
 		FromPublicKey: req.PublicKey,
+		ToPublicKey:   toAddress,
 		ProposedTxHex: req.Transaction,
 		Amount:        amount,
 	})
@@ -686,6 +690,54 @@ func extractAmountFromRule(rule *rtypes.Rule) string {
 					return fixedVal
 				}
 				// For other constraint types, we can't determine the exact amount
+			}
+		}
+	}
+
+	return ""
+}
+
+// extractTokenIDFromRule extracts the token address from a matched rule's parameter constraints.
+// For send transactions, it looks for "asset" parameter.
+// For swap transactions, it looks for "from_asset" parameter.
+// Returns empty string for native token transfers.
+func extractTokenIDFromRule(rule *rtypes.Rule) string {
+	if rule == nil {
+		return ""
+	}
+
+	for _, pc := range rule.GetParameterConstraints() {
+		paramName := pc.GetParameterName()
+		// Check for send asset or swap from_asset
+		if paramName == "asset" || paramName == "from_asset" {
+			constraint := pc.GetConstraint()
+			if constraint != nil {
+				if fixedVal := constraint.GetFixedValue(); fixedVal != "" {
+					return fixedVal
+				}
+			}
+		}
+	}
+
+	return ""
+}
+
+// extractToAddressFromRule extracts the recipient address from a matched rule's parameter constraints.
+// Checks various parameter names used across different transaction types and chains.
+func extractToAddressFromRule(rule *rtypes.Rule) string {
+	if rule == nil {
+		return ""
+	}
+
+	for _, pc := range rule.GetParameterConstraints() {
+		paramName := pc.GetParameterName()
+		// Check for various recipient parameter names across chains/protocols
+		if paramName == "to_address" || paramName == "recipient" || paramName == "account_to" {
+			constraint := pc.GetConstraint()
+			if constraint != nil {
+				if fixedVal := constraint.GetFixedValue(); fixedVal != "" {
+					return fixedVal
+				}
 			}
 		}
 	}

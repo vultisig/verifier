@@ -29,20 +29,20 @@ import (
 	"github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/plugin/tasks"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
-	ptypes "github.com/vultisig/verifier/types"
+	vtypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/vultisig-go/common"
 )
 
 func (s *Server) SignPluginMessages(c echo.Context) error {
 	s.logger.Debug("PLUGIN SERVER: SIGN MESSAGES")
 
-	var req ptypes.PluginKeysignRequest
+	var req vtypes.PluginKeysignRequest
 	if err := c.Bind(&req); err != nil {
 		return fmt.Errorf("fail to parse request, err: %w", err)
 	}
 
 	// Get policy from database
-	if req.PluginID == ptypes.PluginVultisigFees_feee.String() {
+	if req.PluginID == vtypes.PluginVultisigFees_feee.String() {
 		s.logger.Debug("SIGN FEE PLUGIN MESSAGES")
 		return s.validateAndSign(c, &req, types.FeeDefaultPolicy, uuid.New())
 	} else {
@@ -59,7 +59,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		}
 
 		if !isTrialActive {
-			filePathName := common.GetVaultBackupFilename(req.PublicKey, ptypes.PluginVultisigFees_feee.String())
+			filePathName := common.GetVaultBackupFilename(req.PublicKey, vtypes.PluginVultisigFees_feee.String())
 			exist, err := s.vaultStorage.Exist(filePathName)
 			if err != nil {
 				s.logger.WithError(err).Error("failed to check vault existence")
@@ -76,7 +76,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		}
 
 		// Validate policy matches plugin
-		if policy.PluginID != ptypes.PluginID(req.PluginID) {
+		if policy.PluginID != vtypes.PluginID(req.PluginID) {
 			return fmt.Errorf("policy plugin ID mismatch")
 		}
 
@@ -110,7 +110,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	}
 }
 
-func (s *Server) validateAndSign(c echo.Context, req *ptypes.PluginKeysignRequest, recipe *rtypes.Policy, policyID uuid.UUID) error {
+func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignRequest, recipe *rtypes.Policy, policyID uuid.UUID) error {
 	if len(req.Messages) == 0 {
 		return errors.New("no messages to sign")
 	}
@@ -198,25 +198,31 @@ func (s *Server) validateAndSign(c echo.Context, req *ptypes.PluginKeysignReques
 	if err != nil {
 		return fmt.Errorf("failed to create engine: %w", err)
 	}
+
+	var matchedRule *rtypes.Rule
 	//TODO: fee plugin priority for testing purposes
-	if req.PluginID == ptypes.PluginVultisigFees_feee.String() {
-		_, err = ngn.Evaluate(types.FeeDefaultPolicy, firstKeysignMessage.Chain, txBytesEvaluate)
+	if req.PluginID == vtypes.PluginVultisigFees_feee.String() {
+		matchedRule, err = ngn.Evaluate(types.FeeDefaultPolicy, firstKeysignMessage.Chain, txBytesEvaluate)
 		if err != nil {
 			return fmt.Errorf("tx not allowed to execute: %w", err)
 		}
 	} else {
-		_, err = ngn.Evaluate(recipe, firstKeysignMessage.Chain, txBytesEvaluate)
+		matchedRule, err = ngn.Evaluate(recipe, firstKeysignMessage.Chain, txBytesEvaluate)
 		if err != nil {
 			return fmt.Errorf("tx not allowed to execute: %w", err)
 		}
 	}
 
+	// Extract amount from matched rule's parameter constraints
+	amount := extractAmountFromRule(matchedRule)
+
 	txToTrack, err := s.txIndexerService.CreateTx(c.Request().Context(), storage.CreateTxDto{
-		PluginID:      ptypes.PluginID(req.PluginID),
+		PluginID:      vtypes.PluginID(req.PluginID),
 		ChainID:       firstKeysignMessage.Chain,
 		PolicyID:      policyID,
 		FromPublicKey: req.PublicKey,
 		ProposedTxHex: req.Transaction,
+		Amount:        amount,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create tx for tracking: %w", err)
@@ -395,6 +401,13 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgPublicKeyMismatch))
 	}
 
+	// Fetch plugin to get app name
+	plugin, err := s.pluginService.GetPluginWithRating(c.Request().Context(), string(oldPolicy.PluginID))
+	if err != nil {
+		s.logger.WithError(err).Errorf("s.pluginService.GetPluginWithRating: %s", oldPolicy.PluginID)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginFailed))
+	}
+
 	txs, totalCount, err := s.txIndexerService.GetByPolicyID(c.Request().Context(), policyUUID, skip, take)
 	if err != nil {
 		s.logger.WithError(err).Errorf("s.txIndexerService.GetByPolicyID: %s", policyID)
@@ -402,7 +415,52 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, types.TransactionHistoryPaginatedList{
-		History:    txs,
+		History:    types.FromStorageTxs(txs, plugin.Title),
+		TotalCount: totalCount,
+	}))
+}
+
+func (s *Server) GetPluginTransactionHistory(c echo.Context) error {
+	pluginID := c.Param("pluginId")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
+	}
+
+	skip, take, err := conv.PageParamsFromCtx(c, 0, 20)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidPagination))
+	}
+
+	if take > 100 {
+		take = 100
+	}
+
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok || publicKey == "" {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
+	}
+
+	// Fetch plugin to get app name
+	plugin, err := s.pluginService.GetPluginWithRating(c.Request().Context(), pluginID)
+	if err != nil {
+		s.logger.WithError(err).Errorf("s.pluginService.GetPluginWithRating: %s", pluginID)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginFailed))
+	}
+
+	txs, totalCount, err := s.txIndexerService.GetByPluginIDAndPublicKey(
+		c.Request().Context(),
+		vtypes.PluginID(pluginID),
+		publicKey,
+		skip,
+		take,
+	)
+	if err != nil {
+		s.logger.WithError(err).Errorf("s.txIndexerService.GetByPluginIDAndPublicKey: %s", pluginID)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetTxsByPluginIDFailed))
+	}
+
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, types.TransactionHistoryPaginatedList{
+		History:    types.FromStorageTxs(txs, plugin.Title),
 		TotalCount: totalCount,
 	}))
 }
@@ -566,11 +624,37 @@ func (s *Server) GetPluginInstallationsCountByID(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
 	}
 
-	count, err := s.policyService.GetPluginInstallationsCount(c.Request().Context(), ptypes.PluginID(pluginID))
+	count, err := s.policyService.GetPluginInstallationsCount(c.Request().Context(), vtypes.PluginID(pluginID))
 	if err != nil {
 		s.logger.WithError(err).Errorf("Failed to get installation count for pluginId: %s", pluginID)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgPluginInstallationCountFailed))
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, count))
+}
+
+// extractAmountFromRule extracts the amount from a matched rule's parameter constraints.
+// For send transactions, it looks for "amount" parameter.
+// For swap transactions, it looks for "from_amount" parameter.
+func extractAmountFromRule(rule *rtypes.Rule) string {
+	if rule == nil {
+		return ""
+	}
+
+	for _, pc := range rule.GetParameterConstraints() {
+		paramName := pc.GetParameterName()
+		// Check for send amount or swap from_amount
+		if paramName == "amount" || paramName == "from_amount" {
+			constraint := pc.GetConstraint()
+			if constraint != nil {
+				// Try to get fixed value first (most common for recurring send/swap)
+				if fixedVal := constraint.GetFixedValue(); fixedVal != "" {
+					return fixedVal
+				}
+				// For other constraint types, we can't determine the exact amount
+			}
+		}
+	}
+
+	return ""
 }

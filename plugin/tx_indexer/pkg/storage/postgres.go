@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
+	"github.com/vultisig/verifier/types"
 )
 
 type PostgresTxIndexStore struct {
@@ -51,6 +52,7 @@ func (p *PostgresTxIndexStore) createTx(ctx context.Context, tx Tx) error {
                         from_public_key,
                         to_public_key,
                         proposed_tx_hex,
+                        amount,
                         status,
                         status_onchain,
                         lost,
@@ -72,7 +74,8 @@ func (p *PostgresTxIndexStore) createTx(ctx context.Context, tx Tx) error {
           $12,
           $13,
           $14,
-          $15
+          $15,
+          $16
 )`, tx.ID,
 		tx.PluginID,
 		tx.TxHash,
@@ -82,6 +85,7 @@ func (p *PostgresTxIndexStore) createTx(ctx context.Context, tx Tx) error {
 		tx.FromPublicKey,
 		tx.ToPublicKey,
 		tx.ProposedTxHex,
+		tx.Amount,
 		tx.Status,
 		tx.StatusOnChain,
 		tx.Lost,
@@ -236,6 +240,11 @@ func (p *PostgresTxIndexStore) CreateTx(c context.Context, req CreateTxDto) (Tx,
 		return Tx{}, fmt.Errorf("uuid.NewRandom: %w", err)
 	}
 
+	var amount *string
+	if req.Amount != "" {
+		amount = &req.Amount
+	}
+
 	tx := Tx{
 		ID:            id,
 		PluginID:      req.PluginID,
@@ -246,6 +255,7 @@ func (p *PostgresTxIndexStore) CreateTx(c context.Context, req CreateTxDto) (Tx,
 		FromPublicKey: req.FromPublicKey,
 		ToPublicKey:   req.ToPublicKey,
 		ProposedTxHex: req.ProposedTxHex,
+		Amount:        amount,
 		Status:        TxProposed,
 		StatusOnChain: nil,
 		Lost:          false,
@@ -285,6 +295,41 @@ func (p *PostgresTxIndexStore) CountByPolicyID(c context.Context, policyID uuid.
 		ctx,
 		`SELECT COUNT(*) FROM tx_indexer WHERE policy_id = $1`,
 		policyID,
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("p.pool.QueryRow: %w", err)
+	}
+	return count, nil
+}
+
+func (p *PostgresTxIndexStore) GetByPluginIDAndPublicKey(
+	c context.Context,
+	pluginID types.PluginID,
+	publicKey string,
+	skip, take uint32,
+) <-chan RowsStream[Tx] {
+	return GetRowsStream[Tx](
+		c,
+		p.pool,
+		TxFromRow,
+		`SELECT * FROM tx_indexer WHERE plugin_id = $1 AND from_public_key = $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4`,
+		pluginID,
+		publicKey,
+		take,
+		skip,
+	)
+}
+
+func (p *PostgresTxIndexStore) CountByPluginIDAndPublicKey(c context.Context, pluginID types.PluginID, publicKey string) (uint32, error) {
+	ctx, cancel := context.WithTimeout(c, defaultTimeout)
+	defer cancel()
+
+	var count uint32
+	err := p.pool.QueryRow(
+		ctx,
+		`SELECT COUNT(*) FROM tx_indexer WHERE plugin_id = $1 AND from_public_key = $2`,
+		pluginID,
+		publicKey,
 	).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("p.pool.QueryRow: %w", err)
@@ -354,6 +399,7 @@ func GetRowsStream[T any](
 
 func TxFromRow(rows pgx.Rows) (Tx, error) {
 	var tx Tx
+	var statusOnChain *string
 	err := rows.Scan(
 		&tx.ID,
 		&tx.PluginID,
@@ -365,14 +411,19 @@ func TxFromRow(rows pgx.Rows) (Tx, error) {
 		&tx.ToPublicKey,
 		&tx.ProposedTxHex,
 		&tx.Status,
-		&tx.StatusOnChain,
+		&statusOnChain,
 		&tx.Lost,
 		&tx.BroadcastedAt,
 		&tx.CreatedAt,
 		&tx.UpdatedAt,
+		&tx.Amount, // Added at end by ALTER TABLE
 	)
 	if err != nil {
 		return Tx{}, fmt.Errorf("rows.Scan: %w", err)
+	}
+	if statusOnChain != nil {
+		s := rpc.TxOnChainStatus(*statusOnChain)
+		tx.StatusOnChain = &s
 	}
 	return tx, nil
 }

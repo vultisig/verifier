@@ -26,6 +26,8 @@ type TxIndexerRepo interface {
 	CountByPolicyID(ctx context.Context, policyID uuid.UUID) (uint32, error)
 	GetByPluginIDAndPublicKey(ctx context.Context, pluginID types.PluginID, publicKey string, skip, take uint32) <-chan RowsStream[Tx]
 	CountByPluginIDAndPublicKey(ctx context.Context, pluginID types.PluginID, publicKey string) (uint32, error)
+	GetByPublicKey(ctx context.Context, publicKey string, skip, take uint32) <-chan RowsStream[Tx]
+	CountByPublicKey(ctx context.Context, publicKey string) (uint32, error)
 }
 
 type TxStatus string

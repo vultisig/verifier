@@ -253,6 +253,34 @@ func (p *PostgresBackend) FindPluginById(ctx context.Context, dbTx pgx.Tx, id ty
 	return &plugins[0], nil
 }
 
+func (p *PostgresBackend) GetPluginTitlesByIDs(ctx context.Context, ids []string) (map[string]string, error) {
+	if len(ids) == 0 {
+		return make(map[string]string), nil
+	}
+
+	query := fmt.Sprintf(`SELECT id, title FROM %s WHERE id = ANY($1)`, PLUGINS_TABLE)
+	rows, err := p.pool.Query(ctx, query, ids)
+	if err != nil {
+		return nil, fmt.Errorf("p.pool.Query: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]string)
+	for rows.Next() {
+		var id, title string
+		if err := rows.Scan(&id, &title); err != nil {
+			return nil, fmt.Errorf("rows.Scan: %w", err)
+		}
+		result[id] = title
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows.Err: %w", err)
+	}
+
+	return result, nil
+}
+
 func (p *PostgresBackend) FindPlugins(
 	ctx context.Context,
 	filters itypes.PluginFilters,

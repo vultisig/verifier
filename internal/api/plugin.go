@@ -401,30 +401,27 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgPublicKeyMismatch))
 	}
 
-	// Fetch plugin to get app name
-	plugin, err := s.pluginService.GetPluginWithRating(c.Request().Context(), string(oldPolicy.PluginID))
-	if err != nil {
-		s.logger.WithError(err).Errorf("s.pluginService.GetPluginWithRating: %s", oldPolicy.PluginID)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginFailed))
-	}
-
 	txs, totalCount, err := s.txIndexerService.GetByPolicyID(c.Request().Context(), policyUUID, skip, take)
 	if err != nil {
 		s.logger.WithError(err).Errorf("s.txIndexerService.GetByPolicyID: %s", policyID)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetTxsByPolicyIDFailed))
 	}
 
+	// Build title map from unique plugin IDs
+	titleMap, err := s.buildPluginTitleMap(c.Request().Context(), txs)
+	if err != nil {
+		s.logger.WithError(err).Error("s.buildPluginTitleMap")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginFailed))
+	}
+
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, types.TransactionHistoryPaginatedList{
-		History:    types.FromStorageTxs(txs, plugin.Title),
+		History:    types.FromStorageTxs(txs, titleMap),
 		TotalCount: totalCount,
 	}))
 }
 
 func (s *Server) GetPluginTransactionHistory(c echo.Context) error {
-	pluginID := c.Param("pluginId")
-	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
-	}
+	pluginID := c.QueryParam("pluginId") // Optional query parameter
 
 	skip, take, err := conv.PageParamsFromCtx(c, 0, 20)
 	if err != nil {
@@ -440,29 +437,66 @@ func (s *Server) GetPluginTransactionHistory(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
 
-	// Fetch plugin to get app name
-	plugin, err := s.pluginService.GetPluginWithRating(c.Request().Context(), pluginID)
+	var txs []storage.Tx
+	var totalCount uint32
+
+	if pluginID != "" {
+		// Filter by specific plugin
+		txs, totalCount, err = s.txIndexerService.GetByPluginIDAndPublicKey(
+			c.Request().Context(),
+			vtypes.PluginID(pluginID),
+			publicKey,
+			skip,
+			take,
+		)
+		if err != nil {
+			s.logger.WithError(err).Errorf("s.txIndexerService.GetByPluginIDAndPublicKey: %s", pluginID)
+			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetTxsByPluginIDFailed))
+		}
+	} else {
+		// Get all transactions for the user across all plugins
+		txs, totalCount, err = s.txIndexerService.GetByPublicKey(
+			c.Request().Context(),
+			publicKey,
+			skip,
+			take,
+		)
+		if err != nil {
+			s.logger.WithError(err).Errorf("s.txIndexerService.GetByPublicKey: %s", publicKey)
+			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetTxsByPluginIDFailed))
+		}
+	}
+
+	// Build title map from unique plugin IDs
+	titleMap, err := s.buildPluginTitleMap(c.Request().Context(), txs)
 	if err != nil {
-		s.logger.WithError(err).Errorf("s.pluginService.GetPluginWithRating: %s", pluginID)
+		s.logger.WithError(err).Error("s.buildPluginTitleMap")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginFailed))
 	}
 
-	txs, totalCount, err := s.txIndexerService.GetByPluginIDAndPublicKey(
-		c.Request().Context(),
-		vtypes.PluginID(pluginID),
-		publicKey,
-		skip,
-		take,
-	)
-	if err != nil {
-		s.logger.WithError(err).Errorf("s.txIndexerService.GetByPluginIDAndPublicKey: %s", pluginID)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetTxsByPluginIDFailed))
-	}
-
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, types.TransactionHistoryPaginatedList{
-		History:    types.FromStorageTxs(txs, plugin.Title),
+		History:    types.FromStorageTxs(txs, titleMap),
 		TotalCount: totalCount,
 	}))
+}
+
+func (s *Server) buildPluginTitleMap(ctx context.Context, txs []storage.Tx) (map[string]string, error) {
+	// Get unique plugin IDs
+	pluginIDSet := make(map[string]struct{})
+	for _, tx := range txs {
+		pluginIDSet[string(tx.PluginID)] = struct{}{}
+	}
+
+	if len(pluginIDSet) == 0 {
+		return make(map[string]string), nil
+	}
+
+	pluginIDs := make([]string, 0, len(pluginIDSet))
+	for id := range pluginIDSet {
+		pluginIDs = append(pluginIDs, id)
+	}
+
+	return s.pluginService.GetPluginTitlesByIDs(ctx, pluginIDs)
 }
 
 func (s *Server) CreateReview(c echo.Context) error {

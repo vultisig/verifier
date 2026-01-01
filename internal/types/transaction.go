@@ -30,9 +30,11 @@ type PluginTransactionResponse struct {
 }
 
 // FromStorageTxs converts a slice of storage.Tx to a slice of PluginTransactionResponse
-func FromStorageTxs(txs []storage.Tx, appName string) []PluginTransactionResponse {
+// titleMap maps plugin_id to app name/title
+func FromStorageTxs(txs []storage.Tx, titleMap map[string]string) []PluginTransactionResponse {
 	result := make([]PluginTransactionResponse, len(txs))
 	for i, tx := range txs {
+		appName := titleMap[string(tx.PluginID)]
 		result[i] = PluginTransactionResponse{
 			ID:            tx.ID,
 			PluginID:      tx.PluginID,

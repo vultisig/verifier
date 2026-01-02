@@ -27,6 +27,7 @@ import (
 	rtypes "github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/internal/conv"
 	"github.com/vultisig/verifier/internal/types"
+	"github.com/vultisig/verifier/plugin/scheduler"
 	"github.com/vultisig/verifier/plugin/tasks"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
 	vtypes "github.com/vultisig/verifier/types"
@@ -75,6 +76,11 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 			return fmt.Errorf("failed to get policy from database: %w", err)
 		}
 
+		// Check if policy is inactive
+		if !policy.Active {
+			return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("policy has ended"))
+		}
+
 		// Validate policy matches plugin
 		if policy.PluginID != vtypes.PluginID(req.PluginID) {
 			return fmt.Errorf("policy plugin ID mismatch")
@@ -106,7 +112,38 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 				)
 			}
 		}
-		return s.validateAndSign(c, &req, recipe, policy.ID)
+
+		// Perform signing
+		signErr := s.validateAndSign(c, &req, recipe, policy.ID)
+
+		// After signing, check if policy should be deactivated
+		// Use DefaultInterval to check - if plugin uses different format, this will fail gracefully
+		s.checkAndDeactivatePolicy(c.Request().Context(), policy)
+
+		return signErr
+	}
+}
+
+// checkAndDeactivatePolicy checks if a policy has no more executions and deactivates it.
+// If the recipe format is not recognized (plugin uses custom format), this silently skips.
+func (s *Server) checkAndDeactivatePolicy(ctx context.Context, policy *vtypes.PluginPolicy) {
+	interval := scheduler.NewDefaultInterval()
+	next, err := interval.FromNowWhenNext(*policy)
+	if err != nil {
+		// Plugin uses a different recipe format - skip deactivation check
+		s.logger.WithError(err).Debugf("policy_id=%s: cannot check expiration (plugin may use custom format)", policy.ID)
+		return
+	}
+
+	if next.IsZero() {
+		// Policy has no more executions - deactivate it
+		policy.Active = false
+		_, err = s.policyService.UpdatePolicy(ctx, *policy)
+		if err != nil {
+			s.logger.WithError(err).Errorf("policy_id=%s: failed to deactivate expired policy", policy.ID)
+			return
+		}
+		s.logger.Infof("policy_id=%s: deactivated (no more executions)", policy.ID)
 	}
 }
 

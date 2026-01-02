@@ -132,7 +132,7 @@ WHERE public_key = $1 AND plugin_id = ANY($2) AND deleted = false`, publicKey, p
 	return policies, nil
 }
 
-func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int, includeInactive bool) (*itypes.PluginPolicyPaginatedList, error) {
+func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int, activeFilter *bool) (*itypes.PluginPolicyPaginatedList, error) {
 	if p.pool == nil {
 		return nil, fmt.Errorf("database pool is nil")
 	}
@@ -144,8 +144,12 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 		WHERE public_key = $1
 		AND plugin_id = $2 AND deleted = false`
 
-	if !includeInactive {
-		query += ` AND active = true`
+	if activeFilter != nil {
+		if *activeFilter {
+			query += ` AND active = true`
+		} else {
+			query += ` AND active = false`
+		}
 	}
 
 	query += `

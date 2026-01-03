@@ -212,6 +212,11 @@ func (s *Server) UpdatePluginPolicyById(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgPublicKeyMismatch))
 	}
 
+	// Only allow deactivating, not reactivating
+	if !oldPolicy.Active && policy.Active {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("cannot reactivate an ended policy"))
+	}
+
 	if !s.verifyPolicySignature(policy) {
 		s.logger.Error("invalid policy signature")
 		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgInvalidPolicySignature))
@@ -307,10 +312,11 @@ func (s *Server) GetPluginPolicyById(c echo.Context) error {
 }
 
 func (s *Server) GetAllPluginPolicies(c echo.Context) error {
-	includeInactiveString := c.QueryParam("includeInactive")
-	var includeInactive bool = false
-	if includeInactiveString == "true" {
-		includeInactive = true
+	// Parse active filter: ?active=true (only active), ?active=false (only inactive), no param (all)
+	var activeFilter *bool
+	if activeParam := c.QueryParam("active"); activeParam != "" {
+		active := activeParam == "true"
+		activeFilter = &active
 	}
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
@@ -337,7 +343,7 @@ func (s *Server) GetAllPluginPolicies(c echo.Context) error {
 		take = 100
 	}
 
-	policies, err := s.policyService.GetPluginPolicies(c.Request().Context(), publicKey, vtypes.PluginID(pluginID), take, skip, includeInactive)
+	policies, err := s.policyService.GetPluginPolicies(c.Request().Context(), publicKey, vtypes.PluginID(pluginID), take, skip, activeFilter)
 	if err != nil {
 		s.logger.WithError(err).Errorf("Failed to get policies for public_key: %s", publicKey)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgPoliciesGetFailed))

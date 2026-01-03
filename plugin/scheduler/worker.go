@@ -135,10 +135,19 @@ func (w *Worker) enqueue() error {
 			}
 
 			if next.IsZero() {
+				// Delete from scheduler
 				e := w.repo.Delete(ctx, task.PolicyID)
 				if e != nil {
 					return fmt.Errorf("failed to delete schedule: %w", e)
 				}
+
+				// Set policy active = false
+				policy.Active = false
+				_, e = w.policy.UpdatePluginPolicy(ctx, *policy)
+				if e != nil {
+					return fmt.Errorf("failed to deactivate policy: %w", e)
+				}
+				w.logger.Infof("policy_id=%s: deactivated (no more executions)", task.PolicyID)
 				return nil
 			}
 

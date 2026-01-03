@@ -250,14 +250,18 @@ func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignReques
 		}
 	}
 
-	// Extract amount from matched rule's parameter constraints
+	// Extract transaction details from matched rule's parameter constraints
 	amount := extractAmountFromRule(matchedRule)
+	tokenID := extractTokenIDFromRule(matchedRule)
+	toAddress := extractToAddressFromRule(matchedRule)
 
 	txToTrack, err := s.txIndexerService.CreateTx(c.Request().Context(), storage.CreateTxDto{
 		PluginID:      vtypes.PluginID(req.PluginID),
 		ChainID:       firstKeysignMessage.Chain,
 		PolicyID:      policyID,
+		TokenID:       tokenID,
 		FromPublicKey: req.PublicKey,
+		ToPublicKey:   toAddress,
 		ProposedTxHex: req.Transaction,
 		Amount:        amount,
 	})
@@ -438,30 +442,27 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgPublicKeyMismatch))
 	}
 
-	// Fetch plugin to get app name
-	plugin, err := s.pluginService.GetPluginWithRating(c.Request().Context(), string(oldPolicy.PluginID))
-	if err != nil {
-		s.logger.WithError(err).Errorf("s.pluginService.GetPluginWithRating: %s", oldPolicy.PluginID)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginFailed))
-	}
-
 	txs, totalCount, err := s.txIndexerService.GetByPolicyID(c.Request().Context(), policyUUID, skip, take)
 	if err != nil {
 		s.logger.WithError(err).Errorf("s.txIndexerService.GetByPolicyID: %s", policyID)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetTxsByPolicyIDFailed))
 	}
 
+	// Build title map from unique plugin IDs
+	titleMap, err := s.buildPluginTitleMap(c.Request().Context(), txs)
+	if err != nil {
+		s.logger.WithError(err).Error("s.buildPluginTitleMap")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginFailed))
+	}
+
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, types.TransactionHistoryPaginatedList{
-		History:    types.FromStorageTxs(txs, plugin.Title),
+		History:    types.FromStorageTxs(txs, titleMap),
 		TotalCount: totalCount,
 	}))
 }
 
 func (s *Server) GetPluginTransactionHistory(c echo.Context) error {
-	pluginID := c.Param("pluginId")
-	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
-	}
+	pluginID := c.QueryParam("pluginId") // Optional query parameter
 
 	skip, take, err := conv.PageParamsFromCtx(c, 0, 20)
 	if err != nil {
@@ -477,29 +478,66 @@ func (s *Server) GetPluginTransactionHistory(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
 
-	// Fetch plugin to get app name
-	plugin, err := s.pluginService.GetPluginWithRating(c.Request().Context(), pluginID)
+	var txs []storage.Tx
+	var totalCount uint32
+
+	if pluginID != "" {
+		// Filter by specific plugin
+		txs, totalCount, err = s.txIndexerService.GetByPluginIDAndPublicKey(
+			c.Request().Context(),
+			vtypes.PluginID(pluginID),
+			publicKey,
+			skip,
+			take,
+		)
+		if err != nil {
+			s.logger.WithError(err).Errorf("s.txIndexerService.GetByPluginIDAndPublicKey: %s", pluginID)
+			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetTxsByPluginIDFailed))
+		}
+	} else {
+		// Get all transactions for the user across all plugins
+		txs, totalCount, err = s.txIndexerService.GetByPublicKey(
+			c.Request().Context(),
+			publicKey,
+			skip,
+			take,
+		)
+		if err != nil {
+			s.logger.WithError(err).Errorf("s.txIndexerService.GetByPublicKey: %s", publicKey)
+			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetTxsByPluginIDFailed))
+		}
+	}
+
+	// Build title map from unique plugin IDs
+	titleMap, err := s.buildPluginTitleMap(c.Request().Context(), txs)
 	if err != nil {
-		s.logger.WithError(err).Errorf("s.pluginService.GetPluginWithRating: %s", pluginID)
+		s.logger.WithError(err).Error("s.buildPluginTitleMap")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginFailed))
 	}
 
-	txs, totalCount, err := s.txIndexerService.GetByPluginIDAndPublicKey(
-		c.Request().Context(),
-		vtypes.PluginID(pluginID),
-		publicKey,
-		skip,
-		take,
-	)
-	if err != nil {
-		s.logger.WithError(err).Errorf("s.txIndexerService.GetByPluginIDAndPublicKey: %s", pluginID)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetTxsByPluginIDFailed))
-	}
-
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, types.TransactionHistoryPaginatedList{
-		History:    types.FromStorageTxs(txs, plugin.Title),
+		History:    types.FromStorageTxs(txs, titleMap),
 		TotalCount: totalCount,
 	}))
+}
+
+func (s *Server) buildPluginTitleMap(ctx context.Context, txs []storage.Tx) (map[string]string, error) {
+	// Get unique plugin IDs
+	pluginIDSet := make(map[string]struct{})
+	for _, tx := range txs {
+		pluginIDSet[string(tx.PluginID)] = struct{}{}
+	}
+
+	if len(pluginIDSet) == 0 {
+		return make(map[string]string), nil
+	}
+
+	pluginIDs := make([]string, 0, len(pluginIDSet))
+	for id := range pluginIDSet {
+		pluginIDs = append(pluginIDs, id)
+	}
+
+	return s.pluginService.GetPluginTitlesByIDs(ctx, pluginIDs)
 }
 
 func (s *Server) CreateReview(c echo.Context) error {
@@ -689,6 +727,95 @@ func extractAmountFromRule(rule *rtypes.Rule) string {
 					return fixedVal
 				}
 				// For other constraint types, we can't determine the exact amount
+			}
+		}
+	}
+
+	return ""
+}
+
+// extractTokenIDFromRule extracts the token address from a matched rule.
+// After metarule processing:
+// - For ERC20 sends: Target.Address contains the token contract address
+// - For 1inch swaps: "desc.srcToken" parameter contains the source token
+// Returns empty string for native token transfers.
+func extractTokenIDFromRule(rule *rtypes.Rule) string {
+	if rule == nil {
+		return ""
+	}
+
+	// Case 1: ERC20 transfer - the Target.Address is the token contract
+	resource := rule.GetResource()
+	if strings.Contains(resource, ".erc20.transfer") {
+		if target := rule.GetTarget(); target != nil {
+			if addr := target.GetAddress(); addr != "" {
+				return addr
+			}
+		}
+	}
+
+	// Case 2: Check parameter constraints for 1inch swap (srcToken)
+	for _, pc := range rule.GetParameterConstraints() {
+		paramName := pc.GetParameterName()
+		if paramName == "srcToken" {
+			constraint := pc.GetConstraint()
+			if constraint != nil {
+				if fixedVal := constraint.GetFixedValue(); fixedVal != "" {
+					return fixedVal
+				}
+			}
+		}
+	}
+
+	return ""
+}
+
+// extractToAddressFromRule extracts the recipient address from a matched rule.
+// After metarule processing, checks various parameter names:
+// - EVM ERC20: "recipient"
+// - EVM native: Target.Address
+// - 1inch swap: "desc.dstReceiver"
+// - Solana native: "account_to"
+// - Solana SPL: "account_destination"
+// - Bitcoin/UTXO: "output_address_0"
+// - XRP/THORChain: "recipient"
+func extractToAddressFromRule(rule *rtypes.Rule) string {
+	if rule == nil {
+		return ""
+	}
+
+	// For EVM native transfers, the recipient is in Target.Address
+	resource := rule.GetResource()
+	if strings.Contains(resource, ".eth.transfer") ||
+		strings.Contains(resource, ".bnb.transfer") ||
+		strings.Contains(resource, ".matic.transfer") ||
+		strings.Contains(resource, ".avax.transfer") {
+		if target := rule.GetTarget(); target != nil {
+			if addr := target.GetAddress(); addr != "" {
+				return addr
+			}
+		}
+	}
+
+	// Check parameter constraints for various recipient parameter names
+	recipientParams := []string{
+		"recipient",           // EVM ERC20, XRP, THORChain
+		"dstReceiver",         // 1inch swap
+		"account_to",          // Solana native
+		"account_destination", // Solana SPL
+		"output_address_0",    // Bitcoin/UTXO
+	}
+
+	for _, pc := range rule.GetParameterConstraints() {
+		paramName := pc.GetParameterName()
+		for _, recipientParam := range recipientParams {
+			if paramName == recipientParam {
+				constraint := pc.GetConstraint()
+				if constraint != nil {
+					if fixedVal := constraint.GetFixedValue(); fixedVal != "" {
+						return fixedVal
+					}
+				}
 			}
 		}
 	}

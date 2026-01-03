@@ -337,6 +337,38 @@ func (p *PostgresTxIndexStore) CountByPluginIDAndPublicKey(c context.Context, pl
 	return count, nil
 }
 
+func (p *PostgresTxIndexStore) GetByPublicKey(
+	c context.Context,
+	publicKey string,
+	skip, take uint32,
+) <-chan RowsStream[Tx] {
+	return GetRowsStream[Tx](
+		c,
+		p.pool,
+		TxFromRow,
+		`SELECT * FROM tx_indexer WHERE from_public_key = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+		publicKey,
+		take,
+		skip,
+	)
+}
+
+func (p *PostgresTxIndexStore) CountByPublicKey(c context.Context, publicKey string) (uint32, error) {
+	ctx, cancel := context.WithTimeout(c, defaultTimeout)
+	defer cancel()
+
+	var count uint32
+	err := p.pool.QueryRow(
+		ctx,
+		`SELECT COUNT(*) FROM tx_indexer WHERE from_public_key = $1`,
+		publicKey,
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("p.pool.QueryRow: %w", err)
+	}
+	return count, nil
+}
+
 type RowsStream[T any] struct {
 	Row T
 	Err error

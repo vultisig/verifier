@@ -162,7 +162,7 @@ func (s *Server) StartServer() error {
 	pluginGroup.GET("/policy/:pluginId/total-count", s.GetPluginInstallationsCountByID)
 	pluginGroup.DELETE("/policy/:policyId", s.DeletePluginPolicyById)
 	pluginGroup.GET("/policies/:policyId/history", s.GetPluginPolicyTransactionHistory)
-	pluginGroup.GET("/:pluginId/transactions", s.GetPluginTransactionHistory)
+	pluginGroup.GET("/transactions", s.GetPluginTransactionHistory)
 
 	// fee group. These should only be accessible by the plugin server
 	feeGroup := e.Group("/fees", s.PluginAuthMiddleware)

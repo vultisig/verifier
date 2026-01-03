@@ -7,6 +7,7 @@ import (
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
 	vtypes "github.com/vultisig/verifier/types"
+	"github.com/vultisig/vultisig-go/common"
 )
 
 // PluginTransactionResponse is the response DTO for plugin transactions.
@@ -18,7 +19,7 @@ type PluginTransactionResponse struct {
 	PolicyID      uuid.UUID            `json:"policy_id"`
 	PublicKey     string               `json:"public_key"` // Matches Fee format (was from_public_key)
 	ToPublicKey   string               `json:"to_public_key"`
-	ChainID       int                  `json:"chain_id"`
+	Chain         common.Chain         `json:"chain"`
 	TokenID       string               `json:"token_id"`
 	Amount        *string              `json:"amount"` // Transaction amount in base units
 	TxHash        *string              `json:"tx_hash"`
@@ -30,9 +31,11 @@ type PluginTransactionResponse struct {
 }
 
 // FromStorageTxs converts a slice of storage.Tx to a slice of PluginTransactionResponse
-func FromStorageTxs(txs []storage.Tx, appName string) []PluginTransactionResponse {
+// titleMap maps plugin_id to app name/title
+func FromStorageTxs(txs []storage.Tx, titleMap map[string]string) []PluginTransactionResponse {
 	result := make([]PluginTransactionResponse, len(txs))
 	for i, tx := range txs {
+		appName := titleMap[string(tx.PluginID)]
 		result[i] = PluginTransactionResponse{
 			ID:            tx.ID,
 			PluginID:      tx.PluginID,
@@ -40,7 +43,7 @@ func FromStorageTxs(txs []storage.Tx, appName string) []PluginTransactionRespons
 			PolicyID:      tx.PolicyID,
 			PublicKey:     tx.FromPublicKey,
 			ToPublicKey:   tx.ToPublicKey,
-			ChainID:       tx.ChainID,
+			Chain:         common.Chain(tx.ChainID),
 			TokenID:       tx.TokenID,
 			Amount:        tx.Amount,
 			TxHash:        tx.TxHash,

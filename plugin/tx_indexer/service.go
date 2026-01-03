@@ -185,3 +185,39 @@ func (t *Service) GetByPluginIDAndPublicKey(
 
 	return txs, totalCount, nil
 }
+
+func (t *Service) GetByPublicKey(
+	c context.Context,
+	publicKey string,
+	skip, take uint32,
+) ([]storage.Tx, uint32, error) {
+	var (
+		txs        []storage.Tx
+		totalCount uint32
+	)
+
+	eg, ctx := errgroup.WithContext(c)
+	eg.Go(func() error {
+		ch := t.repo.GetByPublicKey(ctx, publicKey, skip, take)
+		r, err := storage.AllFromRowsStream(ch)
+		if err != nil {
+			return fmt.Errorf("storage.AllFromRowsStream: %w", err)
+		}
+		txs = r
+		return nil
+	})
+	eg.Go(func() error {
+		r, err := t.repo.CountByPublicKey(ctx, publicKey)
+		if err != nil {
+			return fmt.Errorf("t.repo.CountByPublicKey: %w", err)
+		}
+		totalCount = r
+		return nil
+	})
+	err := eg.Wait()
+	if err != nil {
+		return nil, 0, fmt.Errorf("eg.Wait: %w", err)
+	}
+
+	return txs, totalCount, nil
+}

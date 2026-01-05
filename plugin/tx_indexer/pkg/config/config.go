@@ -22,11 +22,14 @@ type DatabaseConfig struct {
 }
 
 type RpcConfig struct {
-	Bitcoin   RpcItem `mapstructure:"bitcoin" json:"bitcoin,omitempty"`
-	Solana    RpcItem `mapstructure:"solana" json:"solana,omitempty"`
-	XRP       RpcItem `mapstructure:"xrp" json:"xrp,omitempty"`
-	Zcash     RpcItem `mapstructure:"zcash" json:"zcash,omitempty"`
-	Ethereum  RpcItem `mapstructure:"ethereum" json:"ethereum,omitempty"`
+	Bitcoin     RpcItem `mapstructure:"bitcoin" json:"bitcoin,omitempty"`
+	Litecoin    RpcItem `mapstructure:"litecoin" json:"litecoin,omitempty"`
+	Dogecoin    RpcItem `mapstructure:"dogecoin" json:"dogecoin,omitempty"`
+	BitcoinCash RpcItem `mapstructure:"bitcoincash" json:"bitcoincash,omitempty"`
+	Solana      RpcItem `mapstructure:"solana" json:"solana,omitempty"`
+	XRP         RpcItem `mapstructure:"xrp" json:"xrp,omitempty"`
+	Zcash       RpcItem `mapstructure:"zcash" json:"zcash,omitempty"`
+	Ethereum    RpcItem `mapstructure:"ethereum" json:"ethereum,omitempty"`
 	Avalanche RpcItem `mapstructure:"avalanche" json:"avalanche,omitempty"`
 	BscChain  RpcItem `mapstructure:"bsc" json:"bsc,omitempty"`
 	Arbitrum  RpcItem `mapstructure:"arbitrum" json:"arbitrum,omitempty"`

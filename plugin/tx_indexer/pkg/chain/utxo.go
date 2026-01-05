@@ -11,9 +11,15 @@ import (
 )
 
 // UtxoIndexer is a generic indexer for UTXO chains that use BTC-compatible wire format.
-// This includes Bitcoin, Litecoin, Dogecoin, and Bitcoin Cash.
-// All these chains use the same transaction serialization format (btcd/wire)
-// and compute txid as double SHA256 of the serialized transaction.
+// This includes Litecoin, Dogecoin, and Bitcoin Cash.
+//
+// Transaction format compatibility:
+// - All these chains use the same transaction serialization format as Bitcoin (btcd/wire)
+// - Txid is computed identically: double SHA256 of the serialized transaction
+// - The btcd/wire.MsgTx.Deserialize() correctly parses transactions from all these chains
+//
+// Note: Signing differences (e.g., BCH's SIGHASH_FORKID) are handled by the recipes SDK,
+// not by this indexer. This code only deserializes the already-signed transaction to compute txid.
 type UtxoIndexer struct {
 	chain common.Chain
 	sdk   *btc.SDK

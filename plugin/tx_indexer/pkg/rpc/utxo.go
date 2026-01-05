@@ -76,8 +76,12 @@ func (u *Utxo) GetTxStatus(ctx context.Context, txHash string) (TxOnChainStatus,
 
 	// Check for API-level errors
 	if txResp.Context.Code != 200 || txResp.Context.Error != "" {
-		// Transaction not found or other error - treat as pending
-		return TxOnChainPending, nil
+		// Only treat "not found" as pending; propagate other errors
+		// Blockchair returns code 404 for not found transactions
+		if txResp.Context.Code == 404 {
+			return TxOnChainPending, nil
+		}
+		return "", fmt.Errorf("blockchair API error: code=%d, error=%s", txResp.Context.Code, txResp.Context.Error)
 	}
 
 	// Check if transaction data exists

@@ -168,7 +168,7 @@ jobs:
           # Compare with repository schema
           if ! diff -u ./internal/storage/postgres/schema/schema.sql ./current_schema.sql; then
             # only push if branch is not main or dev
-            if [ "$GITHUB_REF" == "refs/heads/main" || "$GITHUB_REF" == "refs/heads/dev" ]; then
+            if [[ "$GITHUB_REF" == "refs/heads/main" || "$GITHUB_REF" == "refs/heads/dev" ]]; then
               echo "Schema has changed but branch is main or dev, skipping push"
             else
               git config user.name "github-actions[bot]"

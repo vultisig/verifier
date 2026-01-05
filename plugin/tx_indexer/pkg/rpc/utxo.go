@@ -9,56 +9,43 @@ import (
 	"time"
 )
 
-const zcashDefaultTimeout = 30 * time.Second
+const utxoDefaultTimeout = 30 * time.Second
 
-type Zcash struct {
-	baseURL string
-	client  *http.Client
+// Utxo is a generic UTXO chain RPC client that uses Blockchair API.
+// It supports any UTXO chain that Blockchair provides (litecoin, dogecoin, bitcoin-cash, etc.)
+type Utxo struct {
+	baseURL   string
+	chainPath string // e.g., "litecoin", "dogecoin", "bitcoin-cash"
+	client    *http.Client
 }
 
-// blockchairTxResponse represents the Blockchair API response for transaction info
-type blockchairTxResponse struct {
-	Data map[string]struct {
-		Transaction struct {
-			BlockID       int    `json:"block_id"`
-			Hash          string `json:"hash"`
-			Confirmations int    `json:"confirmations"`
-		} `json:"transaction"`
-	} `json:"data"`
-	Context struct {
-		Code  int    `json:"code"`
-		Error string `json:"error,omitempty"`
-	} `json:"context"`
-}
-
-func NewZcash(baseURL string) (*Zcash, error) {
+// NewUtxo creates a new UTXO RPC client for the specified chain.
+// chainPath should be the Blockchair API path for the chain (e.g., "litecoin", "dogecoin", "bitcoin-cash")
+func NewUtxo(baseURL, chainPath string) (*Utxo, error) {
 	client := &http.Client{
-		Timeout: zcashDefaultTimeout,
+		Timeout: utxoDefaultTimeout,
 	}
 
-	return &Zcash{
-		baseURL: baseURL,
-		client:  client,
+	return &Utxo{
+		baseURL:   baseURL,
+		chainPath: chainPath,
+		client:    client,
 	}, nil
 }
 
-// GetTxStatus retrieves the on-chain status of a Zcash transaction by its hash.
+// GetTxStatus retrieves the on-chain status of a transaction by its hash.
 // Returns TxOnChainPending if the transaction is not yet confirmed or not found,
 // TxOnChainSuccess if the transaction is confirmed with at least one confirmation,
 // or an error if the HTTP request or response parsing fails.
-func (z *Zcash) GetTxStatus(ctx context.Context, txHash string) (TxOnChainStatus, error) {
-	if ctx.Err() != nil {
-		return "", ctx.Err()
-	}
-
-	url := fmt.Sprintf("%s/zcash/dashboards/transaction/%s", z.baseURL, txHash)
+func (u *Utxo) GetTxStatus(ctx context.Context, txHash string) (TxOnChainStatus, error) {
+	url := fmt.Sprintf("%s/%s/dashboards/transaction/%s", u.baseURL, u.chainPath, txHash)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
-	resp, err := z.client.Do(req)
+	resp, err := u.client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to make request: %w", err)
 	}
@@ -106,4 +93,19 @@ func (z *Zcash) GetTxStatus(ctx context.Context, txHash string) (TxOnChainStatus
 
 	// Transaction is confirmed
 	return TxOnChainSuccess, nil
+}
+
+// NewLitecoin creates a Litecoin RPC client using Blockchair
+func NewLitecoin(baseURL string) (*Utxo, error) {
+	return NewUtxo(baseURL, "litecoin")
+}
+
+// NewDogecoin creates a Dogecoin RPC client using Blockchair
+func NewDogecoin(baseURL string) (*Utxo, error) {
+	return NewUtxo(baseURL, "dogecoin")
+}
+
+// NewBitcoinCash creates a Bitcoin Cash RPC client using Blockchair
+func NewBitcoinCash(baseURL string) (*Utxo, error) {
+	return NewUtxo(baseURL, "bitcoin-cash")
 }

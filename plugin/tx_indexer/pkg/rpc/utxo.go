@@ -109,4 +109,3 @@ func NewDogecoin(baseURL string) (*Utxo, error) {
 func NewBitcoinCash(baseURL string) (*Utxo, error) {
 	return NewUtxo(baseURL, "bitcoin-cash")
 }
-

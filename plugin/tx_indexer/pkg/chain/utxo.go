@@ -58,4 +58,3 @@ func (u *UtxoIndexer) ComputeTxHash(proposedTx []byte, sigs map[string]tss.Keysi
 
 	return tx.TxID(), nil
 }
-

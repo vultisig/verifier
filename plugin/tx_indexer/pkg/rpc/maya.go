@@ -17,18 +17,6 @@ type Maya struct {
 	client  *http.Client
 }
 
-// mayaTxResponse represents the MayaChain API response for transaction query
-// MayaChain uses the same format as THORChain
-type mayaTxResponse struct {
-	ObservedTx struct {
-		Tx struct {
-			ID string `json:"id"`
-		} `json:"tx"`
-		Status string `json:"status"` // "done" or "pending"
-	} `json:"observed_tx"`
-	FinalizedHeight int64 `json:"finalized_height,omitempty"`
-}
-
 // mayaCosmosLCDTxResponse is the Cosmos LCD format response
 type mayaCosmosLCDTxResponse struct {
 	TxResponse struct {

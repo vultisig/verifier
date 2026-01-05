@@ -38,10 +38,6 @@ func NewUtxo(baseURL, chainPath string) (*Utxo, error) {
 // TxOnChainSuccess if the transaction is confirmed with at least one confirmation,
 // or an error if the HTTP request or response parsing fails.
 func (u *Utxo) GetTxStatus(ctx context.Context, txHash string) (TxOnChainStatus, error) {
-	if ctx.Err() != nil {
-		return "", ctx.Err()
-	}
-
 	url := fmt.Sprintf("%s/%s/dashboards/transaction/%s", u.baseURL, u.chainPath, txHash)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)

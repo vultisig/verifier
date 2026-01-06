@@ -13,3 +13,6 @@ data:
   optimism: "https://api.vultisig.com/opt/"
   polygon: "https://api.vultisig.com/polygon/"
   solana: "https://api.vultisig.com/solana/"
+  cosmos: "https://cosmos-rest.publicnode.com"
+  maya: "https://mayanode.mayachain.info"
+  tron: "https://tron-rpc.publicnode.com"

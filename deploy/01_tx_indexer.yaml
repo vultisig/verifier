@@ -107,6 +107,21 @@ spec:
                 configMapKeyRef:
                   name: rpc
                   key: solana
+            - name: RPC_COSMOS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: rpc
+                  key: cosmos
+            - name: RPC_MAYA_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: rpc
+                  key: maya
+            - name: RPC_TRON_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: rpc
+                  key: tron
           resources:
             requests:
               memory: "64Mi"

@@ -15,27 +15,27 @@ import (
 
 const (
 	queryInsertPluginInstallation = `INSERT INTO fees (
-        policy_id, public_key, transaction_type, amount, 
+        policy_id, plugin_id, public_key, transaction_type, amount,
         fee_type, metadata, underlying_type, underlying_id
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     ON CONFLICT (underlying_id, public_key)
     WHERE fee_type = 'installation_fee' AND underlying_type = 'plugin'
     DO NOTHING
     RETURNING id
     `
 	queryInsertTrial = `INSERT INTO fees (
-            policy_id, public_key, transaction_type, amount, 
+            policy_id, plugin_id, public_key, transaction_type, amount,
             fee_type, metadata, underlying_type, underlying_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         ON CONFLICT (public_key)
         WHERE fee_type = 'trial'
         DO NOTHING
         RETURNING id
         `
 	queryInsertFee = `INSERT INTO fees (
-            policy_id, public_key, transaction_type, amount, 
+            policy_id, plugin_id, public_key, transaction_type, amount,
             fee_type, metadata, underlying_type, underlying_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING id
         `
 	queryTrialStartDate = `SELECT created_at
@@ -64,12 +64,12 @@ func (p *PostgresBackend) InsertFee(ctx context.Context, dbTx pgx.Tx, fee *types
 
 	if dbTx != nil {
 		err = dbTx.QueryRow(ctx, query,
-			fee.PolicyID, fee.PublicKey, fee.TxType, fee.Amount,
+			fee.PolicyID, fee.PluginID, fee.PublicKey, fee.TxType, fee.Amount,
 			fee.FeeType, fee.Metadata, fee.UnderlyingType, fee.UnderlyingID,
 		).Scan(&feeID)
 	} else {
 		err = p.pool.QueryRow(ctx, query,
-			fee.PolicyID, fee.PublicKey, fee.TxType, fee.Amount,
+			fee.PolicyID, fee.PluginID, fee.PublicKey, fee.TxType, fee.Amount,
 			fee.FeeType, fee.Metadata, fee.UnderlyingType, fee.UnderlyingID,
 		).Scan(&feeID)
 	}
@@ -98,9 +98,10 @@ func (p *PostgresBackend) GetFeesByPublicKey(ctx context.Context, publicKey stri
                 AND f.public_key = $1
           )
     )
-    SELECT 
+    SELECT
         f.id,
         f.policy_id,
+        f.plugin_id,
         f.public_key,
         f.transaction_type,
         f.amount,
@@ -124,9 +125,11 @@ func (p *PostgresBackend) GetFeesByPublicKey(ctx context.Context, publicKey stri
 	var fees []*types.Fee
 	for rows.Next() {
 		fee := &types.Fee{}
+		var pluginID *string
 		err := rows.Scan(
 			&fee.ID,
 			&fee.PolicyID,
+			&pluginID,
 			&fee.PublicKey,
 			&fee.TxType,
 			&fee.Amount,
@@ -136,6 +139,9 @@ func (p *PostgresBackend) GetFeesByPublicKey(ctx context.Context, publicKey stri
 			&fee.UnderlyingType,
 			&fee.UnderlyingID,
 		)
+		if pluginID != nil {
+			fee.PluginID = *pluginID
+		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan fee row: %w", err)
 		}
@@ -151,9 +157,10 @@ func (p *PostgresBackend) GetFeesByPublicKey(ctx context.Context, publicKey stri
 
 func (p *PostgresBackend) GetFeeById(ctx context.Context, id uint64) (*types.Fee, error) {
 	query := `
-        SELECT 
+        SELECT
             id,
             policy_id,
+            plugin_id,
             public_key,
             transaction_type,
             amount,
@@ -167,9 +174,11 @@ func (p *PostgresBackend) GetFeeById(ctx context.Context, id uint64) (*types.Fee
     `
 
 	fee := &types.Fee{}
+	var pluginID *string
 	err := p.pool.QueryRow(ctx, query, id).Scan(
 		&fee.ID,
 		&fee.PolicyID,
+		&pluginID,
 		&fee.PublicKey,
 		&fee.TxType,
 		&fee.Amount,
@@ -179,6 +188,9 @@ func (p *PostgresBackend) GetFeeById(ctx context.Context, id uint64) (*types.Fee
 		&fee.UnderlyingType,
 		&fee.UnderlyingID,
 	)
+	if pluginID != nil {
+		fee.PluginID = *pluginID
+	}
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -274,9 +286,10 @@ func (p *PostgresBackend) GetUserFees(
 	publicKey string,
 ) (*types.UserFeeStatus, error) {
 	query := `
-    SELECT 
+    SELECT
         f.id,
         f.policy_id,
+        f.plugin_id,
         f.public_key,
         f.transaction_type,
         f.amount,
@@ -305,9 +318,11 @@ func (p *PostgresBackend) GetUserFees(
 
 	for rows.Next() {
 		fee := &types.Fee{}
+		var pluginID *string
 		err := rows.Scan(
 			&fee.ID,
 			&fee.PolicyID,
+			&pluginID,
 			&fee.PublicKey,
 			&fee.TxType,
 			&fee.Amount,
@@ -319,6 +334,9 @@ func (p *PostgresBackend) GetUserFees(
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan fee row: %w", err)
+		}
+		if pluginID != nil {
+			fee.PluginID = *pluginID
 		}
 
 		if fee.TxType == types.TxTypeCredit {

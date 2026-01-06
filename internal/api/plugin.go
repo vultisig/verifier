@@ -42,6 +42,17 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		return fmt.Errorf("fail to parse request, err: %w", err)
 	}
 
+	// Verify authenticated plugin ID matches the requested plugin ID
+	// This prevents a malicious plugin from impersonating another plugin
+	authenticatedPluginID, ok := c.Get("plugin_id").(vtypes.PluginID)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("plugin authentication required"))
+	}
+	if authenticatedPluginID.String() != req.PluginID {
+		s.logger.Warnf("Plugin ID mismatch: authenticated=%s, requested=%s", authenticatedPluginID, req.PluginID)
+		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("plugin ID mismatch: not authorized to sign for this plugin"))
+	}
+
 	// Get policy from database
 	if req.PluginID == vtypes.PluginVultisigFees_feee.String() {
 		s.logger.Debug("SIGN FEE PLUGIN MESSAGES")

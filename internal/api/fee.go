@@ -2,7 +2,11 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
@@ -154,4 +158,106 @@ func (s *Server) GetPluginFeeHistory(c echo.Context) error {
 		History:    itypes.FromFeesWithStatus(fees, titleMap),
 		TotalCount: totalCount,
 	}))
+}
+
+// GetPluginBillingSummary returns billing summary for all plugins the user has used
+func (s *Server) GetPluginBillingSummary(c echo.Context) error {
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok || publicKey == "" {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
+	}
+
+	rows, err := s.db.GetPluginBillingSummary(c.Request().Context(), publicKey)
+	if err != nil {
+		s.logger.WithError(err).Error("s.db.GetPluginBillingSummary")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetFeesFailed))
+	}
+
+	// Collect plugin IDs for title lookup
+	pluginIDs := make([]string, len(rows))
+	for i, row := range rows {
+		pluginIDs[i] = row.PluginID
+	}
+
+	titleMap, err := s.pluginService.GetPluginTitlesByIDs(c.Request().Context(), pluginIDs)
+	if err != nil {
+		s.logger.WithError(err).Error("s.pluginService.GetPluginTitlesByIDs")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginFailed))
+	}
+
+	// Convert rows to response format
+	summaries := make([]itypes.PluginBillingSummary, len(rows))
+	for i, row := range rows {
+		summaries[i] = itypes.PluginBillingSummary{
+			PluginID:    types.PluginID(row.PluginID),
+			AppName:     titleMap[row.PluginID],
+			PricingType: row.PricingType,
+			Pricing:     formatPricing(row.PricingType, row.PricingAmount, row.PricingAsset, row.Frequency),
+			StartDate:   row.StartDate.UTC(),
+			NextPayment: calculateNextPayment(row.PricingType, row.StartDate, row.Frequency),
+			TotalFees:   strconv.FormatUint(row.TotalFees, 10),
+		}
+	}
+
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, itypes.PluginBillingSummaryList{
+		Plugins:    summaries,
+		TotalCount: uint32(len(summaries)),
+	}))
+}
+
+// formatPricing formats the pricing info for display
+func formatPricing(pricingType string, amount uint64, asset string, frequency *string) string {
+	// Convert from smallest unit (6 decimals for USDC)
+	amountFloat := float64(amount) / 1_000_000
+	assetUpper := strings.ToUpper(asset)
+
+	switch pricingType {
+	case "per-tx":
+		return formatAmount(amountFloat) + " " + assetUpper + " per transaction"
+	case "once":
+		return formatAmount(amountFloat) + " " + assetUpper + " one-time"
+	case "recurring":
+		if frequency != nil {
+			return formatAmount(amountFloat) + " " + assetUpper + " / " + *frequency
+		}
+		return formatAmount(amountFloat) + " " + assetUpper + " recurring"
+	default:
+		return formatAmount(amountFloat) + " " + assetUpper
+	}
+}
+
+// formatAmount formats a float amount, removing unnecessary decimals
+func formatAmount(amount float64) string {
+	if amount == float64(int64(amount)) {
+		return strconv.FormatInt(int64(amount), 10)
+	}
+	return fmt.Sprintf("%.2f", amount)
+}
+
+// calculateNextPayment calculates the next payment date for recurring subscriptions
+func calculateNextPayment(pricingType string, startDate time.Time, frequency *string) *time.Time {
+	if pricingType != "recurring" || frequency == nil {
+		return nil
+	}
+
+	now := time.Now().UTC()
+	next := startDate.UTC()
+
+	// Advance until we find the next payment date after now
+	for next.Before(now) || next.Equal(now) {
+		switch *frequency {
+		case "daily":
+			next = next.AddDate(0, 0, 1)
+		case "weekly":
+			next = next.AddDate(0, 0, 7)
+		case "biweekly":
+			next = next.AddDate(0, 0, 14)
+		case "monthly":
+			next = next.AddDate(0, 1, 0)
+		default:
+			return nil
+		}
+	}
+
+	return &next
 }

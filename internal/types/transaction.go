@@ -108,3 +108,31 @@ type FeeHistoryPaginatedList struct {
 	History    []PluginFeeResponse `json:"history"`
 	TotalCount uint32              `json:"total_count"`
 }
+
+// PluginBillingSummaryRow is the raw data from the database query
+type PluginBillingSummaryRow struct {
+	PluginID      string
+	PricingType   string  // once, recurring, per-tx
+	PricingAmount uint64  // amount in smallest unit
+	PricingAsset  string  // usdc
+	Frequency     *string // daily, weekly, biweekly, monthly (nil for non-recurring)
+	StartDate     time.Time
+	TotalFees     uint64
+}
+
+// PluginBillingSummary is the response DTO for plugin billing info
+type PluginBillingSummary struct {
+	PluginID    vtypes.PluginID `json:"plugin_id"`
+	AppName     string          `json:"app_name"`
+	PricingType string          `json:"pricing_type"` // once, recurring, per-tx
+	Pricing     string          `json:"pricing"`      // Formatted: "0.01 USDC per transaction"
+	StartDate   time.Time       `json:"start_date"`
+	NextPayment *time.Time      `json:"next_payment"` // nil for non-recurring
+	TotalFees   string          `json:"total_fees"`
+}
+
+// PluginBillingSummaryList is the response for the billing summary endpoint
+type PluginBillingSummaryList struct {
+	Plugins    []PluginBillingSummary `json:"plugins"`
+	TotalCount uint32                 `json:"total_count"`
+}

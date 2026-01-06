@@ -16,3 +16,6 @@ data:
   litecoin: "https://api.vultisig.com/blockchair"
   dogecoin: "https://api.vultisig.com/blockchair"
   bitcoincash: "https://api.vultisig.com/blockchair"
+  cosmos: "https://cosmos-rest.publicnode.com"
+  maya: "https://mayanode.mayachain.info"
+  tron: "https://tron-rpc.publicnode.com"

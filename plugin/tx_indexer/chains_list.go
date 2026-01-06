@@ -5,7 +5,9 @@ import (
 	"fmt"
 
 	"github.com/vultisig/recipes/sdk/btc"
+	"github.com/vultisig/recipes/sdk/cosmos"
 	"github.com/vultisig/recipes/sdk/solana"
+	"github.com/vultisig/recipes/sdk/tron"
 	"github.com/vultisig/recipes/sdk/xrpl"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/chain"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/config"
@@ -77,6 +79,30 @@ func Rpcs(ctx context.Context, cfg config.RpcConfig) (SupportedRpcs, error) {
 		rpcs[common.BitcoinCash] = bchRpc
 	}
 
+	if cfg.Cosmos.URL != "" {
+		cosmosRpc, err := rpc.NewCosmos(cfg.Cosmos.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Cosmos RPC client: %w", err)
+		}
+		rpcs[common.GaiaChain] = cosmosRpc
+	}
+
+	if cfg.Maya.URL != "" {
+		mayaRpc, err := rpc.NewMaya(cfg.Maya.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Maya RPC client: %w", err)
+		}
+		rpcs[common.MayaChain] = mayaRpc
+	}
+
+	if cfg.Tron.URL != "" {
+		tronRpc, err := rpc.NewTron(cfg.Tron.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Tron RPC client: %w", err)
+		}
+		rpcs[common.Tron] = tronRpc
+	}
+
 	evmChains := map[common.Chain]config.RpcItem{
 		common.Ethereum:    cfg.Ethereum,
 		common.Avalanche:   cfg.Avalanche,
@@ -124,6 +150,15 @@ func Chains() (SupportedChains, error) {
 	chains[common.Litecoin] = chain.NewLitecoinIndexer()
 	chains[common.Dogecoin] = chain.NewDogecoinIndexer()
 	chains[common.BitcoinCash] = chain.NewBitcoinCashIndexer()
+
+	// Cosmos-based chains (Gaia and Maya)
+	cosmosSDK := cosmos.NewSDK(nil)
+	chains[common.GaiaChain] = chain.NewCosmosIndexer(cosmosSDK)
+	chains[common.MayaChain] = chain.NewMayaIndexer(cosmosSDK)
+
+	// TRON
+	tronSDK := tron.NewSDK(nil)
+	chains[common.Tron] = chain.NewTronIndexer(tronSDK)
 
 	evmChains := []common.Chain{
 		common.Ethereum,

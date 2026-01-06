@@ -197,6 +197,14 @@ func (m *MockDatabaseStorage) GetFeesByPublicKey(ctx context.Context, publicKey 
 	return args.Get(0).([]*types.Fee), args.Error(1)
 }
 
+func (m *MockDatabaseStorage) GetFeesByPluginID(ctx context.Context, pluginID types.PluginID, publicKey string, skip, take uint32) ([]itypes.FeeWithStatus, uint32, error) {
+	args := m.Called(ctx, pluginID, publicKey, skip, take)
+	if args.Get(0) == nil {
+		return nil, 0, args.Error(2)
+	}
+	return args.Get(0).([]itypes.FeeWithStatus), args.Get(1).(uint32), args.Error(2)
+}
+
 func (m *MockDatabaseStorage) InsertFee(ctx context.Context, dbTx pgx.Tx, fee *types.Fee) (uint64, error) {
 	args := m.Called(ctx, dbTx, fee)
 	return args.Get(0).(uint64), args.Error(1)

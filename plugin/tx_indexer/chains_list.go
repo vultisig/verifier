@@ -55,6 +55,30 @@ func Rpcs(ctx context.Context, cfg config.RpcConfig) (SupportedRpcs, error) {
 		rpcs[common.Zcash] = zcashRpc
 	}
 
+	if cfg.Litecoin.URL != "" {
+		ltcRpc, err := rpc.NewLitecoin(cfg.Litecoin.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Litecoin RPC client: %w", err)
+		}
+		rpcs[common.Litecoin] = ltcRpc
+	}
+
+	if cfg.Dogecoin.URL != "" {
+		dogeRpc, err := rpc.NewDogecoin(cfg.Dogecoin.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Dogecoin RPC client: %w", err)
+		}
+		rpcs[common.Dogecoin] = dogeRpc
+	}
+
+	if cfg.BitcoinCash.URL != "" {
+		bchRpc, err := rpc.NewBitcoinCash(cfg.BitcoinCash.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Bitcoin Cash RPC client: %w", err)
+		}
+		rpcs[common.BitcoinCash] = bchRpc
+	}
+
 	if cfg.Cosmos.URL != "" {
 		cosmosRpc, err := rpc.NewCosmos(cfg.Cosmos.URL)
 		if err != nil {
@@ -121,6 +145,11 @@ func Chains() (SupportedChains, error) {
 	))
 
 	chains[common.Zcash] = chain.NewZcashIndexer()
+
+	// Register other UTXO chains
+	chains[common.Litecoin] = chain.NewLitecoinIndexer()
+	chains[common.Dogecoin] = chain.NewDogecoinIndexer()
+	chains[common.BitcoinCash] = chain.NewBitcoinCashIndexer()
 
 	// Cosmos-based chains (Gaia and Maya)
 	cosmosSDK := cosmos.NewSDK(nil)

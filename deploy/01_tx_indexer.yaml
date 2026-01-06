@@ -107,6 +107,21 @@ spec:
                 configMapKeyRef:
                   name: rpc
                   key: solana
+            - name: RPC_LITECOIN_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: rpc
+                  key: litecoin
+            - name: RPC_DOGECOIN_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: rpc
+                  key: dogecoin
+            - name: RPC_BITCOINCASH_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: rpc
+                  key: bitcoincash
             - name: RPC_COSMOS_URL
               valueFrom:
                 configMapKeyRef:

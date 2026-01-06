@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
 	"github.com/vultisig/verifier/types"
 )
@@ -470,4 +471,97 @@ func (p *PostgresBackend) IsTrialActive(
 	}
 
 	return isActive, trialRemaining, nil
+}
+
+func (p *PostgresBackend) GetFeesByPluginID(
+	ctx context.Context,
+	pluginID types.PluginID,
+	publicKey string,
+	skip, take uint32,
+) ([]itypes.FeeWithStatus, uint32, error) {
+	// Count total fees for pagination
+	var totalCount uint32
+	countQuery := `
+		SELECT COUNT(*)
+		FROM fees f
+		WHERE f.plugin_id = $1
+		  AND f.public_key = $2
+		  AND f.transaction_type = 'debit'
+	`
+	err := p.pool.QueryRow(ctx, countQuery, pluginID, publicKey).Scan(&totalCount)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count fees: %w", err)
+	}
+
+	// Query fees with batch status
+	query := `
+		SELECT
+			f.id,
+			f.policy_id,
+			f.plugin_id,
+			f.public_key,
+			f.transaction_type,
+			f.amount,
+			f.created_at,
+			f.fee_type,
+			f.metadata,
+			f.underlying_type,
+			f.underlying_id,
+			CASE
+				WHEN fb.status IS NULL THEN 'PENDING'
+				WHEN fb.status IN ('BATCHED', 'SIGNED') THEN 'PROCESSING'
+				WHEN fb.status = 'COMPLETED' THEN 'COLLECTED'
+				WHEN fb.status = 'FAILED' THEN 'FAILED'
+				ELSE 'PENDING'
+			END as fee_status
+		FROM fees f
+		LEFT JOIN fee_batch_members fbm ON fbm.fee_id = f.id
+		LEFT JOIN fee_batches fb ON fb.id = fbm.batch_id
+		WHERE f.plugin_id = $1
+		  AND f.public_key = $2
+		  AND f.transaction_type = 'debit'
+		ORDER BY f.created_at DESC
+		LIMIT $3 OFFSET $4
+	`
+
+	rows, err := p.pool.Query(ctx, query, pluginID, publicKey, take, skip)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query fees by plugin: %w", err)
+	}
+	defer rows.Close()
+
+	var fees []itypes.FeeWithStatus
+	for rows.Next() {
+		var feeWithStatus itypes.FeeWithStatus
+		var pluginIDPtr *string
+		var statusStr string
+		err := rows.Scan(
+			&feeWithStatus.ID,
+			&feeWithStatus.PolicyID,
+			&pluginIDPtr,
+			&feeWithStatus.PublicKey,
+			&feeWithStatus.TxType,
+			&feeWithStatus.Amount,
+			&feeWithStatus.CreatedAt,
+			&feeWithStatus.FeeType,
+			&feeWithStatus.Metadata,
+			&feeWithStatus.UnderlyingType,
+			&feeWithStatus.UnderlyingID,
+			&statusStr,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan fee row: %w", err)
+		}
+		if pluginIDPtr != nil {
+			feeWithStatus.PluginID = *pluginIDPtr
+		}
+		feeWithStatus.Status = types.FeeStatus(statusStr)
+		fees = append(fees, feeWithStatus)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("error iterating fee rows: %w", err)
+	}
+
+	return fees, totalCount, nil
 }

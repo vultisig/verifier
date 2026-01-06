@@ -6,6 +6,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
+
+	"github.com/vultisig/verifier/internal/conv"
+	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/types"
 )
 
@@ -109,4 +112,46 @@ func (s *Server) GetUserFees(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, status)
+}
+
+// GetPluginFeeHistory returns paginated fee history for a specific plugin
+func (s *Server) GetPluginFeeHistory(c echo.Context) error {
+	pluginID := c.Param("pluginId")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
+	}
+
+	skip, take, err := conv.PageParamsFromCtx(c, 0, 20)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidPagination))
+	}
+
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok || publicKey == "" {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
+	}
+
+	fees, totalCount, err := s.db.GetFeesByPluginID(
+		c.Request().Context(),
+		types.PluginID(pluginID),
+		publicKey,
+		skip,
+		take,
+	)
+	if err != nil {
+		s.logger.WithError(err).Errorf("s.db.GetFeesByPluginID: %s", pluginID)
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetFeesFailed))
+	}
+
+	// Build title map for the single plugin
+	titleMap, err := s.pluginService.GetPluginTitlesByIDs(c.Request().Context(), []string{pluginID})
+	if err != nil {
+		s.logger.WithError(err).Error("s.pluginService.GetPluginTitlesByIDs")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginFailed))
+	}
+
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, itypes.FeeHistoryPaginatedList{
+		History:    itypes.FromFeesWithStatus(fees, titleMap),
+		TotalCount: totalCount,
+	}))
 }

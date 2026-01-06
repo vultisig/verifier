@@ -1,6 +1,7 @@
 package types
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -60,4 +61,50 @@ func FromStorageTxs(txs []storage.Tx, titleMap map[string]string) []PluginTransa
 type TransactionHistoryPaginatedList struct {
 	History    []PluginTransactionResponse `json:"history"`
 	TotalCount uint32                      `json:"total_count"`
+}
+
+// PluginFeeResponse is the response DTO for plugin fees.
+// It matches the transaction history format for frontend consistency.
+type PluginFeeResponse struct {
+	ID              uint64           `json:"id"`
+	PluginID        vtypes.PluginID  `json:"plugin_id"`
+	AppName         string           `json:"app_name"` // Plugin title for display
+	PolicyID        uuid.UUID        `json:"policy_id"`
+	PublicKey       string           `json:"public_key"`
+	TransactionType string           `json:"transaction_type"` // fee type: installation_fee, subscription_fee, etc.
+	Amount          string           `json:"amount"`           // String for consistency with plugin history
+	Status          vtypes.FeeStatus `json:"status"`
+	CreatedAt       time.Time        `json:"created_at"`
+}
+
+// FeeWithStatus extends Fee with derived status from batch
+type FeeWithStatus struct {
+	vtypes.Fee
+	Status vtypes.FeeStatus
+}
+
+// FromFeesWithStatus converts a slice of FeeWithStatus to a slice of PluginFeeResponse
+// titleMap maps plugin_id to app name/title
+func FromFeesWithStatus(fees []FeeWithStatus, titleMap map[string]string) []PluginFeeResponse {
+	result := make([]PluginFeeResponse, len(fees))
+	for i, fee := range fees {
+		appName := titleMap[fee.PluginID]
+		result[i] = PluginFeeResponse{
+			ID:              fee.ID,
+			PluginID:        vtypes.PluginID(fee.PluginID),
+			AppName:         appName,
+			PolicyID:        fee.PolicyID,
+			PublicKey:       fee.PublicKey,
+			TransactionType: fee.FeeType,
+			Amount:          strconv.FormatUint(fee.Amount, 10),
+			Status:          fee.Status,
+			CreatedAt:       fee.CreatedAt.UTC(),
+		}
+	}
+	return result
+}
+
+type FeeHistoryPaginatedList struct {
+	History    []PluginFeeResponse `json:"history"`
+	TotalCount uint32              `json:"total_count"`
 }

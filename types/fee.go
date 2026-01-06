@@ -23,6 +23,16 @@ const (
 	FeeTypeBatchFailed     = "batch_failed"
 )
 
+// FeeStatus represents the collection status of a fee
+type FeeStatus string
+
+const (
+	FeeStatusPending    FeeStatus = "PENDING"    // Fee not yet in any batch
+	FeeStatusProcessing FeeStatus = "PROCESSING" // Fee in batch with status BATCHED or SIGNED
+	FeeStatusCollected  FeeStatus = "COLLECTED"  // Fee in batch with status COMPLETED
+	FeeStatusFailed     FeeStatus = "FAILED"     // Fee in batch with status FAILED
+)
+
 type CreditMetadata struct {
 	DebitFeeID uint64 `json:"debit_fee_id"` // ID of the debit transaction
 	TxHash     string `json:"tx_hash"`      // Transaction hash in blockchain
@@ -42,6 +52,7 @@ type UserFeeStatus struct {
 type Fee struct {
 	ID             uint64          `json:"id"`         // The unique id of the fee incurred
 	PolicyID       uuid.UUID       `json:"policy_id"`  // The policy ID that has incurred the fee
+	PluginID       string          `json:"plugin_id"`  // The plugin ID that generated this fee
 	PublicKey      string          `json:"public_key"` // The public key "account" connected to the fee
 	TxType         TxType          `json:"transaction_type"`
 	Amount         uint64          `json:"amount"` // The amount of the fee in the smallest unit, e.g., "1000000" for 0.01 VULTI

@@ -12,6 +12,7 @@ import (
 const QUERY_GET_EXPIRED_SUBSCRIPTIONS = `SELECT
   p.public_key,
   b.plugin_policy_id AS policy_id,
+  p.plugin_id,
   b.amount
 FROM plugin_policies p
 JOIN plugin_policy_billing b ON b.plugin_policy_id = p.id
@@ -40,15 +41,17 @@ func (s *PolicyService) HandleScheduledFees(ctx context.Context, task *asynq.Tas
 	var feesToInsert []struct {
 		publicKey string
 		policyId  string
+		pluginId  string
 		amount    uint64
 	}
 	for rows.Next() {
 		var res struct {
 			publicKey string
 			policyId  string
+			pluginId  string
 			amount    uint64
 		}
-		err := rows.Scan(&res.publicKey, &res.policyId, &res.amount)
+		err := rows.Scan(&res.publicKey, &res.policyId, &res.pluginId, &res.amount)
 		if err != nil {
 			fmt.Println(err)
 			s.logger.WithError(err).Error("Failed to scan scheduled fee row")
@@ -63,6 +66,7 @@ func (s *PolicyService) HandleScheduledFees(ctx context.Context, task *asynq.Tas
 
 	for _, res := range feesToInsert {
 		_, err = s.db.InsertFee(ctx, nil, &types.Fee{
+			PluginID:       res.pluginId,
 			PublicKey:      res.publicKey,
 			TxType:         types.TxTypeDebit,
 			Amount:         res.amount,

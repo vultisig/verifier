@@ -51,6 +51,9 @@ type PolicyRepository interface {
 type FeeRepository interface {
 	GetFeeById(ctx context.Context, id uint64) (*types.Fee, error)
 	GetFeesByPublicKey(ctx context.Context, publicKey string) ([]*types.Fee, error)
+	GetFeesByPluginID(ctx context.Context, pluginID types.PluginID, publicKey string, skip, take uint32) ([]itypes.FeeWithStatus, uint32, error)
+	GetPluginBillingSummary(ctx context.Context, publicKey string) ([]itypes.PluginBillingSummaryRow, error)
+	GetPricingsByPluginIDs(ctx context.Context, pluginIDs []string) (map[string][]itypes.PricingInfo, error)
 	InsertFee(ctx context.Context, dbTx pgx.Tx, fee *types.Fee) (uint64, error)
 	InsertPluginInstallation(ctx context.Context, dbTx pgx.Tx, pluginID types.PluginID, publicKey string) error
 	MarkFeesCollected(ctx context.Context, dbTx pgx.Tx, feeIDs []uint64, txHash string, totalAmount uint64) error

@@ -570,21 +570,17 @@ func (p *PostgresBackend) GetPluginBillingSummary(
 	ctx context.Context,
 	publicKey string,
 ) ([]itypes.PluginBillingSummaryRow, error) {
+	// Simple aggregate: one row per plugin with total fees and start date
 	query := `
 		SELECT
 			f.plugin_id,
-			COALESCE(pr.type::text, 'per-tx') as pricing_type,
-			COALESCE(pr.amount, 0) as pricing_amount,
-			COALESCE(pr.asset::text, 'usdc') as pricing_asset,
-			pr.frequency::text as frequency,
 			MIN(f.created_at) as start_date,
 			SUM(f.amount) as total_fees
 		FROM fees f
-		LEFT JOIN pricings pr ON pr.plugin_id::text = f.plugin_id
 		WHERE f.public_key = $1
 		  AND f.transaction_type = 'debit'
 		  AND f.plugin_id IS NOT NULL
-		GROUP BY f.plugin_id, pr.type, pr.amount, pr.asset, pr.frequency
+		GROUP BY f.plugin_id
 		ORDER BY total_fees DESC
 	`
 
@@ -599,10 +595,6 @@ func (p *PostgresBackend) GetPluginBillingSummary(
 		var row itypes.PluginBillingSummaryRow
 		err := rows.Scan(
 			&row.PluginID,
-			&row.PricingType,
-			&row.PricingAmount,
-			&row.PricingAsset,
-			&row.Frequency,
 			&row.StartDate,
 			&row.TotalFees,
 		)
@@ -617,4 +609,53 @@ func (p *PostgresBackend) GetPluginBillingSummary(
 	}
 
 	return summaries, nil
+}
+
+func (p *PostgresBackend) GetPricingsByPluginIDs(
+	ctx context.Context,
+	pluginIDs []string,
+) (map[string][]itypes.PricingInfo, error) {
+	if len(pluginIDs) == 0 {
+		return make(map[string][]itypes.PricingInfo), nil
+	}
+
+	query := `
+		SELECT
+			plugin_id::text,
+			type::text,
+			amount,
+			asset::text,
+			frequency::text
+		FROM pricings
+		WHERE plugin_id::text = ANY($1)
+	`
+
+	rows, err := p.pool.Query(ctx, query, pluginIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query pricings: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string][]itypes.PricingInfo)
+	for rows.Next() {
+		var pluginID string
+		var info itypes.PricingInfo
+		err := rows.Scan(
+			&pluginID,
+			&info.Type,
+			&info.Amount,
+			&info.Asset,
+			&info.Frequency,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan pricing row: %w", err)
+		}
+		result[pluginID] = append(result[pluginID], info)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating pricing rows: %w", err)
+	}
+
+	return result, nil
 }

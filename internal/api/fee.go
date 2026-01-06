@@ -173,7 +173,14 @@ func (s *Server) GetPluginBillingSummary(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetFeesFailed))
 	}
 
-	// Collect plugin IDs for title lookup
+	if len(rows) == 0 {
+		return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, itypes.PluginBillingSummaryList{
+			Plugins:    []itypes.PluginBillingSummary{},
+			TotalCount: 0,
+		}))
+	}
+
+	// Collect plugin IDs for lookups
 	pluginIDs := make([]string, len(rows))
 	for i, row := range rows {
 		pluginIDs[i] = row.PluginID
@@ -185,16 +192,23 @@ func (s *Server) GetPluginBillingSummary(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginFailed))
 	}
 
+	// Get pricings for all plugins
+	pricingsMap, err := s.db.GetPricingsByPluginIDs(c.Request().Context(), pluginIDs)
+	if err != nil {
+		s.logger.WithError(err).Error("s.db.GetPricingsByPluginIDs")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetFeesFailed))
+	}
+
 	// Convert rows to response format
 	summaries := make([]itypes.PluginBillingSummary, len(rows))
 	for i, row := range rows {
+		pricings := pricingsMap[row.PluginID]
 		summaries[i] = itypes.PluginBillingSummary{
 			PluginID:    types.PluginID(row.PluginID),
 			AppName:     titleMap[row.PluginID],
-			PricingType: row.PricingType,
-			Pricing:     formatPricing(row.PricingType, row.PricingAmount, row.PricingAsset, row.Frequency),
+			Pricing:     formatPricings(pricings),
 			StartDate:   row.StartDate.UTC(),
-			NextPayment: calculateNextPayment(row.PricingType, row.StartDate, row.Frequency),
+			NextPayment: calculateNextPaymentFromPricings(pricings, row.StartDate),
 			TotalFees:   strconv.FormatUint(row.TotalFees, 10),
 		}
 	}
@@ -205,20 +219,35 @@ func (s *Server) GetPluginBillingSummary(c echo.Context) error {
 	}))
 }
 
-// formatPricing formats the pricing info for display
-func formatPricing(pricingType string, amount uint64, asset string, frequency *string) string {
-	// Convert from smallest unit (6 decimals for USDC)
-	amountFloat := float64(amount) / 1_000_000
-	assetUpper := strings.ToUpper(asset)
+// formatPricings formats multiple pricing entries into a combined string
+// Example output: "0.50 USDC one-time + 0.01 USDC per transaction"
+func formatPricings(pricings []itypes.PricingInfo) string {
+	if len(pricings) == 0 {
+		return ""
+	}
 
-	switch pricingType {
+	parts := make([]string, 0, len(pricings))
+	for _, p := range pricings {
+		parts = append(parts, formatSinglePricing(p))
+	}
+
+	return strings.Join(parts, " + ")
+}
+
+// formatSinglePricing formats a single pricing entry for display
+func formatSinglePricing(p itypes.PricingInfo) string {
+	// Convert from smallest unit (6 decimals for USDC)
+	amountFloat := float64(p.Amount) / 1_000_000
+	assetUpper := strings.ToUpper(p.Asset)
+
+	switch p.Type {
 	case "per-tx":
 		return formatAmount(amountFloat) + " " + assetUpper + " per transaction"
 	case "once":
 		return formatAmount(amountFloat) + " " + assetUpper + " one-time"
 	case "recurring":
-		if frequency != nil {
-			return formatAmount(amountFloat) + " " + assetUpper + " / " + *frequency
+		if p.Frequency != nil {
+			return formatAmount(amountFloat) + " " + assetUpper + " / " + *p.Frequency
 		}
 		return formatAmount(amountFloat) + " " + assetUpper + " recurring"
 	default:
@@ -234,18 +263,36 @@ func formatAmount(amount float64) string {
 	return fmt.Sprintf("%.2f", amount)
 }
 
-// calculateNextPayment calculates the next payment date for recurring subscriptions
-func calculateNextPayment(pricingType string, startDate time.Time, frequency *string) *time.Time {
-	if pricingType != "recurring" || frequency == nil {
-		return nil
+// calculateNextPaymentFromPricings finds the next payment date from recurring pricings
+func calculateNextPaymentFromPricings(pricings []itypes.PricingInfo, startDate time.Time) *time.Time {
+	var earliest *time.Time
+
+	for _, p := range pricings {
+		if p.Type != "recurring" || p.Frequency == nil {
+			continue
+		}
+
+		next := calculateNextPaymentForFrequency(startDate, *p.Frequency)
+		if next == nil {
+			continue
+		}
+
+		if earliest == nil || next.Before(*earliest) {
+			earliest = next
+		}
 	}
 
+	return earliest
+}
+
+// calculateNextPaymentForFrequency calculates the next payment date for a given frequency
+func calculateNextPaymentForFrequency(startDate time.Time, frequency string) *time.Time {
 	now := time.Now().UTC()
 	next := startDate.UTC()
 
 	// Advance until we find the next payment date after now
 	for next.Before(now) || next.Equal(now) {
-		switch *frequency {
+		switch frequency {
 		case "daily":
 			next = next.AddDate(0, 0, 1)
 		case "weekly":

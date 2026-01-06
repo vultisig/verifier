@@ -387,6 +387,14 @@ func (m *MockDatabaseStorage) GetPluginTitlesByIDs(ctx context.Context, ids []st
 	return args.Get(0).(map[string]string), args.Error(1)
 }
 
+func (m *MockDatabaseStorage) GetPricingsByPluginIDs(ctx context.Context, pluginIDs []string) (map[string][]itypes.PricingInfo, error) {
+	args := m.Called(ctx, pluginIDs)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(map[string][]itypes.PricingInfo), args.Error(1)
+}
+
 func TestGenerateToken(t *testing.T) {
 	testCases := []struct {
 		name          string

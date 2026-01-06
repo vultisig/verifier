@@ -32,7 +32,7 @@ require (
 	github.com/vultisig/commondata v0.0.0-20250710214228-61d9ed8f7778
 	github.com/vultisig/go-wrappers v0.0.0-20250716071337-34a5c0f4d6e0
 	github.com/vultisig/mobile-tss-lib v0.0.0-20250316003201-2e7e570a4a74
-	github.com/vultisig/recipes v0.0.0-20251211032528-159eb8404c0f
+	github.com/vultisig/recipes v0.0.0-20260106090536-1198eaa21228
 	github.com/vultisig/vultiserver v0.0.0-20250825042420-c6e6ac281110
 	github.com/vultisig/vultisig-go v0.0.0-20251201083443-f9306a44b356
 	github.com/xyield/xrpl-go v0.0.0-20230914223425-9abe75c05830
@@ -283,7 +283,5 @@ replace (
 	github.com/agl/ed25519 => github.com/binance-chain/edwards25519 v0.0.0-20200305024217-f36fc4b53d43
 	github.com/cwespare/xxhash/v2 => github.com/cespare/xxhash/v2 v2.1.1
 	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
-	// Use local recipes with canonical swap router
-	github.com/vultisig/recipes => ../recipes
 	nhooyr.io/websocket => github.com/coder/websocket v1.8.6
 )

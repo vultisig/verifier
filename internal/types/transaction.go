@@ -1,6 +1,7 @@
 package types
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -71,7 +72,7 @@ type PluginFeeResponse struct {
 	PolicyID        uuid.UUID        `json:"policy_id"`
 	PublicKey       string           `json:"public_key"`
 	TransactionType string           `json:"transaction_type"` // fee type: installation_fee, subscription_fee, etc.
-	Amount          uint64           `json:"amount"`
+	Amount          string           `json:"amount"`           // String for consistency with plugin history
 	Status          vtypes.FeeStatus `json:"status"`
 	CreatedAt       time.Time        `json:"created_at"`
 }
@@ -95,9 +96,9 @@ func FromFeesWithStatus(fees []FeeWithStatus, titleMap map[string]string) []Plug
 			PolicyID:        fee.PolicyID,
 			PublicKey:       fee.PublicKey,
 			TransactionType: fee.FeeType,
-			Amount:          fee.Amount,
+			Amount:          strconv.FormatUint(fee.Amount, 10),
 			Status:          fee.Status,
-			CreatedAt:       fee.CreatedAt,
+			CreatedAt:       fee.CreatedAt.UTC(),
 		}
 	}
 	return result

@@ -46,7 +46,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	// This prevents a malicious plugin from impersonating another plugin
 	authenticatedPluginID, ok := c.Get("plugin_id").(vtypes.PluginID)
 	if !ok {
-		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("plugin authentication required"))
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
 	}
 	if authenticatedPluginID.String() != req.PluginID {
 		s.logger.Warnf("Plugin ID mismatch: authenticated=%s, requested=%s", authenticatedPluginID, req.PluginID)

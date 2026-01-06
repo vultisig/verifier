@@ -97,6 +97,7 @@ func (fi *FeeIndexer) updateTxStatus(ctx context.Context, tx storage.Tx) error {
 			//Insert fee
 			_, err = fi.db.InsertFee(ctx, dbTx, &types.Fee{
 				PolicyID:       tx.PolicyID,
+				PluginID:       string(tx.PluginID),
 				PublicKey:      tx.FromPublicKey,
 				TxType:         types.TxTypeDebit,
 				Amount:         txFee,

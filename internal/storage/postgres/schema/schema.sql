@@ -161,6 +161,7 @@ CREATE TABLE "fees" (
     "metadata" "jsonb",
     "underlying_type" "text" NOT NULL,
     "underlying_id" "text" NOT NULL,
+    "plugin_id" character varying(255),
     CONSTRAINT "fees_amount_check" CHECK (("amount" > 0)),
     CONSTRAINT "policy_id_required_for_policies" CHECK (((("underlying_type" = 'policy'::"text") AND ("policy_id" IS NOT NULL)) OR ("underlying_type" <> 'policy'::"text")))
 );
@@ -396,6 +397,8 @@ CREATE INDEX "idx_fee_batches_status" ON "fee_batches" USING "btree" ("status");
 CREATE INDEX "idx_fees_created_at" ON "fees" USING "btree" ("created_at" DESC);
 
 CREATE INDEX "idx_fees_metadata_gin" ON "fees" USING "gin" ("metadata") WHERE ("metadata" IS NOT NULL);
+
+CREATE INDEX "idx_fees_plugin_id" ON "fees" USING "btree" ("plugin_id") WHERE ("plugin_id" IS NOT NULL);
 
 CREATE INDEX "idx_fees_policy_id" ON "fees" USING "btree" ("policy_id") WHERE ("policy_id" IS NOT NULL);
 

@@ -205,6 +205,14 @@ func (m *MockDatabaseStorage) GetFeesByPluginID(ctx context.Context, pluginID ty
 	return args.Get(0).([]itypes.FeeWithStatus), args.Get(1).(uint32), args.Error(2)
 }
 
+func (m *MockDatabaseStorage) GetPluginBillingSummary(ctx context.Context, publicKey string) ([]itypes.PluginBillingSummaryRow, error) {
+	args := m.Called(ctx, publicKey)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]itypes.PluginBillingSummaryRow), args.Error(1)
+}
+
 func (m *MockDatabaseStorage) InsertFee(ctx context.Context, dbTx pgx.Tx, fee *types.Fee) (uint64, error) {
 	args := m.Called(ctx, dbTx, fee)
 	return args.Get(0).(uint64), args.Error(1)

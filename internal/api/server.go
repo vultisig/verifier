@@ -172,6 +172,7 @@ func (s *Server) StartServer() error {
 	// user fee group. These should only be accessible by the plugin server
 	userFeeGroup := e.Group("/fee", s.VaultAuthMiddleware)
 	userFeeGroup.GET("/status", s.GetUserFees)
+	userFeeGroup.GET("/plugins", s.GetPluginBillingSummary)
 	userFeeGroup.GET("/plugins/:pluginId/transactions", s.GetPluginFeeHistory)
 
 	pluginsGroup := e.Group("/plugins")

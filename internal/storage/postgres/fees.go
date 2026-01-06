@@ -565,3 +565,56 @@ func (p *PostgresBackend) GetFeesByPluginID(
 
 	return fees, totalCount, nil
 }
+
+func (p *PostgresBackend) GetPluginBillingSummary(
+	ctx context.Context,
+	publicKey string,
+) ([]itypes.PluginBillingSummaryRow, error) {
+	query := `
+		SELECT
+			f.plugin_id,
+			COALESCE(pr.type::text, 'per-tx') as pricing_type,
+			COALESCE(pr.amount, 0) as pricing_amount,
+			COALESCE(pr.asset::text, 'usdc') as pricing_asset,
+			pr.frequency::text as frequency,
+			MIN(f.created_at) as start_date,
+			SUM(f.amount) as total_fees
+		FROM fees f
+		LEFT JOIN pricings pr ON pr.plugin_id::text = f.plugin_id
+		WHERE f.public_key = $1
+		  AND f.transaction_type = 'debit'
+		  AND f.plugin_id IS NOT NULL
+		GROUP BY f.plugin_id, pr.type, pr.amount, pr.asset, pr.frequency
+		ORDER BY total_fees DESC
+	`
+
+	rows, err := p.pool.Query(ctx, query, publicKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query plugin billing summary: %w", err)
+	}
+	defer rows.Close()
+
+	var summaries []itypes.PluginBillingSummaryRow
+	for rows.Next() {
+		var row itypes.PluginBillingSummaryRow
+		err := rows.Scan(
+			&row.PluginID,
+			&row.PricingType,
+			&row.PricingAmount,
+			&row.PricingAsset,
+			&row.Frequency,
+			&row.StartDate,
+			&row.TotalFees,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan billing summary row: %w", err)
+		}
+		summaries = append(summaries, row)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating billing summary rows: %w", err)
+	}
+
+	return summaries, nil
+}

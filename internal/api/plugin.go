@@ -151,7 +151,6 @@ func (s *Server) checkAndDeactivatePolicy(ctx context.Context, policy *vtypes.Pl
 	// Policy has no more scheduled executions - check if deferred deactivation needed
 	if recipe.RateLimitWindow != nil && recipe.GetRateLimitWindow() > 0 {
 		delay := time.Duration(recipe.GetRateLimitWindow()) * time.Second
-		s.logger.Infof("policy_id=%s: scheduling deferred deactivation in %v", policy.ID, delay)
 		_, err = s.asynqClient.EnqueueContext(
 			ctx,
 			asynq.NewTask(tasks.TypePolicyDeactivate, []byte(policy.ID.String())),
@@ -160,10 +159,12 @@ func (s *Server) checkAndDeactivatePolicy(ctx context.Context, policy *vtypes.Pl
 			asynq.Queue(tasks.QUEUE_NAME),
 			asynq.TaskID(fmt.Sprintf("deactivate:%s", policy.ID)),
 		)
+		if errors.Is(err, asynq.ErrTaskIDConflict) {
+			// Deactivation already scheduled - this is expected for multi-tx operations
+			return
+		}
 		if err != nil {
 			s.logger.WithError(err).Warnf("policy_id=%s: failed to schedule deactivation", policy.ID)
-		} else {
-			s.logger.Infof("policy_id=%s: deactivation task scheduled successfully", policy.ID)
 		}
 		return
 	}

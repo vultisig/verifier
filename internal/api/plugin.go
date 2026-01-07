@@ -128,33 +128,55 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		signErr := s.validateAndSign(c, &req, recipe, policy.ID)
 
 		// After signing, check if policy should be deactivated
-		// Use DefaultInterval to check - if plugin uses different format, this will fail gracefully
-		s.checkAndDeactivatePolicy(c.Request().Context(), policy)
+		s.checkAndDeactivatePolicy(c.Request().Context(), policy, recipe)
 
 		return signErr
 	}
 }
 
 // checkAndDeactivatePolicy checks if a policy has no more executions and deactivates it.
-// If the recipe format is not recognized (plugin uses custom format), this silently skips.
-func (s *Server) checkAndDeactivatePolicy(ctx context.Context, policy *vtypes.PluginPolicy) {
+// For policies with rateLimitWindow, deactivation is deferred via a background task.
+func (s *Server) checkAndDeactivatePolicy(ctx context.Context, policy *vtypes.PluginPolicy, recipe *rtypes.Policy) {
 	interval := scheduler.NewDefaultInterval()
 	next, err := interval.FromNowWhenNext(*policy)
 	if err != nil {
-		// Plugin uses a different recipe format - skip deactivation check
-		s.logger.WithError(err).Debugf("policy_id=%s: cannot check expiration (plugin may use custom format)", policy.ID)
+		// Plugin uses custom recipe format - skip deactivation check
 		return
 	}
 
-	if next.IsZero() {
-		// Policy has no more executions - deactivate it
-		policy.Active = false
-		_, err = s.policyService.UpdatePolicy(ctx, *policy)
-		if err != nil {
-			s.logger.WithError(err).Errorf("policy_id=%s: failed to deactivate expired policy", policy.ID)
+	if !next.IsZero() {
+		return
+	}
+
+	// Policy has no more scheduled executions - check if deferred deactivation needed
+	if recipe.RateLimitWindow != nil && recipe.GetRateLimitWindow() > 0 {
+		delay := time.Duration(recipe.GetRateLimitWindow()) * time.Second
+		_, err = s.asynqClient.EnqueueContext(
+			ctx,
+			asynq.NewTask(tasks.TypePolicyDeactivate, []byte(policy.ID.String())),
+			asynq.ProcessIn(delay),
+			asynq.MaxRetry(3),
+			asynq.Queue(tasks.QUEUE_NAME),
+			asynq.TaskID(fmt.Sprintf("deactivate:%s", policy.ID)),
+		)
+		if errors.Is(err, asynq.ErrTaskIDConflict) {
+			// Deactivation already scheduled - this is expected for multi-tx operations
 			return
 		}
-		s.logger.Infof("policy_id=%s: deactivated (no more executions)", policy.ID)
+		if err != nil {
+			s.logger.WithError(err).Warnf("policy_id=%s: failed to schedule deactivation", policy.ID)
+		}
+		return
+	}
+
+	// No rateLimitWindow - deactivate immediately
+	s.logger.Infof("policy_id=%s: no rateLimitWindow, deactivating immediately", policy.ID)
+	policy.Active = false
+	_, err = s.policyService.UpdatePolicy(ctx, *policy)
+	if err != nil {
+		s.logger.WithError(err).Errorf("policy_id=%s: failed to deactivate", policy.ID)
+	} else {
+		s.logger.Infof("policy_id=%s: deactivated immediately", policy.ID)
 	}
 }
 

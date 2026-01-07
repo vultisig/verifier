@@ -137,21 +137,16 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 // checkAndDeactivatePolicy checks if a policy has no more executions and deactivates it.
 // For policies with rateLimitWindow, deactivation is deferred via a background task.
 func (s *Server) checkAndDeactivatePolicy(ctx context.Context, policy *vtypes.PluginPolicy, recipe *rtypes.Policy) {
-	s.logger.Debugf("policy_id=%s: checking deactivation", policy.ID)
-
 	interval := scheduler.NewDefaultInterval()
 	next, err := interval.FromNowWhenNext(*policy)
 	if err != nil {
-		s.logger.WithError(err).Debugf("policy_id=%s: cannot check expiration", policy.ID)
+		// Plugin uses custom recipe format - skip deactivation check
 		return
 	}
 
 	if !next.IsZero() {
-		s.logger.Debugf("policy_id=%s: has next execution at %s, skipping deactivation", policy.ID, next)
 		return
 	}
-
-	s.logger.Debugf("policy_id=%s: no more executions (next.IsZero=true), rateLimitWindow=%v", policy.ID, recipe.RateLimitWindow)
 
 	// Policy has no more scheduled executions - check if deferred deactivation needed
 	if recipe.RateLimitWindow != nil && recipe.GetRateLimitWindow() > 0 {

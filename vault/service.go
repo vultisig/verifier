@@ -209,11 +209,11 @@ func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task
 	}
 
 	s.logger.WithFields(logrus.Fields{
-		"name":              req.Name,
-		"session":           req.SessionID,
-		"request_party_id":  req.LocalPartyId,
+		"name":               req.Name,
+		"session":            req.SessionID,
+		"request_party_id":   req.LocalPartyId,
 		"local_party_prefix": s.cfg.LocalPartyPrefix,
-		"email":             req.Email,
+		"email":              req.Email,
 	}).Info("reshare request")
 	if err := req.IsValid(); err != nil {
 		return fmt.Errorf("invalid reshare request: %s: %w", err, asynq.SkipRetry)

@@ -167,11 +167,15 @@ func (s *Server) handleReshareVault(c echo.Context) error {
 	if err := s.redis.Set(c.Request().Context(), req.SessionID, req.SessionID, 5*time.Minute); err != nil {
 		s.logger.Errorf("fail to set session, err: %v", err)
 	}
+	queueName := s.cfg.TaskQueueName
+	if queueName == "" {
+		queueName = tasks.QUEUE_NAME
+	}
 	_, err = s.client.Enqueue(asynq.NewTask(tasks.TypeReshareDKLS, buf),
 		asynq.MaxRetry(-1),
 		asynq.Timeout(7*time.Minute),
 		asynq.Retention(10*time.Minute),
-		asynq.Queue(tasks.QUEUE_NAME))
+		asynq.Queue(queueName))
 	if err != nil {
 		return fmt.Errorf("fail to enqueue task, err: %w", err)
 	}

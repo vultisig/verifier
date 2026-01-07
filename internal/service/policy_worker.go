@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/verifier/types"
@@ -92,5 +93,38 @@ func (s *PolicyService) HandleScheduledFees(ctx context.Context, task *asynq.Tas
 		return s.HandleScheduledFees(ctx, task)
 	}
 
+	return nil
+}
+
+// HandlePolicyDeactivate handles deferred policy deactivation tasks.
+// The task payload contains the policy ID as a raw string.
+func (s *PolicyService) HandlePolicyDeactivate(ctx context.Context, task *asynq.Task) error {
+	policyIDStr := string(task.Payload())
+	policyID, err := uuid.Parse(policyIDStr)
+	if err != nil {
+		s.logger.WithError(err).WithField("payload", policyIDStr).Error("Invalid policy ID in deactivation task")
+		return fmt.Errorf("invalid policy ID: %w", err)
+	}
+
+	policy, err := s.db.GetPluginPolicy(ctx, policyID)
+	if err != nil {
+		s.logger.WithError(err).WithField("policy_id", policyID).Error("Failed to get policy for deactivation")
+		return fmt.Errorf("failed to get policy: %w", err)
+	}
+
+	// Already deactivated (maybe manually or by another process)
+	if !policy.Active {
+		s.logger.WithField("policy_id", policyID).Debug("Policy already inactive, skipping deactivation")
+		return nil
+	}
+
+	policy.Active = false
+	_, err = s.UpdatePolicy(ctx, *policy)
+	if err != nil {
+		s.logger.WithError(err).WithField("policy_id", policyID).Error("Failed to deactivate policy")
+		return fmt.Errorf("failed to deactivate policy: %w", err)
+	}
+
+	s.logger.WithField("policy_id", policyID).Info("Policy deactivated via scheduled task")
 	return nil
 }

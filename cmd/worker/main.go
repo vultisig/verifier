@@ -140,6 +140,8 @@ func main() {
 		workerMetrics.Handler("reshare", feeMgmService.HandleReshareDKLS))
 	mux.HandleFunc(tasks.TypeRecurringFeeRecord,
 		workerMetrics.Handler("fees", policyService.HandleScheduledFees))
+	mux.HandleFunc(tasks.TypePolicyDeactivate,
+		workerMetrics.Handler("policy_deactivate", policyService.HandlePolicyDeactivate))
 
 	if err := srv.Run(mux); err != nil {
 		panic(fmt.Errorf("could not run server: %w", err))

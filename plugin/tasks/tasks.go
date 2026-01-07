@@ -14,6 +14,7 @@ const (
 	TypeKeyGenerationDKLS  = "key:generationDKLS"
 	TypeKeySignDKLS        = "key:signDKLS"
 	TypeReshareDKLS        = "key:reshareDKLS"
+	TypePolicyDeactivate   = "policy:deactivate"
 )
 
 func GetTaskResult(inspector *asynq.Inspector, taskID string) ([]byte, error) {

@@ -174,11 +174,13 @@ func (s *PolicyService) UpdatePolicy(ctx context.Context, policy types.PluginPol
 
 	// Try to sync policy update with plugin server (best effort)
 	// Don't fail the entire operation if sync fails - verifier DB is source of truth
-	if err := s.syncer.UpdatePolicySync(ctx, policy); err != nil {
-		s.logger.WithError(err).WithFields(logrus.Fields{
-			"policy_id": updatedPolicy.ID,
-			"plugin_id": updatedPolicy.PluginID,
-		}).Warn("Failed to sync policy update with plugin server, proceeding with verifier update")
+	if s.syncer != nil {
+		if err := s.syncer.UpdatePolicySync(ctx, policy); err != nil {
+			s.logger.WithError(err).WithFields(logrus.Fields{
+				"policy_id": updatedPolicy.ID,
+				"plugin_id": updatedPolicy.PluginID,
+			}).Warn("Failed to sync policy update with plugin server, proceeding with verifier update")
+		}
 	}
 
 	// Always update verifier database (source of truth)

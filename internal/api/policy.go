@@ -68,7 +68,7 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 		s.logger.WithError(err).Error("Failed to parse request")
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequestParseFailed))
 	}
-	if policy.ID.String() == "" {
+	if policy.ID == uuid.Nil {
 		policy.ID = uuid.New()
 	}
 	publicKey, ok := c.Get("vault_public_key").(string)

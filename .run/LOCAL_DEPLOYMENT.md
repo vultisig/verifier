@@ -8,7 +8,8 @@ open -a Docker
 # Create shared network (once)
 docker network create shared_network
 
-# Set library path (required for TSS operations)
+# Set library path (required for TSS operations - macOS only)
+# Linux/Windows users: skip this step, the library is statically linked
 export DYLD_LIBRARY_PATH=/Users/dev/dev/vultisig/go-wrappers/includes/darwin/:$DYLD_LIBRARY_PATH
 ```
 
@@ -89,6 +90,16 @@ VS_CONFIG_NAME=config go run cmd/verifier/main.go
 ```bash
 VS_WORKER_CONFIG_NAME=worker-config go run cmd/worker/main.go
 ```
+
+**Task Queue Isolation**: When running multiple workers (e.g., verifier + DCA plugin), use `TASK_QUEUE_NAME` to prevent workers from stealing each other's tasks:
+```bash
+# Verifier worker (default queue)
+VS_WORKER_CONFIG_NAME=worker-config go run cmd/worker/main.go
+
+# DCA plugin worker (separate queue)
+TASK_QUEUE_NAME=dca_plugin_queue VS_WORKER_CONFIG_NAME=worker-config go run cmd/worker/main.go
+```
+For single-worker setups, the default queue (`default_queue`) is sufficient.
 
 ## 4. Update Plugin Endpoints in Database
 

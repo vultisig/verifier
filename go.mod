@@ -1,6 +1,6 @@
 module github.com/vultisig/verifier
 
-go 1.24.2
+go 1.25
 
 require (
 	github.com/aws/aws-sdk-go v1.55.7
@@ -30,7 +30,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/swag v1.16.4
 	github.com/vultisig/commondata v0.0.0-20250710214228-61d9ed8f7778
-	github.com/vultisig/go-wrappers v0.0.0-20250716071337-34a5c0f4d6e0
+	github.com/vultisig/go-wrappers v0.0.0-20260106233302-7e12f0dd6a93
 	github.com/vultisig/mobile-tss-lib v0.0.0-20250316003201-2e7e570a4a74
 	github.com/vultisig/recipes v0.0.0-20260106090536-1198eaa21228
 	github.com/vultisig/vultiserver v0.0.0-20250825042420-c6e6ac281110

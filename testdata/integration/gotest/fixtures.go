@@ -16,13 +16,13 @@ type FixtureData struct {
 		VaultB64  string `json:"vault_b64"`
 	} `json:"vault"`
 	Reshare struct {
-		SessionID          string   `json:"session_id"`
-		HexEncryptionKey   string   `json:"hex_encryption_key"`
-		HexChainCode       string   `json:"hex_chain_code"`
-		LocalPartyID       string   `json:"local_party_id"`
-		OldParties         []string `json:"old_parties"`
-		OldResharePrefix   string   `json:"old_reshare_prefix"`
-		Email              string   `json:"email"`
+		SessionID        string   `json:"session_id"`
+		HexEncryptionKey string   `json:"hex_encryption_key"`
+		HexChainCode     string   `json:"hex_chain_code"`
+		LocalPartyID     string   `json:"local_party_id"`
+		OldParties       []string `json:"old_parties"`
+		OldResharePrefix string   `json:"old_reshare_prefix"`
+		Email            string   `json:"email"`
 	} `json:"reshare"`
 }
 

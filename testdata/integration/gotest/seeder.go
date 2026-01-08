@@ -26,10 +26,10 @@ type S3Config struct {
 }
 
 type SeederConfig struct {
-	DSN      string
-	S3       S3Config
-	Fixture  *FixtureData
-	Plugins  []PluginConfig
+	DSN     string
+	S3      S3Config
+	Fixture *FixtureData
+	Plugins []PluginConfig
 }
 
 type Seeder struct {

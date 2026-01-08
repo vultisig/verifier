@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/kelseyhightower/envconfig"
@@ -50,6 +51,33 @@ func createWorker() (*Worker, context.CancelFunc, storage.TxIndexerRepo, error) 
 	)
 
 	return worker, stop, db, nil
+}
+
+func TestWorker_getMarkLostAfter(t *testing.T) {
+	worker := &Worker{
+		markLostAfter: 3 * time.Hour, // default for UTXO
+	}
+
+	tests := []struct {
+		chain    common.Chain
+		expected time.Duration
+	}{
+		{common.Solana, 2 * time.Minute},
+		{common.XRP, 5 * time.Minute},
+		{common.Ethereum, 30 * time.Minute},
+		{common.Base, 30 * time.Minute},
+		{common.Arbitrum, 30 * time.Minute},
+		{common.Bitcoin, 3 * time.Hour},
+		{common.Litecoin, 3 * time.Hour},
+		{common.Dogecoin, 3 * time.Hour},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.chain.String(), func(t *testing.T) {
+			got := worker.getMarkLostAfter(tc.chain)
+			require.Equal(t, tc.expected, got)
+		})
+	}
 }
 
 func TestWorker_positive(t *testing.T) {

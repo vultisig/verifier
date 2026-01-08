@@ -10,10 +10,42 @@ import (
 )
 
 func TestPolicyEndpoints(t *testing.T) {
-	for _, plugin := range plugins {
+	for i, plugin := range plugins {
 		plugin := plugin
+		pluginIndex := i
 		t.Run(plugin.ID, func(t *testing.T) {
 			t.Parallel()
+
+			policyID := getPluginPolicyID(pluginIndex)
+
+			t.Run("GetPolicy_HappyPath", func(t *testing.T) {
+				resp, err := testClient.WithJWT(jwtToken).GET("/plugin/policy/" + policyID)
+				require.NoError(t, err)
+				defer resp.Body.Close()
+
+				assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+				var apiResp struct {
+					Data struct {
+						ID       string `json:"id"`
+						PluginID string `json:"plugin_id"`
+						Active   bool   `json:"active"`
+					} `json:"data"`
+				}
+				err = ReadJSONResponse(resp, &apiResp)
+				require.NoError(t, err)
+				assert.Equal(t, policyID, apiResp.Data.ID)
+				assert.Equal(t, plugin.ID, apiResp.Data.PluginID)
+				assert.True(t, apiResp.Data.Active)
+			})
+
+			t.Run("GetAllPolicies_HappyPath", func(t *testing.T) {
+				resp, err := testClient.WithJWT(jwtToken).GET("/plugin/policies/" + plugin.ID)
+				require.NoError(t, err)
+				defer resp.Body.Close()
+
+				assert.Equal(t, http.StatusOK, resp.StatusCode)
+			})
 
 			t.Run("CreatePolicy_InvalidSignature", func(t *testing.T) {
 				reqBody := map[string]interface{}{

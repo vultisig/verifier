@@ -13,7 +13,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/jackc/pgx/v5/pgxpool"
+	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
 	recipetypes "github.com/vultisig/recipes/types"
+	"github.com/vultisig/vultisig-go/common"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -26,10 +28,11 @@ type S3Config struct {
 }
 
 type SeederConfig struct {
-	DSN     string
-	S3      S3Config
-	Fixture *FixtureData
-	Plugins []PluginConfig
+	DSN              string
+	S3               S3Config
+	Fixture          *FixtureData
+	Plugins          []PluginConfig
+	EncryptionSecret string
 }
 
 type Seeder struct {
@@ -172,6 +175,24 @@ func (s *Seeder) SeedVaults(ctx context.Context) error {
 		return fmt.Errorf("failed to decode vault_b64: %w", err)
 	}
 
+	encryptedVault, err := common.EncryptVault(s.config.EncryptionSecret, vaultData)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt vault: %w", err)
+	}
+
+	vaultContainer := &vaultType.VaultContainer{
+		Version:     1,
+		Vault:       base64.StdEncoding.EncodeToString(encryptedVault),
+		IsEncrypted: true,
+	}
+
+	containerBytes, err := proto.Marshal(vaultContainer)
+	if err != nil {
+		return fmt.Errorf("failed to marshal vault container: %w", err)
+	}
+
+	vaultBackup := []byte(base64.StdEncoding.EncodeToString(containerBytes))
+
 	sess, err := session.NewSession(&aws.Config{
 		Endpoint:         aws.String(s.config.S3.Endpoint),
 		Region:           aws.String(s.config.S3.Region),
@@ -192,7 +213,7 @@ func (s *Seeder) SeedVaults(ctx context.Context) error {
 		_, err := s3Client.PutObject(&s3.PutObjectInput{
 			Bucket:      aws.String(s.config.S3.Bucket),
 			Key:         aws.String(key),
-			Body:        bytes.NewReader(vaultData),
+			Body:        bytes.NewReader(vaultBackup),
 			ContentType: aws.String("application/octet-stream"),
 		})
 		if err != nil {
@@ -206,7 +227,7 @@ func (s *Seeder) SeedVaults(ctx context.Context) error {
 	_, err = s3Client.PutObject(&s3.PutObjectInput{
 		Bucket:      aws.String(s.config.S3.Bucket),
 		Key:         aws.String(billingKey),
-		Body:        bytes.NewReader(vaultData),
+		Body:        bytes.NewReader(vaultBackup),
 		ContentType: aws.String("application/octet-stream"),
 	})
 	if err != nil {

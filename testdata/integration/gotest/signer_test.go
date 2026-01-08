@@ -3,6 +3,7 @@ package gotest
 import (
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,7 +14,9 @@ func TestPluginSignerEndpoints(t *testing.T) {
 		plugin := plugin
 		pluginIndex := i
 		t.Run(plugin.ID, func(t *testing.T) {
-			t.Parallel()
+			if pluginIndex > 0 {
+				time.Sleep(2 * time.Second)
+			}
 
 			apiKey := getPluginAPIKey(plugin.ID)
 			policyID := getPluginPolicyID(pluginIndex)

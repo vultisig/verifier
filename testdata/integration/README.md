@@ -47,21 +47,31 @@ testdata/integration/
 
 ## Tests
 
-14 tests per plugin covering:
+16 tests per plugin covering:
+
+**Plugin endpoints:**
 1. GET /plugins/{id} (200)
 2. GET /plugins/{id}/recipe-specification (200)
-3. POST /vault/reshare idempotency (200)
-4. GET /vault/exist/{plugin}/{pubkey} (200)
-5. POST /plugin/policy with valid JWT (400 - signature validation)
-6. POST /plugin/policy without auth (401)
-7. GET /plugin/policy/{id} without auth (401)
-8. GET /plugin/policy/{id} with bad ID (400)
-9. POST /plugin-signer/sign without auth (401)
-10. POST /plugin-signer/sign with bad API key (401)
-11. POST /plugin-signer/sign with empty messages (400)
-12. POST /plugin-signer/sign with valid request (200)
-13. GET /plugin-signer/sign/response/{task_id} without auth (401)
-14. GET /plugin-signer/sign/response/{task_id} with API key (any)
+
+**Vault endpoints:**
+3. GET /vault/exist/{plugin}/{pubkey} (200)
+4. GET /vault/get/{plugin}/{pubkey} (200)
+
+**Policy endpoints:**
+5. GET /plugin/policy/{id} (200) - happy path
+6. GET /plugin/policies/{pluginId} (200) - happy path
+7. POST /plugin/policy with valid JWT (400 - signature validation)
+8. POST /plugin/policy without auth (401)
+9. GET /plugin/policy/{id} without auth (401)
+10. GET /plugin/policy/{id} with bad ID (400)
+
+**Plugin-signer endpoints:**
+11. POST /plugin-signer/sign without auth (401)
+12. POST /plugin-signer/sign with bad API key (401)
+13. POST /plugin-signer/sign with empty messages (400)
+14. POST /plugin-signer/sign with valid request (200)
+15. GET /plugin-signer/sign/response/{task_id} without auth (401)
+16. GET /plugin-signer/sign/response/{task_id} with API key (any)
 
 ## Adding New Plugins
 

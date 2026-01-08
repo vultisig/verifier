@@ -80,15 +80,24 @@ func TestMain(m *testing.M) {
 	testClient = NewTestClient(verifierURL)
 
 	dsn := getEnv("DATABASE_DSN", "")
-	if dsn == "" {
+	encryptionSecret := getEnv("ENCRYPTION_SECRET", "")
+	if dsn == "" || encryptionSecret == "" {
 		cfg, err := config.ReadVerifierConfig()
 		if err != nil {
-			log.Fatalf("Failed to read config for DSN: %v", err)
+			log.Fatalf("Failed to read config: %v", err)
 		}
-		dsn = cfg.Database.DSN
+		if dsn == "" {
+			dsn = cfg.Database.DSN
+		}
+		if encryptionSecret == "" {
+			encryptionSecret = cfg.EncryptionSecret
+		}
 	}
 	if dsn == "" {
 		log.Fatalf("DATABASE_DSN is empty. Set DATABASE_DSN env var or ensure config file has database.dsn set.")
+	}
+	if encryptionSecret == "" {
+		log.Fatalf("ENCRYPTION_SECRET is empty. Set ENCRYPTION_SECRET env var or ensure config file has encryption_secret set.")
 	}
 
 	seeder := NewSeeder(SeederConfig{
@@ -100,8 +109,9 @@ func TestMain(m *testing.M) {
 			SecretKey: s3SecretKey,
 			Bucket:    s3Bucket,
 		},
-		Fixture: fixture,
-		Plugins: plugins,
+		Fixture:          fixture,
+		Plugins:          plugins,
+		EncryptionSecret: encryptionSecret,
 	})
 
 	ctx := context.Background()

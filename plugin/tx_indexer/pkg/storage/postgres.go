@@ -123,9 +123,11 @@ func (p *PostgresTxIndexStore) SetLost(c context.Context, id uuid.UUID) error {
 	_, err := p.pool.Exec(
 		ctx,
 		`UPDATE tx_indexer SET lost = $1,
+                                   status_onchain = $2::tx_indexer_status_onchain,
                                    updated_at = now()
-                               WHERE id = $2`,
+                               WHERE id = $3`,
 		true,
+		rpc.TxOnChainFail,
 		id,
 	)
 	if err != nil {

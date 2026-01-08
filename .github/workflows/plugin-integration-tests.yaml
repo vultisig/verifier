@@ -81,21 +81,6 @@ jobs:
       - name: Download go-wrappers
         run: git clone https://github.com/vultisig/go-wrappers.git ../go-wrappers
 
-      - name: Install jq
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq
-
-      - name: Install yq
-        run: |
-          YQ_VERSION="v4.50.1"
-          sudo wget -qO /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
-          sudo chmod +x /usr/local/bin/yq
-          yq --version
-
-      - name: Install hurl
-        uses: gacts/install-hurl@v1.2.1
-
       - name: Create integration test config
         run: |
           cat > config.json <<EOF
@@ -133,10 +118,6 @@ jobs:
           export LD_LIBRARY_PATH=../go-wrappers/includes/linux/:$LD_LIBRARY_PATH
           go build -o verifier cmd/verifier/main.go
 
-      - name: Build itutil
-        run: |
-          go build -o testdata/integration/bin/itutil ./testdata/integration/cmd/itutil
-
       - name: Start verifier
         run: |
           export LD_LIBRARY_PATH=../go-wrappers/includes/linux/:$LD_LIBRARY_PATH
@@ -161,44 +142,18 @@ jobs:
             exit 1
           fi
 
-      - name: Seed integration database
+      - name: Run Go integration tests
         run: |
+          export LD_LIBRARY_PATH=../go-wrappers/includes/linux/:$LD_LIBRARY_PATH
           export VS_VERIFIER_CONFIG_NAME=config
-          ./testdata/integration/bin/itutil seed-db --proposed proposed.yaml --fixture testdata/integration/fixture.json
+          export VERIFIER_URL=http://localhost:8080
+          export JWT_SECRET=mysecret
+          export S3_ENDPOINT=http://localhost:9000
+          export S3_ACCESS_KEY=minioadmin
+          export S3_SECRET_KEY=minioadmin
+          export S3_BUCKET=vultisig-verifier
 
-      - name: Seed vault fixtures to MinIO
-        run: |
-          ./testdata/integration/bin/itutil seed-vault \
-            --fixture testdata/integration/fixture.json \
-            --proposed proposed.yaml \
-            --s3-endpoint http://localhost:9000 \
-            --s3-access-key minioadmin \
-            --s3-secret-key minioadmin \
-            --s3-bucket vultisig-verifier
-
-      - name: Run integration tests
-        run: |
-          bash testdata/integration/scripts/run-integration-tests.sh
-        env:
-          VERIFIER_URL: http://localhost:8080
-          HURL_JOBS: 4
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: integration-test-results
-          path: |
-            testdata/integration/test-results/
-          retention-days: 7
-
-      - name: Upload JUnit results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: junit-results
-          path: testdata/integration/test-results/junit.xml
-          retention-days: 7
+          go test -v -count=1 -timeout 10m ./testdata/integration/gotest/...
 
       - name: Cleanup
         if: always()

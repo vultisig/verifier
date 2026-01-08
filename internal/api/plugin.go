@@ -39,7 +39,8 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 
 	var req vtypes.PluginKeysignRequest
 	if err := c.Bind(&req); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
+		errMsg := "fail to parse request"
+		return s.badRequest(c, errMsg, err)
 	}
 
 	// Verify authenticated plugin ID matches the requested plugin ID
@@ -67,15 +68,16 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 			return err
 		})
 		if err != nil {
-			s.logger.WithError(err).Warnf("Failed to check trial info")
+			errMsg := "failed to check trial info"
+			return s.internal(c, errMsg, err)
 		}
 
 		if !isTrialActive {
 			filePathName := common.GetVaultBackupFilename(req.PublicKey, vtypes.PluginVultisigFees_feee.String())
 			exist, err := s.vaultStorage.Exist(filePathName)
 			if err != nil {
-				s.logger.WithError(err).Error("failed to check vault existence")
-				return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgInternalError))
+				errMsg := "failed to check vault existence"
+				return s.internal(c, errMsg, err)
 			}
 			if !exist {
 				return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgAccessDeniedBilling))
@@ -84,7 +86,8 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 
 		policy, err := s.db.GetPluginPolicy(c.Request().Context(), req.PolicyID)
 		if err != nil {
-			return fmt.Errorf("failed to get policy from database: %w", err)
+			errMsg := "failed to get policy from database"
+			return s.internal(c, errMsg, err)
 		}
 
 		// Check if policy is inactive
@@ -99,21 +102,23 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 
 		recipe, err := policy.GetRecipe()
 		if err != nil {
-			return fmt.Errorf("failed to unpack recipe: %w", err)
+			errMsg := "failed to unpack recipe"
+			return s.internal(c, errMsg, err)
 		}
 
 		if recipe.RateLimitWindow != nil && recipe.MaxTxsPerWindow != nil {
-			txs, er := s.txIndexerService.GetTxsInTimeRange(
+			txs, err := s.txIndexerService.GetTxsInTimeRange(
 				c.Request().Context(),
 				policy.ID,
 				time.Now().Add(time.Duration(-recipe.GetRateLimitWindow())*time.Second),
 				time.Now(),
 			)
-			if er != nil {
-				return fmt.Errorf("failed to get data from tx indexer: %w", er)
+			if err != nil {
+				errMsg := "failed to get data from tx indexer"
+				return s.internal(c, errMsg, err)
 			}
 			if uint32(len(txs)) >= recipe.GetMaxTxsPerWindow() {
-				return fmt.Errorf(
+				errMsg := fmt.Sprintf(
 					"policy not allowed to execute more txs in currrent time window: "+
 						"policy_id=%s, txs=%d, max_txs=%d, min_exec_window=%d",
 					policy.ID.String(),
@@ -121,6 +126,9 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 					recipe.GetMaxTxsPerWindow(),
 					recipe.GetRateLimitWindow(),
 				)
+				s.logger.Error(errMsg)
+				return c.JSON(http.StatusTooManyRequests, NewErrorResponseWithMessage(errMsg))
+
 			}
 		}
 
@@ -182,7 +190,7 @@ func (s *Server) checkAndDeactivatePolicy(ctx context.Context, policy *vtypes.Pl
 
 func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignRequest, recipe *rtypes.Policy, policyID uuid.UUID) error {
 	if len(req.Messages) == 0 {
-		return errors.New("no messages to sign")
+		return s.badRequest(c, "no messages to sign", nil)
 	}
 
 	firstKeysignMessage := req.Messages[0]
@@ -197,28 +205,33 @@ func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignReques
 	switch {
 	case firstKeysignMessage.Chain.IsEvm():
 		if len(req.Messages) != 1 {
-			return errors.New("plugins must sign exactly 1 message for evm")
+			errMsg := "plugins must sign exactly 1 message for evm"
+			return s.badRequest(c, errMsg, nil)
 		}
 
-		b, er := base64.StdEncoding.DecodeString(req.Transaction)
-		if er != nil {
-			return fmt.Errorf("failed to decode b64 proposed tx: %w", er)
+		b, err := base64.StdEncoding.DecodeString(req.Transaction)
+		if err != nil {
+			errMsg := "transaction must be base64"
+			return s.badRequest(c, errMsg, err)
 		}
 		txBytesEvaluate = b
 
-		evmID, er := firstKeysignMessage.Chain.EvmID()
-		if er != nil {
-			return fmt.Errorf("evm chain id not found: %s", firstKeysignMessage.Chain.String())
+		evmID, err := firstKeysignMessage.Chain.EvmID()
+		if err != nil {
+			errMsg := fmt.Sprintf("evm chain id not found: %s", firstKeysignMessage.Chain.String())
+			return s.badRequest(c, errMsg, err)
 		}
 
-		txData, er := ethereum.DecodeUnsignedPayload(b)
-		if er != nil {
-			return fmt.Errorf("failed to decode evm payload: %w", er)
+		txData, err := ethereum.DecodeUnsignedPayload(b)
+		if err != nil {
+			errMsg := "failed to decode evm payload"
+			return s.badRequest(c, errMsg, err)
 		}
 
-		kmBytes, er := base64.StdEncoding.DecodeString(firstKeysignMessage.Message)
-		if er != nil {
-			return fmt.Errorf("failed to decode b64 proposed tx: %w", er)
+		kmBytes, err := base64.StdEncoding.DecodeString(firstKeysignMessage.Message)
+		if err != nil {
+			errMsg := "failed to decode b64 proposed tx"
+			return s.badRequest(c, errMsg, err)
 		}
 
 		hashToSignFromTxObj := etypes.LatestSignerForChainID(evmID).Hash(etypes.NewTx(txData))
@@ -229,44 +242,49 @@ func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignReques
 			//
 			// We must validate that plugin not cheating and
 			// hash from req.Transaction is the same as keysignMessage.Message,
-			return fmt.Errorf(
-				"hashToSign(%s) must be the same as computed hash from request.Transaction(%s)",
+			errMsg := fmt.Sprintf("hashToSign(%s) must be the same as computed hash from request.Transaction(%s)",
 				hashToSign.Hex(),
-				hashToSignFromTxObj.Hex(),
-			)
+				hashToSignFromTxObj.Hex())
+			return s.badRequest(c, errMsg, nil)
 		}
 	case firstKeysignMessage.Chain == common.Bitcoin:
-		b, er := psbt.NewFromRawBytes(strings.NewReader(req.Transaction), true)
-		if er != nil {
-			return fmt.Errorf("failed to decode psbt: %w", er)
+		b, err := psbt.NewFromRawBytes(strings.NewReader(req.Transaction), true)
+		if err != nil {
+			errMsg := "failed to decode psbt"
+			return s.badRequest(c, errMsg, err)
 		}
 
 		var buf bytes.Buffer
-		er = b.UnsignedTx.Serialize(&buf)
-		if er != nil {
-			return fmt.Errorf("failed to serialize psbt: %w", er)
+		err = b.UnsignedTx.Serialize(&buf)
+		if err != nil {
+			errMsg := "failed to serialize psbt"
+			return s.badRequest(c, errMsg, err)
 		}
 
 		txBytesEvaluate = buf.Bytes()
 	case firstKeysignMessage.Chain == common.XRP:
-		b, er := base64.StdEncoding.DecodeString(req.Transaction)
-		if er != nil {
-			return fmt.Errorf("failed to decode base64 XRP transaction: %w", er)
+		b, err := base64.StdEncoding.DecodeString(req.Transaction)
+		if err != nil {
+			errMsg := "failed to decode base64 XRP transaction"
+			return s.badRequest(c, errMsg, err)
 		}
 		txBytesEvaluate = b
 	case firstKeysignMessage.Chain == common.Solana:
-		b, er := base64.StdEncoding.DecodeString(req.Transaction)
-		if er != nil {
-			return fmt.Errorf("failed to decode b64 proposed Solana tx: %w", er)
+		b, err := base64.StdEncoding.DecodeString(req.Transaction)
+		if err != nil {
+			errMsg := "failed to decode base64 Solana tx"
+			return s.badRequest(c, errMsg, err)
 		}
 		txBytesEvaluate = b
 	default:
-		return fmt.Errorf("failed to decode transaction, chain %s not supported", firstKeysignMessage.Chain)
+		errMsg := fmt.Sprintf("failed to decode transaction, chain %s not supported", firstKeysignMessage.Chain)
+		return s.badRequest(c, errMsg, nil)
 	}
 
 	ngn, err := engine.NewEngine()
 	if err != nil {
-		return fmt.Errorf("failed to create engine: %w", err)
+		errMsg := "failed to create engine"
+		return s.internal(c, errMsg, err)
 	}
 
 	var matchedRule *rtypes.Rule
@@ -274,12 +292,12 @@ func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignReques
 	if req.PluginID == vtypes.PluginVultisigFees_feee.String() {
 		matchedRule, err = ngn.Evaluate(types.FeeDefaultPolicy, firstKeysignMessage.Chain, txBytesEvaluate)
 		if err != nil {
-			return fmt.Errorf("tx not allowed to execute: %w", err)
+			return s.forbidden(c, "tx not allowed to execute", err)
 		}
 	} else {
 		matchedRule, err = ngn.Evaluate(recipe, firstKeysignMessage.Chain, txBytesEvaluate)
 		if err != nil {
-			return fmt.Errorf("tx not allowed to execute: %w", err)
+			return s.forbidden(c, "tx not allowed to execute", err)
 		}
 	}
 
@@ -299,13 +317,15 @@ func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignReques
 		Amount:        amount,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create tx for tracking: %w", err)
+		errMsg := "failed to create tx for tracking"
+		return s.internal(c, errMsg, err)
 	}
 	req.Messages[0].TxIndexerID = txToTrack.ID.String()
 
 	err = s.txIndexerService.SetStatus(c.Request().Context(), txToTrack.ID, storage.TxVerified)
 	if err != nil {
-		return fmt.Errorf("tx_id=%s, failed to set transaction status to verified: %w", txToTrack.ID, err)
+		errMsg := fmt.Sprintf("tx_id=%s, failed to set transaction status to verified", txToTrack.ID)
+		return s.internal(c, errMsg, err)
 	}
 
 	// Reuse existing signing logic
@@ -320,7 +340,8 @@ func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignReques
 
 	buf, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("fail to marshal to json, err: %w", err)
+		errMsg := "fail to marshal to json"
+		return s.badRequest(c, errMsg, err)
 	}
 
 	ti, err := s.asynqClient.EnqueueContext(c.Request().Context(),
@@ -331,17 +352,20 @@ func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignReques
 		asynq.Queue(tasks.QUEUE_NAME))
 
 	if err != nil {
-		return fmt.Errorf("fail to enqueue keysign task: %w", err)
+		errMsg := "fail to enqueue keysign task"
+		return s.internal(c, errMsg, err)
 	}
 
-	return c.JSON(http.StatusOK, ti.ID)
+	taskIDsResponse := map[string][]string{
+		"task_ids": {ti.ID},
+	}
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, taskIDsResponse))
 }
 
 func (s *Server) GetPlugins(c echo.Context) error {
 	skip, take, err := conv.PageParamsFromCtx(c, 0, 20)
 	if err != nil {
-		s.logger.WithError(err).Error("fail to parse pagination parameters")
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidPagination))
+		return s.badRequest(c, msgInvalidPagination, err)
 	}
 	sort := c.QueryParam("sort")
 	filters := types.PluginFilters{
@@ -352,8 +376,7 @@ func (s *Server) GetPlugins(c echo.Context) error {
 
 	plugins, err := s.db.FindPlugins(c.Request().Context(), filters, int(take), int(skip), sort)
 	if err != nil {
-		s.logger.WithError(err).Error("Failed to get plugins")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginsFailed))
+		return s.internal(c, msgGetPluginsFailed, err)
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, plugins))
@@ -362,14 +385,12 @@ func (s *Server) GetPlugins(c echo.Context) error {
 func (s *Server) GetPlugin(c echo.Context) error {
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
-		s.logger.Error("plugin id is required")
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
+		return s.badRequest(c, msgRequiredPluginID, nil)
 	}
 
 	plugin, err := s.pluginService.GetPluginWithRating(c.Request().Context(), pluginID)
 	if err != nil {
-		s.logger.WithError(err).Error("Failed to get plugin")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginFailed))
+		return s.internal(c, msgGetPluginFailed, err)
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, plugin))
@@ -394,8 +415,7 @@ func (s *Server) GetInstalledPlugins(c echo.Context) error {
 
 	pluginList, err := s.db.FindPlugins(c.Request().Context(), types.PluginFilters{}, 1000, 0, "")
 	if err != nil {
-		s.logger.WithError(err).Error("failed to fetch plugins")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginsFailed))
+		return s.internal(c, msgGetPluginsFailed, err)
 	}
 
 	var installed types.PluginsPaginatedList
@@ -438,8 +458,7 @@ func (s *Server) GetCategories(c echo.Context) error {
 func (s *Server) GetTags(c echo.Context) error {
 	tags, err := s.db.FindTags(c.Request().Context())
 	if err != nil {
-		s.logger.WithError(err).Error("Failed to get tags")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetTagsFailed))
+		return s.internal(c, msgGetTagsFailed, err)
 	}
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, tags))
 }
@@ -477,8 +496,7 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 
 	txs, totalCount, err := s.txIndexerService.GetByPolicyID(c.Request().Context(), policyUUID, skip, take)
 	if err != nil {
-		s.logger.WithError(err).Errorf("s.txIndexerService.GetByPolicyID: %s", policyID)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetTxsByPolicyIDFailed))
+		return s.internal(c, msgGetTxsByPolicyIDFailed, err)
 	}
 
 	// Build title map from unique plugin IDs
@@ -576,13 +594,11 @@ func (s *Server) buildPluginTitleMap(ctx context.Context, txs []storage.Tx) (map
 func (s *Server) CreateReview(c echo.Context) error {
 	var review types.ReviewCreateDto
 	if err := c.Bind(&review); err != nil {
-		s.logger.WithError(err).Error("Failed to parse request")
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequestParseFailed))
+		return s.badRequest(c, msgRequestParseFailed, err)
 	}
 
 	if err := c.Validate(&review); err != nil {
-		s.logger.WithError(err).Error("Request validation failed")
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidReview))
+		return s.badRequest(c, msgInvalidReview, err)
 	}
 
 	// If allowing HTML, sanitize with bluemonday:
@@ -591,13 +607,12 @@ func (s *Server) CreateReview(c echo.Context) error {
 
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
+		return s.badRequest(c, msgRequiredPluginID, nil)
 	}
 
 	created, err := s.pluginService.CreatePluginReviewWithRating(c.Request().Context(), review, pluginID)
 	if err != nil {
-		s.logger.WithError(err).Errorf("Plugin service failed to create review for plugin %s", pluginID)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgCreateReviewFailed))
+		return s.internal(c, msgCreateReviewFailed, err)
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, created))
@@ -606,7 +621,7 @@ func (s *Server) CreateReview(c echo.Context) error {
 func (s *Server) GetReviews(c echo.Context) error {
 	pluginId := c.Param("pluginId")
 	if pluginId == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
+		return s.badRequest(c, msgRequiredPluginID, nil)
 	}
 
 	skip, err := strconv.Atoi(c.QueryParam("skip"))
@@ -629,13 +644,12 @@ func (s *Server) GetReviews(c echo.Context) error {
 
 	allowedSortFields := []string{"created_at", "rating", "updated_at"}
 	if sort != "" && !common.IsValidSortField(sort, allowedSortFields) {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidSort))
+		return s.badRequest(c, msgInvalidSort, nil)
 	}
 
 	reviews, err := s.db.FindReviews(c.Request().Context(), pluginId, skip, take, sort)
 	if err != nil {
-		s.logger.WithError(err).Error("Failed to get reviews")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetReviewsFailed))
+		return s.internal(c, msgGetReviewsFailed, err)
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, reviews))
@@ -644,13 +658,12 @@ func (s *Server) GetReviews(c echo.Context) error {
 func (s *Server) GetPluginAvgRating(c echo.Context) error {
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
+		return s.badRequest(c, msgRequiredPluginID, nil)
 	}
 
 	avgRating, err := s.db.FindAvgRatingByPluginID(c.Request().Context(), pluginID)
 	if err != nil {
-		s.logger.WithError(err).Error("Failed to get average rating")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetAvgRatingFailed))
+		return s.internal(c, msgGetAvgRatingFailed, err)
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, avgRating))
@@ -659,12 +672,11 @@ func (s *Server) GetPluginAvgRating(c echo.Context) error {
 func (s *Server) GetPluginRecipeSpecification(c echo.Context) error {
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
+		return s.badRequest(c, msgRequiredPluginID, nil)
 	}
 	recipeSpec, err := s.pluginService.GetPluginRecipeSpecification(c.Request().Context(), pluginID)
 	if err != nil {
-		s.logger.WithError(err).Error("failed to get plugin recipe specification")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetRecipeSpecFailed))
+		return s.internal(c, msgGetRecipeSpecFailed, err)
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, recipeSpec))
@@ -673,7 +685,7 @@ func (s *Server) GetPluginRecipeSpecification(c echo.Context) error {
 func (s *Server) GetPluginRecipeSpecificationSuggest(c echo.Context) error {
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
+		return s.badRequest(c, msgRequiredPluginID, nil)
 	}
 
 	type reqBody struct {
@@ -682,8 +694,7 @@ func (s *Server) GetPluginRecipeSpecificationSuggest(c echo.Context) error {
 	var req reqBody
 	err := c.Bind(&req)
 	if err != nil {
-		s.logger.WithError(err).Error("failed to parse request")
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequestParseFailed))
+		return s.badRequest(c, msgRequestParseFailed, err)
 	}
 
 	recipeSpec, err := s.pluginService.GetPluginRecipeSpecificationSuggest(
@@ -692,21 +703,18 @@ func (s *Server) GetPluginRecipeSpecificationSuggest(c echo.Context) error {
 		req.Configuration,
 	)
 	if err != nil {
-		s.logger.WithError(err).Error("failed to get plugin recipe suggest")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetRecipeSuggestFailed))
+		return s.internal(c, msgGetRecipeSuggestFailed, err)
 	}
 
 	b, err := protojson.Marshal(recipeSpec)
 	if err != nil {
-		s.logger.WithError(err).Error("failed to proto marshal")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgProtoMarshalFailed))
+		return s.internal(c, msgProtoMarshalFailed, err)
 	}
 
 	var res map[string]any
 	err = json.Unmarshal(b, &res)
 	if err != nil {
-		s.logger.WithError(err).Error("failed to json marshal")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgJSONMarshalFailed))
+		return s.internal(c, msgJSONMarshalFailed, err)
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, res))
@@ -715,12 +723,11 @@ func (s *Server) GetPluginRecipeSpecificationSuggest(c echo.Context) error {
 func (s *Server) GetPluginRecipeFunctions(c echo.Context) error {
 	pluginID := c.Param("pluginId")
 	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
+		return s.badRequest(c, msgRequiredPluginID, nil)
 	}
 	recipeFuncs, err := s.pluginService.GetPluginRecipeFunctions(c.Request().Context(), pluginID)
 	if err != nil {
-		s.logger.WithError(err).Error(msgGetRecipeFunctionsFailed)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetRecipeFunctionsFailed))
+		return s.internal(c, msgGetRecipeFunctionsFailed, err)
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, recipeFuncs))
@@ -739,6 +746,33 @@ func (s *Server) GetPluginInstallationsCountByID(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, count))
+}
+
+func (s *Server) badRequest(c echo.Context, msg string, err error) error {
+	if err != nil {
+		s.logger.WithError(err).Error(msg)
+	} else {
+		s.logger.Warn(msg)
+	}
+	return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msg))
+}
+
+func (s *Server) internal(c echo.Context, msg string, err error) error {
+	if err != nil {
+		s.logger.WithError(err).Error(msg)
+	} else {
+		s.logger.Error(msg)
+	}
+	return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgInternalError))
+}
+
+func (s *Server) forbidden(c echo.Context, msg string, err error) error {
+	if err != nil {
+		s.logger.WithError(err).Error(msg)
+	} else {
+		s.logger.Warn(msg)
+	}
+	return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msg))
 }
 
 // extractAmountFromRule extracts the amount from a matched rule's parameter constraints.

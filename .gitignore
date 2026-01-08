@@ -51,3 +51,7 @@ worker.json
 # Hot reload files
 tmp/
 .air.*.toml
+bin/
+testdata/integration/test-results/
+testdata/integration/bin/
+testdata/integration/hurl/generated/

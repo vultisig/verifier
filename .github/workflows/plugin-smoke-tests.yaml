@@ -19,8 +19,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24.2'
-          cache: true
+          go-version: '1.25.5'
 
       - name: Build plugin smoke test
         run: go build -o plugin-smoke-test testdata/plugin-smoke-test/main.go

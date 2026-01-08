@@ -11,6 +11,7 @@ import (
 	"github.com/vultisig/mobile-tss-lib/tss"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
+	"github.com/vultisig/verifier/types"
 	"github.com/vultisig/vultisig-go/common"
 	"golang.org/x/sync/errgroup"
 )
@@ -136,6 +137,79 @@ func (t *Service) GetByPolicyID(
 		r, err := t.repo.CountByPolicyID(ctx, policyID)
 		if err != nil {
 			return fmt.Errorf("t.repo.CountByPolicyID: %w", err)
+		}
+		totalCount = r
+		return nil
+	})
+	err := eg.Wait()
+	if err != nil {
+		return nil, 0, fmt.Errorf("eg.Wait: %w", err)
+	}
+
+	return txs, totalCount, nil
+}
+
+func (t *Service) GetByPluginIDAndPublicKey(
+	c context.Context,
+	pluginID types.PluginID,
+	publicKey string,
+	skip, take uint32,
+) ([]storage.Tx, uint32, error) {
+	var (
+		txs        []storage.Tx
+		totalCount uint32
+	)
+
+	eg, ctx := errgroup.WithContext(c)
+	eg.Go(func() error {
+		ch := t.repo.GetByPluginIDAndPublicKey(ctx, pluginID, publicKey, skip, take)
+		r, err := storage.AllFromRowsStream(ch)
+		if err != nil {
+			return fmt.Errorf("storage.AllFromRowsStream: %w", err)
+		}
+		txs = r
+		return nil
+	})
+	eg.Go(func() error {
+		r, err := t.repo.CountByPluginIDAndPublicKey(ctx, pluginID, publicKey)
+		if err != nil {
+			return fmt.Errorf("t.repo.CountByPluginIDAndPublicKey: %w", err)
+		}
+		totalCount = r
+		return nil
+	})
+	err := eg.Wait()
+	if err != nil {
+		return nil, 0, fmt.Errorf("eg.Wait: %w", err)
+	}
+
+	return txs, totalCount, nil
+}
+
+func (t *Service) GetByPublicKey(
+	c context.Context,
+	publicKey string,
+	skip, take uint32,
+) ([]storage.Tx, uint32, error) {
+	var (
+		txs        []storage.Tx
+		totalCount uint32
+	)
+
+	eg, ctx := errgroup.WithContext(c)
+	eg.Go(func() error {
+		ch := t.repo.GetByPublicKey(ctx, publicKey, skip, take)
+		r, err := storage.AllFromRowsStream(ch)
+		if err != nil {
+			return fmt.Errorf("storage.AllFromRowsStream: %w", err)
+		}
+		txs = r
+		return nil
+	})
+	eg.Go(func() error {
+		r, err := t.repo.CountByPublicKey(ctx, publicKey)
+		if err != nil {
+			return fmt.Errorf("t.repo.CountByPublicKey: %w", err)
 		}
 		totalCount = r
 		return nil

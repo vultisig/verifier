@@ -80,6 +80,8 @@ dump-schema:
 		-e '/^--.*/d' \
 		-e '/^SET /d' \
 		-e '/^SELECT pg_catalog./d' \
+		-e '/^\\restrict /d' \
+		-e '/^\\unrestrict /d' \
 		-e 's/"public"\.//' | awk '/./ { e=0 } /^$$/ { e += 1 } e <= 1' \
 		> ./internal/storage/postgres/schema/schema.sql
 	

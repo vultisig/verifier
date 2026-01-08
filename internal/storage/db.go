@@ -41,7 +41,7 @@ type PolicyRepository interface {
 	GetPluginPolicy(ctx context.Context, id uuid.UUID) (*types.PluginPolicy, error)
 	GetPluginPolicies(ctx context.Context, publicKey string, pluginIds []types.PluginID, includeInactive bool) ([]types.PluginPolicy, error)
 	GetPluginInstallationsCount(ctx context.Context, pluginID types.PluginID) (itypes.PluginTotalCount, error)
-	GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int, includeInactive bool) (*itypes.PluginPolicyPaginatedList, error)
+	GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int, activeFilter *bool) (*itypes.PluginPolicyPaginatedList, error)
 	DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id uuid.UUID) error
 	InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error)
 	UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error)
@@ -51,6 +51,9 @@ type PolicyRepository interface {
 type FeeRepository interface {
 	GetFeeById(ctx context.Context, id uint64) (*types.Fee, error)
 	GetFeesByPublicKey(ctx context.Context, publicKey string) ([]*types.Fee, error)
+	GetFeesByPluginID(ctx context.Context, pluginID types.PluginID, publicKey string, skip, take uint32) ([]itypes.FeeWithStatus, uint32, error)
+	GetPluginBillingSummary(ctx context.Context, publicKey string) ([]itypes.PluginBillingSummaryRow, error)
+	GetPricingsByPluginIDs(ctx context.Context, pluginIDs []string) (map[string][]itypes.PricingInfo, error)
 	InsertFee(ctx context.Context, dbTx pgx.Tx, fee *types.Fee) (uint64, error)
 	InsertPluginInstallation(ctx context.Context, dbTx pgx.Tx, pluginID types.PluginID, publicKey string) error
 	MarkFeesCollected(ctx context.Context, dbTx pgx.Tx, feeIDs []uint64, txHash string, totalAmount uint64) error
@@ -77,6 +80,7 @@ type PricingRepository interface {
 type PluginRepository interface {
 	FindPlugins(ctx context.Context, filters itypes.PluginFilters, take int, skip int, sort string) (*itypes.PluginsPaginatedList, error)
 	FindPluginById(ctx context.Context, dbTx pgx.Tx, id types.PluginID) (*itypes.Plugin, error)
+	GetPluginTitlesByIDs(ctx context.Context, ids []string) (map[string]string, error)
 
 	Pool() *pgxpool.Pool
 }

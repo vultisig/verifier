@@ -147,8 +147,8 @@ func (m *MockDatabaseStorage) GetPluginPolicies(ctx context.Context, publicKey s
 	return args.Get(0).([]types.PluginPolicy), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int, includeInactive bool) (*itypes.PluginPolicyPaginatedList, error) {
-	args := m.Called(ctx, publicKey, pluginID, take, skip, includeInactive)
+func (m *MockDatabaseStorage) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int, activeFilter *bool) (*itypes.PluginPolicyPaginatedList, error) {
+	args := m.Called(ctx, publicKey, pluginID, take, skip, activeFilter)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -195,6 +195,22 @@ func (m *MockDatabaseStorage) GetFeesByPublicKey(ctx context.Context, publicKey 
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]*types.Fee), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) GetFeesByPluginID(ctx context.Context, pluginID types.PluginID, publicKey string, skip, take uint32) ([]itypes.FeeWithStatus, uint32, error) {
+	args := m.Called(ctx, pluginID, publicKey, skip, take)
+	if args.Get(0) == nil {
+		return nil, 0, args.Error(2)
+	}
+	return args.Get(0).([]itypes.FeeWithStatus), args.Get(1).(uint32), args.Error(2)
+}
+
+func (m *MockDatabaseStorage) GetPluginBillingSummary(ctx context.Context, publicKey string) ([]itypes.PluginBillingSummaryRow, error) {
+	args := m.Called(ctx, publicKey)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]itypes.PluginBillingSummaryRow), args.Error(1)
 }
 
 func (m *MockDatabaseStorage) InsertFee(ctx context.Context, dbTx pgx.Tx, fee *types.Fee) (uint64, error) {
@@ -361,6 +377,22 @@ func (m *MockDatabaseStorage) GetAPIKeyByPluginId(ctx context.Context, pluginId 
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*itypes.APIKey), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) GetPluginTitlesByIDs(ctx context.Context, ids []string) (map[string]string, error) {
+	args := m.Called(ctx, ids)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(map[string]string), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) GetPricingsByPluginIDs(ctx context.Context, pluginIDs []string) (map[string][]itypes.PricingInfo, error) {
+	args := m.Called(ctx, pluginIDs)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(map[string][]itypes.PricingInfo), args.Error(1)
 }
 
 func TestGenerateToken(t *testing.T) {

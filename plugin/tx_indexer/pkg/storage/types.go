@@ -24,6 +24,10 @@ type TxIndexerRepo interface {
 	GetTxsInTimeRange(ctx context.Context, policyID uuid.UUID, from, to time.Time) <-chan RowsStream[Tx]
 	GetByPolicyID(ctx context.Context, policyID uuid.UUID, skip, take uint32) <-chan RowsStream[Tx]
 	CountByPolicyID(ctx context.Context, policyID uuid.UUID) (uint32, error)
+	GetByPluginIDAndPublicKey(ctx context.Context, pluginID types.PluginID, publicKey string, skip, take uint32) <-chan RowsStream[Tx]
+	CountByPluginIDAndPublicKey(ctx context.Context, pluginID types.PluginID, publicKey string) (uint32, error)
+	GetByPublicKey(ctx context.Context, publicKey string, skip, take uint32) <-chan RowsStream[Tx]
+	CountByPublicKey(ctx context.Context, publicKey string) (uint32, error)
 }
 
 type TxStatus string
@@ -46,6 +50,7 @@ type Tx struct {
 	FromPublicKey string               `json:"from_public_key" validate:"required"`
 	ToPublicKey   string               `json:"to_public_key" validate:"required"`
 	ProposedTxHex string               `json:"proposed_tx_hex" validate:"required"`
+	Amount        *string              `json:"amount"`
 	Status        TxStatus             `json:"status" validate:"required"`
 	StatusOnChain *rpc.TxOnChainStatus `json:"status_onchain"`
 	Lost          bool                 `json:"lost"`
@@ -80,4 +85,5 @@ type CreateTxDto struct {
 	FromPublicKey string
 	ToPublicKey   string
 	ProposedTxHex string
+	Amount        string
 }

@@ -12,7 +12,8 @@ CREATE TYPE "billing_asset" AS ENUM (
 
 CREATE TYPE "plugin_category" AS ENUM (
     'ai-agent',
-    'plugin'
+    'plugin',
+    'app'
 );
 
 CREATE TYPE "plugin_id" AS ENUM (
@@ -20,7 +21,8 @@ CREATE TYPE "plugin_id" AS ENUM (
     'vultisig-payroll-0000',
     'vultisig-fees-feee',
     'vultisig-copytrader-0000',
-    'nbits-labs-merkle-e93d'
+    'nbits-labs-merkle-e93d',
+    'vultisig-recurring-sends-0000'
 );
 
 CREATE TYPE "pricing_asset" AS ENUM (
@@ -118,6 +120,12 @@ BEGIN
 END;
 $$;
 
+CREATE TABLE "control_flags" (
+    "key" "text" NOT NULL,
+    "enabled" boolean NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
 CREATE TABLE "fee_batch_members" (
     "batch_id" bigint NOT NULL,
     "fee_id" bigint NOT NULL
@@ -153,6 +161,7 @@ CREATE TABLE "fees" (
     "metadata" "jsonb",
     "underlying_type" "text" NOT NULL,
     "underlying_id" "text" NOT NULL,
+    "plugin_id" character varying(255),
     CONSTRAINT "fees_amount_check" CHECK (("amount" > 0)),
     CONSTRAINT "policy_id_required_for_policies" CHECK (((("underlying_type" = 'policy'::"text") AND ("policy_id" IS NOT NULL)) OR ("underlying_type" <> 'policy'::"text")))
 );
@@ -243,7 +252,13 @@ CREATE TABLE "plugins" (
     "server_endpoint" "text" NOT NULL,
     "category" "plugin_category" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "logo_url" "text" DEFAULT ''::"text" NOT NULL,
+    "thumbnail_url" "text" DEFAULT ''::"text" NOT NULL,
+    "images" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
+    "faqs" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
+    "features" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
+    "audited" boolean DEFAULT false NOT NULL
 );
 
 CREATE TABLE "pricings" (
@@ -291,7 +306,8 @@ CREATE TABLE "tx_indexer" (
     "lost" boolean DEFAULT false NOT NULL,
     "broadcasted_at" timestamp without time zone,
     "created_at" timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    "updated_at" timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+    "updated_at" timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "amount" "text"
 );
 
 CREATE TABLE "vault_tokens" (
@@ -308,6 +324,9 @@ CREATE TABLE "vault_tokens" (
 ALTER TABLE ONLY "fee_batches" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."fee_batches_id_seq"'::"regclass");
 
 ALTER TABLE ONLY "fees" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."fees_id_seq"'::"regclass");
+
+ALTER TABLE ONLY "control_flags"
+    ADD CONSTRAINT "control_flags_pkey" PRIMARY KEY ("key");
 
 ALTER TABLE ONLY "fee_batch_members"
     ADD CONSTRAINT "fee_batch_members_fee_id_key" UNIQUE ("fee_id");
@@ -378,6 +397,8 @@ CREATE INDEX "idx_fee_batches_status" ON "fee_batches" USING "btree" ("status");
 CREATE INDEX "idx_fees_created_at" ON "fees" USING "btree" ("created_at" DESC);
 
 CREATE INDEX "idx_fees_metadata_gin" ON "fees" USING "gin" ("metadata") WHERE ("metadata" IS NOT NULL);
+
+CREATE INDEX "idx_fees_plugin_id" ON "fees" USING "btree" ("plugin_id") WHERE ("plugin_id" IS NOT NULL);
 
 CREATE INDEX "idx_fees_policy_id" ON "fees" USING "btree" ("policy_id") WHERE ("policy_id" IS NOT NULL);
 

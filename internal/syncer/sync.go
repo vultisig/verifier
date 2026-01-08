@@ -133,6 +133,39 @@ func (s *Syncer) CreatePolicySync(ctx context.Context, pluginPolicy types.Plugin
 	return nil
 }
 
+// Updates a policy in a synchronous manner.
+func (s *Syncer) UpdatePolicySync(ctx context.Context, pluginPolicy types.PluginPolicy) error {
+	policyBytes, err := json.Marshal(pluginPolicy)
+	if err != nil {
+		return fmt.Errorf("fail to marshal policy: %v", err)
+	}
+	serverInfo, err := s.getServerInfo(ctx, pluginPolicy.PluginID)
+	if err != nil {
+		return fmt.Errorf("failed to get server address: %w", err)
+	}
+
+	url := serverInfo.Addr + policyEndpoint
+	req, err := retryablehttp.NewRequest(http.MethodPut, url, bytes.NewBuffer(policyBytes))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+serverInfo.ApiKey)
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to sync policy update with plugin server(%s): %s", url, err.Error())
+	}
+	defer s.closer(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to sync policy update with plugin server(%s): status: %d, body: %s", url, resp.StatusCode, string(body))
+	}
+	return nil
+}
+
 // Deprecated: use CreatePolicySync instead.
 func (s *Syncer) CreatePolicyAsync(ctx context.Context, policySyncEntity itypes.PluginPolicySync) error {
 	s.logger.WithFields(logrus.Fields{

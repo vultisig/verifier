@@ -89,6 +89,7 @@ const (
 	msgPoliciesDeleteFailed   = "failed to delete plugin policies"
 
 	msgGetTxsByPolicyIDFailed = "failed to get txs by policyID"
+	msgGetTxsByPluginIDFailed = "failed to get txs by pluginID"
 
 	// Reshare
 	msgReshareQueueFailed = "failed to queue reshare task"

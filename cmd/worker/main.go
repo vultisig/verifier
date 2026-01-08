@@ -10,12 +10,12 @@ import (
 	"github.com/vultisig/verifier/internal/fee_manager"
 	"github.com/vultisig/verifier/internal/logging"
 	internalMetrics "github.com/vultisig/verifier/internal/metrics"
+	"github.com/vultisig/verifier/internal/safety"
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/plugin/tasks"
 	"github.com/vultisig/verifier/plugin/tx_indexer"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
-	"github.com/vultisig/verifier/safety"
 	"github.com/vultisig/verifier/vault"
 )
 
@@ -140,6 +140,8 @@ func main() {
 		workerMetrics.Handler("reshare", feeMgmService.HandleReshareDKLS))
 	mux.HandleFunc(tasks.TypeRecurringFeeRecord,
 		workerMetrics.Handler("fees", policyService.HandleScheduledFees))
+	mux.HandleFunc(tasks.TypePolicyDeactivate,
+		workerMetrics.Handler("policy_deactivate", policyService.HandlePolicyDeactivate))
 
 	if err := srv.Run(mux); err != nil {
 		panic(fmt.Errorf("could not run server: %w", err))

@@ -9,33 +9,34 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
 	"github.com/vultisig/verifier/types"
 )
 
 const (
 	queryInsertPluginInstallation = `INSERT INTO fees (
-        policy_id, public_key, transaction_type, amount, 
+        policy_id, plugin_id, public_key, transaction_type, amount,
         fee_type, metadata, underlying_type, underlying_id
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     ON CONFLICT (underlying_id, public_key)
     WHERE fee_type = 'installation_fee' AND underlying_type = 'plugin'
     DO NOTHING
     RETURNING id
     `
 	queryInsertTrial = `INSERT INTO fees (
-            policy_id, public_key, transaction_type, amount, 
+            policy_id, plugin_id, public_key, transaction_type, amount,
             fee_type, metadata, underlying_type, underlying_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         ON CONFLICT (public_key)
         WHERE fee_type = 'trial'
         DO NOTHING
         RETURNING id
         `
 	queryInsertFee = `INSERT INTO fees (
-            policy_id, public_key, transaction_type, amount, 
+            policy_id, plugin_id, public_key, transaction_type, amount,
             fee_type, metadata, underlying_type, underlying_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING id
         `
 	queryTrialStartDate = `SELECT created_at
@@ -64,12 +65,12 @@ func (p *PostgresBackend) InsertFee(ctx context.Context, dbTx pgx.Tx, fee *types
 
 	if dbTx != nil {
 		err = dbTx.QueryRow(ctx, query,
-			fee.PolicyID, fee.PublicKey, fee.TxType, fee.Amount,
+			fee.PolicyID, fee.PluginID, fee.PublicKey, fee.TxType, fee.Amount,
 			fee.FeeType, fee.Metadata, fee.UnderlyingType, fee.UnderlyingID,
 		).Scan(&feeID)
 	} else {
 		err = p.pool.QueryRow(ctx, query,
-			fee.PolicyID, fee.PublicKey, fee.TxType, fee.Amount,
+			fee.PolicyID, fee.PluginID, fee.PublicKey, fee.TxType, fee.Amount,
 			fee.FeeType, fee.Metadata, fee.UnderlyingType, fee.UnderlyingID,
 		).Scan(&feeID)
 	}
@@ -98,9 +99,10 @@ func (p *PostgresBackend) GetFeesByPublicKey(ctx context.Context, publicKey stri
                 AND f.public_key = $1
           )
     )
-    SELECT 
+    SELECT
         f.id,
         f.policy_id,
+        f.plugin_id,
         f.public_key,
         f.transaction_type,
         f.amount,
@@ -124,9 +126,11 @@ func (p *PostgresBackend) GetFeesByPublicKey(ctx context.Context, publicKey stri
 	var fees []*types.Fee
 	for rows.Next() {
 		fee := &types.Fee{}
+		var pluginID *string
 		err := rows.Scan(
 			&fee.ID,
 			&fee.PolicyID,
+			&pluginID,
 			&fee.PublicKey,
 			&fee.TxType,
 			&fee.Amount,
@@ -136,6 +140,9 @@ func (p *PostgresBackend) GetFeesByPublicKey(ctx context.Context, publicKey stri
 			&fee.UnderlyingType,
 			&fee.UnderlyingID,
 		)
+		if pluginID != nil {
+			fee.PluginID = *pluginID
+		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan fee row: %w", err)
 		}
@@ -151,9 +158,10 @@ func (p *PostgresBackend) GetFeesByPublicKey(ctx context.Context, publicKey stri
 
 func (p *PostgresBackend) GetFeeById(ctx context.Context, id uint64) (*types.Fee, error) {
 	query := `
-        SELECT 
+        SELECT
             id,
             policy_id,
+            plugin_id,
             public_key,
             transaction_type,
             amount,
@@ -167,9 +175,11 @@ func (p *PostgresBackend) GetFeeById(ctx context.Context, id uint64) (*types.Fee
     `
 
 	fee := &types.Fee{}
+	var pluginID *string
 	err := p.pool.QueryRow(ctx, query, id).Scan(
 		&fee.ID,
 		&fee.PolicyID,
+		&pluginID,
 		&fee.PublicKey,
 		&fee.TxType,
 		&fee.Amount,
@@ -179,6 +189,9 @@ func (p *PostgresBackend) GetFeeById(ctx context.Context, id uint64) (*types.Fee
 		&fee.UnderlyingType,
 		&fee.UnderlyingID,
 	)
+	if pluginID != nil {
+		fee.PluginID = *pluginID
+	}
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -274,9 +287,10 @@ func (p *PostgresBackend) GetUserFees(
 	publicKey string,
 ) (*types.UserFeeStatus, error) {
 	query := `
-    SELECT 
+    SELECT
         f.id,
         f.policy_id,
+        f.plugin_id,
         f.public_key,
         f.transaction_type,
         f.amount,
@@ -305,9 +319,11 @@ func (p *PostgresBackend) GetUserFees(
 
 	for rows.Next() {
 		fee := &types.Fee{}
+		var pluginID *string
 		err := rows.Scan(
 			&fee.ID,
 			&fee.PolicyID,
+			&pluginID,
 			&fee.PublicKey,
 			&fee.TxType,
 			&fee.Amount,
@@ -319,6 +335,9 @@ func (p *PostgresBackend) GetUserFees(
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan fee row: %w", err)
+		}
+		if pluginID != nil {
+			fee.PluginID = *pluginID
 		}
 
 		if fee.TxType == types.TxTypeCredit {
@@ -452,4 +471,191 @@ func (p *PostgresBackend) IsTrialActive(
 	}
 
 	return isActive, trialRemaining, nil
+}
+
+func (p *PostgresBackend) GetFeesByPluginID(
+	ctx context.Context,
+	pluginID types.PluginID,
+	publicKey string,
+	skip, take uint32,
+) ([]itypes.FeeWithStatus, uint32, error) {
+	// Count total fees for pagination
+	var totalCount uint32
+	countQuery := `
+		SELECT COUNT(*)
+		FROM fees f
+		WHERE f.plugin_id = $1
+		  AND f.public_key = $2
+		  AND f.transaction_type = 'debit'
+	`
+	err := p.pool.QueryRow(ctx, countQuery, pluginID, publicKey).Scan(&totalCount)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count fees: %w", err)
+	}
+
+	// Query fees with batch status
+	query := `
+		SELECT
+			f.id,
+			f.policy_id,
+			f.plugin_id,
+			f.public_key,
+			f.transaction_type,
+			f.amount,
+			f.created_at,
+			f.fee_type,
+			f.metadata,
+			f.underlying_type,
+			f.underlying_id,
+			CASE
+				WHEN fb.status IS NULL THEN 'PENDING'
+				WHEN fb.status IN ('BATCHED', 'SIGNED') THEN 'PROCESSING'
+				WHEN fb.status = 'COMPLETED' THEN 'COLLECTED'
+				WHEN fb.status = 'FAILED' THEN 'FAILED'
+				ELSE 'PENDING'
+			END as fee_status
+		FROM fees f
+		LEFT JOIN fee_batch_members fbm ON fbm.fee_id = f.id
+		LEFT JOIN fee_batches fb ON fb.id = fbm.batch_id
+		WHERE f.plugin_id = $1
+		  AND f.public_key = $2
+		  AND f.transaction_type = 'debit'
+		ORDER BY f.created_at DESC
+		LIMIT $3 OFFSET $4
+	`
+
+	rows, err := p.pool.Query(ctx, query, pluginID, publicKey, take, skip)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query fees by plugin: %w", err)
+	}
+	defer rows.Close()
+
+	var fees []itypes.FeeWithStatus
+	for rows.Next() {
+		var feeWithStatus itypes.FeeWithStatus
+		var pluginIDPtr *string
+		var statusStr string
+		err := rows.Scan(
+			&feeWithStatus.ID,
+			&feeWithStatus.PolicyID,
+			&pluginIDPtr,
+			&feeWithStatus.PublicKey,
+			&feeWithStatus.TxType,
+			&feeWithStatus.Amount,
+			&feeWithStatus.CreatedAt,
+			&feeWithStatus.FeeType,
+			&feeWithStatus.Metadata,
+			&feeWithStatus.UnderlyingType,
+			&feeWithStatus.UnderlyingID,
+			&statusStr,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan fee row: %w", err)
+		}
+		if pluginIDPtr != nil {
+			feeWithStatus.PluginID = *pluginIDPtr
+		}
+		feeWithStatus.Status = types.FeeStatus(statusStr)
+		fees = append(fees, feeWithStatus)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("error iterating fee rows: %w", err)
+	}
+
+	return fees, totalCount, nil
+}
+
+func (p *PostgresBackend) GetPluginBillingSummary(
+	ctx context.Context,
+	publicKey string,
+) ([]itypes.PluginBillingSummaryRow, error) {
+	// Simple aggregate: one row per plugin with total fees and start date
+	query := `
+		SELECT
+			f.plugin_id,
+			MIN(f.created_at) as start_date,
+			SUM(f.amount) as total_fees
+		FROM fees f
+		WHERE f.public_key = $1
+		  AND f.transaction_type = 'debit'
+		  AND f.plugin_id IS NOT NULL
+		GROUP BY f.plugin_id
+		ORDER BY total_fees DESC
+	`
+
+	rows, err := p.pool.Query(ctx, query, publicKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query plugin billing summary: %w", err)
+	}
+	defer rows.Close()
+
+	var summaries []itypes.PluginBillingSummaryRow
+	for rows.Next() {
+		var row itypes.PluginBillingSummaryRow
+		err := rows.Scan(
+			&row.PluginID,
+			&row.StartDate,
+			&row.TotalFees,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan billing summary row: %w", err)
+		}
+		summaries = append(summaries, row)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating billing summary rows: %w", err)
+	}
+
+	return summaries, nil
+}
+
+func (p *PostgresBackend) GetPricingsByPluginIDs(
+	ctx context.Context,
+	pluginIDs []string,
+) (map[string][]itypes.PricingInfo, error) {
+	if len(pluginIDs) == 0 {
+		return make(map[string][]itypes.PricingInfo), nil
+	}
+
+	query := `
+		SELECT
+			plugin_id::text,
+			type::text,
+			amount,
+			asset::text,
+			frequency::text
+		FROM pricings
+		WHERE plugin_id::text = ANY($1)
+	`
+
+	rows, err := p.pool.Query(ctx, query, pluginIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query pricings: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string][]itypes.PricingInfo)
+	for rows.Next() {
+		var pluginID string
+		var info itypes.PricingInfo
+		err := rows.Scan(
+			&pluginID,
+			&info.Type,
+			&info.Amount,
+			&info.Asset,
+			&info.Frequency,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan pricing row: %w", err)
+		}
+		result[pluginID] = append(result[pluginID], info)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating pricing rows: %w", err)
+	}
+
+	return result, nil
 }

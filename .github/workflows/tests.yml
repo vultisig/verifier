@@ -6,6 +6,8 @@ on:
 jobs:
   tests:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     services:
       postgres:
@@ -53,8 +55,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24.2'
-          cache: true
+          go-version: '1.25.5'
 
       - name: Download go-wrappers
         run: |
@@ -146,6 +147,40 @@ jobs:
           fi
 
           echo "Migration integrity check passed!"
+
+      - name: Push schema to repository
+        run: |
+          # Dump current schema
+          PGPASSWORD=mypassword pg_dump -h localhost -U myuser -d vultisig-verifier \
+            --schema-only \
+            --no-comments \
+            --no-owner \
+            --quote-all-identifiers \
+            -T public.goose_db_version \
+            -T public.goose_db_version_id_seq | sed \
+            -e '/^--.*/d' \
+            -e '/^SET /d' \
+            -e '/^SELECT pg_catalog./d' \
+            -e '/^\\restrict /d' \
+            -e '/^\\unrestrict /d' \
+            -e 's/"public"\.//' | awk '/./ { e=0 } /^$$/ { e += 1 } e <= 1' \
+            > ./current_schema.sql
+          # Compare with repository schema
+          if ! diff -u ./internal/storage/postgres/schema/schema.sql ./current_schema.sql; then
+            # only push if branch is not main or dev
+            if [[ "$GITHUB_REF" == "refs/heads/main" || "$GITHUB_REF" == "refs/heads/dev" ]]; then
+              echo "Schema has changed but branch is main or dev, skipping push"
+            else
+              git config user.name "github-actions[bot]"
+              git config user.email "github-actions[bot]@users.noreply.github.com"
+              cp ./current_schema.sql ./internal/storage/postgres/schema/schema.sql
+              git add ./internal/storage/postgres/schema/schema.sql
+              git commit -m "Update schema"
+              git push origin $GITHUB_REF
+            fi
+          else
+            echo "Schema is up to date!"
+          fi
 
       - name: Run smoke test
         run: |

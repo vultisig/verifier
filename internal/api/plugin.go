@@ -26,23 +26,35 @@ import (
 	rtypes "github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/internal/conv"
 	"github.com/vultisig/verifier/internal/types"
+	"github.com/vultisig/verifier/plugin/scheduler"
 	"github.com/vultisig/verifier/plugin/tasks"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
-	ptypes "github.com/vultisig/verifier/types"
+	vtypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/vultisig-go/common"
 )
 
 func (s *Server) SignPluginMessages(c echo.Context) error {
 	s.logger.Debug("PLUGIN SERVER: SIGN MESSAGES")
 
-	var req ptypes.PluginKeysignRequest
+	var req vtypes.PluginKeysignRequest
 	if err := c.Bind(&req); err != nil {
 		errMsg := "fail to parse request"
 		return s.badRequest(c, errMsg, err)
 	}
 
+	// Verify authenticated plugin ID matches the requested plugin ID
+	// This prevents a malicious plugin from impersonating another plugin
+	authenticatedPluginID, ok := c.Get("plugin_id").(vtypes.PluginID)
+	if !ok {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
+	}
+	if authenticatedPluginID.String() != req.PluginID {
+		s.logger.Warnf("Plugin ID mismatch: authenticated=%s, requested=%s", authenticatedPluginID, req.PluginID)
+		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("plugin ID mismatch: not authorized to sign for this plugin"))
+	}
+
 	// Get policy from database
-	if req.PluginID == ptypes.PluginVultisigFees_feee.String() {
+	if req.PluginID == vtypes.PluginVultisigFees_feee.String() {
 		s.logger.Debug("SIGN FEE PLUGIN MESSAGES")
 		return s.validateAndSign(c, &req, types.FeeDefaultPolicy, uuid.New())
 	} else {
@@ -60,7 +72,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		}
 
 		if !isTrialActive {
-			filePathName := common.GetVaultBackupFilename(req.PublicKey, ptypes.PluginVultisigFees_feee.String())
+			filePathName := common.GetVaultBackupFilename(req.PublicKey, vtypes.PluginVultisigFees_feee.String())
 			exist, err := s.vaultStorage.Exist(filePathName)
 			if err != nil {
 				errMsg := "failed to check vault existence"
@@ -77,10 +89,14 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 			return s.internal(c, errMsg, err)
 		}
 
+		// Check if policy is inactive
+		if !policy.Active {
+			return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("policy has ended"))
+		}
+
 		// Validate policy matches plugin
-		if policy.PluginID != ptypes.PluginID(req.PluginID) {
-			errMsg := "policy plugin ID mismatch"
-			return s.badRequest(c, errMsg, nil)
+		if policy.PluginID != vtypes.PluginID(req.PluginID) {
+			return fmt.Errorf("policy plugin ID mismatch")
 		}
 
 		recipe, err := policy.GetRecipe()
@@ -114,11 +130,64 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 
 			}
 		}
-		return s.validateAndSign(c, &req, recipe, policy.ID)
+
+		// Perform signing
+		signErr := s.validateAndSign(c, &req, recipe, policy.ID)
+
+		// After signing, check if policy should be deactivated
+		s.checkAndDeactivatePolicy(c.Request().Context(), policy, recipe)
+
+		return signErr
 	}
 }
 
-func (s *Server) validateAndSign(c echo.Context, req *ptypes.PluginKeysignRequest, recipe *rtypes.Policy, policyID uuid.UUID) error {
+// checkAndDeactivatePolicy checks if a policy has no more executions and deactivates it.
+// For policies with rateLimitWindow, deactivation is deferred via a background task.
+func (s *Server) checkAndDeactivatePolicy(ctx context.Context, policy *vtypes.PluginPolicy, recipe *rtypes.Policy) {
+	interval := scheduler.NewDefaultInterval()
+	next, err := interval.FromNowWhenNext(*policy)
+	if err != nil {
+		// Plugin uses custom recipe format - skip deactivation check
+		return
+	}
+
+	if !next.IsZero() {
+		return
+	}
+
+	// Policy has no more scheduled executions - check if deferred deactivation needed
+	if recipe.RateLimitWindow != nil && recipe.GetRateLimitWindow() > 0 {
+		delay := time.Duration(recipe.GetRateLimitWindow()) * time.Second
+		_, err = s.asynqClient.EnqueueContext(
+			ctx,
+			asynq.NewTask(tasks.TypePolicyDeactivate, []byte(policy.ID.String())),
+			asynq.ProcessIn(delay),
+			asynq.MaxRetry(3),
+			asynq.Queue(tasks.QUEUE_NAME),
+			asynq.TaskID(fmt.Sprintf("deactivate:%s", policy.ID)),
+		)
+		if errors.Is(err, asynq.ErrTaskIDConflict) {
+			// Deactivation already scheduled - this is expected for multi-tx operations
+			return
+		}
+		if err != nil {
+			s.logger.WithError(err).Warnf("policy_id=%s: failed to schedule deactivation", policy.ID)
+		}
+		return
+	}
+
+	// No rateLimitWindow - deactivate immediately
+	s.logger.Infof("policy_id=%s: no rateLimitWindow, deactivating immediately", policy.ID)
+	policy.Active = false
+	_, err = s.policyService.UpdatePolicy(ctx, *policy)
+	if err != nil {
+		s.logger.WithError(err).Errorf("policy_id=%s: failed to deactivate", policy.ID)
+	} else {
+		s.logger.Infof("policy_id=%s: deactivated immediately", policy.ID)
+	}
+}
+
+func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignRequest, recipe *rtypes.Policy, policyID uuid.UUID) error {
 	if len(req.Messages) == 0 {
 		return s.badRequest(c, "no messages to sign", nil)
 	}
@@ -216,25 +285,35 @@ func (s *Server) validateAndSign(c echo.Context, req *ptypes.PluginKeysignReques
 		errMsg := "failed to create engine"
 		return s.internal(c, errMsg, err)
 	}
+
+	var matchedRule *rtypes.Rule
 	//TODO: fee plugin priority for testing purposes
-	if req.PluginID == ptypes.PluginVultisigFees_feee.String() {
-		_, err = ngn.Evaluate(types.FeeDefaultPolicy, firstKeysignMessage.Chain, txBytesEvaluate)
+	if req.PluginID == vtypes.PluginVultisigFees_feee.String() {
+		matchedRule, err = ngn.Evaluate(types.FeeDefaultPolicy, firstKeysignMessage.Chain, txBytesEvaluate)
 		if err != nil {
 			return s.forbidden(c, "tx not allowed to execute", err)
 		}
 	} else {
-		_, err = ngn.Evaluate(recipe, firstKeysignMessage.Chain, txBytesEvaluate)
+		matchedRule, err = ngn.Evaluate(recipe, firstKeysignMessage.Chain, txBytesEvaluate)
 		if err != nil {
 			return s.forbidden(c, "tx not allowed to execute", err)
 		}
 	}
 
+	// Extract transaction details from matched rule's parameter constraints
+	amount := extractAmountFromRule(matchedRule)
+	tokenID := extractTokenIDFromRule(matchedRule)
+	toAddress := extractToAddressFromRule(matchedRule)
+
 	txToTrack, err := s.txIndexerService.CreateTx(c.Request().Context(), storage.CreateTxDto{
-		PluginID:      ptypes.PluginID(req.PluginID),
+		PluginID:      vtypes.PluginID(req.PluginID),
 		ChainID:       firstKeysignMessage.Chain,
 		PolicyID:      policyID,
+		TokenID:       tokenID,
 		FromPublicKey: req.PublicKey,
+		ToPublicKey:   toAddress,
 		ProposedTxHex: req.Transaction,
+		Amount:        amount,
 	})
 	if err != nil {
 		errMsg := "failed to create tx for tracking"
@@ -419,10 +498,96 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 		return s.internal(c, msgGetTxsByPolicyIDFailed, err)
 	}
 
+	// Build title map from unique plugin IDs
+	titleMap, err := s.buildPluginTitleMap(c.Request().Context(), txs)
+	if err != nil {
+		s.logger.WithError(err).Error("s.buildPluginTitleMap")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginFailed))
+	}
+
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, types.TransactionHistoryPaginatedList{
-		History:    txs,
+		History:    types.FromStorageTxs(txs, titleMap),
 		TotalCount: totalCount,
 	}))
+}
+
+func (s *Server) GetPluginTransactionHistory(c echo.Context) error {
+	pluginID := c.QueryParam("pluginId") // Optional query parameter
+
+	skip, take, err := conv.PageParamsFromCtx(c, 0, 20)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidPagination))
+	}
+
+	if take > 100 {
+		take = 100
+	}
+
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok || publicKey == "" {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
+	}
+
+	var txs []storage.Tx
+	var totalCount uint32
+
+	if pluginID != "" {
+		// Filter by specific plugin
+		txs, totalCount, err = s.txIndexerService.GetByPluginIDAndPublicKey(
+			c.Request().Context(),
+			vtypes.PluginID(pluginID),
+			publicKey,
+			skip,
+			take,
+		)
+		if err != nil {
+			s.logger.WithError(err).Errorf("s.txIndexerService.GetByPluginIDAndPublicKey: %s", pluginID)
+			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetTxsByPluginIDFailed))
+		}
+	} else {
+		// Get all transactions for the user across all plugins
+		txs, totalCount, err = s.txIndexerService.GetByPublicKey(
+			c.Request().Context(),
+			publicKey,
+			skip,
+			take,
+		)
+		if err != nil {
+			s.logger.WithError(err).Errorf("s.txIndexerService.GetByPublicKey: %s", publicKey)
+			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetTxsByPluginIDFailed))
+		}
+	}
+
+	// Build title map from unique plugin IDs
+	titleMap, err := s.buildPluginTitleMap(c.Request().Context(), txs)
+	if err != nil {
+		s.logger.WithError(err).Error("s.buildPluginTitleMap")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetPluginFailed))
+	}
+
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, types.TransactionHistoryPaginatedList{
+		History:    types.FromStorageTxs(txs, titleMap),
+		TotalCount: totalCount,
+	}))
+}
+
+func (s *Server) buildPluginTitleMap(ctx context.Context, txs []storage.Tx) (map[string]string, error) {
+	// Get unique plugin IDs
+	pluginIDSet := make(map[string]struct{})
+	for _, tx := range txs {
+		pluginIDSet[string(tx.PluginID)] = struct{}{}
+	}
+
+	if len(pluginIDSet) == 0 {
+		return make(map[string]string), nil
+	}
+
+	pluginIDs := make([]string, 0, len(pluginIDSet))
+	for id := range pluginIDSet {
+		pluginIDs = append(pluginIDs, id)
+	}
+
+	return s.pluginService.GetPluginTitlesByIDs(ctx, pluginIDs)
 }
 
 func (s *Server) CreateReview(c echo.Context) error {
@@ -573,7 +738,7 @@ func (s *Server) GetPluginInstallationsCountByID(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
 	}
 
-	count, err := s.policyService.GetPluginInstallationsCount(c.Request().Context(), ptypes.PluginID(pluginID))
+	count, err := s.policyService.GetPluginInstallationsCount(c.Request().Context(), vtypes.PluginID(pluginID))
 	if err != nil {
 		s.logger.WithError(err).Errorf("Failed to get installation count for pluginId: %s", pluginID)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgPluginInstallationCountFailed))
@@ -607,4 +772,117 @@ func (s *Server) forbidden(c echo.Context, msg string, err error) error {
 		s.logger.Warn(msg)
 	}
 	return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msg))
+// extractAmountFromRule extracts the amount from a matched rule's parameter constraints.
+// For send transactions, it looks for "amount" parameter.
+// For swap transactions, it looks for "from_amount" parameter.
+func extractAmountFromRule(rule *rtypes.Rule) string {
+	if rule == nil {
+		return ""
+	}
+
+	for _, pc := range rule.GetParameterConstraints() {
+		paramName := pc.GetParameterName()
+		// Check for send amount or swap from_amount
+		if paramName == "amount" || paramName == "from_amount" {
+			constraint := pc.GetConstraint()
+			if constraint != nil {
+				// Try to get fixed value first (most common for recurring send/swap)
+				if fixedVal := constraint.GetFixedValue(); fixedVal != "" {
+					return fixedVal
+				}
+				// For other constraint types, we can't determine the exact amount
+			}
+		}
+	}
+
+	return ""
+}
+
+// extractTokenIDFromRule extracts the token address from a matched rule.
+// After metarule processing:
+// - For ERC20 sends: Target.Address contains the token contract address
+// - For 1inch swaps: "desc.srcToken" parameter contains the source token
+// Returns empty string for native token transfers.
+func extractTokenIDFromRule(rule *rtypes.Rule) string {
+	if rule == nil {
+		return ""
+	}
+
+	// Case 1: ERC20 transfer - the Target.Address is the token contract
+	resource := rule.GetResource()
+	if strings.Contains(resource, ".erc20.transfer") {
+		if target := rule.GetTarget(); target != nil {
+			if addr := target.GetAddress(); addr != "" {
+				return addr
+			}
+		}
+	}
+
+	// Case 2: Check parameter constraints for 1inch swap (srcToken)
+	for _, pc := range rule.GetParameterConstraints() {
+		paramName := pc.GetParameterName()
+		if paramName == "srcToken" {
+			constraint := pc.GetConstraint()
+			if constraint != nil {
+				if fixedVal := constraint.GetFixedValue(); fixedVal != "" {
+					return fixedVal
+				}
+			}
+		}
+	}
+
+	return ""
+}
+
+// extractToAddressFromRule extracts the recipient address from a matched rule.
+// After metarule processing, checks various parameter names:
+// - EVM ERC20: "recipient"
+// - EVM native: Target.Address
+// - 1inch swap: "desc.dstReceiver"
+// - Solana native: "account_to"
+// - Solana SPL: "account_destination"
+// - Bitcoin/UTXO: "output_address_0"
+// - XRP/THORChain: "recipient"
+func extractToAddressFromRule(rule *rtypes.Rule) string {
+	if rule == nil {
+		return ""
+	}
+
+	// For EVM native transfers, the recipient is in Target.Address
+	resource := rule.GetResource()
+	if strings.Contains(resource, ".eth.transfer") ||
+		strings.Contains(resource, ".bnb.transfer") ||
+		strings.Contains(resource, ".matic.transfer") ||
+		strings.Contains(resource, ".avax.transfer") {
+		if target := rule.GetTarget(); target != nil {
+			if addr := target.GetAddress(); addr != "" {
+				return addr
+			}
+		}
+	}
+
+	// Check parameter constraints for various recipient parameter names
+	recipientParams := []string{
+		"recipient",           // EVM ERC20, XRP, THORChain
+		"dstReceiver",         // 1inch swap
+		"account_to",          // Solana native
+		"account_destination", // Solana SPL
+		"output_address_0",    // Bitcoin/UTXO
+	}
+
+	for _, pc := range rule.GetParameterConstraints() {
+		paramName := pc.GetParameterName()
+		for _, recipientParam := range recipientParams {
+			if paramName == recipientParam {
+				constraint := pc.GetConstraint()
+				if constraint != nil {
+					if fixedVal := constraint.GetFixedValue(); fixedVal != "" {
+						return fixedVal
+					}
+				}
+			}
+		}
+	}
+
+	return ""
 }

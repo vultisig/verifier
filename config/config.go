@@ -56,6 +56,15 @@ type MetricsConfig struct {
 	Port    int    `mapstructure:"port" json:"port,omitempty"`
 }
 
+type PortalConfig struct {
+	LogFormat logging.LogFormat `mapstructure:"log_format" json:"log_format,omitempty"`
+	Server    struct {
+		Host string `mapstructure:"host" json:"host,omitempty"`
+		Port int    `mapstructure:"port" json:"port,omitempty"`
+	} `mapstructure:"server" json:"server"`
+	Database config.Database `mapstructure:"database" json:"database,omitempty"`
+}
+
 func GetConfigure() (*WorkerConfig, error) {
 	configName := os.Getenv("VS_WORKER_CONFIG_NAME")
 	if configName == "" {
@@ -110,6 +119,32 @@ func ReadVerifierConfig() (*VerifierConfig, error) {
 		// This is expected for ENV based config
 	}
 	var cfg VerifierConfig
+	err := viper.Unmarshal(&cfg)
+	if err != nil {
+		return nil, fmt.Errorf("unable to decode into struct, %w", err)
+	}
+	return &cfg, nil
+}
+
+func ReadPortalConfig() (*PortalConfig, error) {
+	configName := os.Getenv("VS_PORTAL_CONFIG_NAME")
+	if configName == "" {
+		configName = "config"
+	}
+	addKeysToViper(viper.GetViper(), reflect.TypeOf(PortalConfig{}))
+	viper.SetConfigName(configName)
+	viper.AddConfigPath(".")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.AutomaticEnv()
+
+	viper.SetDefault("log_format", "text")
+
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			return nil, fmt.Errorf("fail to reading config file, %w", err)
+		}
+	}
+	var cfg PortalConfig
 	err := viper.Unmarshal(&cfg)
 	if err != nil {
 		return nil, fmt.Errorf("unable to decode into struct, %w", err)

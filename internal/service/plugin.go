@@ -31,6 +31,7 @@ type Plugin interface {
 		configuration map[string]any,
 	) (*rtypes.PolicySuggest, error)
 	GetPluginRecipeFunctions(ctx context.Context, pluginID string) (types.RecipeFunctions, error)
+	GetPluginTitlesByIDs(ctx context.Context, ids []string) (map[string]string, error)
 }
 
 type PluginServiceStorage interface {
@@ -50,6 +51,7 @@ type PluginServiceStorage interface {
 
 	FindPluginById(ctx context.Context, dbTx pgx.Tx, id ptypes.PluginID) (*types.Plugin, error)
 	GetAPIKeyByPluginId(ctx context.Context, pluginId string) (*types.APIKey, error)
+	GetPluginTitlesByIDs(ctx context.Context, ids []string) (map[string]string, error)
 }
 
 type PluginService struct {
@@ -99,6 +101,10 @@ func (s *PluginService) GetPluginWithRating(ctx context.Context, pluginId string
 		return nil, err
 	}
 	return pluginWithRatings, nil
+}
+
+func (s *PluginService) GetPluginTitlesByIDs(ctx context.Context, ids []string) (map[string]string, error) {
+	return s.db.GetPluginTitlesByIDs(ctx, ids)
 }
 
 func (s *PluginService) CreatePluginReviewWithRating(ctx context.Context, reviewDto types.ReviewCreateDto, pluginId string) (*types.ReviewDto, error) {

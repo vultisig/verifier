@@ -1,8 +1,15 @@
 # adjust to point to your local go-wrappers repo
 # https://github.com/vultisig/go-wrappers.git
 DYLD_LIBRARY=../go-wrappers/includes/darwin/:$LD_LIBRARY_PATH
+VS_VERIFIER_CONFIG_NAME ?= verifier.example
+VERIFIER_URL ?= http://localhost:8080
 
-.PHONY: up up-dev down down-dev build build-dev seed-db run-server run-worker dump-schema
+S3_ENDPOINT ?= http://localhost:9000
+S3_ACCESS_KEY ?= minioadmin
+S3_SECRET_KEY ?= minioadmin
+S3_BUCKET ?= vultisig-verifier
+
+.PHONY: up up-dev down down-dev build build-dev seed-db run-server run-worker dump-schema test-integration itest
 
 up:
 	@docker compose up -d --remove-orphans;
@@ -24,6 +31,17 @@ build-dev:
 
 seed-db:
 	VS_VERIFIER_CONFIG_NAME=verifier.example go run testdata/scripts/seed_db.go
+
+test-integration:
+	@echo "Running integration tests..."
+	@VERIFIER_URL=$(VERIFIER_URL) \
+	VS_VERIFIER_CONFIG_NAME=$(VS_VERIFIER_CONFIG_NAME) \
+	S3_ENDPOINT=$(S3_ENDPOINT) \
+	S3_ACCESS_KEY=$(S3_ACCESS_KEY) \
+	S3_SECRET_KEY=$(S3_SECRET_KEY) \
+	S3_BUCKET=$(S3_BUCKET) \
+	go test -v -count=1 -timeout 10m ./testdata/integration/gotest/...
+itest: test-integration
 
 # Run the verifier server
 run-server:
@@ -54,4 +72,3 @@ dump-schema:
 		-e '/^\\unrestrict /d' \
 		-e 's/"public"\.//' | awk '/./ { e=0 } /^$$/ { e += 1 } e <= 1' \
 		> ./internal/storage/postgres/schema/schema.sql
-	

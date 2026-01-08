@@ -1,0 +1,168 @@
+name: Plugin Integration Tests
+
+on:
+  # Run after plugin smoke tests complete successfully
+  workflow_run:
+    workflows: ["Plugin Smoke Tests"]
+    types:
+      - completed
+
+  # Also allow manual trigger and on relevant file changes
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'testdata/integration/**'
+      - 'internal/api/**'
+      - 'internal/service/**'
+      - 'vault/**'
+      - '.github/workflows/plugin-integration-tests.yaml'
+
+jobs:
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    # Only run if smoke tests passed (or manual/push trigger)
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: myuser
+          POSTGRES_PASSWORD: mypassword
+          POSTGRES_DB: vultisig-verifier
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Build MinIO image
+        run: docker build -f Dockerfile.minio -t vultisig-minio .
+
+      - name: Run MinIO container
+        run: |
+          docker run -d \
+            --name vultisig-minio \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            -p 9000:9000 \
+            vultisig-minio
+
+          until curl -sf http://localhost:9000/minio/health/live; do
+            sleep 1
+          done
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.2'
+          cache: true
+
+      - name: Download go-wrappers
+        run: git clone https://github.com/vultisig/go-wrappers.git ../go-wrappers
+
+      - name: Create integration test config
+        run: |
+          cat > config.json <<EOF
+          {
+            "auth": {
+              "enabled": true
+            },
+            "server": {
+              "host": "localhost",
+              "port": 8080,
+              "jwt_secret": "mysecret"
+            },
+            "redis": {
+              "host": "localhost",
+              "port": "6379"
+            },
+            "block_storage": {
+              "host": "http://localhost:9000",
+              "region": "us-east-1",
+              "access_key": "minioadmin",
+              "secret": "minioadmin",
+              "bucket": "vultisig-verifier"
+            },
+            "database": {
+              "dsn": "postgres://myuser:mypassword@localhost:5432/vultisig-verifier?sslmode=disable"
+            },
+            "encryption_secret": "test123",
+            "proposed_yaml_path": "proposed.yaml",
+            "plugin": {}
+          }
+          EOF
+
+      - name: Build verifier
+        run: |
+          export LD_LIBRARY_PATH=../go-wrappers/includes/linux/:$LD_LIBRARY_PATH
+          go build -o verifier cmd/verifier/main.go
+
+      - name: Start verifier
+        run: |
+          export LD_LIBRARY_PATH=../go-wrappers/includes/linux/:$LD_LIBRARY_PATH
+          export VS_VERIFIER_CONFIG_NAME=config
+
+          ./verifier &
+          echo $! > verifier.pid
+
+          # Wait for verifier to be ready
+          for i in {1..30}; do
+            if curl -s http://localhost:8080/plugins > /dev/null 2>&1; then
+              echo "Verifier is ready!"
+              break
+            fi
+            echo "Waiting for verifier... ($i/30)"
+            sleep 2
+          done
+
+          # Final check
+          if ! curl -s http://localhost:8080/plugins > /dev/null 2>&1; then
+            echo "Verifier failed to start"
+            exit 1
+          fi
+
+      - name: Run Go integration tests
+        run: |
+          export LD_LIBRARY_PATH=../go-wrappers/includes/linux/:$LD_LIBRARY_PATH
+          export VS_VERIFIER_CONFIG_NAME=config
+          export VERIFIER_URL=http://localhost:8080
+          export JWT_SECRET=mysecret
+          export S3_ENDPOINT=http://localhost:9000
+          export S3_ACCESS_KEY=minioadmin
+          export S3_SECRET_KEY=minioadmin
+          export S3_BUCKET=vultisig-verifier
+
+          go test -v -count=1 -timeout 10m ./testdata/integration/gotest/...
+
+      - name: Cleanup
+        if: always()
+        run: |
+          # Stop verifier
+          if [ -f verifier.pid ]; then
+            kill $(cat verifier.pid) 2>/dev/null || true
+            rm verifier.pid
+          fi
+
+          # Stop MinIO
+          docker rm -f vultisig-minio || true

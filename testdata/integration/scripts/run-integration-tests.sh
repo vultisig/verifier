@@ -68,10 +68,16 @@ LOCAL_PARTY_ID=$(jq -r '.reshare.local_party_id' "$FIXTURE_FILE")
 EMAIL=$(jq -r '.reshare.email' "$FIXTURE_FILE")
 
 # Validate parsed values
-if [ -z "$VAULT_PUBKEY" ] || [ "$VAULT_PUBKEY" = "null" ] || \
-   [ -z "$VAULT_NAME" ] || [ "$VAULT_NAME" = "null" ] || \
-   [ -z "$RESHARE_SESSION_ID" ] || [ "$RESHARE_SESSION_ID" = "null" ]; then
-    echo "❌ Error: Failed to parse required fields from fixture file"
+MISSING_FIELDS=""
+[ -z "$VAULT_PUBKEY" ] || [ "$VAULT_PUBKEY" = "null" ] && MISSING_FIELDS="$MISSING_FIELDS VAULT_PUBKEY"
+[ -z "$VAULT_NAME" ] || [ "$VAULT_NAME" = "null" ] && MISSING_FIELDS="$MISSING_FIELDS VAULT_NAME"
+[ -z "$RESHARE_SESSION_ID" ] || [ "$RESHARE_SESSION_ID" = "null" ] && MISSING_FIELDS="$MISSING_FIELDS RESHARE_SESSION_ID"
+[ -z "$HEX_ENCRYPTION_KEY" ] || [ "$HEX_ENCRYPTION_KEY" = "null" ] && MISSING_FIELDS="$MISSING_FIELDS HEX_ENCRYPTION_KEY"
+[ -z "$HEX_CHAIN_CODE" ] || [ "$HEX_CHAIN_CODE" = "null" ] && MISSING_FIELDS="$MISSING_FIELDS HEX_CHAIN_CODE"
+[ -z "$LOCAL_PARTY_ID" ] || [ "$LOCAL_PARTY_ID" = "null" ] && MISSING_FIELDS="$MISSING_FIELDS LOCAL_PARTY_ID"
+[ -z "$EMAIL" ] || [ "$EMAIL" = "null" ] && MISSING_FIELDS="$MISSING_FIELDS EMAIL"
+if [ -n "$MISSING_FIELDS" ]; then
+    echo "❌ Error: Failed to parse required fields from fixture file:$MISSING_FIELDS"
     exit 1
 fi
 

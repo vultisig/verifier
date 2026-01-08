@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -772,6 +773,8 @@ func (s *Server) forbidden(c echo.Context, msg string, err error) error {
 		s.logger.Warn(msg)
 	}
 	return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msg))
+}
+
 // extractAmountFromRule extracts the amount from a matched rule's parameter constraints.
 // For send transactions, it looks for "amount" parameter.
 // For swap transactions, it looks for "from_amount" parameter.

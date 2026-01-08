@@ -22,10 +22,24 @@ type Worker struct {
 	repo             storage.TxIndexerRepo
 	interval         time.Duration
 	iterationTimeout time.Duration
-	markLostAfter    time.Duration
+	markLostAfter    time.Duration // default fallback for UTXO chains
 	concurrency      int
 	clients          SupportedRpcs
 	metrics          metrics.TxIndexerMetrics
+}
+
+// getMarkLostAfter returns chain-specific timeout for marking transactions as lost.
+func (w *Worker) getMarkLostAfter(chain common.Chain) time.Duration {
+	switch {
+	case chain == common.Solana:
+		return 2 * time.Minute
+	case chain == common.XRP:
+		return 5 * time.Minute
+	case chain.IsEvm():
+		return 30 * time.Minute
+	default:
+		return w.markLostAfter
+	}
 }
 
 func NewWorker(
@@ -130,7 +144,7 @@ func (w *Worker) UpdateTxStatus(ctx context.Context, tx storage.Tx) (*rpc.TxOnCh
 	// Record processing attempt
 	w.metrics.RecordProcessing(chain)
 
-	if time.Now().After((*tx.BroadcastedAt).Add(w.markLostAfter)) {
+	if time.Now().After((*tx.BroadcastedAt).Add(w.getMarkLostAfter(chain))) {
 		err := w.repo.SetLost(ctx, tx.ID)
 		if err != nil {
 			w.metrics.RecordProcessingError(chain, "set_lost_timeout")

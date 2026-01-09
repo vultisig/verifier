@@ -2,11 +2,21 @@ package tasks
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/hibiken/asynq"
 )
 
-const QUEUE_NAME = "default_queue"
+const defaultQueueName = "default_queue"
+
+var QUEUE_NAME = getQueueName()
+
+func getQueueName() string {
+	if name := os.Getenv("TASK_QUEUE_NAME"); name != "" {
+		return name
+	}
+	return defaultQueueName
+}
 
 const (
 	TypeRecurringFeeRecord = "fee:recurringRecord"

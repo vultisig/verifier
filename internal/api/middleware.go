@@ -37,13 +37,12 @@ func (s *Server) AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 // VaultAuthMiddleware verifies JWT tokens and ensures users can only access their own vaults.
 func (s *Server) VaultAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		if s.cfg.Auth.Enabled != nil && !*s.cfg.Auth.Enabled {
-			s.logger.Info("Auth is disabled, skipping token validation")
-			return next(c)
-		}
-
 		authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
 		if authHeader == "" {
+			if s.cfg.Auth.Enabled != nil && !*s.cfg.Auth.Enabled {
+				s.logger.Info("Auth is disabled and no token provided")
+				return next(c)
+			}
 			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgMissingAuthHeader))
 		}
 

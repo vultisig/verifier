@@ -51,7 +51,7 @@ const (
 	msgPluginIDMismatch              = "plugin ID mismatch: not authorized to sign for this plugin"
 
 	// Plugin Report
-	msgReportNotEligible   = "not eligible to report: no installation found"
+	msgReportNotEligible    = "not eligible to report: no installation found"
 	msgReportCooldownActive = "cooldown active: please wait before reporting again"
 	msgReasonRequired       = "reason is required"
 
@@ -97,8 +97,8 @@ const (
 	msgPolicyEnded            = "policy has ended"
 
 	// Signing
-	msgNoMessagesToSign    = "no messages to sign"
-	msgTxNotAllowed        = "tx not allowed to execute"
+	msgNoMessagesToSign = "no messages to sign"
+	msgTxNotAllowed     = "tx not allowed to execute"
 
 	msgGetTxsByPolicyIDFailed = "failed to get txs by policyID"
 	msgGetTxsByPluginIDFailed = "failed to get txs by pluginID"

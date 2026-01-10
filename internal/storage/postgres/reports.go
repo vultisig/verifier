@@ -133,7 +133,6 @@ func (p *PostgresBackend) CountInstallations(ctx context.Context, pluginID types
 	return count, nil
 }
 
-
 func (p *PostgresBackend) IsPluginPaused(ctx context.Context, pluginID types.PluginID) (bool, error) {
 	if p.pool == nil {
 		return false, fmt.Errorf("database pool is nil")
@@ -218,4 +217,3 @@ func (p *PostgresBackend) PausePlugin(ctx context.Context, pluginID types.Plugin
 		return nil
 	})
 }
-

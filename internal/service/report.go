@@ -152,4 +152,3 @@ func (s *ReportService) evaluateAndPause(ctx context.Context, pluginID types.Plu
 
 	return nil
 }
-

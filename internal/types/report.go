@@ -9,12 +9,12 @@ import (
 )
 
 type PluginReport struct {
-	PluginID        types.PluginID `json:"plugin_id"`
-	ReporterPubKey  string         `json:"reporter_public_key"`
-	Reason          string         `json:"reason"`
-	CreatedAt       time.Time      `json:"created_at"`
-	LastReportedAt  time.Time      `json:"last_reported_at"`
-	ReportCount     int            `json:"report_count"`
+	PluginID       types.PluginID `json:"plugin_id"`
+	ReporterPubKey string         `json:"reporter_public_key"`
+	Reason         string         `json:"reason"`
+	CreatedAt      time.Time      `json:"created_at"`
+	LastReportedAt time.Time      `json:"last_reported_at"`
+	ReportCount    int            `json:"report_count"`
 }
 
 type PauseHistoryRecord struct {

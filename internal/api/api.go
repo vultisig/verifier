@@ -49,7 +49,6 @@ const (
 	msgPluginServerUnavailable       = "plugin server is currently unavailable"
 	msgPluginPaused                  = "plugin is currently paused"
 	msgPluginIDMismatch              = "plugin ID mismatch: not authorized to sign for this plugin"
-	msgPluginUnpaused                = "plugin unpaused"
 
 	// Plugin Report
 	msgReportNotEligible   = "not eligible to report: no installation found"

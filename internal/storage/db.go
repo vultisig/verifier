@@ -125,12 +125,11 @@ type ControlFlagsRepository interface {
 }
 
 type ReportRepository interface {
-	UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason string) error
+	UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason string, cooldown time.Duration) error
 	GetReport(ctx context.Context, pluginID types.PluginID, publicKey string) (*itypes.PluginReport, error)
 	CountReportsInWindow(ctx context.Context, pluginID types.PluginID, window time.Duration) (int, error)
 	HasInstallation(ctx context.Context, pluginID types.PluginID, publicKey string) (bool, error)
 	CountInstallations(ctx context.Context, pluginID types.PluginID) (int, error)
 	IsPluginPaused(ctx context.Context, pluginID types.PluginID) (bool, error)
 	PausePlugin(ctx context.Context, pluginID types.PluginID, record itypes.PauseHistoryRecord) error
-	UnpausePlugin(ctx context.Context, pluginID types.PluginID, record itypes.PauseHistoryRecord) error
 }

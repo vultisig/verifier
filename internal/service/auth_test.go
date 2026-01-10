@@ -395,8 +395,8 @@ func (m *MockDatabaseStorage) GetPricingsByPluginIDs(ctx context.Context, plugin
 	return args.Get(0).(map[string][]itypes.PricingInfo), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason string) error {
-	args := m.Called(ctx, pluginID, publicKey, reason)
+func (m *MockDatabaseStorage) UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason string, cooldown time.Duration) error {
+	args := m.Called(ctx, pluginID, publicKey, reason, cooldown)
 	return args.Error(0)
 }
 
@@ -423,19 +423,22 @@ func (m *MockDatabaseStorage) CountInstallations(ctx context.Context, pluginID t
 	return args.Int(0), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) RecordPauseHistory(ctx context.Context, record itypes.PauseHistoryRecord) error {
-	args := m.Called(ctx, record)
-	return args.Error(0)
-}
-
 func (m *MockDatabaseStorage) IsPluginPaused(ctx context.Context, pluginID types.PluginID) (bool, error) {
 	args := m.Called(ctx, pluginID)
 	return args.Bool(0), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) SetControlFlag(ctx context.Context, key string, enabled bool) error {
-	args := m.Called(ctx, key, enabled)
+func (m *MockDatabaseStorage) PausePlugin(ctx context.Context, pluginID types.PluginID, record itypes.PauseHistoryRecord) error {
+	args := m.Called(ctx, pluginID, record)
 	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) GetControlFlags(ctx context.Context, k1, k2 string) (map[string]bool, error) {
+	args := m.Called(ctx, k1, k2)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(map[string]bool), args.Error(1)
 }
 
 func TestGenerateToken(t *testing.T) {

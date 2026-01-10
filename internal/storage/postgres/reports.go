@@ -17,10 +17,12 @@ const (
 	PLUGIN_PAUSE_HISTORY_TABLE = "plugin_pause_history"
 )
 
-func (p *PostgresBackend) UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason string) error {
+func (p *PostgresBackend) UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason string, cooldown time.Duration) error {
 	if p.pool == nil {
 		return fmt.Errorf("database pool is nil")
 	}
+
+	intervalStr := fmt.Sprintf("%d seconds", int64(cooldown.Seconds()))
 
 	query := fmt.Sprintf(`
 		INSERT INTO %s (plugin_id, reporter_public_key, reason, created_at, last_reported_at, report_count)
@@ -29,10 +31,10 @@ func (p *PostgresBackend) UpsertReport(ctx context.Context, pluginID types.Plugi
 		SET last_reported_at = NOW(),
 		    reason = EXCLUDED.reason,
 		    report_count = %s.report_count + 1
-		WHERE %s.last_reported_at < NOW() - INTERVAL '24 hours'`,
+		WHERE %s.last_reported_at < NOW() - $4::interval`,
 		PLUGIN_REPORTS_TABLE, PLUGIN_REPORTS_TABLE, PLUGIN_REPORTS_TABLE)
 
-	_, err := p.pool.Exec(ctx, query, pluginID, publicKey, reason)
+	_, err := p.pool.Exec(ctx, query, pluginID, publicKey, reason, intervalStr)
 	if err != nil {
 		return fmt.Errorf("failed to upsert report: %w", err)
 	}
@@ -75,6 +77,8 @@ func (p *PostgresBackend) CountReportsInWindow(ctx context.Context, pluginID typ
 		return 0, fmt.Errorf("database pool is nil")
 	}
 
+	intervalStr := fmt.Sprintf("%d seconds", int64(window.Seconds()))
+
 	query := fmt.Sprintf(`
 		SELECT COUNT(*)
 		FROM %s
@@ -82,7 +86,7 @@ func (p *PostgresBackend) CountReportsInWindow(ctx context.Context, pluginID typ
 		PLUGIN_REPORTS_TABLE)
 
 	var count int
-	err := p.pool.QueryRow(ctx, query, pluginID, window.String()).Scan(&count)
+	err := p.pool.QueryRow(ctx, query, pluginID, intervalStr).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count reports: %w", err)
 	}
@@ -215,26 +219,3 @@ func (p *PostgresBackend) PausePlugin(ctx context.Context, pluginID types.Plugin
 	})
 }
 
-func (p *PostgresBackend) UnpausePlugin(ctx context.Context, pluginID types.PluginID, record itypes.PauseHistoryRecord) error {
-	return p.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
-		keysignKey := string(pluginID) + "-keysign"
-		keygenKey := string(pluginID) + "-keygen"
-
-		err := p.setControlFlagTx(ctx, tx, keysignKey, true)
-		if err != nil {
-			return fmt.Errorf("failed to set keysign flag: %w", err)
-		}
-
-		err = p.setControlFlagTx(ctx, tx, keygenKey, true)
-		if err != nil {
-			return fmt.Errorf("failed to set keygen flag: %w", err)
-		}
-
-		err = p.recordPauseHistoryTx(ctx, tx, record)
-		if err != nil {
-			return fmt.Errorf("failed to record pause history: %w", err)
-		}
-
-		return nil
-	})
-}

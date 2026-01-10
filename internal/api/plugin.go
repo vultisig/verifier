@@ -926,44 +926,11 @@ func (s *Server) ReportPlugin(c echo.Context) error {
 		if errors.Is(err, service.ErrNotEligible) {
 			return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgReportNotEligible))
 		}
-		if errors.Is(err, service.ErrCooldownActive) {
-			return c.JSON(http.StatusTooManyRequests, NewErrorResponseWithMessage(msgReportCooldownActive))
+		if strings.Contains(err.Error(), "cooldown active") {
+			return c.JSON(http.StatusTooManyRequests, NewErrorResponseWithMessage(err.Error()))
 		}
 		return s.internal(c, "failed to submit report", err)
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, result))
-}
-
-func (s *Server) UnpausePlugin(c echo.Context) error {
-	pluginID := c.Param("pluginId")
-	if pluginID == "" {
-		return s.badRequest(c, msgRequiredPluginID, nil)
-	}
-
-	triggeredBy, ok := c.Get("vault_public_key").(string)
-	if !ok || triggeredBy == "" {
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
-	}
-
-	var req types.UnpauseRequest
-	err := c.Bind(&req)
-	if err != nil {
-		return s.badRequest(c, msgRequestParseFailed, err)
-	}
-
-	err = c.Validate(&req)
-	if err != nil {
-		return s.badRequest(c, msgReasonRequired, err)
-	}
-
-	p := bluemonday.StrictPolicy()
-	reason := p.Sanitize(req.Reason)
-
-	err = s.reportService.UnpausePlugin(c.Request().Context(), vtypes.PluginID(pluginID), reason, triggeredBy)
-	if err != nil {
-		return s.internal(c, "failed to unpause plugin", err)
-	}
-
-	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, msgPluginUnpaused))
 }

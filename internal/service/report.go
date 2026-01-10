@@ -14,19 +14,17 @@ import (
 )
 
 var (
-	ErrNotEligible    = errors.New("not eligible to report: no installation found")
-	ErrCooldownActive = errors.New("cooldown active: already reported within 24 hours")
+	ErrNotEligible = errors.New("not eligible to report: no installation found")
 )
 
 type ReportServiceStorage interface {
-	UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason string) error
+	UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason string, cooldown time.Duration) error
 	GetReport(ctx context.Context, pluginID types.PluginID, publicKey string) (*itypes.PluginReport, error)
 	CountReportsInWindow(ctx context.Context, pluginID types.PluginID, window time.Duration) (int, error)
 	HasInstallation(ctx context.Context, pluginID types.PluginID, publicKey string) (bool, error)
 	CountInstallations(ctx context.Context, pluginID types.PluginID) (int, error)
 	IsPluginPaused(ctx context.Context, pluginID types.PluginID) (bool, error)
 	PausePlugin(ctx context.Context, pluginID types.PluginID, record itypes.PauseHistoryRecord) error
-	UnpausePlugin(ctx context.Context, pluginID types.PluginID, record itypes.PauseHistoryRecord) error
 }
 
 type ReportService struct {
@@ -37,6 +35,9 @@ type ReportService struct {
 func NewReportService(db ReportServiceStorage, logger *logrus.Logger) (*ReportService, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database storage cannot be nil")
+	}
+	if logger == nil {
+		return nil, fmt.Errorf("logger cannot be nil")
 	}
 	return &ReportService{
 		db:     db,
@@ -71,11 +72,12 @@ func (s *ReportService) SubmitReport(ctx context.Context, pluginID types.PluginI
 	if existingReport != nil {
 		timeSinceLastReport := time.Since(existingReport.LastReportedAt)
 		if timeSinceLastReport < cooldown {
-			return nil, ErrCooldownActive
+			remaining := cooldown - timeSinceLastReport
+			return nil, fmt.Errorf("cooldown active: please wait %s before reporting again", remaining.Round(time.Minute))
 		}
 	}
 
-	err = s.db.UpsertReport(ctx, pluginID, publicKey, reason)
+	err = s.db.UpsertReport(ctx, pluginID, publicKey, reason, cooldown)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upsert report: %w", err)
 	}
@@ -85,7 +87,10 @@ func (s *ReportService) SubmitReport(ctx context.Context, pluginID types.PluginI
 		if err != nil {
 			s.logger.WithError(err).WithField("plugin_id", pluginID).Error("failed to evaluate auto-pause")
 		}
-		isPaused, _ = s.db.IsPluginPaused(ctx, pluginID)
+		isPaused, err = s.db.IsPluginPaused(ctx, pluginID)
+		if err != nil {
+			s.logger.WithError(err).WithField("plugin_id", pluginID).Error("failed to check pause status after evaluation")
+		}
 	}
 
 	return &itypes.ReportSubmitResult{
@@ -130,6 +135,7 @@ func (s *ReportService) evaluateAndPause(ctx context.Context, pluginID types.Plu
 	users := activeUsers
 	thresholdRate := threshold
 	reason := fmt.Sprintf("%d reports (%.1f%%) exceeded threshold (%.1f%%)", reportsInWindow, rate*100, threshold*100)
+	triggeredBy := "system"
 
 	err = s.db.PausePlugin(ctx, pluginID, itypes.PauseHistoryRecord{
 		PluginID:          pluginID,
@@ -137,32 +143,12 @@ func (s *ReportService) evaluateAndPause(ctx context.Context, pluginID types.Plu
 		ReportCountWindow: &reportCount,
 		ActiveUsers:       &users,
 		ThresholdRate:     &thresholdRate,
-		Reason:            reason,
-		TriggeredBy:       "system",
+		Reason:            &reason,
+		TriggeredBy:       &triggeredBy,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to pause plugin: %w", err)
 	}
-
-	return nil
-}
-
-func (s *ReportService) UnpausePlugin(ctx context.Context, pluginID types.PluginID, reason, triggeredBy string) error {
-	err := s.db.UnpausePlugin(ctx, pluginID, itypes.PauseHistoryRecord{
-		PluginID:    pluginID,
-		Action:      "manually_unpaused",
-		Reason:      reason,
-		TriggeredBy: triggeredBy,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to unpause plugin: %w", err)
-	}
-
-	s.logger.WithFields(logrus.Fields{
-		"plugin_id":    pluginID,
-		"triggered_by": triggeredBy,
-		"reason":       reason,
-	}).Info("plugin manually unpaused")
 
 	return nil
 }

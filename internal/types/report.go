@@ -24,16 +24,12 @@ type PauseHistoryRecord struct {
 	ReportCountWindow *int           `json:"report_count_window,omitempty"`
 	ActiveUsers       *int           `json:"active_users,omitempty"`
 	ThresholdRate     *float64       `json:"threshold_rate,omitempty"`
-	Reason            string         `json:"reason,omitempty"`
-	TriggeredBy       string         `json:"triggered_by,omitempty"`
+	Reason            *string        `json:"reason,omitempty"`
+	TriggeredBy       *string        `json:"triggered_by,omitempty"`
 	CreatedAt         time.Time      `json:"created_at"`
 }
 
 type ReportCreateRequest struct {
-	Reason string `json:"reason" validate:"required"`
-}
-
-type UnpauseRequest struct {
 	Reason string `json:"reason" validate:"required"`
 }
 

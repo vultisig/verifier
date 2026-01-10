@@ -15,22 +15,20 @@ import (
 )
 
 type FeeManagementService struct {
-	logger    *logrus.Logger
-	db        storage.DatabaseStorage
-	vault     *vault.ManagementService
-	safetyMgm vault.SafetyManager
+	logger *logrus.Logger
+	db     storage.DatabaseStorage
+	vault  *vault.ManagementService
 }
 
 func NewFeeManagementService(
 	logger *logrus.Logger,
 	db storage.DatabaseStorage,
 	vault *vault.ManagementService,
-	safetyMgm vault.SafetyManager) *FeeManagementService {
+) *FeeManagementService {
 	return &FeeManagementService{
-		logger:    logger,
-		db:        db,
-		vault:     vault,
-		safetyMgm: safetyMgm,
+		logger: logger,
+		db:     db,
+		vault:  vault,
 	}
 }
 
@@ -44,11 +42,6 @@ func (s *FeeManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.T
 	if err := json.Unmarshal(t.Payload(), &req); err != nil {
 		s.logger.WithError(err).Error("json.Unmarshal failed")
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
-	}
-
-	if err := s.safetyMgm.EnforceKeygen(ctx, req.PluginID); err != nil {
-		s.logger.WithError(err).Error("EnforceKeygen failed")
-		return fmt.Errorf("EnforceKeygen failed: %v: %w", err, asynq.SkipRetry)
 	}
 
 	if err := s.RegisterInstallation(ctx, vtypes.PluginID(req.PluginID), req.PublicKey); err != nil {

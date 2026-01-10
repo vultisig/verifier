@@ -217,6 +217,9 @@ func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task
 	if err := req.IsValid(); err != nil {
 		return fmt.Errorf("invalid reshare request: %s: %w", err, asynq.SkipRetry)
 	}
+	if err := s.safetyMgm.EnforceKeygen(ctx, req.PluginID); err != nil {
+		return fmt.Errorf("EnforceKeygen failed: %v: %w", err, asynq.SkipRetry)
+	}
 
 	var vault *vaultType.Vault
 	// trying to get existing vault

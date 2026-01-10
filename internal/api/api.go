@@ -47,6 +47,13 @@ const (
 	msgGetPluginsFailed              = "failed to get plugins"
 	msgGetAvgRatingFailed            = "failed to get average rating"
 	msgPluginServerUnavailable       = "plugin server is currently unavailable"
+	msgPluginPaused                  = "plugin is currently paused"
+	msgPluginIDMismatch              = "plugin ID mismatch: not authorized to sign for this plugin"
+
+	// Plugin Report
+	msgReportNotEligible    = "not eligible to report: no installation found"
+	msgReportCooldownActive = "cooldown active: please wait before reporting again"
+	msgReasonRequired       = "reason is required"
 
 	// PricingID
 	msgRequiredPricingID = "pricingId is required"
@@ -87,6 +94,11 @@ const (
 	msgPolicyCreateFailed     = "failed to create policy"
 	msgPolicyDeleteFailed     = "failed to delete policy"
 	msgPoliciesDeleteFailed   = "failed to delete plugin policies"
+	msgPolicyEnded            = "policy has ended"
+
+	// Signing
+	msgNoMessagesToSign = "no messages to sign"
+	msgTxNotAllowed     = "tx not allowed to execute"
 
 	msgGetTxsByPolicyIDFailed = "failed to get txs by policyID"
 	msgGetTxsByPluginIDFailed = "failed to get txs by pluginID"

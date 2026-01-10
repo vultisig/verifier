@@ -26,6 +26,7 @@ import (
 	"github.com/vultisig/verifier/internal/clientutil"
 	"github.com/vultisig/verifier/internal/logging"
 	internalMetrics "github.com/vultisig/verifier/internal/metrics"
+	"github.com/vultisig/verifier/internal/safety"
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/sigutil"
 	"github.com/vultisig/verifier/internal/storage"
@@ -51,8 +52,10 @@ type Server struct {
 	pluginService    service.Plugin
 	feeService       service.Fees
 	authService      *service.AuthService
+	reportService    *service.ReportService
 	txIndexerService *tx_indexer.Service
 	httpMetrics      *internalMetrics.HTTPMetrics
+	safetyMgm        *safety.Manager
 	logger           *logrus.Logger
 }
 
@@ -93,6 +96,13 @@ func NewServer(
 
 	authService := service.NewAuthService(jwtSecret, db, logrus.WithField("service", "auth-service").Logger)
 
+	reportService, err := service.NewReportService(db, logrus.WithField("service", "report-service").Logger)
+	if err != nil {
+		logrus.Fatalf("Failed to initialize report service: %v", err)
+	}
+
+	safetyMgm := safety.NewManager(db, logger)
+
 	return &Server{
 		cfg:              cfg,
 		redis:            redis,
@@ -103,10 +113,12 @@ func NewServer(
 		logger:           logger,
 		policyService:    policyService,
 		authService:      authService,
+		reportService:    reportService,
 		pluginService:    pluginService,
 		feeService:       feeService,
 		txIndexerService: txIndexerService,
 		httpMetrics:      httpMetrics,
+		safetyMgm:        safetyMgm,
 	}
 }
 
@@ -186,6 +198,10 @@ func (s *Server) StartServer() error {
 	pluginsGroup.GET("/:pluginId/recipe-functions", s.GetPluginRecipeFunctions)
 	pluginsGroup.POST("/:pluginId/recipe-specification/suggest", s.GetPluginRecipeSpecificationSuggest)
 	pluginsGroup.GET("/:pluginId/average-rating", s.GetPluginAvgRating)
+	pluginsGroup.POST("/:pluginId/report", s.ReportPlugin, s.VaultAuthMiddleware)
+
+	adminGroup := e.Group("/admin", s.VaultAuthMiddleware)
+	adminGroup.POST("/plugins/:pluginId/unpause", s.UnpausePlugin)
 
 	categoriesGroup := e.Group("/categories")
 	categoriesGroup.GET("", s.GetCategories)
@@ -216,6 +232,11 @@ func (s *Server) ReshareVault(c echo.Context) error {
 	if err := req.IsValid(); err != nil {
 		s.logger.WithError(err).Error("ReshareVault: Request validation failed")
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequestValidationFailed))
+	}
+
+	if err := s.safetyMgm.EnforceKeygen(c.Request().Context(), req.PluginID); err != nil {
+		s.logger.WithError(err).WithField("plugin_id", req.PluginID).Warn("ReshareVault: Plugin is paused")
+		return c.JSON(http.StatusServiceUnavailable, NewErrorResponseWithMessage(msgPluginPaused))
 	}
 
 	// Check if session exists in Redis

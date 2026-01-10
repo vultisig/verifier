@@ -106,7 +106,6 @@ func main() {
 		logger,
 		backendDB,
 		vaultMgmService,
-		safetyMgm,
 	)
 
 	// Initialize metrics based on configuration

@@ -34,6 +34,8 @@ type DatabaseStorage interface {
 	ReviewRepository
 	RatingRepository
 	ApiKeyRepository
+	ReportRepository
+	ControlFlagsRepository
 	Close() error
 }
 
@@ -120,4 +122,15 @@ type ApiKeyRepository interface {
 
 type ControlFlagsRepository interface {
 	GetControlFlags(ctx context.Context, k1, k2 string) (map[string]bool, error)
+}
+
+type ReportRepository interface {
+	UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason string) error
+	GetReport(ctx context.Context, pluginID types.PluginID, publicKey string) (*itypes.PluginReport, error)
+	CountReportsInWindow(ctx context.Context, pluginID types.PluginID, window time.Duration) (int, error)
+	HasInstallation(ctx context.Context, pluginID types.PluginID, publicKey string) (bool, error)
+	CountInstallations(ctx context.Context, pluginID types.PluginID) (int, error)
+	IsPluginPaused(ctx context.Context, pluginID types.PluginID) (bool, error)
+	PausePlugin(ctx context.Context, pluginID types.PluginID, record itypes.PauseHistoryRecord) error
+	UnpausePlugin(ctx context.Context, pluginID types.PluginID, record itypes.PauseHistoryRecord) error
 }

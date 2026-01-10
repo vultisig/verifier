@@ -26,6 +26,7 @@ import (
 	"github.com/vultisig/recipes/engine"
 	rtypes "github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/internal/conv"
+	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/plugin/scheduler"
 	"github.com/vultisig/verifier/plugin/tasks"
@@ -51,7 +52,12 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	}
 	if authenticatedPluginID.String() != req.PluginID {
 		s.logger.Warnf("Plugin ID mismatch: authenticated=%s, requested=%s", authenticatedPluginID, req.PluginID)
-		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("plugin ID mismatch: not authorized to sign for this plugin"))
+		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgPluginIDMismatch))
+	}
+
+	if err := s.safetyMgm.EnforceKeysign(c.Request().Context(), req.PluginID); err != nil {
+		s.logger.WithError(err).WithField("plugin_id", req.PluginID).Warn("SignPluginMessages: Plugin is paused")
+		return c.JSON(http.StatusServiceUnavailable, NewErrorResponseWithMessage(msgPluginPaused))
 	}
 
 	// Get policy from database
@@ -92,7 +98,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 
 		// Check if policy is inactive
 		if !policy.Active {
-			return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("policy has ended"))
+			return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgPolicyEnded))
 		}
 
 		// Validate policy matches plugin
@@ -190,7 +196,7 @@ func (s *Server) checkAndDeactivatePolicy(ctx context.Context, policy *vtypes.Pl
 
 func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignRequest, recipe *rtypes.Policy, policyID uuid.UUID) error {
 	if len(req.Messages) == 0 {
-		return s.badRequest(c, "no messages to sign", nil)
+		return s.badRequest(c, msgNoMessagesToSign, nil)
 	}
 
 	firstKeysignMessage := req.Messages[0]
@@ -292,12 +298,12 @@ func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignReques
 	if req.PluginID == vtypes.PluginVultisigFees_feee.String() {
 		matchedRule, err = ngn.Evaluate(types.FeeDefaultPolicy, firstKeysignMessage.Chain, txBytesEvaluate)
 		if err != nil {
-			return s.forbidden(c, "tx not allowed to execute", err)
+			return s.forbidden(c, msgTxNotAllowed, err)
 		}
 	} else {
 		matchedRule, err = ngn.Evaluate(recipe, firstKeysignMessage.Chain, txBytesEvaluate)
 		if err != nil {
-			return s.forbidden(c, "tx not allowed to execute", err)
+			return s.forbidden(c, msgTxNotAllowed, err)
 		}
 	}
 
@@ -888,4 +894,76 @@ func extractToAddressFromRule(rule *rtypes.Rule) string {
 	}
 
 	return ""
+}
+
+func (s *Server) ReportPlugin(c echo.Context) error {
+	pluginID := c.Param("pluginId")
+	if pluginID == "" {
+		return s.badRequest(c, msgRequiredPluginID, nil)
+	}
+
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok || publicKey == "" {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
+	}
+
+	var req types.ReportCreateRequest
+	err := c.Bind(&req)
+	if err != nil {
+		return s.badRequest(c, msgRequestParseFailed, err)
+	}
+
+	err = c.Validate(&req)
+	if err != nil {
+		return s.badRequest(c, msgReasonRequired, err)
+	}
+
+	p := bluemonday.StrictPolicy()
+	reason := p.Sanitize(req.Reason)
+
+	result, err := s.reportService.SubmitReport(c.Request().Context(), vtypes.PluginID(pluginID), publicKey, reason)
+	if err != nil {
+		if errors.Is(err, service.ErrNotEligible) {
+			return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgReportNotEligible))
+		}
+		if errors.Is(err, service.ErrCooldownActive) {
+			return c.JSON(http.StatusTooManyRequests, NewErrorResponseWithMessage(msgReportCooldownActive))
+		}
+		return s.internal(c, "failed to submit report", err)
+	}
+
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, result))
+}
+
+func (s *Server) UnpausePlugin(c echo.Context) error {
+	pluginID := c.Param("pluginId")
+	if pluginID == "" {
+		return s.badRequest(c, msgRequiredPluginID, nil)
+	}
+
+	triggeredBy, ok := c.Get("vault_public_key").(string)
+	if !ok || triggeredBy == "" {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
+	}
+
+	var req types.UnpauseRequest
+	err := c.Bind(&req)
+	if err != nil {
+		return s.badRequest(c, msgRequestParseFailed, err)
+	}
+
+	err = c.Validate(&req)
+	if err != nil {
+		return s.badRequest(c, msgReasonRequired, err)
+	}
+
+	p := bluemonday.StrictPolicy()
+	reason := p.Sanitize(req.Reason)
+
+	err = s.reportService.UnpausePlugin(c.Request().Context(), vtypes.PluginID(pluginID), reason, triggeredBy)
+	if err != nil {
+		return s.internal(c, "failed to unpause plugin", err)
+	}
+
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, msgPluginUnpaused))
 }

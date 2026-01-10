@@ -1,11 +1,16 @@
 package types
 
 import (
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/vultisig/verifier/types"
+)
+
+var (
+	ErrReportCooldown = errors.New("report cooldown active")
 )
 
 type PluginReport struct {

@@ -34,9 +34,13 @@ func (p *PostgresBackend) UpsertReport(ctx context.Context, pluginID types.Plugi
 		WHERE %s.last_reported_at < NOW() - $4::interval`,
 		PLUGIN_REPORTS_TABLE, PLUGIN_REPORTS_TABLE, PLUGIN_REPORTS_TABLE)
 
-	_, err := p.pool.Exec(ctx, query, pluginID, publicKey, reason, intervalStr)
+	result, err := p.pool.Exec(ctx, query, pluginID, publicKey, reason, intervalStr)
 	if err != nil {
 		return fmt.Errorf("failed to upsert report: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return itypes.ErrReportCooldown
 	}
 
 	return nil

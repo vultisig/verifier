@@ -926,7 +926,7 @@ func (s *Server) ReportPlugin(c echo.Context) error {
 		if errors.Is(err, service.ErrNotEligible) {
 			return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgReportNotEligible))
 		}
-		if strings.Contains(err.Error(), "cooldown active") {
+		if errors.Is(err, service.ErrCooldownActive) {
 			return c.JSON(http.StatusTooManyRequests, NewErrorResponseWithMessage(err.Error()))
 		}
 		return s.internal(c, "failed to submit report", err)

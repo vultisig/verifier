@@ -14,7 +14,8 @@ import (
 )
 
 var (
-	ErrNotEligible = errors.New("not eligible to report: no installation found")
+	ErrNotEligible    = errors.New("not eligible to report: no installation found")
+	ErrCooldownActive = errors.New("cooldown active")
 )
 
 type ReportServiceStorage interface {
@@ -73,12 +74,15 @@ func (s *ReportService) SubmitReport(ctx context.Context, pluginID types.PluginI
 		timeSinceLastReport := time.Since(existingReport.LastReportedAt)
 		if timeSinceLastReport < cooldown {
 			remaining := cooldown - timeSinceLastReport
-			return nil, fmt.Errorf("cooldown active: please wait %s before reporting again", remaining.Round(time.Minute))
+			return nil, fmt.Errorf("%w: please wait %s before reporting again", ErrCooldownActive, remaining.Round(time.Minute))
 		}
 	}
 
 	err = s.db.UpsertReport(ctx, pluginID, publicKey, reason, cooldown)
 	if err != nil {
+		if errors.Is(err, itypes.ErrReportCooldown) {
+			return nil, fmt.Errorf("%w: concurrent request detected", ErrCooldownActive)
+		}
 		return nil, fmt.Errorf("failed to upsert report: %w", err)
 	}
 

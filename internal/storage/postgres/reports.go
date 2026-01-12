@@ -143,22 +143,43 @@ func (p *PostgresBackend) IsPluginPaused(ctx context.Context, pluginID types.Plu
 	}
 
 	keysignKey := string(pluginID) + "-keysign"
+	keygenKey := string(pluginID) + "-keygen"
+	keys := []string{keysignKey, keygenKey}
 
 	query := `
-		SELECT enabled
+		SELECT key, enabled
 		FROM control_flags
-		WHERE key = $1`
+		WHERE key = ANY($1)`
 
-	var enabled bool
-	err := p.pool.QueryRow(ctx, query, keysignKey).Scan(&enabled)
+	rows, err := p.pool.Query(ctx, query, keys)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return false, nil
-		}
 		return false, fmt.Errorf("failed to check plugin pause status: %w", err)
 	}
+	defer rows.Close()
 
-	return !enabled, nil
+	flags := make(map[string]bool)
+	for rows.Next() {
+		var key string
+		var enabled bool
+		err = rows.Scan(&key, &enabled)
+		if err != nil {
+			return false, fmt.Errorf("failed to scan control flag: %w", err)
+		}
+		flags[key] = enabled
+	}
+
+	if err = rows.Err(); err != nil {
+		return false, fmt.Errorf("failed to iterate control flags: %w", err)
+	}
+
+	keysignEnabled, keysignExists := flags[keysignKey]
+	keygenEnabled, keygenExists := flags[keygenKey]
+
+	if !keysignExists || !keygenExists {
+		return false, nil
+	}
+
+	return !keysignEnabled && !keygenEnabled, nil
 }
 
 func (p *PostgresBackend) setControlFlagTx(ctx context.Context, tx pgx.Tx, key string, enabled bool) error {

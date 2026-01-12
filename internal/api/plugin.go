@@ -26,6 +26,7 @@ import (
 	"github.com/vultisig/recipes/engine"
 	rtypes "github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/internal/conv"
+	"github.com/vultisig/verifier/internal/safety"
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/plugin/scheduler"
@@ -56,8 +57,12 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	}
 
 	if err := s.safetyMgm.EnforceKeysign(c.Request().Context(), req.PluginID); err != nil {
-		s.logger.WithError(err).WithField("plugin_id", req.PluginID).Warn("SignPluginMessages: Plugin is paused")
-		return c.JSON(http.StatusLocked, NewErrorResponseWithMessage(msgPluginPaused))
+		if safety.IsDisabledError(err) {
+			s.logger.WithError(err).WithField("plugin_id", req.PluginID).Warn("SignPluginMessages: Plugin is paused")
+			return c.JSON(http.StatusLocked, NewErrorResponseWithMessage(msgPluginPaused))
+		}
+		s.logger.WithError(err).WithField("plugin_id", req.PluginID).Error("SignPluginMessages: EnforceKeysign failed")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgRequestProcessFailed))
 	}
 
 	// Get policy from database

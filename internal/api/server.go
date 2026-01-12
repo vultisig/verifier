@@ -233,7 +233,7 @@ func (s *Server) ReshareVault(c echo.Context) error {
 
 	if err := s.safetyMgm.EnforceKeygen(c.Request().Context(), req.PluginID); err != nil {
 		s.logger.WithError(err).WithField("plugin_id", req.PluginID).Warn("ReshareVault: Plugin is paused")
-		return c.JSON(http.StatusServiceUnavailable, NewErrorResponseWithMessage(msgPluginPaused))
+		return c.JSON(http.StatusLocked, NewErrorResponseWithMessage(msgPluginPaused))
 	}
 
 	// Check if session exists in Redis

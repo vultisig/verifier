@@ -57,7 +57,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 
 	if err := s.safetyMgm.EnforceKeysign(c.Request().Context(), req.PluginID); err != nil {
 		s.logger.WithError(err).WithField("plugin_id", req.PluginID).Warn("SignPluginMessages: Plugin is paused")
-		return c.JSON(http.StatusServiceUnavailable, NewErrorResponseWithMessage(msgPluginPaused))
+		return c.JSON(http.StatusLocked, NewErrorResponseWithMessage(msgPluginPaused))
 	}
 
 	// Get policy from database

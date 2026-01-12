@@ -2,10 +2,16 @@ package safety
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/verifier/internal/storage"
+)
+
+var (
+	ErrGloballyDisabled = errors.New("action disabled globally")
+	ErrPluginDisabled   = errors.New("action disabled for plugin")
 )
 
 const (
@@ -60,7 +66,7 @@ func (m *Manager) enforce(ctx context.Context, pluginID, action string) error {
 			"plugin": pluginID,
 			"action": action,
 		}).Warn("blocked by global control flag")
-		return fmt.Errorf("%s disabled globally", action)
+		return fmt.Errorf("%s: %w", action, ErrGloballyDisabled)
 	}
 
 	if !pluginEnabled {
@@ -69,8 +75,12 @@ func (m *Manager) enforce(ctx context.Context, pluginID, action string) error {
 			"plugin": pluginID,
 			"action": action,
 		}).Warn("blocked by plugin control flag")
-		return fmt.Errorf("%s disabled for plugin %s", action, pluginID)
+		return fmt.Errorf("%s %s: %w", action, pluginID, ErrPluginDisabled)
 	}
 
 	return nil
+}
+
+func IsDisabledError(err error) bool {
+	return errors.Is(err, ErrGloballyDisabled) || errors.Is(err, ErrPluginDisabled)
 }

@@ -11,6 +11,17 @@ import (
 	"time"
 )
 
+const maxErrorBodySize = 1024
+
+type HTTPError struct {
+	StatusCode int
+	Body       string
+}
+
+func (e *HTTPError) Error() string {
+	return fmt.Sprintf("HTTP %d: %s", e.StatusCode, e.Body)
+}
+
 func Call[T any](
 	ctx context.Context,
 	method, url string,
@@ -57,7 +68,14 @@ func Call[T any](
 		return *new(T), fmt.Errorf("failed to read response body: %w", err)
 	}
 	if res.StatusCode != http.StatusOK {
-		return *new(T), fmt.Errorf("failed to get successful response: status_code: %d, res_body: %s", res.StatusCode, string(bodyBytes))
+		body := string(bodyBytes)
+		if len(body) > maxErrorBodySize {
+			body = body[:maxErrorBodySize] + "...(truncated)"
+		}
+		return *new(T), &HTTPError{
+			StatusCode: res.StatusCode,
+			Body:       body,
+		}
 	}
 
 	if _, ok := any(*new(T)).(string); ok {

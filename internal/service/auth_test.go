@@ -395,6 +395,52 @@ func (m *MockDatabaseStorage) GetPricingsByPluginIDs(ctx context.Context, plugin
 	return args.Get(0).(map[string][]itypes.PricingInfo), args.Error(1)
 }
 
+func (m *MockDatabaseStorage) UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason string, cooldown time.Duration) error {
+	args := m.Called(ctx, pluginID, publicKey, reason, cooldown)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) GetReport(ctx context.Context, pluginID types.PluginID, publicKey string) (*itypes.PluginReport, error) {
+	args := m.Called(ctx, pluginID, publicKey)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*itypes.PluginReport), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) CountReportsInWindow(ctx context.Context, pluginID types.PluginID, window time.Duration) (int, error) {
+	args := m.Called(ctx, pluginID, window)
+	return args.Int(0), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) HasInstallation(ctx context.Context, pluginID types.PluginID, publicKey string) (bool, error) {
+	args := m.Called(ctx, pluginID, publicKey)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) CountInstallations(ctx context.Context, pluginID types.PluginID) (int, error) {
+	args := m.Called(ctx, pluginID)
+	return args.Int(0), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) IsPluginPaused(ctx context.Context, pluginID types.PluginID) (bool, error) {
+	args := m.Called(ctx, pluginID)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) PausePlugin(ctx context.Context, pluginID types.PluginID, record itypes.PauseHistoryRecord) error {
+	args := m.Called(ctx, pluginID, record)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) GetControlFlags(ctx context.Context, k1, k2 string) (map[string]bool, error) {
+	args := m.Called(ctx, k1, k2)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(map[string]bool), args.Error(1)
+}
+
 func TestGenerateToken(t *testing.T) {
 	testCases := []struct {
 		name          string

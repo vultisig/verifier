@@ -16,6 +16,8 @@ import (
 	"github.com/vultisig/vultisig-go/relay"
 )
 
+var ErrPluginPaused = errors.New("plugin is paused")
+
 // Emitter
 // e.g. verifier API /plugin-signer/sign endpoint which puts to verifier.worker queue
 // e.g. queue for a plugin.worker
@@ -82,6 +84,9 @@ func (s *Signer) Sign(
 	for _, emitter := range s.emitters {
 		err := emitter.Sign(ctx, req)
 		if err != nil {
+			if errors.Is(err, ErrPluginPaused) {
+				return nil, ErrPluginPaused
+			}
 			return nil, fmt.Errorf("failed to sign with emitter: %w", err)
 		}
 	}

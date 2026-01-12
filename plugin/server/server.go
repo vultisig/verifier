@@ -410,7 +410,7 @@ func (s *Server) handleGetRecipeSpecificationSuggest(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to parse request"))
 	}
 
-	recipeSpec, err := s.spec.Suggest(req.Configuration)
+	recipeSpec, err := s.spec.Suggest(c.Request().Context(), req.Configuration)
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to suggest recipe spec")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to suggest recipe spec"))

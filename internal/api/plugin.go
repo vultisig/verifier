@@ -24,6 +24,7 @@ import (
 
 	"github.com/vultisig/recipes/chain/evm/ethereum"
 	"github.com/vultisig/recipes/engine"
+	"github.com/vultisig/recipes/sdk/zcash"
 	rtypes "github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/internal/conv"
 	"github.com/vultisig/verifier/internal/safety"
@@ -287,6 +288,18 @@ func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignReques
 			return s.badRequest(c, errMsg, err)
 		}
 		txBytesEvaluate = b
+	case firstKeysignMessage.Chain == common.Zcash:
+		b, err := base64.StdEncoding.DecodeString(req.Transaction)
+		if err != nil {
+			errMsg := "failed to decode base64 Zcash transaction"
+			return s.badRequest(c, errMsg, err)
+		}
+		txBytes, _, _, err := zcash.ParseWithMetadata(b)
+		if err != nil {
+			errMsg := "failed to parse Zcash transaction metadata"
+			return s.badRequest(c, errMsg, err)
+		}
+		txBytesEvaluate = txBytes
 	default:
 		errMsg := fmt.Sprintf("failed to decode transaction, chain %s not supported", firstKeysignMessage.Chain)
 		return s.badRequest(c, errMsg, nil)

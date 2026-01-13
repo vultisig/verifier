@@ -107,40 +107,51 @@ func (w *Worker) enqueue() error {
 	// Collect metrics
 	w.collectMetrics(tasks)
 
-	eg := &errgroup.Group{}
+	var eg errgroup.Group
 	for _, _task := range tasks {
 		task := _task
 		eg.Go(func() error {
-			policy, er := w.policy.GetPluginPolicy(ctx, task.PolicyID)
-			if er != nil {
-				return fmt.Errorf("failed to fetch policy: %w", er)
+			policy, err := w.policy.GetPluginPolicy(ctx, task.PolicyID)
+			if err != nil {
+				return fmt.Errorf("failed to fetch policy: %w", err)
 			}
 
 			if w.safety != nil {
-				er = w.safety.EnforceKeysign(ctx, string(policy.PluginID))
-				if er != nil {
-					if safety.IsDisabledError(er) {
-						w.logger.WithField("plugin_id", policy.PluginID).
-							Info("skipping enqueue: plugin is paused")
+				err = w.safety.EnforceKeysign(ctx, string(policy.PluginID))
+				if err != nil {
+					if safety.IsDisabledError(err) {
+						w.logger.WithFields(logrus.Fields{
+							"plugin_id": policy.PluginID,
+							"id":        policy.ID,
+						}).Info("deactivating policy: plugin is paused")
+						err = w.repo.Delete(ctx, task.PolicyID)
+						if err != nil {
+							return fmt.Errorf("failed to delete schedule: %w", err)
+						}
+						policy.Active = false
+						_, err = w.policy.UpdatePluginPolicy(ctx, *policy)
+						if err != nil {
+							return fmt.Errorf("failed to deactivate policy: %w", err)
+						}
 						return nil
 					}
 					w.logger.WithField("plugin_id", policy.PluginID).
-						Errorf("failed to check safety: %v", er)
-					return fmt.Errorf("safety check failed: %w", er)
+						Errorf("failed to check safety: %v", err)
+					return fmt.Errorf("safety check failed: %w", err)
 				}
 			}
 
-			next, er := w.interval.FromNowWhenNext(*policy)
-			if er != nil {
-				return fmt.Errorf("failed to compute next: %w", er)
+			next, err := w.interval.FromNowWhenNext(*policy)
+			if err != nil {
+				return fmt.Errorf("failed to compute next: %w", err)
 			}
 
-			buf, er := json.Marshal(task)
-			if er != nil {
-				return fmt.Errorf("failed to marshal task: %w", er)
+			buf, err := json.Marshal(task)
+			if err != nil {
+				return fmt.Errorf("failed to marshal task: %w", err)
 			}
 
-			_, er = w.client.EnqueueContext(
+			_, err = w.client.EnqueueContext(
 				ctx,
 				asynq.NewTask(w.task, buf),
 				asynq.MaxRetry(0),
@@ -148,30 +159,27 @@ func (w *Worker) enqueue() error {
 				asynq.Retention(10*time.Minute),
 				asynq.Queue(w.queue),
 			)
-			if er != nil {
-				return fmt.Errorf("failed to enqueue task: %w", er)
+			if err != nil {
+				return fmt.Errorf("failed to enqueue task: %w", err)
 			}
 
 			if next.IsZero() {
-				// Delete from scheduler
-				e := w.repo.Delete(ctx, task.PolicyID)
-				if e != nil {
-					return fmt.Errorf("failed to delete schedule: %w", e)
+				err = w.repo.Delete(ctx, task.PolicyID)
+				if err != nil {
+					return fmt.Errorf("failed to delete schedule: %w", err)
 				}
-
-				// Set policy active = false
 				policy.Active = false
-				_, e = w.policy.UpdatePluginPolicy(ctx, *policy)
-				if e != nil {
-					return fmt.Errorf("failed to deactivate policy: %w", e)
+				_, err = w.policy.UpdatePluginPolicy(ctx, *policy)
+				if err != nil {
+					return fmt.Errorf("failed to deactivate policy: %w", err)
 				}
 				w.logger.Infof("policy_id=%s: deactivated (no more executions)", task.PolicyID)
 				return nil
 			}
 
-			er = w.repo.SetNext(ctx, task.PolicyID, next)
-			if er != nil {
-				return fmt.Errorf("failed to set next: %w", er)
+			err = w.repo.SetNext(ctx, task.PolicyID, next)
+			if err != nil {
+				return fmt.Errorf("failed to set next: %w", err)
 			}
 			return nil
 		})

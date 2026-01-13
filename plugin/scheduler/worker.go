@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/vultisig/verifier/plugin/metrics"
+	"github.com/vultisig/verifier/plugin/safety"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/graceful"
 )
 
@@ -118,9 +119,14 @@ func (w *Worker) enqueue() error {
 			if w.safety != nil {
 				er = w.safety.EnforceKeysign(ctx, string(policy.PluginID))
 				if er != nil {
+					if safety.IsDisabledError(er) {
+						w.logger.WithField("plugin_id", policy.PluginID).
+							Info("skipping enqueue: plugin is paused")
+						return nil
+					}
 					w.logger.WithField("plugin_id", policy.PluginID).
-						Info("skipping enqueue: plugin is paused")
-					return nil
+						Errorf("failed to check safety: %v", er)
+					return fmt.Errorf("safety check failed: %w", er)
 				}
 			}
 

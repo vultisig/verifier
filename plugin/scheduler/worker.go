@@ -25,6 +25,7 @@ type Worker struct {
 	repo     Storage
 	interval Interval
 	policy   PolicyFetcher
+	safety   SafetyManager
 
 	pollInterval     time.Duration
 	iterationTimeout time.Duration
@@ -39,6 +40,7 @@ func NewWorker(
 	interval Interval,
 	policy PolicyFetcher,
 	schedulerMetrics metrics.SchedulerMetrics,
+	safety SafetyManager,
 ) *Worker {
 	return &Worker{
 		logger:           logger.WithField("pkg", "scheduler.Worker").Logger,
@@ -49,6 +51,7 @@ func NewWorker(
 		repo:             repo,
 		interval:         interval,
 		policy:           policy,
+		safety:           safety,
 		pollInterval:     30 * time.Second,
 		iterationTimeout: 30 * time.Second,
 	}
@@ -110,6 +113,15 @@ func (w *Worker) enqueue() error {
 			policy, er := w.policy.GetPluginPolicy(ctx, task.PolicyID)
 			if er != nil {
 				return fmt.Errorf("failed to fetch policy: %w", er)
+			}
+
+			if w.safety != nil {
+				er = w.safety.EnforceKeysign(ctx, string(policy.PluginID))
+				if er != nil {
+					w.logger.WithField("plugin_id", policy.PluginID).
+						Info("skipping enqueue: plugin is paused")
+					return nil
+				}
 			}
 
 			next, er := w.interval.FromNowWhenNext(*policy)

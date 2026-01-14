@@ -18,7 +18,7 @@ type Manager struct {
 	logger *logrus.Logger
 }
 
-func NewManager(logger *logrus.Logger, db Storage) *Manager {
+func NewManager(db Storage, logger *logrus.Logger) *Manager {
 	return &Manager{db: db, logger: logger}
 }
 

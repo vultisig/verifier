@@ -55,3 +55,16 @@ bin/
 testdata/integration/test-results/
 testdata/integration/bin/
 testdata/integration/hurl/generated/
+
+# Binaries
+/verifier
+/verifier-worker
+/worker
+
+# Generated config files with secrets
+devenv/config/*-generated.json
+devenv/SCRATCHPAD.md
+worker_config.json
+
+# IDE/tooling artifacts
+.mind/

@@ -28,17 +28,36 @@ type BillingPolicy struct {
 	Asset     string            `json:"asset"`                      // The asset that the fee is denominated in, e.g., "usdc"
 }
 
+// DeactivationReason values for policy deactivation context
+const (
+	DeactivationReasonUser        = "user"         // user-driven disable
+	DeactivationReasonPluginPause = "plugin_pause" // safety pause auto-disable
+	DeactivationReasonExpiry      = "expiry"       // expiry/TTL
+	DeactivationReasonCompleted   = "completed"    // no more executions
+)
+
 // This type should be used externally when creating or updating a plugin policy. It keeps the protobuf encoded billing recipe as a string which is used to verify a signature.
 type PluginPolicy struct {
-	ID            uuid.UUID       `json:"id" validate:"required"`
-	PublicKey     string          `json:"public_key" validate:"required"`
-	PluginID      PluginID        `json:"plugin_id" validate:"required"`
-	PluginVersion string          `json:"plugin_version" validate:"required"`
-	PolicyVersion int             `json:"policy_version" validate:"required"`
-	Signature     string          `json:"signature" validate:"required"`
-	Recipe        string          `json:"recipe" validate:"required"`  // base64 encoded recipe protobuf bytes
-	Billing       []BillingPolicy `json:"billing" validate:"required"` // This will be populated later
-	Active        bool            `json:"active" validate:"required"`
+	ID                 uuid.UUID       `json:"id" validate:"required"`
+	PublicKey          string          `json:"public_key" validate:"required"`
+	PluginID           PluginID        `json:"plugin_id" validate:"required"`
+	PluginVersion      string          `json:"plugin_version" validate:"required"`
+	PolicyVersion      int             `json:"policy_version" validate:"required"`
+	Signature          string          `json:"signature" validate:"required"`
+	Recipe             string          `json:"recipe" validate:"required"`  // base64 encoded recipe protobuf bytes
+	Billing            []BillingPolicy `json:"billing" validate:"required"` // This will be populated later
+	Active             bool            `json:"active" validate:"required"`
+	DeactivationReason *string         `json:"deactivation_reason,omitempty"` // nil when active; 'user', 'plugin_pause', 'expiry', 'completed'
+}
+
+func (p *PluginPolicy) Deactivate(reason string) {
+	p.Active = false
+	p.DeactivationReason = &reason
+}
+
+func (p *PluginPolicy) Activate() {
+	p.Active = true
+	p.DeactivationReason = nil
 }
 
 func (p *PluginPolicy) GetRecipe() (*rtypes.Policy, error) {

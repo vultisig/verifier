@@ -86,6 +86,13 @@ func (s *Server) SetAuthMiddleware(auth echo.MiddlewareFunc) {
 	s.authMiddleware = auth
 }
 
+func (s *Server) taskQueueName() string {
+	if s.cfg.TaskQueueName != "" {
+		return s.cfg.TaskQueueName
+	}
+	return tasks.QUEUE_NAME
+}
+
 func (s *Server) Start(ctx context.Context) error {
 	e := echo.New()
 
@@ -171,7 +178,7 @@ func (s *Server) handleReshareVault(c echo.Context) error {
 		asynq.MaxRetry(-1),
 		asynq.Timeout(7*time.Minute),
 		asynq.Retention(10*time.Minute),
-		asynq.Queue(tasks.QUEUE_NAME))
+		asynq.Queue(s.taskQueueName()))
 	if err != nil {
 		return fmt.Errorf("fail to enqueue task, err: %w", err)
 	}
@@ -297,7 +304,7 @@ func (s *Server) handleCreatePluginPolicy(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to validate policy"))
 	}
 
-	if pol.ID.String() == "" {
+	if pol.ID == uuid.Nil {
 		pol.ID = uuid.New()
 	}
 

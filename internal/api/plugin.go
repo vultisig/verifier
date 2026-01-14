@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -12,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/btcsuite/btcd/btcutil/psbt"
 	ecommon "github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
@@ -24,7 +22,6 @@ import (
 
 	"github.com/vultisig/recipes/chain/evm/ethereum"
 	"github.com/vultisig/recipes/engine"
-	"github.com/vultisig/recipes/sdk/zcash"
 	rtypes "github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/internal/conv"
 	"github.com/vultisig/verifier/internal/safety"
@@ -191,7 +188,7 @@ func (s *Server) checkAndDeactivatePolicy(ctx context.Context, policy *vtypes.Pl
 
 	// No rateLimitWindow - deactivate immediately
 	s.logger.Infof("policy_id=%s: no rateLimitWindow, deactivating immediately", policy.ID)
-	policy.Active = false
+	policy.Deactivate(vtypes.DeactivationReasonCompleted)
 	_, err = s.policyService.UpdatePolicy(ctx, *policy)
 	if err != nil {
 		s.logger.WithError(err).Errorf("policy_id=%s: failed to deactivate", policy.ID)
@@ -207,43 +204,36 @@ func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignReques
 
 	firstKeysignMessage := req.Messages[0]
 
-	// actually doesn't make a lot of sense to validate that,
-	// because even if req.Messages[](hashes proposed to sign) and req.Transaction(proposed tx object) are different,
-	// we are always appending signatures to req.Transaction and if it were for different hashes,
-	// signature would be wrong, and this tx would be rejected by the blockchain node anyway
-	//
-	// consider it's not safety check, but rather a sanity check
-	var txBytesEvaluate []byte
-	switch {
-	case firstKeysignMessage.Chain.IsEvm():
-		if len(req.Messages) != 1 {
-			errMsg := "plugins must sign exactly 1 message for evm"
-			return s.badRequest(c, errMsg, nil)
-		}
+	ngn, err := engine.NewEngine()
+	if err != nil {
+		return s.internal(c, "failed to create engine", err)
+	}
 
-		b, err := base64.StdEncoding.DecodeString(req.Transaction)
-		if err != nil {
-			errMsg := "transaction must be base64"
-			return s.badRequest(c, errMsg, err)
+	// Extract transaction bytes using chain-specific handler
+	txBytesEvaluate, err := ngn.ExtractTxBytes(firstKeysignMessage.Chain, req.Transaction)
+	if err != nil {
+		return s.badRequest(c, "failed to extract transaction bytes", err)
+	}
+
+	// EVM-specific hash validation: ensure the proposed hash matches the transaction
+	if firstKeysignMessage.Chain.IsEvm() {
+		if len(req.Messages) != 1 {
+			return s.badRequest(c, "plugins must sign exactly 1 message for evm", nil)
 		}
-		txBytesEvaluate = b
 
 		evmID, err := firstKeysignMessage.Chain.EvmID()
 		if err != nil {
-			errMsg := fmt.Sprintf("evm chain id not found: %s", firstKeysignMessage.Chain.String())
-			return s.badRequest(c, errMsg, err)
+			return s.badRequest(c, fmt.Sprintf("evm chain id not found: %s", firstKeysignMessage.Chain.String()), err)
 		}
 
-		txData, err := ethereum.DecodeUnsignedPayload(b)
+		txData, err := ethereum.DecodeUnsignedPayload(txBytesEvaluate)
 		if err != nil {
-			errMsg := "failed to decode evm payload"
-			return s.badRequest(c, errMsg, err)
+			return s.badRequest(c, "failed to decode evm payload", err)
 		}
 
 		kmBytes, err := base64.StdEncoding.DecodeString(firstKeysignMessage.Message)
 		if err != nil {
-			errMsg := "failed to decode b64 proposed tx"
-			return s.badRequest(c, errMsg, err)
+			return s.badRequest(c, "failed to decode b64 proposed tx", err)
 		}
 
 		hashToSignFromTxObj := etypes.LatestSignerForChainID(evmID).Hash(etypes.NewTx(txData))
@@ -259,56 +249,6 @@ func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignReques
 				hashToSignFromTxObj.Hex())
 			return s.badRequest(c, errMsg, nil)
 		}
-	case firstKeysignMessage.Chain == common.Bitcoin:
-		b, err := psbt.NewFromRawBytes(strings.NewReader(req.Transaction), true)
-		if err != nil {
-			errMsg := "failed to decode psbt"
-			return s.badRequest(c, errMsg, err)
-		}
-
-		var buf bytes.Buffer
-		err = b.UnsignedTx.Serialize(&buf)
-		if err != nil {
-			errMsg := "failed to serialize psbt"
-			return s.badRequest(c, errMsg, err)
-		}
-
-		txBytesEvaluate = buf.Bytes()
-	case firstKeysignMessage.Chain == common.XRP:
-		b, err := base64.StdEncoding.DecodeString(req.Transaction)
-		if err != nil {
-			errMsg := "failed to decode base64 XRP transaction"
-			return s.badRequest(c, errMsg, err)
-		}
-		txBytesEvaluate = b
-	case firstKeysignMessage.Chain == common.Solana:
-		b, err := base64.StdEncoding.DecodeString(req.Transaction)
-		if err != nil {
-			errMsg := "failed to decode base64 Solana tx"
-			return s.badRequest(c, errMsg, err)
-		}
-		txBytesEvaluate = b
-	case firstKeysignMessage.Chain == common.Zcash:
-		b, err := base64.StdEncoding.DecodeString(req.Transaction)
-		if err != nil {
-			errMsg := "failed to decode base64 Zcash transaction"
-			return s.badRequest(c, errMsg, err)
-		}
-		txBytes, _, _, err := zcash.ParseWithMetadata(b)
-		if err != nil {
-			errMsg := "failed to parse Zcash transaction metadata"
-			return s.badRequest(c, errMsg, err)
-		}
-		txBytesEvaluate = txBytes
-	default:
-		errMsg := fmt.Sprintf("failed to decode transaction, chain %s not supported", firstKeysignMessage.Chain)
-		return s.badRequest(c, errMsg, nil)
-	}
-
-	ngn, err := engine.NewEngine()
-	if err != nil {
-		errMsg := "failed to create engine"
-		return s.internal(c, errMsg, err)
 	}
 
 	var matchedRule *rtypes.Rule

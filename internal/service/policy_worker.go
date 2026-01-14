@@ -118,7 +118,7 @@ func (s *PolicyService) HandlePolicyDeactivate(ctx context.Context, task *asynq.
 		return nil
 	}
 
-	policy.Active = false
+	policy.Deactivate(types.DeactivationReasonExpiry)
 	_, err = s.UpdatePolicy(ctx, *policy)
 	if err != nil {
 		s.logger.WithError(err).WithField("policy_id", policyID).Error("Failed to deactivate policy")

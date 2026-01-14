@@ -31,8 +31,8 @@ func (r *Repo) Tx() storage.Tx {
 func (r *Repo) GetPluginPolicy(ctx context.Context, id uuid.UUID) (*types.PluginPolicy, error) {
 	var policy types.PluginPolicy
 	query := `
-        SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active,  recipe
-        FROM plugin_policies 
+        SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe, deactivation_reason
+        FROM plugin_policies
         WHERE id = $1`
 
 	err := r.tx.Pool().QueryRow(ctx, query, id).Scan(
@@ -44,6 +44,7 @@ func (r *Repo) GetPluginPolicy(ctx context.Context, id uuid.UUID) (*types.Plugin
 		&policy.Signature,
 		&policy.Active,
 		&policy.Recipe,
+		&policy.DeactivationReason,
 	)
 
 	if err != nil {
@@ -54,7 +55,7 @@ func (r *Repo) GetPluginPolicy(ctx context.Context, id uuid.UUID) (*types.Plugin
 
 func (r *Repo) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, onlyActive bool) ([]types.PluginPolicy, error) {
 	query := `
-  	SELECT id, public_key,  plugin_id, plugin_version, policy_version, signature, active, recipe
+  	SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe, deactivation_reason
 		FROM plugin_policies
 		WHERE public_key = $1
 		AND plugin_id = $2`
@@ -80,6 +81,7 @@ func (r *Repo) GetAllPluginPolicies(ctx context.Context, publicKey string, plugi
 			&policy.Signature,
 			&policy.Active,
 			&policy.Recipe,
+			&policy.DeactivationReason,
 		)
 		if err != nil {
 			return nil, err
@@ -97,9 +99,9 @@ func (r *Repo) GetAllPluginPolicies(ctx context.Context, publicKey string, plugi
 func (r *Repo) InsertPluginPolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error) {
 	query := `
   	INSERT INTO plugin_policies (
-      id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    RETURNING id, public_key,  plugin_id, plugin_version, policy_version, signature, active, recipe
+      id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe, deactivation_reason
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    RETURNING id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe, deactivation_reason
 	`
 
 	var insertedPolicy types.PluginPolicy
@@ -112,6 +114,7 @@ func (r *Repo) InsertPluginPolicy(ctx context.Context, policy types.PluginPolicy
 		policy.Signature,
 		policy.Active,
 		policy.Recipe,
+		policy.DeactivationReason,
 	).Scan(
 		&insertedPolicy.ID,
 		&insertedPolicy.PublicKey,
@@ -121,6 +124,7 @@ func (r *Repo) InsertPluginPolicy(ctx context.Context, policy types.PluginPolicy
 		&insertedPolicy.Signature,
 		&insertedPolicy.Active,
 		&insertedPolicy.Recipe,
+		&insertedPolicy.DeactivationReason,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert policy: %w", err)
@@ -131,14 +135,15 @@ func (r *Repo) InsertPluginPolicy(ctx context.Context, policy types.PluginPolicy
 
 func (r *Repo) UpdatePluginPolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error) {
 	query := `
-		UPDATE plugin_policies 
+		UPDATE plugin_policies
 		SET plugin_version = $2,
 		    policy_version = $3,
 			signature = $4,
 			active = $5,
-			recipe = $6
+			recipe = $6,
+			deactivation_reason = $7
 		WHERE id = $1
-		RETURNING id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe
+		RETURNING id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe, deactivation_reason
 	`
 
 	var updatedPolicy types.PluginPolicy
@@ -149,6 +154,7 @@ func (r *Repo) UpdatePluginPolicy(ctx context.Context, policy types.PluginPolicy
 		policy.Signature,
 		policy.Active,
 		policy.Recipe,
+		policy.DeactivationReason,
 	).Scan(
 		&updatedPolicy.ID,
 		&updatedPolicy.PublicKey,
@@ -158,6 +164,7 @@ func (r *Repo) UpdatePluginPolicy(ctx context.Context, policy types.PluginPolicy
 		&updatedPolicy.Signature,
 		&updatedPolicy.Active,
 		&updatedPolicy.Recipe,
+		&updatedPolicy.DeactivationReason,
 	)
 
 	if errors.Is(err, pgx.ErrNoRows) {

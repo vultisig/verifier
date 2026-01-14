@@ -11,7 +11,9 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/vultisig/verifier/plugin/metrics"
+	"github.com/vultisig/verifier/plugin/safety"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/graceful"
+	"github.com/vultisig/verifier/types"
 )
 
 type Worker struct {
@@ -25,6 +27,7 @@ type Worker struct {
 	repo     Storage
 	interval Interval
 	policy   PolicyFetcher
+	safety   SafetyManager
 
 	pollInterval     time.Duration
 	iterationTimeout time.Duration
@@ -39,6 +42,7 @@ func NewWorker(
 	interval Interval,
 	policy PolicyFetcher,
 	schedulerMetrics metrics.SchedulerMetrics,
+	safety SafetyManager,
 ) *Worker {
 	return &Worker{
 		logger:           logger.WithField("pkg", "scheduler.Worker").Logger,
@@ -49,6 +53,7 @@ func NewWorker(
 		repo:             repo,
 		interval:         interval,
 		policy:           policy,
+		safety:           safety,
 		pollInterval:     30 * time.Second,
 		iterationTimeout: 30 * time.Second,
 	}
@@ -103,26 +108,51 @@ func (w *Worker) enqueue() error {
 	// Collect metrics
 	w.collectMetrics(tasks)
 
-	eg := &errgroup.Group{}
+	var eg errgroup.Group
 	for _, _task := range tasks {
 		task := _task
 		eg.Go(func() error {
-			policy, er := w.policy.GetPluginPolicy(ctx, task.PolicyID)
-			if er != nil {
-				return fmt.Errorf("failed to fetch policy: %w", er)
+			policy, err := w.policy.GetPluginPolicy(ctx, task.PolicyID)
+			if err != nil {
+				return fmt.Errorf("failed to fetch policy: %w", err)
 			}
 
-			next, er := w.interval.FromNowWhenNext(*policy)
-			if er != nil {
-				return fmt.Errorf("failed to compute next: %w", er)
+			if w.safety != nil {
+				err = w.safety.EnforceKeysign(ctx, string(policy.PluginID))
+				if err != nil {
+					if safety.IsDisabledError(err) {
+						w.logger.WithFields(logrus.Fields{
+							"plugin_id": policy.PluginID,
+							"id":        policy.ID,
+						}).Info("deactivating policy: plugin is paused")
+						policy.Deactivate(types.DeactivationReasonPluginPause)
+						_, err = w.policy.UpdatePluginPolicy(ctx, *policy)
+						if err != nil {
+							return fmt.Errorf("failed to deactivate policy: %w", err)
+						}
+						err = w.repo.Delete(ctx, task.PolicyID)
+						if err != nil {
+							return fmt.Errorf("failed to delete schedule: %w", err)
+						}
+						return nil
+					}
+					w.logger.WithField("plugin_id", policy.PluginID).
+						Errorf("failed to check safety: %v", err)
+					return fmt.Errorf("safety check failed: %w", err)
+				}
 			}
 
-			buf, er := json.Marshal(task)
-			if er != nil {
-				return fmt.Errorf("failed to marshal task: %w", er)
+			next, err := w.interval.FromNowWhenNext(*policy)
+			if err != nil {
+				return fmt.Errorf("failed to compute next: %w", err)
 			}
 
-			_, er = w.client.EnqueueContext(
+			buf, err := json.Marshal(task)
+			if err != nil {
+				return fmt.Errorf("failed to marshal task: %w", err)
+			}
+
+			_, err = w.client.EnqueueContext(
 				ctx,
 				asynq.NewTask(w.task, buf),
 				asynq.MaxRetry(0),
@@ -130,30 +160,27 @@ func (w *Worker) enqueue() error {
 				asynq.Retention(10*time.Minute),
 				asynq.Queue(w.queue),
 			)
-			if er != nil {
-				return fmt.Errorf("failed to enqueue task: %w", er)
+			if err != nil {
+				return fmt.Errorf("failed to enqueue task: %w", err)
 			}
 
 			if next.IsZero() {
-				// Delete from scheduler
-				e := w.repo.Delete(ctx, task.PolicyID)
-				if e != nil {
-					return fmt.Errorf("failed to delete schedule: %w", e)
+				policy.Deactivate(types.DeactivationReasonCompleted)
+				_, err = w.policy.UpdatePluginPolicy(ctx, *policy)
+				if err != nil {
+					return fmt.Errorf("failed to deactivate policy: %w", err)
 				}
-
-				// Set policy active = false
-				policy.Active = false
-				_, e = w.policy.UpdatePluginPolicy(ctx, *policy)
-				if e != nil {
-					return fmt.Errorf("failed to deactivate policy: %w", e)
+				err = w.repo.Delete(ctx, task.PolicyID)
+				if err != nil {
+					return fmt.Errorf("failed to delete schedule: %w", err)
 				}
 				w.logger.Infof("policy_id=%s: deactivated (no more executions)", task.PolicyID)
 				return nil
 			}
 
-			er = w.repo.SetNext(ctx, task.PolicyID, next)
-			if er != nil {
-				return fmt.Errorf("failed to set next: %w", er)
+			err = w.repo.SetNext(ctx, task.PolicyID, next)
+			if err != nil {
+				return fmt.Errorf("failed to set next: %w", err)
 			}
 			return nil
 		})

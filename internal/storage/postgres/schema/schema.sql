@@ -214,7 +214,8 @@ CREATE TABLE "plugin_policies" (
     "active" boolean DEFAULT true NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "deleted" boolean DEFAULT false NOT NULL
+    "deleted" boolean DEFAULT false NOT NULL,
+    "deactivation_reason" "text"
 );
 
 CREATE TABLE "plugin_policy_billing" (

@@ -212,9 +212,29 @@ func (s *Server) UpdatePluginPolicyById(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgPublicKeyMismatch))
 	}
 
-	// Only allow deactivating, not reactivating
 	if !oldPolicy.Active && policy.Active {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("cannot reactivate an ended policy"))
+		r := oldPolicy.DeactivationReason
+		if r == nil {
+			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgReactivateMissingReason))
+		}
+
+		if *r == types.DeactivationReasonExpiry || *r == types.DeactivationReasonCompleted {
+			return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgReactivateExpiredPolicy))
+		}
+
+		if *r != types.DeactivationReasonUser && *r != types.DeactivationReasonPluginPause {
+			return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgReactivateInvalidReason))
+		}
+
+		if *r == types.DeactivationReasonPluginPause {
+			ctx := c.Request().Context()
+			err := s.safetyMgm.EnforceKeysign(ctx, string(oldPolicy.PluginID))
+			if err != nil {
+				return c.JSON(http.StatusLocked, NewErrorResponseWithMessage(msgPluginPaused))
+			}
+		}
+
+		policy.Activate()
 	}
 
 	if !s.verifyPolicySignature(policy) {

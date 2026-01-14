@@ -13,6 +13,7 @@ import (
 	"github.com/vultisig/verifier/plugin/metrics"
 	"github.com/vultisig/verifier/plugin/safety"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/graceful"
+	"github.com/vultisig/verifier/types"
 )
 
 type Worker struct {
@@ -124,14 +125,14 @@ func (w *Worker) enqueue() error {
 							"plugin_id": policy.PluginID,
 							"id":        policy.ID,
 						}).Info("deactivating policy: plugin is paused")
-						err = w.repo.Delete(ctx, task.PolicyID)
-						if err != nil {
-							return fmt.Errorf("failed to delete schedule: %w", err)
-						}
-						policy.Active = false
+						policy.Deactivate(types.DeactivationReasonPluginPause)
 						_, err = w.policy.UpdatePluginPolicy(ctx, *policy)
 						if err != nil {
 							return fmt.Errorf("failed to deactivate policy: %w", err)
+						}
+						err = w.repo.Delete(ctx, task.PolicyID)
+						if err != nil {
+							return fmt.Errorf("failed to delete schedule: %w", err)
 						}
 						return nil
 					}
@@ -164,14 +165,14 @@ func (w *Worker) enqueue() error {
 			}
 
 			if next.IsZero() {
-				err = w.repo.Delete(ctx, task.PolicyID)
-				if err != nil {
-					return fmt.Errorf("failed to delete schedule: %w", err)
-				}
-				policy.Active = false
+				policy.Deactivate(types.DeactivationReasonCompleted)
 				_, err = w.policy.UpdatePluginPolicy(ctx, *policy)
 				if err != nil {
 					return fmt.Errorf("failed to deactivate policy: %w", err)
+				}
+				err = w.repo.Delete(ctx, task.PolicyID)
+				if err != nil {
+					return fmt.Errorf("failed to delete schedule: %w", err)
 				}
 				w.logger.Infof("policy_id=%s: deactivated (no more executions)", task.PolicyID)
 				return nil

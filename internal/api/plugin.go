@@ -191,7 +191,7 @@ func (s *Server) checkAndDeactivatePolicy(ctx context.Context, policy *vtypes.Pl
 
 	// No rateLimitWindow - deactivate immediately
 	s.logger.Infof("policy_id=%s: no rateLimitWindow, deactivating immediately", policy.ID)
-	policy.Active = false
+	policy.Deactivate(vtypes.DeactivationReasonCompleted)
 	_, err = s.policyService.UpdatePolicy(ctx, *policy)
 	if err != nil {
 		s.logger.WithError(err).Errorf("policy_id=%s: failed to deactivate", policy.ID)

@@ -304,7 +304,7 @@ func (s *Server) handleCreatePluginPolicy(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to validate policy"))
 	}
 
-	if pol.ID.String() == "" {
+	if pol.ID == uuid.Nil {
 		pol.ID = uuid.New()
 	}
 

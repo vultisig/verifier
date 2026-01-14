@@ -55,3 +55,8 @@ bin/
 testdata/integration/test-results/
 testdata/integration/bin/
 testdata/integration/hurl/generated/
+
+# Binaries
+verifier
+verifier-worker
+worker

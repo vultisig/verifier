@@ -1,0 +1,33 @@
+{
+  "block_storage": {
+    "access_key": "minioadmin",
+    "bucket": "vultisig-verifier",
+    "host": "http://localhost:9000",
+    "region": "us-east-1",
+    "secret": "minioadmin"
+  },
+  "database": {
+    "dsn": "postgres://vultisig:vultisig@localhost:5432/vultisig-verifier?sslmode=disable"
+  },
+  "fees": {
+    "usdc_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+  },
+  "log_format": "text",
+  "metrics": {
+    "enabled": true,
+    "host": "0.0.0.0",
+    "port": 8089
+  },
+  "plugin": {},
+  "redis": {
+    "uri": "redis://:vultisig@localhost:6379"
+  },
+  "vault_service": {
+    "do_setup_msg": false,
+    "encryption_secret": "devsecret123456789012345678901234",
+    "local_party_prefix": "verifier-dev",
+    "relay": {
+      "server": "http://localhost:8090"
+    }
+  }
+}

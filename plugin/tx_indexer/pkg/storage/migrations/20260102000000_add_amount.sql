@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-ALTER TABLE tx_indexer ADD COLUMN IF NOT EXISTS amount TEXT;
+ALTER TABLE tx_indexer ADD COLUMN amount TEXT;
 -- +goose StatementEnd
 
 -- +goose Down

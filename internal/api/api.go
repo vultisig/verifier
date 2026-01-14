@@ -50,6 +50,11 @@ const (
 	msgPluginPaused                  = "plugin is currently paused"
 	msgPluginIDMismatch              = "plugin ID mismatch: not authorized to sign for this plugin"
 
+	// Policy reactivation
+	msgReactivateMissingReason = "cannot reactivate policy without deactivation_reason"
+	msgReactivateExpiredPolicy = "cannot reactivate expired/completed policy"
+	msgReactivateInvalidReason = "cannot reactivate policy with this deactivation reason"
+
 	// Plugin Report
 	msgReportNotEligible    = "not eligible to report: no installation found"
 	msgReportCooldownActive = "cooldown active: please wait before reporting again"

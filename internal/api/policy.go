@@ -227,8 +227,7 @@ func (s *Server) UpdatePluginPolicyById(c echo.Context) error {
 		}
 
 		if *r == types.DeactivationReasonPluginPause {
-			ctx := c.Request().Context()
-			err := s.safetyMgm.EnforceKeysign(ctx, string(oldPolicy.PluginID))
+			err := s.safetyMgm.EnforceKeysign(c.Request().Context(), string(oldPolicy.PluginID))
 			if err != nil {
 				return c.JSON(http.StatusLocked, NewErrorResponseWithMessage(msgPluginPaused))
 			}

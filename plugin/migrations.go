@@ -16,6 +16,21 @@ import (
 //go:embed safety/safety_pg/migrations/*.sql
 var pluginMigrations embed.FS
 
+// WithMigrations runs plugin database migrations and returns an initialized storage instance.
+// This function is designed for use by external plugin applications (e.g., app-recurring)
+// that need to initialize their plugin databases with the required schema.
+//
+// Example usage in external applications:
+//   safetyStorage, err := plugin.WithMigrations(
+//       logger,
+//       pgPool,
+//       safety_pg.NewRepo,
+//       "safety/safety_pg/migrations",
+//   )
+//
+// The migrations are embedded in pluginMigrations and executed via MigrationManager.Migrate().
+// Note: This function is not used within the verifier codebase itself, which uses
+// SystemMigrationManager and VerifierMigrationManager for its own database migrations.
 func WithMigrations[T any](
 	logger *logrus.Logger,
 	pool *pgxpool.Pool,

@@ -37,12 +37,14 @@ func (s *Syncer) SyncSafetyToPlugin(ctx context.Context, pluginID types.PluginID
 	if err != nil {
 		return fmt.Errorf("failed to sync safety to plugin(%s): %w", url, err)
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
+	defer s.closer(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("failed to sync safety to plugin(%s): status %d, body: %s", url, resp.StatusCode, string(body))
 	}
 

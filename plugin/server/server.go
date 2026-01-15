@@ -27,6 +27,7 @@ import (
 	"github.com/vultisig/verifier/plugin/metrics"
 	"github.com/vultisig/verifier/plugin/policy"
 	"github.com/vultisig/verifier/plugin/redis"
+	"github.com/vultisig/verifier/plugin/safety"
 	"github.com/vultisig/verifier/plugin/tasks"
 	vtypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/verifier/vault"
@@ -48,6 +49,7 @@ type Server struct {
 	middlewares    []echo.MiddlewareFunc
 	authMiddleware echo.MiddlewareFunc
 	metrics        metrics.PluginServerMetrics
+	safety         safety.Storage
 }
 
 // NewServer returns a new server.
@@ -62,6 +64,7 @@ func NewServer(
 	middlewares []echo.MiddlewareFunc,
 	metrics metrics.PluginServerMetrics, // Optional: pass nil to disable metrics
 	logger *logrus.Logger, // Pass your configured logger for consistent formatting
+	safety safety.Storage,
 ) *Server {
 	// Guard against nil logger to avoid startup panics
 	if logger == nil {
@@ -79,6 +82,7 @@ func NewServer(
 		policy:       policy,
 		middlewares:  middlewares,
 		metrics:      metrics,
+		safety:       safety,
 	}
 }
 
@@ -123,6 +127,7 @@ func (s *Server) Start(ctx context.Context) error {
 	plg.GET("/recipe-specification", s.handleGetRecipeSpecification)
 	plg.POST("/recipe-specification/suggest", s.handleGetRecipeSpecificationSuggest)
 	plg.DELETE("/policy/:policyId", s.handleDeletePluginPolicyById, s.VerifierAuthMiddleware)
+	plg.PUT("/safety", s.handleSyncSafety, s.VerifierAuthMiddleware)
 
 	eg := &errgroup.Group{}
 	eg.Go(func() error {
@@ -527,4 +532,22 @@ func policyToMessageHex(policy vtypes.PluginPolicy) ([]byte, error) {
 	}
 	result := strings.Join(fields, delimiter)
 	return []byte(result), nil
+}
+
+func (s *Server) handleSyncSafety(c echo.Context) error {
+	var flags []safety.ControlFlag
+	err := c.Bind(&flags)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid request"))
+	}
+
+	err = s.safety.UpsertControlFlags(c.Request().Context(), flags)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to sync control flags")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to sync control flags"))
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"synced": len(flags),
+	})
 }

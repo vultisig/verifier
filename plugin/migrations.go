@@ -21,12 +21,13 @@ var pluginMigrations embed.FS
 // that need to initialize their plugin databases with the required schema.
 //
 // Example usage in external applications:
-//   safetyStorage, err := plugin.WithMigrations(
-//       logger,
-//       pgPool,
-//       safety_pg.NewRepo,
-//       "safety/safety_pg/migrations",
-//   )
+//
+//	safetyStorage, err := plugin.WithMigrations(
+//	    logger,
+//	    pgPool,
+//	    safety_pg.NewRepo,
+//	    "safety/safety_pg/migrations",
+//	)
 //
 // The migrations are embedded in pluginMigrations and executed via MigrationManager.Migrate().
 // Note: This function is not used within the verifier codebase itself, which uses

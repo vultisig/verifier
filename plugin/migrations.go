@@ -13,6 +13,7 @@ import (
 //go:embed scheduler/scheduler_pg/migrations/*.sql
 //go:embed policy/policy_pg/migrations/*.sql
 //go:embed tx_indexer/pkg/storage/migrations/*.sql
+//go:embed safety/safety_pg/migrations/*.sql
 var pluginMigrations embed.FS
 
 func WithMigrations[T any](

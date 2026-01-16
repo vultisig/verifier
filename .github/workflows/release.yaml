@@ -1,0 +1,47 @@
+name: Build and Release to GHCR
+
+on:
+  release:
+    types: [published]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-verifier:
+    uses: ./.github/workflows/build-push-image.yaml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      service: verifier
+      registry: ghcr.io
+      image_name: ${{ github.repository }}
+      tag: ${{ github.event.release.tag_name }}
+      additional_tag: latest
+      proposed_yaml: proposed.yaml
+
+  build-worker:
+    uses: ./.github/workflows/build-push-image.yaml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      service: worker
+      registry: ghcr.io
+      image_name: ${{ github.repository }}
+      tag: ${{ github.event.release.tag_name }}
+      additional_tag: latest
+
+  build-tx-indexer:
+    uses: ./.github/workflows/build-push-image.yaml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      service: tx_indexer
+      registry: ghcr.io
+      image_name: ${{ github.repository }}
+      tag: ${{ github.event.release.tag_name }}
+      additional_tag: latest

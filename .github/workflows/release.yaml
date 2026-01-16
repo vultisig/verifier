@@ -3,6 +3,12 @@ name: Build and Release to GHCR
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Docker image tag to publish"
+        required: true
+        type: string
 
 env:
   REGISTRY: ghcr.io
@@ -18,7 +24,7 @@ jobs:
       service: verifier
       registry: ghcr.io
       image_name: ${{ github.repository }}
-      tag: ${{ github.event.release.tag_name }}
+      tag: ${{ inputs.tag || github.event.release.tag_name }}
       additional_tag: latest
       proposed_yaml: proposed.yaml
 
@@ -31,7 +37,7 @@ jobs:
       service: worker
       registry: ghcr.io
       image_name: ${{ github.repository }}
-      tag: ${{ github.event.release.tag_name }}
+      tag: ${{ inputs.tag || github.event.release.tag_name }}
       additional_tag: latest
 
   build-tx-indexer:
@@ -43,5 +49,21 @@ jobs:
       service: tx_indexer
       registry: ghcr.io
       image_name: ${{ github.repository }}
-      tag: ${{ github.event.release.tag_name }}
+      tag: ${{ inputs.tag || github.event.release.tag_name }}
       additional_tag: latest
+
+  set-public:
+    needs: [build-verifier, build-worker, build-tx-indexer]
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Set GHCR packages public
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          owner="${{ github.repository_owner }}"
+          repo="${{ github.event.repository.name }}"
+          gh api -X PATCH "/orgs/${owner}/packages/container/${repo}%2Fverifier/visibility" -f visibility=public
+          gh api -X PATCH "/orgs/${owner}/packages/container/${repo}%2Fworker/visibility" -f visibility=public
+          gh api -X PATCH "/orgs/${owner}/packages/container/${repo}%2Ftx_indexer/visibility" -f visibility=public

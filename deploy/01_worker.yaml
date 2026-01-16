@@ -87,6 +87,8 @@ spec:
                 configMapKeyRef:
                   name: verifier
                   key: log-format
+            - name: HEALTH_PORT
+              value: "80"
           resources:
             requests:
               memory: "64Mi"
@@ -94,3 +96,15 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 10

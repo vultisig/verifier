@@ -4,11 +4,19 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/btcsuite/btcd/btcutil/psbt"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/vultisig/mobile-tss-lib/tss"
+	"github.com/vultisig/recipes/sdk/bch"
 	"github.com/vultisig/recipes/sdk/btc"
 	"github.com/vultisig/vultisig-go/common"
 )
+
+// UtxoSDK defines the interface for UTXO chain SDKs used by the indexer.
+type UtxoSDK interface {
+	Sign(psbtBytes []byte, signatures map[string]tss.KeysignResponse) ([]byte, error)
+	CalculateInputSignatureHash(pkt *psbt.Packet, inputIndex int) ([]byte, error)
+}
 
 // UtxoIndexer is a generic indexer for UTXO chains that use BTC-compatible wire format.
 // This includes Litecoin, Dogecoin, and Bitcoin Cash.
@@ -18,11 +26,10 @@ import (
 // - Txid is computed identically: double SHA256 of the serialized transaction
 // - The btcd/wire.MsgTx.Deserialize() correctly parses transactions from all these chains
 //
-// Note: Signing differences (e.g., BCH's SIGHASH_FORKID) are handled by the recipes SDK,
-// not by this indexer. This code only deserializes the already-signed transaction to compute txid.
+// Note: Signing differences (e.g., BCH's SIGHASH_FORKID) are handled by chain-specific SDKs.
 type UtxoIndexer struct {
 	chain common.Chain
-	sdk   *btc.SDK
+	sdk   UtxoSDK
 }
 
 // NewUtxoIndexer creates a new UTXO chain indexer for the specified chain.
@@ -44,8 +51,12 @@ func NewDogecoinIndexer() *UtxoIndexer {
 }
 
 // NewBitcoinCashIndexer creates a Bitcoin Cash chain indexer.
+// BCH requires its own SDK because it uses SIGHASH_FORKID and BIP143-style signature hashing.
 func NewBitcoinCashIndexer() *UtxoIndexer {
-	return NewUtxoIndexer(common.BitcoinCash)
+	return &UtxoIndexer{
+		chain: common.BitcoinCash,
+		sdk:   bch.NewSDK(nil),
+	}
 }
 
 // ComputeTxHash computes the transaction hash for a signed UTXO transaction.

@@ -3,11 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/hibiken/asynq"
 
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/fee_manager"
+	"github.com/vultisig/verifier/internal/health"
 	"github.com/vultisig/verifier/internal/logging"
 	internalMetrics "github.com/vultisig/verifier/internal/metrics"
 	"github.com/vultisig/verifier/internal/safety"
@@ -20,7 +24,16 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Handle graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		cancel()
+	}()
 
 	cfg, err := config.GetConfigure()
 	if err != nil {
@@ -28,6 +41,14 @@ func main() {
 	}
 
 	logger := logging.NewLogger(cfg.LogFormat)
+
+	// Start health server for K8s probes
+	healthServer := health.New(cfg.HealthPort)
+	go func() {
+		if err := healthServer.Start(ctx, logger); err != nil {
+			logger.Errorf("health server error: %v", err)
+		}
+	}()
 
 	redisCfg := cfg.Redis
 	var redisConnOpt asynq.RedisConnOpt

@@ -22,6 +22,7 @@ type WorkerConfig struct {
 	Database     config.Database           `mapstructure:"database" json:"database,omitempty"`
 	Fees         FeesConfig                `mapstructure:"fees" json:"fees"`
 	Metrics      MetricsConfig             `mapstructure:"metrics" json:"metrics,omitempty"`
+	HealthPort   int                       `mapstructure:"health_port" json:"health_port,omitempty"`
 }
 
 type VerifierConfig struct {
@@ -82,6 +83,7 @@ func ReadConfig(configName string) (*WorkerConfig, error) {
 
 	viper.SetDefault("VaultService.VaultsFilePath", "vaults")
 	viper.SetDefault("log_format", "text")
+	viper.SetDefault("health_port", 80)
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {

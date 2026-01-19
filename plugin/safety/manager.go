@@ -23,8 +23,8 @@ func NewManager(db Storage, logger *logrus.Logger) *Manager {
 }
 
 func (m *Manager) EnforceKeysign(ctx context.Context, pluginID string) error {
-	globalKey := "global-keysign"
-	pluginKey := pluginID + "-keysign"
+	globalKey := GlobalKeysignKey()
+	pluginKey := KeysignFlagKey(pluginID)
 
 	flags, err := m.db.GetControlFlags(ctx, globalKey, pluginKey)
 	if err != nil {

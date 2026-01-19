@@ -10,6 +10,7 @@ import (
 
 	"github.com/vultisig/verifier/internal/safety"
 	itypes "github.com/vultisig/verifier/internal/types"
+	psafety "github.com/vultisig/verifier/plugin/safety"
 	"github.com/vultisig/verifier/types"
 )
 
@@ -28,12 +29,17 @@ type ReportServiceStorage interface {
 	PausePlugin(ctx context.Context, pluginID types.PluginID, record itypes.PauseHistoryRecord) error
 }
 
+type SafetySyncer interface {
+	SyncSafetyToPlugin(ctx context.Context, pluginID types.PluginID, flags []psafety.ControlFlag) error
+}
+
 type ReportService struct {
 	db     ReportServiceStorage
+	syncer SafetySyncer
 	logger *logrus.Logger
 }
 
-func NewReportService(db ReportServiceStorage, logger *logrus.Logger) (*ReportService, error) {
+func NewReportService(db ReportServiceStorage, syncer SafetySyncer, logger *logrus.Logger) (*ReportService, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database storage cannot be nil")
 	}
@@ -42,6 +48,7 @@ func NewReportService(db ReportServiceStorage, logger *logrus.Logger) (*ReportSe
 	}
 	return &ReportService{
 		db:     db,
+		syncer: syncer,
 		logger: logger,
 	}, nil
 }
@@ -152,6 +159,17 @@ func (s *ReportService) evaluateAndPause(ctx context.Context, pluginID types.Plu
 	})
 	if err != nil {
 		return fmt.Errorf("failed to pause plugin: %w", err)
+	}
+
+	if s.syncer != nil {
+		flags := []psafety.ControlFlag{
+			{Key: psafety.KeysignFlagKey(string(pluginID)), Enabled: false},
+			{Key: psafety.KeygenFlagKey(string(pluginID)), Enabled: false},
+		}
+		syncErr := s.syncer.SyncSafetyToPlugin(ctx, pluginID, flags)
+		if syncErr != nil {
+			s.logger.WithError(syncErr).WithField("plugin_id", pluginID).Warn("failed to sync safety to plugin")
+		}
 	}
 
 	return nil

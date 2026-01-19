@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/vultisig/recipes/sdk/btc"
+	cosmossdk "github.com/vultisig/recipes/sdk/cosmos"
 	"github.com/vultisig/recipes/sdk/solana"
 	"github.com/vultisig/recipes/sdk/xrpl"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/chain"
@@ -115,6 +116,10 @@ func Chains() (SupportedChains, error) {
 	))
 
 	chains[common.XRP] = chain.NewXRPIndexer(xrpl.NewSDK(
+		nil,
+	))
+
+	chains[common.THORChain] = chain.NewTHORChainIndexer(cosmossdk.NewSDK(
 		nil,
 	))
 

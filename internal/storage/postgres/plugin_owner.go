@@ -60,23 +60,3 @@ func (p *PostgresBackend) DeactivateOwner(ctx context.Context, pluginID types.Pl
 	}
 	return nil
 }
-
-func (p *PostgresBackend) HasActiveOwner(ctx context.Context, pluginID types.PluginID) (bool, error) {
-	query := `SELECT EXISTS(SELECT 1 FROM plugin_owners WHERE plugin_id = $1 AND active = TRUE)`
-	var exists bool
-	err := p.pool.QueryRow(ctx, query, pluginID).Scan(&exists)
-	if err != nil {
-		return false, fmt.Errorf("failed to check active owner: %w", err)
-	}
-	return exists, nil
-}
-
-func (p *PostgresBackend) CountActiveOwners(ctx context.Context, pluginID types.PluginID) (int, error) {
-	query := `SELECT COUNT(*) FROM plugin_owners WHERE plugin_id = $1 AND active = TRUE`
-	var count int
-	err := p.pool.QueryRow(ctx, query, pluginID).Scan(&count)
-	if err != nil {
-		return 0, fmt.Errorf("failed to count active owners: %w", err)
-	}
-	return count, nil
-}

@@ -3,6 +3,7 @@ package tx_indexer
 import (
 	"context"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -101,7 +102,12 @@ func (t *Service) SetSignedAndBroadcasted(
 		return fmt.Errorf("failed to decode proposed tx: %w", err)
 	}
 
-	txHash, err := client.ComputeTxHash(body, sigs)
+	pubKey, err := hex.DecodeString(tx.FromPublicKey)
+	if err != nil {
+		return fmt.Errorf("failed to decode public key: %w", err)
+	}
+
+	txHash, err := client.ComputeTxHash(body, sigs, pubKey)
 	if err != nil {
 		return fmt.Errorf("client.ComputeTxHash: %w", err)
 	}

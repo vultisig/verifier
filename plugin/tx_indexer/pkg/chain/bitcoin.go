@@ -19,7 +19,7 @@ func NewBitcoinIndexer(sdk *btc.SDK) *BitcoinIndexer {
 	}
 }
 
-func (b *BitcoinIndexer) ComputeTxHash(proposedTx []byte, sigs map[string]tss.KeysignResponse) (string, error) {
+func (b *BitcoinIndexer) ComputeTxHash(proposedTx []byte, sigs map[string]tss.KeysignResponse, _ []byte) (string, error) {
 	signed, err := b.sdk.Sign(proposedTx, sigs)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign: %w", err)

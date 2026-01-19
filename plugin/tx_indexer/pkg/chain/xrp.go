@@ -21,7 +21,7 @@ func NewXRPIndexer(sdk *xrpl.SDK) *XRPIndexer {
 	}
 }
 
-func (x *XRPIndexer) ComputeTxHash(proposedTx []byte, sigs map[string]tss.KeysignResponse) (string, error) {
+func (x *XRPIndexer) ComputeTxHash(proposedTx []byte, sigs map[string]tss.KeysignResponse, _ []byte) (string, error) {
 	if len(sigs) == 0 {
 		return "", fmt.Errorf("no signatures provided")
 	}

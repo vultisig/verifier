@@ -107,7 +107,7 @@ func TestZcashIndexer_ComputeTxHash(t *testing.T) {
 	sigs := createTestSignatures(t, data)
 
 	// Compute tx hash
-	txHash, err := indexer.ComputeTxHash(data, sigs)
+	txHash, err := indexer.ComputeTxHash(data, sigs, nil)
 	if err != nil {
 		t.Fatalf("ComputeTxHash failed: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestZcashIndexer_ComputeTxHash_NoSignatures(t *testing.T) {
 	data := createTestTransactionWithMetadata(t)
 
 	// Empty signatures map
-	_, err := indexer.ComputeTxHash(data, map[string]tss.KeysignResponse{})
+	_, err := indexer.ComputeTxHash(data, map[string]tss.KeysignResponse{}, nil)
 	if err == nil {
 		t.Error("Expected error for empty signatures")
 	}
@@ -147,7 +147,7 @@ func TestZcashIndexer_ComputeTxHash_NoMetadata(t *testing.T) {
 		"test-key": {DerSignature: mockDerSignature},
 	}
 
-	_, err := indexer.ComputeTxHash(plainTxBytes, sigs)
+	_, err := indexer.ComputeTxHash(plainTxBytes, sigs, nil)
 	if err == nil {
 		t.Error("Expected error for tx without metadata")
 	}
@@ -166,7 +166,7 @@ func TestZcashIndexer_ComputeTxHash_MissingSignature(t *testing.T) {
 		"wrong-key": {DerSignature: mockDerSignature},
 	}
 
-	_, err := indexer.ComputeTxHash(data, sigs)
+	_, err := indexer.ComputeTxHash(data, sigs, nil)
 	if err == nil {
 		t.Error("Expected error for missing signature")
 	}
@@ -230,7 +230,7 @@ func TestZcashIndexer_ComputeTxHash_MultipleInputs(t *testing.T) {
 		}
 	}
 
-	txHash, err := indexer.ComputeTxHash(data, sigs)
+	txHash, err := indexer.ComputeTxHash(data, sigs, nil)
 	if err != nil {
 		t.Fatalf("ComputeTxHash failed: %v", err)
 	}
@@ -249,12 +249,12 @@ func TestZcashIndexer_ComputeTxHash_Deterministic(t *testing.T) {
 	sigs := createTestSignatures(t, data)
 
 	// Compute hash multiple times
-	hash1, err := indexer.ComputeTxHash(data, sigs)
+	hash1, err := indexer.ComputeTxHash(data, sigs, nil)
 	if err != nil {
 		t.Fatalf("First ComputeTxHash failed: %v", err)
 	}
 
-	hash2, err := indexer.ComputeTxHash(data, sigs)
+	hash2, err := indexer.ComputeTxHash(data, sigs, nil)
 	if err != nil {
 		t.Fatalf("Second ComputeTxHash failed: %v", err)
 	}

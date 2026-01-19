@@ -191,6 +191,16 @@ CREATE TABLE "plugin_installations" (
     "installed_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 
+CREATE TABLE "plugin_owners" (
+    "plugin_id" "plugin_id" NOT NULL,
+    "public_key" "text" NOT NULL,
+    "active" boolean DEFAULT true NOT NULL,
+    "added_via" "text" NOT NULL,
+    "added_by_public_key" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
 CREATE TABLE "plugin_pause_history" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "plugin_id" "plugin_id" NOT NULL,
@@ -371,6 +381,9 @@ ALTER TABLE ONLY "plugin_apikey"
 ALTER TABLE ONLY "plugin_installations"
     ADD CONSTRAINT "plugin_installations_pkey" PRIMARY KEY ("plugin_id", "public_key");
 
+ALTER TABLE ONLY "plugin_owners"
+    ADD CONSTRAINT "plugin_owners_pkey" PRIMARY KEY ("plugin_id", "public_key");
+
 ALTER TABLE ONLY "plugin_pause_history"
     ADD CONSTRAINT "plugin_pause_history_pkey" PRIMARY KEY ("id");
 
@@ -440,6 +453,8 @@ CREATE INDEX "idx_plugin_apikey_apikey" ON "plugin_apikey" USING "btree" ("apike
 
 CREATE INDEX "idx_plugin_apikey_plugin_id" ON "plugin_apikey" USING "btree" ("plugin_id");
 
+CREATE INDEX "idx_plugin_owners_public_key" ON "plugin_owners" USING "btree" ("public_key");
+
 CREATE INDEX "idx_plugin_pause_history_plugin" ON "plugin_pause_history" USING "btree" ("plugin_id", "created_at" DESC);
 
 CREATE INDEX "idx_plugin_policies_active" ON "plugin_policies" USING "btree" ("active");
@@ -495,6 +510,9 @@ ALTER TABLE ONLY "plugin_policy_billing"
 
 ALTER TABLE ONLY "plugin_apikey"
     ADD CONSTRAINT "plugin_apikey_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugins"("id") ON DELETE CASCADE;
+
+ALTER TABLE ONLY "plugin_owners"
+    ADD CONSTRAINT "plugin_owners_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugins"("id") ON DELETE CASCADE;
 
 ALTER TABLE ONLY "plugin_pause_history"
     ADD CONSTRAINT "plugin_pause_history_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugins"("id") ON DELETE CASCADE;

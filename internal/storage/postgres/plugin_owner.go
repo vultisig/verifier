@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/types"
 )
 
@@ -42,7 +43,7 @@ func (p *PostgresBackend) GetPluginsByOwner(ctx context.Context, publicKey strin
 	return pluginIDs, nil
 }
 
-func (p *PostgresBackend) AddOwner(ctx context.Context, pluginID types.PluginID, publicKey, addedVia, addedBy string) error {
+func (p *PostgresBackend) AddOwner(ctx context.Context, pluginID types.PluginID, publicKey string, addedVia itypes.PluginOwnerAddedVia, addedBy string) error {
 	query := `
 		INSERT INTO plugin_owners (plugin_id, public_key, active, added_via, added_by_public_key)
 		VALUES ($1, $2, TRUE, $3, $4)

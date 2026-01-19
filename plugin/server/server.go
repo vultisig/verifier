@@ -535,6 +535,10 @@ func policyToMessageHex(policy vtypes.PluginPolicy) ([]byte, error) {
 }
 
 func (s *Server) handleSyncSafety(c echo.Context) error {
+	if s.safety == nil {
+		return c.JSON(http.StatusNotImplemented, NewErrorResponse("safety service not configured"))
+	}
+
 	var flags []safety.ControlFlag
 	err := c.Bind(&flags)
 	if err != nil {

@@ -45,7 +45,12 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) registerRoutes(e *echo.Echo) {
+	e.GET("/healthz", s.Healthz)
 	e.GET("/plugins/:id", s.GetPlugin)
+}
+
+func (s *Server) Healthz(c echo.Context) error {
+	return c.String(http.StatusOK, "OK")
 }
 
 func (s *Server) GetPlugin(c echo.Context) error {

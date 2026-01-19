@@ -3,11 +3,11 @@ package types
 import (
 	"time"
 
-	"github.com/vultisig/verifier/types"
+	vtypes "github.com/vultisig/verifier/types"
 )
 
 type PluginOwner struct {
-	PluginID         types.PluginID `json:"plugin_id"`
+	PluginID         vtypes.PluginID `json:"plugin_id"`
 	PublicKey        string         `json:"public_key"`
 	Active           bool           `json:"active"`
 	AddedVia         string         `json:"added_via"`

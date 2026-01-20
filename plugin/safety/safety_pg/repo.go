@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/vultisig/verifier/plugin/safety"
 )
 
 type Repo struct {
@@ -43,4 +44,19 @@ func (r *Repo) GetControlFlags(ctx context.Context, k1, k2 string) (map[string]b
 	}
 
 	return result, nil
+}
+
+func (r *Repo) UpsertControlFlags(ctx context.Context, flags []safety.ControlFlag) error {
+	for _, flag := range flags {
+		_, err := r.pool.Exec(ctx, `
+			INSERT INTO control_flags (key, enabled, updated_at)
+			VALUES ($1, $2, NOW())
+			ON CONFLICT (key) DO UPDATE
+			SET enabled = EXCLUDED.enabled, updated_at = NOW()
+		`, flag.Key, flag.Enabled)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

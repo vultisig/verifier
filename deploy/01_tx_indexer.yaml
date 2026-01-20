@@ -122,6 +122,12 @@ spec:
                 configMapKeyRef:
                   name: rpc
                   key: bitcoincash
+            - name: RPC_THORCHAIN_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: rpc
+                  key: thorchain
+                  optional: true
           resources:
             requests:
               memory: "64Mi"

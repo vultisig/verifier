@@ -25,7 +25,7 @@ func NewZcashIndexer() *ZcashIndexer {
 //
 // It orders signatures correctly by using the embedded sighashes to look up
 // signatures from the map using the derived key (SHA256 + Base64).
-func (z *ZcashIndexer) ComputeTxHash(proposedTx []byte, sigs map[string]tss.KeysignResponse) (string, error) {
+func (z *ZcashIndexer) ComputeTxHash(proposedTx []byte, sigs map[string]tss.KeysignResponse, _ []byte) (string, error) {
 	if len(sigs) == 0 {
 		return "", fmt.Errorf("no signatures provided")
 	}

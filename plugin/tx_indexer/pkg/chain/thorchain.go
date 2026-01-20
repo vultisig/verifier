@@ -17,9 +17,13 @@ func NewTHORChainIndexer(sdk *cosmossdk.SDK) *THORChainIndexer {
 	}
 }
 
-func (t *THORChainIndexer) ComputeTxHash(proposedTx []byte, sigs map[string]tss.KeysignResponse) (string, error) {
+func (t *THORChainIndexer) ComputeTxHash(proposedTx []byte, sigs map[string]tss.KeysignResponse, pubKey []byte) (string, error) {
 	if t.sdk == nil {
 		return "", fmt.Errorf("sdk not initialized")
 	}
-	return t.sdk.ComputeTxHash(proposedTx), nil
+	signedTx, err := t.sdk.Sign(proposedTx, sigs, pubKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign tx: %w", err)
+	}
+	return t.sdk.ComputeTxHash(signedTx), nil
 }

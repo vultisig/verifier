@@ -8,6 +8,7 @@ import (
 	cosmossdk "github.com/vultisig/recipes/sdk/cosmos"
 	"github.com/vultisig/recipes/sdk/solana"
 	"github.com/vultisig/recipes/sdk/xrpl"
+	"github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/chain"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/config"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
@@ -78,6 +79,14 @@ func Rpcs(ctx context.Context, cfg config.RpcConfig) (SupportedRpcs, error) {
 		rpcs[common.BitcoinCash] = bchRpc
 	}
 
+	if cfg.THORChain.URL != "" {
+		thorRpc, err := rpc.NewTHORChain(cfg.THORChain.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create THORChain RPC client: %w", err)
+		}
+		rpcs[common.THORChain] = thorRpc
+	}
+
 	evmChains := map[common.Chain]config.RpcItem{
 		common.Ethereum:    cfg.Ethereum,
 		common.Avalanche:   cfg.Avalanche,
@@ -104,28 +113,23 @@ func Rpcs(ctx context.Context, cfg config.RpcConfig) (SupportedRpcs, error) {
 	return rpcs, nil
 }
 
+// Chains returns all supported chain indexers for tx hash computation.
+// This registers all chains unconditionally since hash computation doesn't require RPC.
+// Note: When using these chains with Rpcs(), ensure the corresponding RPC URL is configured
+// or transactions for that chain will be marked as lost during status checking.
 func Chains() (SupportedChains, error) {
 	chains := make(map[common.Chain]chain.Indexer)
 
-	chains[common.Bitcoin] = chain.NewBitcoinIndexer(btc.NewSDK(
-		nil,
-	))
+	chains[common.Bitcoin] = chain.NewBitcoinIndexer(btc.NewSDK(nil))
+	chains[common.Solana] = chain.NewSolanaIndexer(solana.NewSDK(nil))
+	chains[common.XRP] = chain.NewXRPIndexer(xrpl.NewSDK(nil))
 
-	chains[common.Solana] = chain.NewSolanaIndexer(solana.NewSDK(
-		nil,
-	))
-
-	chains[common.XRP] = chain.NewXRPIndexer(xrpl.NewSDK(
-		nil,
-	))
-
-	chains[common.THORChain] = chain.NewTHORChainIndexer(cosmossdk.NewSDK(
-		nil,
-	))
+	thorSDK := cosmossdk.NewSDK(nil)
+	types.RegisterInterfaces(thorSDK.InterfaceRegistry())
+	thorSDK.RefreshCodec()
+	chains[common.THORChain] = chain.NewTHORChainIndexer(thorSDK)
 
 	chains[common.Zcash] = chain.NewZcashIndexer()
-
-	// Register other UTXO chains
 	chains[common.Litecoin] = chain.NewLitecoinIndexer()
 	chains[common.Dogecoin] = chain.NewDogecoinIndexer()
 	chains[common.BitcoinCash] = chain.NewBitcoinCashIndexer()

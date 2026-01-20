@@ -21,16 +21,18 @@ func NewXRPIndexer(sdk *xrpl.SDK) *XRPIndexer {
 	}
 }
 
-func (x *XRPIndexer) ComputeTxHash(proposedTx []byte, sigs map[string]tss.KeysignResponse, _ []byte) (string, error) {
+func (x *XRPIndexer) ComputeTxHash(proposedTx []byte, sigs map[string]tss.KeysignResponse, pubKey []byte) (string, error) {
 	if len(sigs) == 0 {
 		return "", fmt.Errorf("no signatures provided")
 	}
 
-	// For XRP, we need to extract the public key from the transaction
-	// First, decode the unsigned transaction to get the SigningPubKey if present
-	pubKey, err := x.extractPublicKeyFromTx(proposedTx)
-	if err != nil {
-		return "", fmt.Errorf("failed to extract public key from transaction: %w", err)
+	// Use provided pubKey if available, otherwise extract from transaction
+	if len(pubKey) == 0 {
+		var err error
+		pubKey, err = x.extractPublicKeyFromTx(proposedTx)
+		if err != nil {
+			return "", fmt.Errorf("failed to determine public key: %w", err)
+		}
 	}
 
 	// Sign the transaction using the XRPL SDK

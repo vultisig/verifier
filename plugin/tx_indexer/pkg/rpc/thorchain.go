@@ -57,28 +57,30 @@ func (t *THORChain) GetTxStatus(ctx context.Context, txHash string) (TxOnChainSt
 
 	resp, err := t.httpClient.Do(req)
 	if err != nil {
-		return TxOnChainPending, nil
+		return "", fmt.Errorf("failed to query THORChain tx status: %w", err)
 	}
 	defer resp.Body.Close()
 
+	// Transaction not found - still pending/not yet indexed
 	if resp.StatusCode == http.StatusNotFound {
 		return TxOnChainPending, nil
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return TxOnChainPending, nil
+		return "", fmt.Errorf("THORChain returned unexpected status %d for tx %s", resp.StatusCode, txHash)
 	}
 
 	var txResp thorchainTxResponse
-	err = json.NewDecoder(resp.Body).Decode(&txResp)
-	if err != nil {
-		return TxOnChainPending, nil
+	if err := json.NewDecoder(resp.Body).Decode(&txResp); err != nil {
+		return "", fmt.Errorf("failed to decode THORChain tx response: %w", err)
 	}
 
+	// Transaction exists but not yet included in a block
 	if txResp.TxResponse.Height == "" || txResp.TxResponse.Height == "0" {
 		return TxOnChainPending, nil
 	}
 
+	// Non-zero code indicates transaction failed
 	if txResp.TxResponse.Code != 0 {
 		return TxOnChainFail, nil
 	}

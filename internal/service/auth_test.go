@@ -441,6 +441,29 @@ func (m *MockDatabaseStorage) GetControlFlags(ctx context.Context, k1, k2 string
 	return args.Get(0).(map[string]bool), args.Error(1)
 }
 
+func (m *MockDatabaseStorage) IsOwner(ctx context.Context, pluginID types.PluginID, publicKey string) (bool, error) {
+	args := m.Called(ctx, pluginID, publicKey)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) GetPluginsByOwner(ctx context.Context, publicKey string) ([]types.PluginID, error) {
+	args := m.Called(ctx, publicKey)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]types.PluginID), args.Error(1)
+}
+
+func (m *MockDatabaseStorage) AddOwner(ctx context.Context, pluginID types.PluginID, publicKey string, addedVia itypes.PluginOwnerAddedVia, addedBy string) error {
+	args := m.Called(ctx, pluginID, publicKey, addedVia, addedBy)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseStorage) DeactivateOwner(ctx context.Context, pluginID types.PluginID, publicKey string) error {
+	args := m.Called(ctx, pluginID, publicKey)
+	return args.Error(0)
+}
+
 func TestGenerateToken(t *testing.T) {
 	testCases := []struct {
 		name          string

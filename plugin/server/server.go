@@ -97,7 +97,7 @@ func (s *Server) taskQueueName() string {
 	return tasks.QUEUE_NAME
 }
 
-func (s *Server) Start(ctx context.Context) error {
+func (s *Server) GetRouter() *echo.Echo {
 	e := echo.New()
 
 	// Prepare middlewares slice with optional metrics middleware
@@ -128,6 +128,12 @@ func (s *Server) Start(ctx context.Context) error {
 	plg.POST("/recipe-specification/suggest", s.handleGetRecipeSpecificationSuggest)
 	plg.DELETE("/policy/:policyId", s.handleDeletePluginPolicyById, s.VerifierAuthMiddleware)
 	plg.PUT("/safety", s.handleSyncSafety, s.VerifierAuthMiddleware)
+
+	return e
+}
+
+func (s *Server) Start(ctx context.Context) error {
+	e := s.GetRouter()
 
 	eg := &errgroup.Group{}
 	eg.Go(func() error {

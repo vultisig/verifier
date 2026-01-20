@@ -55,6 +55,14 @@ func Rpcs(ctx context.Context, cfg config.RpcConfig) (SupportedRpcs, error) {
 		rpcs[common.Zcash] = zcashRpc
 	}
 
+	if cfg.Tron.URL != "" {
+		tronRpc, err := rpc.NewTron(cfg.Tron.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Tron RPC client: %w", err)
+		}
+		rpcs[common.Tron] = tronRpc
+	}
+
 	if cfg.Litecoin.URL != "" {
 		ltcRpc, err := rpc.NewLitecoin(cfg.Litecoin.URL)
 		if err != nil {

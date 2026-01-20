@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	itypes "github.com/vultisig/verifier/internal/types"
+	"github.com/vultisig/verifier/plugin/safety"
 	"github.com/vultisig/verifier/types"
 )
 
@@ -142,8 +143,8 @@ func (p *PostgresBackend) IsPluginPaused(ctx context.Context, pluginID types.Plu
 		return false, fmt.Errorf("database pool is nil")
 	}
 
-	keysignKey := string(pluginID) + "-keysign"
-	keygenKey := string(pluginID) + "-keygen"
+	keysignKey := safety.KeysignFlagKey(string(pluginID))
+	keygenKey := safety.KeygenFlagKey(string(pluginID))
 	keys := []string{keysignKey, keygenKey}
 
 	query := `
@@ -221,8 +222,8 @@ func (p *PostgresBackend) recordPauseHistoryTx(ctx context.Context, tx pgx.Tx, r
 
 func (p *PostgresBackend) PausePlugin(ctx context.Context, pluginID types.PluginID, record itypes.PauseHistoryRecord) error {
 	return p.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
-		keysignKey := string(pluginID) + "-keysign"
-		keygenKey := string(pluginID) + "-keygen"
+		keysignKey := safety.KeysignFlagKey(string(pluginID))
+		keygenKey := safety.KeygenFlagKey(string(pluginID))
 
 		err := p.setControlFlagTx(ctx, tx, keysignKey, false)
 		if err != nil {

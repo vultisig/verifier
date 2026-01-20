@@ -7,11 +7,13 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/verifier/internal/storage"
+	psafety "github.com/vultisig/verifier/plugin/safety"
 )
 
 var (
 	ErrGloballyDisabled = errors.New("action disabled globally")
 	ErrPluginDisabled   = errors.New("action disabled for plugin")
+	ErrUnknownAction    = errors.New("unknown action")
 )
 
 const (
@@ -37,8 +39,17 @@ func (m *Manager) EnforceKeysign(ctx context.Context, pluginID string) error {
 }
 
 func (m *Manager) enforce(ctx context.Context, pluginID, action string) error {
-	globalKey := "global-" + action      // e.g. "global-keysign"
-	pluginKey := pluginID + "-" + action // e.g. "dca-keysign"
+	var globalKey, pluginKey string
+	switch action {
+	case actionKeysign:
+		globalKey = psafety.GlobalKeysignKey()
+		pluginKey = psafety.KeysignFlagKey(pluginID)
+	case actionKeygen:
+		globalKey = psafety.GlobalKeygenKey()
+		pluginKey = psafety.KeygenFlagKey(pluginID)
+	default:
+		return fmt.Errorf("%s: %w", action, ErrUnknownAction)
+	}
 
 	flags, err := m.db.GetControlFlags(ctx, globalKey, pluginKey)
 	if err != nil {

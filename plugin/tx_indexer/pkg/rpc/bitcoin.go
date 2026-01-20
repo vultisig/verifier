@@ -1,56 +1,16 @@
 package rpc
 
-import (
-	"context"
-	"fmt"
-	"strings"
+// Bitcoin is an alias for Utxo client configured for Bitcoin chain.
+// It uses Blockchair REST API for transaction status lookups.
+type Bitcoin = Utxo
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/rpcclient"
-)
-
-type Bitcoin struct {
-	client *rpcclient.Client
-}
-
-func NewBitcoin(rpcURL string) (*Bitcoin, error) {
-	cl, err := rpcclient.New(&rpcclient.ConnConfig{
-		Host:         strings.TrimPrefix(rpcURL, "https://"),
-		HTTPPostMode: true,
-
-		// should be not empty, otherwise btc-client would try to load cookie from a local file which is empty
-		User: "user",
-		Pass: "pass",
-	}, nil)
-	if err != nil {
-		return nil, fmt.Errorf("rpcclient.New: %w", err)
-	}
-
-	// ping
-	_, err = cl.GetBlockCount()
-	if err != nil {
-		return nil, fmt.Errorf("cl.GetBlockCount: %w", err)
-	}
-
-	return &Bitcoin{
-		client: cl,
-	}, nil
-}
-
-func (r *Bitcoin) GetTxStatus(ctx context.Context, txHash string) (TxOnChainStatus, error) {
-	if ctx.Err() != nil {
-		return "", ctx.Err()
-	}
-
-	hash, err := chainhash.NewHashFromStr(txHash)
-	if err != nil {
-		return "", fmt.Errorf("chainhash.NewHashFromStr: %w", err)
-	}
-
-	tx, err := r.client.GetRawTransactionVerbose(hash)
-	noConfirmations := tx != nil && tx.Confirmations == 0
-	if err != nil || tx == nil || noConfirmations {
-		return TxOnChainPending, nil
-	}
-	return TxOnChainSuccess, nil
+// NewBitcoin creates a Bitcoin RPC client using Blockchair REST API.
+// The baseURL should be a Blockchair-compatible endpoint (e.g., "https://api.vultisig.com/blockchair/bitcoin"
+// or "https://api.blockchair.com/bitcoin").
+//
+// Note: This uses Blockchair REST API, not Bitcoin Core JSON-RPC.
+// The URL format should be the base URL without trailing path components.
+// For example: "https://api.vultisig.com/blockchair" (chainPath "bitcoin" is appended internally)
+func NewBitcoin(baseURL string) (*Bitcoin, error) {
+	return NewUtxo(baseURL, "bitcoin")
 }

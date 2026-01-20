@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/vultisig/mobile-tss-lib/tss"
-	cosmossdk "github.com/vultisig/recipes/sdk/cosmos"
 )
 
 func TestTHORChainIndexer_NilSDK(t *testing.T) {

@@ -8,6 +8,7 @@ import (
 	cosmossdk "github.com/vultisig/recipes/sdk/cosmos"
 	"github.com/vultisig/recipes/sdk/solana"
 	"github.com/vultisig/recipes/sdk/xrpl"
+	"github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/chain"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/config"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
@@ -127,9 +128,10 @@ func Chains() (SupportedChains, error) {
 		nil,
 	))
 
-	chains[common.THORChain] = chain.NewTHORChainIndexer(cosmossdk.NewSDK(
-		nil,
-	))
+	thorSDK := cosmossdk.NewSDK(nil)
+	types.RegisterInterfaces(thorSDK.InterfaceRegistry())
+	thorSDK.RefreshCodec()
+	chains[common.THORChain] = chain.NewTHORChainIndexer(thorSDK)
 
 	chains[common.Zcash] = chain.NewZcashIndexer()
 

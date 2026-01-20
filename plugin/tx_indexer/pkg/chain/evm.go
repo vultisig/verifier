@@ -20,7 +20,7 @@ func NewEvmIndexer(evmChainID *big.Int) *EvmIndexer {
 	}
 }
 
-func (e *EvmIndexer) ComputeTxHash(proposedTx []byte, sigs map[string]tss.KeysignResponse) (string, error) {
+func (e *EvmIndexer) ComputeTxHash(proposedTx []byte, sigs map[string]tss.KeysignResponse, _ []byte) (string, error) {
 	if len(sigs) != 1 {
 		return "", fmt.Errorf("expected exactly one signature, got %d", len(sigs))
 	}

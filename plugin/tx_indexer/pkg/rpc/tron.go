@@ -19,20 +19,20 @@ type Tron struct {
 
 // TronTransactionInfoResponse represents the response from gettransactioninfobyid
 type TronTransactionInfoResponse struct {
-	ID              string `json:"id"`
-	BlockNumber     int64  `json:"blockNumber"`
-	BlockTimeStamp  int64  `json:"blockTimeStamp"`
-	ContractResult  []string `json:"contractResult"`
-	Receipt         TronReceipt `json:"receipt"`
-	Result          string `json:"result,omitempty"` // "FAILED" if failed
+	ID             string      `json:"id"`
+	BlockNumber    int64       `json:"blockNumber"`
+	BlockTimeStamp int64       `json:"blockTimeStamp"`
+	ContractResult []string    `json:"contractResult"`
+	Receipt        TronReceipt `json:"receipt"`
+	Result         string      `json:"result,omitempty"` // "FAILED" if failed
 }
 
 type TronReceipt struct {
-	Result             string `json:"result,omitempty"` // "SUCCESS" or empty for success, "REVERT" or others for failure
-	NetFee             int64  `json:"net_fee,omitempty"`
-	NetUsage           int64  `json:"net_usage,omitempty"`
-	EnergyUsage        int64  `json:"energy_usage,omitempty"`
-	EnergyUsageTotal   int64  `json:"energy_usage_total,omitempty"`
+	Result           string `json:"result,omitempty"` // "SUCCESS" or empty for success, "REVERT" or others for failure
+	NetFee           int64  `json:"net_fee,omitempty"`
+	NetUsage         int64  `json:"net_usage,omitempty"`
+	EnergyUsage      int64  `json:"energy_usage,omitempty"`
+	EnergyUsageTotal int64  `json:"energy_usage_total,omitempty"`
 }
 
 type TronRequest struct {

@@ -29,6 +29,7 @@ type RpcConfig struct {
 	Solana      RpcItem `mapstructure:"solana" json:"solana,omitempty"`
 	XRP         RpcItem `mapstructure:"xrp" json:"xrp,omitempty"`
 	Zcash       RpcItem `mapstructure:"zcash" json:"zcash,omitempty"`
+	Tron        RpcItem `mapstructure:"tron" json:"tron,omitempty"`
 	Ethereum    RpcItem `mapstructure:"ethereum" json:"ethereum,omitempty"`
 	Avalanche   RpcItem `mapstructure:"avalanche" json:"avalanche,omitempty"`
 	BscChain    RpcItem `mapstructure:"bsc" json:"bsc,omitempty"`

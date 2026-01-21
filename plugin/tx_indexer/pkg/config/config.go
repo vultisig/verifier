@@ -40,6 +40,7 @@ type RpcConfig struct {
 	Blast       RpcItem `mapstructure:"blast" json:"blast,omitempty"`
 	Cronos      RpcItem `mapstructure:"cronos" json:"cronos,omitempty"`
 	Zksync      RpcItem `mapstructure:"zksync" json:"zksync,omitempty"`
+	THORChain   RpcItem `mapstructure:"thorchain" json:"thorchain,omitempty"`
 }
 
 type RpcItem struct {

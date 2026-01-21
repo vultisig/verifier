@@ -19,7 +19,7 @@ func NewSolanaIndexer(sdk *solanaSDK.SDK) *SolanaIndexer {
 	}
 }
 
-func (s *SolanaIndexer) ComputeTxHash(proposedTx []byte, sigs map[string]tss.KeysignResponse) (string, error) {
+func (s *SolanaIndexer) ComputeTxHash(proposedTx []byte, sigs map[string]tss.KeysignResponse, _ []byte) (string, error) {
 	signed, err := s.sdk.Sign(proposedTx, sigs)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign: %w", err)

@@ -7,6 +7,7 @@ import (
 	"github.com/vultisig/recipes/sdk/btc"
 	cosmossdk "github.com/vultisig/recipes/sdk/cosmos"
 	"github.com/vultisig/recipes/sdk/solana"
+	"github.com/vultisig/recipes/sdk/tron"
 	"github.com/vultisig/recipes/sdk/xrpl"
 	"github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/chain"
@@ -53,6 +54,14 @@ func Rpcs(ctx context.Context, cfg config.RpcConfig) (SupportedRpcs, error) {
 			return nil, fmt.Errorf("failed to create Zcash RPC client: %w", err)
 		}
 		rpcs[common.Zcash] = zcashRpc
+	}
+
+	if cfg.Tron.URL != "" {
+		tronRpc, err := rpc.NewTron(ctx, cfg.Tron.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Tron RPC client: %w", err)
+		}
+		rpcs[common.Tron] = tronRpc
 	}
 
 	if cfg.Litecoin.URL != "" {
@@ -128,6 +137,10 @@ func Chains() (SupportedChains, error) {
 	types.RegisterInterfaces(thorSDK.InterfaceRegistry())
 	thorSDK.RefreshCodec()
 	chains[common.THORChain] = chain.NewTHORChainIndexer(thorSDK)
+
+	chains[common.Tron] = chain.NewTronIndexer(tron.NewSDK(
+		nil,
+	))
 
 	chains[common.Zcash] = chain.NewZcashIndexer()
 	chains[common.Litecoin] = chain.NewLitecoinIndexer()

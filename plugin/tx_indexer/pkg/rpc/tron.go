@@ -39,7 +39,7 @@ type TronRequest struct {
 	Value string `json:"value"`
 }
 
-func NewTron(rpcURL string) (*Tron, error) {
+func NewTron(ctx context.Context, rpcURL string) (*Tron, error) {
 	client := &http.Client{
 		Timeout: tronDefaultTimeout,
 	}
@@ -50,7 +50,7 @@ func NewTron(rpcURL string) (*Tron, error) {
 	}
 
 	// Test connection by making a simple request to get node info
-	testReq, err := http.NewRequest("POST", rpcURL+"/wallet/getnodeinfo", nil)
+	testReq, err := http.NewRequestWithContext(ctx, http.MethodPost, rpcURL+"/wallet/getnodeinfo", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create test request: %w", err)
 	}
@@ -72,6 +72,10 @@ func NewTron(rpcURL string) (*Tron, error) {
 func (t *Tron) GetTxStatus(ctx context.Context, txHash string) (TxOnChainStatus, error) {
 	if ctx.Err() != nil {
 		return "", ctx.Err()
+	}
+
+	if txHash == "" {
+		return "", fmt.Errorf("txHash cannot be empty")
 	}
 
 	req := TronRequest{
@@ -121,7 +125,7 @@ func (t *Tron) makeRequest(ctx context.Context, endpoint string, req interface{}
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", t.rpcURL+endpoint, bytes.NewBuffer(reqBody))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, t.rpcURL+endpoint, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}

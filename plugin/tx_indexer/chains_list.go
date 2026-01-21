@@ -56,7 +56,7 @@ func Rpcs(ctx context.Context, cfg config.RpcConfig) (SupportedRpcs, error) {
 	}
 
 	if cfg.Tron.URL != "" {
-		tronRpc, err := rpc.NewTron(cfg.Tron.URL)
+		tronRpc, err := rpc.NewTron(ctx, cfg.Tron.URL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Tron RPC client: %w", err)
 		}

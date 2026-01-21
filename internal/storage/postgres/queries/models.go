@@ -613,7 +613,9 @@ type Plugin struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	LogoUrl        string             `json:"logo_url"`
+	LogoS3Key      string             `json:"logo_s3_key"`
 	ThumbnailUrl   string             `json:"thumbnail_url"`
+	ThumbnailS3Key string             `json:"thumbnail_s3_key"`
 	Images         []byte             `json:"images"`
 	Faqs           []byte             `json:"faqs"`
 	Features       []byte             `json:"features"`

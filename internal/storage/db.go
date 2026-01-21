@@ -84,6 +84,10 @@ type PluginRepository interface {
 	FindPlugins(ctx context.Context, filters itypes.PluginFilters, take int, skip int, sort string) (*itypes.PluginsPaginatedList, error)
 	FindPluginById(ctx context.Context, dbTx pgx.Tx, id types.PluginID) (*itypes.Plugin, error)
 	GetPluginTitlesByIDs(ctx context.Context, ids []string) (map[string]string, error)
+	UpdatePluginLogo(ctx context.Context, pluginID types.PluginID, logoURL, logoS3Key string) error
+	UpdatePluginThumbnail(ctx context.Context, pluginID types.PluginID, thumbnailURL, thumbnailS3Key string) error
+	UpdatePluginImages(ctx context.Context, pluginID types.PluginID, images []itypes.PluginImage) error
+	GetPluginS3Keys(ctx context.Context, pluginID types.PluginID) (logoS3Key, thumbnailS3Key string, images []itypes.PluginImage, err error)
 
 	Pool() *pgxpool.Pool
 }

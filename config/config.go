@@ -42,8 +42,9 @@ type VerifierConfig struct {
 		// pointer so it must be explicitly set to false, no value considered as enabled
 		Enabled *bool `mapstructure:"enabled" json:"enabled,omitempty"`
 	} `mapstructure:"auth" json:"auth"`
-	Fees    FeesConfig    `mapstructure:"fees" json:"fees"`
-	Metrics MetricsConfig `mapstructure:"metrics" json:"metrics,omitempty"`
+	Fees         FeesConfig         `mapstructure:"fees" json:"fees"`
+	Metrics      MetricsConfig      `mapstructure:"metrics" json:"metrics,omitempty"`
+	PluginAssets PluginAssetsConfig `mapstructure:"plugin_assets" json:"plugin_assets,omitempty"`
 }
 
 type FeesConfig struct {
@@ -54,6 +55,15 @@ type MetricsConfig struct {
 	Enabled bool   `mapstructure:"enabled" json:"enabled,omitempty"`
 	Host    string `mapstructure:"host" json:"host,omitempty"`
 	Port    int    `mapstructure:"port" json:"port,omitempty"`
+}
+
+type PluginAssetsConfig struct {
+	Host          string `mapstructure:"host" json:"host,omitempty"`
+	Region        string `mapstructure:"region" json:"region,omitempty"`
+	Bucket        string `mapstructure:"bucket" json:"bucket,omitempty"`
+	AccessKey     string `mapstructure:"access_key" json:"access_key,omitempty"`
+	Secret        string `mapstructure:"secret" json:"secret,omitempty"`
+	PublicBaseURL string `mapstructure:"public_base_url" json:"public_base_url,omitempty"`
 }
 
 type PortalConfig struct {

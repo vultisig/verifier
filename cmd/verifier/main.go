@@ -100,11 +100,25 @@ func main() {
 		logger.Info("Verifier metrics disabled")
 	}
 
+	// Initialize plugin asset storage
+	var assetStorage storage.PluginAssetStorage
+	if cfg.PluginAssets.Bucket != "" {
+		assetStorage, err = storage.NewS3PluginAssetStorage(cfg.PluginAssets)
+		if err != nil {
+			logger.Warnf("Failed to initialize plugin asset storage: %v", err)
+			assetStorage = storage.NewNoopPluginAssetStorage()
+		}
+	} else {
+		logger.Info("Plugin asset storage not configured, image uploads disabled")
+		assetStorage = storage.NewNoopPluginAssetStorage()
+	}
+
 	server := api.NewServer(
 		*cfg,
 		db,
 		redisStorage,
 		vaultStorage,
+		assetStorage,
 		client,
 		inspector,
 		cfg.Server.JWTSecret,

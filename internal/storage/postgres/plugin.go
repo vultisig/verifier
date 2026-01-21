@@ -74,7 +74,9 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 		var tagName *string
 		var tagCreatedAt *time.Time
 		var logoURL sql.NullString
+		var logoS3Key sql.NullString
 		var thumbnailURL sql.NullString
+		var thumbnailS3Key sql.NullString
 		var imagesJSON []byte
 		var faqJSON []byte
 		var featuresJSON []byte
@@ -99,6 +101,8 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 			&faqJSON,
 			&featuresJSON,
 			&audited,
+			&logoS3Key,
+			&thumbnailS3Key,
 			&tagID,
 			&tagName,
 			&tagCreatedAt,
@@ -681,4 +685,68 @@ func (p *PostgresBackend) GetControlFlags(ctx context.Context, k1, k2 string) (m
 	}
 
 	return result, nil
+}
+
+func (p *PostgresBackend) UpdatePluginLogo(ctx context.Context, pluginID types.PluginID, logoURL, logoS3Key string) error {
+	query := `UPDATE plugins SET logo_url = $2, logo_s3_key = $3, updated_at = NOW() WHERE id = $1`
+	ct, err := p.pool.Exec(ctx, query, pluginID, logoURL, logoS3Key)
+	if err != nil {
+		return fmt.Errorf("failed to update plugin logo: %w", err)
+	}
+	if ct.RowsAffected() == 0 {
+		return fmt.Errorf("plugin not found: %s", pluginID)
+	}
+	return nil
+}
+
+func (p *PostgresBackend) UpdatePluginThumbnail(ctx context.Context, pluginID types.PluginID, thumbnailURL, thumbnailS3Key string) error {
+	query := `UPDATE plugins SET thumbnail_url = $2, thumbnail_s3_key = $3, updated_at = NOW() WHERE id = $1`
+	ct, err := p.pool.Exec(ctx, query, pluginID, thumbnailURL, thumbnailS3Key)
+	if err != nil {
+		return fmt.Errorf("failed to update plugin thumbnail: %w", err)
+	}
+	if ct.RowsAffected() == 0 {
+		return fmt.Errorf("plugin not found: %s", pluginID)
+	}
+	return nil
+}
+
+func (p *PostgresBackend) UpdatePluginImages(ctx context.Context, pluginID types.PluginID, images []itypes.PluginImage) error {
+	imagesJSON, err := json.Marshal(images)
+	if err != nil {
+		return fmt.Errorf("failed to marshal images: %w", err)
+	}
+
+	query := `UPDATE plugins SET images = $2, updated_at = NOW() WHERE id = $1`
+	ct, err := p.pool.Exec(ctx, query, pluginID, imagesJSON)
+	if err != nil {
+		return fmt.Errorf("failed to update plugin images: %w", err)
+	}
+	if ct.RowsAffected() == 0 {
+		return fmt.Errorf("plugin not found: %s", pluginID)
+	}
+	return nil
+}
+
+func (p *PostgresBackend) GetPluginS3Keys(ctx context.Context, pluginID types.PluginID) (logoS3Key, thumbnailS3Key string, images []itypes.PluginImage, err error) {
+	var logoKey, thumbKey sql.NullString
+	var imagesJSON []byte
+
+	query := `SELECT logo_s3_key, thumbnail_s3_key, images FROM plugins WHERE id = $1`
+	err = p.pool.QueryRow(ctx, query, pluginID).Scan(&logoKey, &thumbKey, &imagesJSON)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("failed to get plugin S3 keys: %w", err)
+	}
+
+	if logoKey.Valid {
+		logoS3Key = logoKey.String
+	}
+	if thumbKey.Valid {
+		thumbnailS3Key = thumbKey.String
+	}
+	if len(imagesJSON) > 0 {
+		json.Unmarshal(imagesJSON, &images)
+	}
+
+	return logoS3Key, thumbnailS3Key, images, nil
 }

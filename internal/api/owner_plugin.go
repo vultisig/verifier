@@ -108,7 +108,7 @@ func (s *Server) UploadPluginLogo(c echo.Context) error {
 
 	data, contentType, err := s.readUploadedImage(c)
 	if err != nil {
-		return err
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(err.Error()))
 	}
 
 	hash := sha256.Sum256(data)
@@ -130,13 +130,17 @@ func (s *Server) UploadPluginLogo(c echo.Context) error {
 	logoURL := s.assetStorage.GetPublicURL(s3Key)
 	err = s.db.UpdatePluginLogo(c.Request().Context(), pluginID, logoURL, s3Key)
 	if err != nil {
-		s.assetStorage.Delete(c.Request().Context(), s3Key)
+		if delErr := s.assetStorage.Delete(c.Request().Context(), s3Key); delErr != nil {
+			s.logger.WithError(delErr).Warn("failed to cleanup uploaded logo from S3")
+		}
 		s.logger.WithError(err).Error("failed to update plugin logo in DB")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgImageUploadFailed))
 	}
 
 	if oldLogoKey != "" && oldLogoKey != s3Key {
-		s.assetStorage.Delete(c.Request().Context(), oldLogoKey)
+		if delErr := s.assetStorage.Delete(c.Request().Context(), oldLogoKey); delErr != nil {
+			s.logger.WithError(delErr).Warn("failed to delete old logo from S3")
+		}
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, map[string]string{
@@ -154,7 +158,7 @@ func (s *Server) UploadPluginThumbnail(c echo.Context) error {
 
 	data, contentType, err := s.readUploadedImage(c)
 	if err != nil {
-		return err
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(err.Error()))
 	}
 
 	hash := sha256.Sum256(data)
@@ -176,13 +180,17 @@ func (s *Server) UploadPluginThumbnail(c echo.Context) error {
 	thumbnailURL := s.assetStorage.GetPublicURL(s3Key)
 	err = s.db.UpdatePluginThumbnail(c.Request().Context(), pluginID, thumbnailURL, s3Key)
 	if err != nil {
-		s.assetStorage.Delete(c.Request().Context(), s3Key)
+		if delErr := s.assetStorage.Delete(c.Request().Context(), s3Key); delErr != nil {
+			s.logger.WithError(delErr).Warn("failed to cleanup uploaded thumbnail from S3")
+		}
 		s.logger.WithError(err).Error("failed to update plugin thumbnail in DB")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgImageUploadFailed))
 	}
 
 	if oldThumbKey != "" && oldThumbKey != s3Key {
-		s.assetStorage.Delete(c.Request().Context(), oldThumbKey)
+		if delErr := s.assetStorage.Delete(c.Request().Context(), oldThumbKey); delErr != nil {
+			s.logger.WithError(delErr).Warn("failed to delete old thumbnail from S3")
+		}
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, map[string]string{
@@ -210,7 +218,7 @@ func (s *Server) AddPluginImage(c echo.Context) error {
 
 	data, contentType, err := s.readUploadedImage(c)
 	if err != nil {
-		return err
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(err.Error()))
 	}
 
 	imageID := uuid.New().String()
@@ -251,7 +259,9 @@ func (s *Server) AddPluginImage(c echo.Context) error {
 
 	err = s.db.UpdatePluginImages(c.Request().Context(), pluginID, images)
 	if err != nil {
-		s.assetStorage.Delete(c.Request().Context(), s3Key)
+		if delErr := s.assetStorage.Delete(c.Request().Context(), s3Key); delErr != nil {
+			s.logger.WithError(delErr).Warn("failed to cleanup uploaded image from S3")
+		}
 		s.logger.WithError(err).Error("failed to update plugin images in DB")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgImageUploadFailed))
 	}
@@ -271,7 +281,7 @@ func (s *Server) UpdatePluginImage(c echo.Context) error {
 
 	data, contentType, err := s.readUploadedImage(c)
 	if err != nil {
-		return err
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(err.Error()))
 	}
 
 	_, _, images, err := s.db.GetPluginS3Keys(c.Request().Context(), pluginID)
@@ -325,13 +335,17 @@ func (s *Server) UpdatePluginImage(c echo.Context) error {
 
 	err = s.db.UpdatePluginImages(c.Request().Context(), pluginID, images)
 	if err != nil {
-		s.assetStorage.Delete(c.Request().Context(), s3Key)
+		if delErr := s.assetStorage.Delete(c.Request().Context(), s3Key); delErr != nil {
+			s.logger.WithError(delErr).Warn("failed to cleanup uploaded image from S3")
+		}
 		s.logger.WithError(err).Error("failed to update plugin images in DB")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgImageUploadFailed))
 	}
 
 	if oldS3Key != "" && oldS3Key != s3Key {
-		s.assetStorage.Delete(c.Request().Context(), oldS3Key)
+		if delErr := s.assetStorage.Delete(c.Request().Context(), oldS3Key); delErr != nil {
+			s.logger.WithError(delErr).Warn("failed to delete old image from S3")
+		}
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, map[string]any{
@@ -383,30 +397,39 @@ func (s *Server) DeletePluginImage(c echo.Context) error {
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, map[string]string{"message": "image deleted"}))
 }
 
+var (
+	errImageRequired      = errors.New("image file is required")
+	errImageOpenFailed    = errors.New("failed to open uploaded file")
+	errImageReadFailed    = errors.New("failed to read uploaded file")
+	errImageTooLarge      = errors.New(msgImageTooLarge)
+	errImageInvalidFormat = errors.New(msgInvalidImageFormat)
+)
+
 func (s *Server) readUploadedImage(c echo.Context) ([]byte, string, error) {
 	file, err := c.FormFile("image")
 	if err != nil {
-		return nil, "", c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("image file is required"))
-	}
-
-	if file.Size > maxImageSize {
-		return nil, "", c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgImageTooLarge))
+		return nil, "", errImageRequired
 	}
 
 	src, err := file.Open()
 	if err != nil {
-		return nil, "", c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("failed to open uploaded file"))
+		return nil, "", errImageOpenFailed
 	}
 	defer src.Close()
 
-	data, err := io.ReadAll(src)
+	limitedReader := io.LimitReader(src, maxImageSize+1)
+	data, err := io.ReadAll(limitedReader)
 	if err != nil {
-		return nil, "", c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("failed to read uploaded file"))
+		return nil, "", errImageReadFailed
+	}
+
+	if len(data) > maxImageSize {
+		return nil, "", errImageTooLarge
 	}
 
 	contentType := http.DetectContentType(data)
 	if !isAllowedImageType(contentType) {
-		return nil, "", c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidImageFormat))
+		return nil, "", errImageInvalidFormat
 	}
 
 	return data, contentType, nil

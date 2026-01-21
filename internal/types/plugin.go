@@ -36,7 +36,7 @@ type FAQItem struct {
 type PluginImage struct {
 	ID        string `json:"id" yaml:"id,omitempty"`
 	URL       string `json:"url" yaml:"url"`
-	S3Key     string `json:"s3_key,omitempty" yaml:"s3_key,omitempty"`
+	S3Key     string `json:"-" yaml:"s3_key,omitempty"`
 	Caption   string `json:"caption" yaml:"caption,omitempty"`
 	AltText   string `json:"alt_text" yaml:"alt_text,omitempty"`
 	SortOrder int    `json:"sort_order" yaml:"sort_order,omitempty"`

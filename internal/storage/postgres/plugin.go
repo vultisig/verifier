@@ -745,7 +745,10 @@ func (p *PostgresBackend) GetPluginS3Keys(ctx context.Context, pluginID types.Pl
 		thumbnailS3Key = thumbKey.String
 	}
 	if len(imagesJSON) > 0 {
-		json.Unmarshal(imagesJSON, &images)
+		err = json.Unmarshal(imagesJSON, &images)
+		if err != nil {
+			return logoS3Key, thumbnailS3Key, nil, fmt.Errorf("failed to unmarshal plugin images: %w", err)
+		}
 	}
 
 	return logoS3Key, thumbnailS3Key, images, nil

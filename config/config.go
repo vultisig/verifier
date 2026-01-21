@@ -66,6 +66,37 @@ type PluginAssetsConfig struct {
 	PublicBaseURL string `mapstructure:"public_base_url" json:"public_base_url,omitempty"`
 }
 
+func (c PluginAssetsConfig) Validate() (missing []string) {
+	if c.Host == "" {
+		missing = append(missing, "host")
+	}
+	if c.Bucket == "" {
+		missing = append(missing, "bucket")
+	}
+	if c.AccessKey == "" {
+		missing = append(missing, "access_key")
+	}
+	if c.Secret == "" {
+		missing = append(missing, "secret")
+	}
+	return missing
+}
+
+func (c PluginAssetsConfig) IsConfigured() bool {
+	return len(c.Validate()) == 0
+}
+
+func (c PluginAssetsConfig) EffectivePublicBaseURL() string {
+	if c.PublicBaseURL != "" {
+		return strings.TrimRight(c.PublicBaseURL, "/")
+	}
+	host := strings.TrimRight(c.Host, "/")
+	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
+		host = "http://" + host
+	}
+	return host + "/" + c.Bucket
+}
+
 type PortalConfig struct {
 	LogFormat logging.LogFormat `mapstructure:"log_format" json:"log_format,omitempty"`
 	Server    struct {

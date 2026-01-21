@@ -108,10 +108,7 @@ func (s *S3PluginAssetStorage) Exists(ctx context.Context, key string) (bool, er
 }
 
 func (s *S3PluginAssetStorage) GetPublicURL(key string) string {
-	if s.cfg.PublicBaseURL == "" {
-		return ""
-	}
-	return fmt.Sprintf("%s/%s", s.cfg.PublicBaseURL, key)
+	return fmt.Sprintf("%s/%s", s.cfg.EffectivePublicBaseURL(), key)
 }
 
 type NoopPluginAssetStorage struct{}

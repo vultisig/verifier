@@ -24,7 +24,9 @@ import (
 	sdkcosmos "github.com/vultisig/recipes/sdk/cosmos"
 	sdkevm "github.com/vultisig/recipes/sdk/evm"
 	sdksolana "github.com/vultisig/recipes/sdk/solana"
+	sdktron "github.com/vultisig/recipes/sdk/tron"
 	sdkxrpl "github.com/vultisig/recipes/sdk/xrpl"
+	sdkzcash "github.com/vultisig/recipes/sdk/zcash"
 	rtypes "github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/internal/conv"
 	"github.com/vultisig/verifier/internal/safety"
@@ -235,6 +237,7 @@ func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignReques
 	for i := range req.Messages {
 		req.Messages[i].Message = base64.StdEncoding.EncodeToString(derivedHashes[i].Message)
 		req.Messages[i].Hash = base64.StdEncoding.EncodeToString(derivedHashes[i].Hash)
+		req.Messages[i].HashFunction = vtypes.HashFunction_SHA256
 	}
 
 	var matchedRule *rtypes.Rule
@@ -926,6 +929,19 @@ func deriveSigningHashes(chain common.Chain, txBytes []byte, originalTx string, 
 		opts.SignBytes = signBytes
 		cosmosSDK := sdkcosmos.NewSDK(nil)
 		return cosmosSDK.DeriveSigningHashes(txBytes, opts)
+
+	case chain == common.Tron:
+		tronSDK := sdktron.NewSDK(nil)
+		return tronSDK.DeriveSigningHashes(txBytes, opts)
+
+	case chain == common.Zcash:
+		zcashSDK := sdkzcash.NewSDK(nil)
+		// Zcash uses the original transaction which contains embedded metadata (sighashes + pubkey)
+		zcashBytes, err := base64.StdEncoding.DecodeString(originalTx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode Zcash transaction base64: %w", err)
+		}
+		return zcashSDK.DeriveSigningHashes(zcashBytes, opts)
 
 	default:
 		return nil, fmt.Errorf("unsupported chain for hash derivation: %s", chain.String())

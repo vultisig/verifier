@@ -20,6 +20,7 @@ import (
 
 	"github.com/vultisig/recipes/engine"
 	sdk "github.com/vultisig/recipes/sdk"
+	sdkbch "github.com/vultisig/recipes/sdk/bch"
 	sdkbtc "github.com/vultisig/recipes/sdk/btc"
 	sdkcosmos "github.com/vultisig/recipes/sdk/cosmos"
 	sdkevm "github.com/vultisig/recipes/sdk/evm"
@@ -901,8 +902,15 @@ func deriveSigningHashes(chain common.Chain, txBytes []byte, originalTx string, 
 		solanaSDK := sdksolana.NewSDK(nil)
 		return solanaSDK.DeriveSigningHashes(txBytes, opts)
 
-	case chain == common.Bitcoin, chain == common.Litecoin, chain == common.Dogecoin,
-		chain == common.BitcoinCash, chain == common.Dash:
+	case chain == common.BitcoinCash:
+		bchSDK := sdkbch.NewSDK(nil)
+		psbtBytes, err := base64.StdEncoding.DecodeString(originalTx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode PSBT base64: %w", err)
+		}
+		return bchSDK.DeriveSigningHashes(psbtBytes, opts)
+
+	case chain == common.Bitcoin, chain == common.Litecoin, chain == common.Dogecoin, chain == common.Dash:
 		btcSDK := sdkbtc.NewSDK(nil)
 		// UTXO chains need the full PSBT (not extracted tx bytes) to calculate signature hashes,
 		// because they require the WitnessUtxo/NonWitnessUtxo info from the PSBT inputs.

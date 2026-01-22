@@ -220,7 +220,7 @@ func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignReques
 
 	// SECURITY: Derive signing hashes from txBytes, ignore plugin-provided hashes.
 	// This prevents a malicious plugin from sending txBytes for validation but a different hash for signing.
-	derivedHashes, err := deriveSigningHashes(firstKeysignMessage.Chain, txBytesEvaluate, req.SignBytes)
+	derivedHashes, err := deriveSigningHashes(firstKeysignMessage.Chain, txBytesEvaluate, req.Transaction, req.SignBytes)
 	if err != nil {
 		return s.badRequest(c, "failed to derive signing hash", err)
 	}
@@ -882,7 +882,7 @@ func (s *Server) ReportPlugin(c echo.Context) error {
 // deriveSigningHashes derives signing hashes from transaction bytes based on chain type.
 // This is the core security function that ensures the verifier derives hashes independently,
 // preventing malicious plugins from substituting different hashes for signing.
-func deriveSigningHashes(chain common.Chain, txBytes []byte, signBytesBase64 string) ([]sdk.DerivedHash, error) {
+func deriveSigningHashes(chain common.Chain, txBytes []byte, originalTx string, signBytesBase64 string) ([]sdk.DerivedHash, error) {
 	opts := sdk.DeriveOptions{}
 
 	switch {
@@ -901,7 +901,14 @@ func deriveSigningHashes(chain common.Chain, txBytes []byte, signBytesBase64 str
 	case chain == common.Bitcoin, chain == common.Litecoin, chain == common.Dogecoin,
 		chain == common.BitcoinCash, chain == common.Dash:
 		btcSDK := sdkbtc.NewSDK(nil)
-		return btcSDK.DeriveSigningHashes(txBytes, opts)
+		// UTXO chains need the full PSBT (not extracted tx bytes) to calculate signature hashes,
+		// because they require the WitnessUtxo/NonWitnessUtxo info from the PSBT inputs.
+		// The originalTx is base64-encoded, so we need to decode it first.
+		psbtBytes, err := base64.StdEncoding.DecodeString(originalTx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode PSBT base64: %w", err)
+		}
+		return btcSDK.DeriveSigningHashes(psbtBytes, opts)
 
 	case chain == common.XRP:
 		xrpSDK := sdkxrpl.NewSDK(nil)

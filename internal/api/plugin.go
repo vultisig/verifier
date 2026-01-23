@@ -11,8 +11,6 @@ import (
 	"strings"
 	"time"
 
-	ecommon "github.com/ethereum/go-ethereum/common"
-	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5"
@@ -20,8 +18,16 @@ import (
 	"github.com/microcosm-cc/bluemonday"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/vultisig/recipes/chain/evm/ethereum"
 	"github.com/vultisig/recipes/engine"
+	sdk "github.com/vultisig/recipes/sdk"
+	sdkbch "github.com/vultisig/recipes/sdk/bch"
+	sdkbtc "github.com/vultisig/recipes/sdk/btc"
+	sdkcosmos "github.com/vultisig/recipes/sdk/cosmos"
+	sdkevm "github.com/vultisig/recipes/sdk/evm"
+	sdksolana "github.com/vultisig/recipes/sdk/solana"
+	sdktron "github.com/vultisig/recipes/sdk/tron"
+	sdkxrpl "github.com/vultisig/recipes/sdk/xrpl"
+	sdkzcash "github.com/vultisig/recipes/sdk/zcash"
 	rtypes "github.com/vultisig/recipes/types"
 	"github.com/vultisig/verifier/internal/conv"
 	"github.com/vultisig/verifier/internal/safety"
@@ -215,40 +221,24 @@ func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignReques
 		return s.badRequest(c, "failed to extract transaction bytes", err)
 	}
 
-	// EVM-specific hash validation: ensure the proposed hash matches the transaction
-	if firstKeysignMessage.Chain.IsEvm() {
-		if len(req.Messages) != 1 {
-			return s.badRequest(c, "plugins must sign exactly 1 message for evm", nil)
-		}
+	// SECURITY: Derive signing hashes from txBytes, ignore plugin-provided hashes.
+	// This prevents a malicious plugin from sending txBytes for validation but a different hash for signing.
+	derivedHashes, err := deriveSigningHashes(firstKeysignMessage.Chain, txBytesEvaluate, req.Transaction, req.SignBytes)
+	if err != nil {
+		return s.badRequest(c, "failed to derive signing hash", err)
+	}
 
-		evmID, err := firstKeysignMessage.Chain.EvmID()
-		if err != nil {
-			return s.badRequest(c, fmt.Sprintf("evm chain id not found: %s", firstKeysignMessage.Chain.String()), err)
-		}
+	// Verify message count matches derived hash count (important for Bitcoin multi-input)
+	if len(derivedHashes) != len(req.Messages) {
+		return s.badRequest(c, fmt.Sprintf("expected %d messages for %d derived hashes, got %d messages",
+			len(derivedHashes), len(derivedHashes), len(req.Messages)), nil)
+	}
 
-		txData, err := ethereum.DecodeUnsignedPayload(txBytesEvaluate)
-		if err != nil {
-			return s.badRequest(c, "failed to decode evm payload", err)
-		}
-
-		kmBytes, err := base64.StdEncoding.DecodeString(firstKeysignMessage.Message)
-		if err != nil {
-			return s.badRequest(c, "failed to decode b64 proposed tx", err)
-		}
-
-		hashToSignFromTxObj := etypes.LatestSignerForChainID(evmID).Hash(etypes.NewTx(txData))
-		hashToSign := ecommon.BytesToHash(kmBytes)
-		if hashToSignFromTxObj.Cmp(hashToSign) != 0 {
-			// req.Transaction — full tx to unpack and assert ERC20 args against policy
-			// keysignMessage.Message — is ECDSA hash to sign
-			//
-			// We must validate that plugin not cheating and
-			// hash from req.Transaction is the same as keysignMessage.Message,
-			errMsg := fmt.Sprintf("hashToSign(%s) must be the same as computed hash from request.Transaction(%s)",
-				hashToSign.Hex(),
-				hashToSignFromTxObj.Hex())
-			return s.badRequest(c, errMsg, nil)
-		}
+	// Replace plugin-provided Message/Hash with verifier-derived values
+	for i := range req.Messages {
+		req.Messages[i].Message = base64.StdEncoding.EncodeToString(derivedHashes[i].Message)
+		req.Messages[i].Hash = base64.StdEncoding.EncodeToString(derivedHashes[i].Hash)
+		req.Messages[i].HashFunction = vtypes.HashFunction_SHA256
 	}
 
 	var matchedRule *rtypes.Rule
@@ -891,4 +881,77 @@ func (s *Server) ReportPlugin(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, result))
+}
+
+// deriveSigningHashes derives signing hashes from transaction bytes based on chain type.
+// This is the core security function that ensures the verifier derives hashes independently,
+// preventing malicious plugins from substituting different hashes for signing.
+func deriveSigningHashes(chain common.Chain, txBytes []byte, originalTx string, signBytesBase64 string) ([]sdk.DerivedHash, error) {
+	opts := sdk.DeriveOptions{}
+
+	switch {
+	case chain.IsEvm():
+		evmID, err := chain.EvmID()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get EVM chain ID: %w", err)
+		}
+		evmSDK := sdkevm.NewSDK(evmID, nil, nil)
+		return evmSDK.DeriveSigningHashes(txBytes, opts)
+
+	case chain == common.Solana:
+		solanaSDK := sdksolana.NewSDK(nil)
+		return solanaSDK.DeriveSigningHashes(txBytes, opts)
+
+	case chain == common.BitcoinCash:
+		bchSDK := sdkbch.NewSDK(nil)
+		psbtBytes, err := base64.StdEncoding.DecodeString(originalTx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode PSBT base64: %w", err)
+		}
+		return bchSDK.DeriveSigningHashes(psbtBytes, opts)
+
+	case chain == common.Bitcoin, chain == common.Litecoin, chain == common.Dogecoin, chain == common.Dash:
+		btcSDK := sdkbtc.NewSDK(nil)
+		// UTXO chains need the full PSBT (not extracted tx bytes) to calculate signature hashes,
+		// because they require the WitnessUtxo/NonWitnessUtxo info from the PSBT inputs.
+		// The originalTx is base64-encoded, so we need to decode it first.
+		psbtBytes, err := base64.StdEncoding.DecodeString(originalTx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode PSBT base64: %w", err)
+		}
+		return btcSDK.DeriveSigningHashes(psbtBytes, opts)
+
+	case chain == common.XRP:
+		xrpSDK := sdkxrpl.NewSDK(nil)
+		return xrpSDK.DeriveSigningHashes(txBytes, opts)
+
+	case chain == common.THORChain, chain == common.MayaChain:
+		// Cosmos-based chains require signBytes to be provided
+		if signBytesBase64 == "" {
+			return nil, fmt.Errorf("sign_bytes required for Cosmos-based chain %s", chain.String())
+		}
+		signBytes, err := base64.StdEncoding.DecodeString(signBytesBase64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode sign_bytes: %w", err)
+		}
+		opts.SignBytes = signBytes
+		cosmosSDK := sdkcosmos.NewSDK(nil)
+		return cosmosSDK.DeriveSigningHashes(txBytes, opts)
+
+	case chain == common.Tron:
+		tronSDK := sdktron.NewSDK(nil)
+		return tronSDK.DeriveSigningHashes(txBytes, opts)
+
+	case chain == common.Zcash:
+		zcashSDK := sdkzcash.NewSDK(nil)
+		// Zcash uses the original transaction which contains embedded metadata (sighashes + pubkey)
+		zcashBytes, err := base64.StdEncoding.DecodeString(originalTx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode Zcash transaction base64: %w", err)
+		}
+		return zcashSDK.DeriveSigningHashes(zcashBytes, opts)
+
+	default:
+		return nil, fmt.Errorf("unsupported chain for hash derivation: %s", chain.String())
+	}
 }

@@ -59,6 +59,11 @@ func NewBitcoinCashIndexer() *UtxoIndexer {
 	}
 }
 
+// NewDashIndexer creates a Dash chain indexer.
+func NewDashIndexer() *UtxoIndexer {
+	return NewUtxoIndexer(common.Dash)
+}
+
 // ComputeTxHash computes the transaction hash for a signed UTXO transaction.
 // It uses the BTC SDK for signing since all these chains use compatible PSBT format.
 func (u *UtxoIndexer) ComputeTxHash(proposedTx []byte, sigs map[string]tss.KeysignResponse, _ []byte) (string, error) {

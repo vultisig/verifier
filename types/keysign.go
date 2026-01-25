@@ -65,6 +65,9 @@ type PluginKeysignRequest struct {
 	KeysignRequest
 	Transaction     string `json:"transactions"`
 	TransactionType string `json:"transaction_type"`
+	// SignBytes is required for Cosmos chains where signBytes cannot be derived from Transaction.
+	// For non-Cosmos chains, this field is ignored.
+	SignBytes string `json:"sign_bytes,omitempty"`
 }
 
 func NewPluginKeysignRequestEvm(policy PluginPolicy, txToTrack string, chain vgcommon.Chain, tx []byte) (

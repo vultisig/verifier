@@ -216,14 +216,6 @@ func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignReques
 	}
 
 	// Extract transaction bytes using chain-specific handler
-	transactionPreview := req.Transaction
-	if len(transactionPreview) > 100 {
-		transactionPreview = transactionPreview[:100]
-	}
-	fmt.Printf("[VERIFIER DEBUG] chain=%s Transaction length=%d, first 100 chars: %s\n",
-		firstKeysignMessage.Chain.String(),
-		len(req.Transaction),
-		transactionPreview)
 	txBytesEvaluate, err := ngn.ExtractTxBytes(firstKeysignMessage.Chain, req.Transaction)
 	if err != nil {
 		return s.badRequest(c, "failed to extract transaction bytes", err)

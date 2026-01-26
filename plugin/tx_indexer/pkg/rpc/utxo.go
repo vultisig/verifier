@@ -109,3 +109,8 @@ func NewDogecoin(baseURL string) (*Utxo, error) {
 func NewBitcoinCash(baseURL string) (*Utxo, error) {
 	return NewUtxo(baseURL, "bitcoin-cash")
 }
+
+// NewDash creates a Dash RPC client using Blockchair
+func NewDash(baseURL string) (*Utxo, error) {
+	return NewUtxo(baseURL, "dash")
+}

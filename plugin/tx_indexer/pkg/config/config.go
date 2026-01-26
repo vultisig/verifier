@@ -26,6 +26,7 @@ type RpcConfig struct {
 	Litecoin    RpcItem `mapstructure:"litecoin" json:"litecoin,omitempty"`
 	Dogecoin    RpcItem `mapstructure:"dogecoin" json:"dogecoin,omitempty"`
 	BitcoinCash RpcItem `mapstructure:"bitcoincash" json:"bitcoincash,omitempty"`
+	Dash        RpcItem `mapstructure:"dash" json:"dash,omitempty"`
 	Solana      RpcItem `mapstructure:"solana" json:"solana,omitempty"`
 	XRP         RpcItem `mapstructure:"xrp" json:"xrp,omitempty"`
 	Zcash       RpcItem `mapstructure:"zcash" json:"zcash,omitempty"`
@@ -41,6 +42,7 @@ type RpcConfig struct {
 	Cronos      RpcItem `mapstructure:"cronos" json:"cronos,omitempty"`
 	Zksync      RpcItem `mapstructure:"zksync" json:"zksync,omitempty"`
 	THORChain   RpcItem `mapstructure:"thorchain" json:"thorchain,omitempty"`
+	MayaChain   RpcItem `mapstructure:"mayachain" json:"mayachain,omitempty"`
 }
 
 type RpcItem struct {

@@ -320,7 +320,7 @@ func (t *DKLSTssService) processKeygenInbound(handle Handle,
 	relayClient := vgrelay.NewRelayClient(t.cfg.Relay.Server)
 	start := time.Now()
 	for {
-		if time.Since(start) > (time.Minute * 2) { // 2 minute timeout
+		if time.Since(start) > (time.Minute * 4) { // 4 minute timeout
 			t.logger.Error("keygen timeout")
 			return "", "", TssKeyGenTimeout
 		}

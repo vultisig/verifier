@@ -270,7 +270,7 @@ func (t *DKLSTssService) processQcInbound(handle Handle,
 	start := time.Now()
 	for {
 
-		if time.Since(start) > time.Minute*2 {
+		if time.Since(start) > time.Minute*4 {
 			// set isKeygenFinished to true , so the other go routine can be stopped
 			return "", "", TssKeyGenTimeout
 		}

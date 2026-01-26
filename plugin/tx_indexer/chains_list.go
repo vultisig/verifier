@@ -88,12 +88,28 @@ func Rpcs(ctx context.Context, cfg config.RpcConfig) (SupportedRpcs, error) {
 		rpcs[common.BitcoinCash] = bchRpc
 	}
 
+	if cfg.Dash.URL != "" {
+		dashRpc, err := rpc.NewDash(cfg.Dash.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Dash RPC client: %w", err)
+		}
+		rpcs[common.Dash] = dashRpc
+	}
+
 	if cfg.THORChain.URL != "" {
 		thorRpc, err := rpc.NewTHORChain(cfg.THORChain.URL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create THORChain RPC client: %w", err)
 		}
 		rpcs[common.THORChain] = thorRpc
+	}
+
+	if cfg.MayaChain.URL != "" {
+		mayaRpc, err := rpc.NewMayaChain(cfg.MayaChain.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create MayaChain RPC client: %w", err)
+		}
+		rpcs[common.MayaChain] = mayaRpc
 	}
 
 	evmChains := map[common.Chain]config.RpcItem{
@@ -146,6 +162,12 @@ func Chains() (SupportedChains, error) {
 	chains[common.Litecoin] = chain.NewLitecoinIndexer()
 	chains[common.Dogecoin] = chain.NewDogecoinIndexer()
 	chains[common.BitcoinCash] = chain.NewBitcoinCashIndexer()
+	chains[common.Dash] = chain.NewDashIndexer()
+
+	mayaSDK := cosmossdk.NewSDK(nil)
+	types.RegisterInterfaces(mayaSDK.InterfaceRegistry())
+	mayaSDK.RefreshCodec()
+	chains[common.MayaChain] = chain.NewMayaChainIndexer(mayaSDK)
 
 	evmChains := []common.Chain{
 		common.Ethereum,

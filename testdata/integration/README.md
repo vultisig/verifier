@@ -1,11 +1,22 @@
 # Integration Tests
 
-Go-based plugin integration tests.
+Go-based integration tests for local development with vcli.
 
 ## Quick Start
 
+Start vcli, then run:
+
 ```bash
 make test-integration
+```
+
+Or manually:
+
+```bash
+DATABASE_DSN="postgres://vultisig:vultisig@localhost:5432/vultisig-verifier?sslmode=disable" \
+ENCRYPTION_SECRET="dev-encryption-secret-32b" \
+JWT_SECRET="devsecret" \
+go test -v -count=1 ./testdata/integration/gotest/...
 ```
 
 ## Structure
@@ -15,7 +26,7 @@ testdata/integration/
 ├── gotest/                   # Go integration tests
 │   ├── integration_test.go   # TestMain setup
 │   ├── client.go             # HTTP client helpers
-│   ├── fixtures.go           # Load fixture.json + proposed.yaml
+│   ├── fixtures.go           # Fixture loaders and test plugins
 │   ├── jwt.go                # JWT generation
 │   ├── evm.go                # EVM fixture generation
 │   ├── seeder.go             # DB/S3 seeding
@@ -29,14 +40,17 @@ testdata/integration/
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
+| Variable | vcli Default | Description |
+|----------|--------------|-------------|
 | `VERIFIER_URL` | `http://localhost:8080` | Verifier API endpoint |
-| `JWT_SECRET` | `mysecret` | JWT signing secret |
+| `DATABASE_DSN` | `postgres://vultisig:vultisig@localhost:5432/vultisig-verifier?sslmode=disable` | PostgreSQL connection |
+| `ENCRYPTION_SECRET` | `dev-encryption-secret-32b` | Vault encryption secret |
+| `JWT_SECRET` | `devsecret` | JWT signing secret |
 | `S3_ENDPOINT` | `http://localhost:9000` | MinIO/S3 endpoint |
 | `S3_ACCESS_KEY` | `minioadmin` | S3 access key |
 | `S3_SECRET_KEY` | `minioadmin` | S3 secret key |
 | `S3_BUCKET` | `vultisig-verifier` | S3 bucket name |
+| `DCA_PLUGIN_URL` | `http://localhost:8082` | DCA plugin server endpoint |
 
 ## Test Flow
 
@@ -72,8 +86,3 @@ testdata/integration/
 14. POST /plugin-signer/sign with valid request (200)
 15. GET /plugin-signer/sign/response/{task_id} without auth (401)
 16. GET /plugin-signer/sign/response/{task_id} with API key (any)
-
-## Adding New Plugins
-
-1. Add plugin to `proposed.yaml` in repo root
-2. Run tests - they automatically pick up new plugins

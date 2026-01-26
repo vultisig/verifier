@@ -24,11 +24,6 @@ on:
         type: string
         description: Additional tag (e.g., latest, dev-latest)
         default: ""
-      proposed_yaml:
-        required: false
-        type: string
-        description: Path to proposed.yaml file (default proposed.yaml, use proposed_dev.yaml for dev)
-        default: "proposed.yaml"
       platforms:
         required: false
         type: string
@@ -76,7 +71,6 @@ jobs:
           tags: ${{ steps.prep.outputs.tags }}
           build-args: |
             SERVICE=${{ inputs.service }}
-            PROPOSED_YAML=${{ inputs.proposed_yaml }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false

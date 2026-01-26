@@ -46,13 +46,11 @@ func TestMain(m *testing.M) {
 	log.Printf("Working directory: %s\n", repoRoot)
 
 	fixturePath := filepath.Join(integrationDir, "fixture.json")
-	proposedPath := filepath.Join(repoRoot, "proposed.yaml")
 
 	log.Println("Go Integration Tests")
 	log.Println("========================")
 	log.Printf("Verifier URL: %s\n", verifierURL)
 	log.Printf("Fixture Path: %s\n", fixturePath)
-	log.Printf("Proposed Path: %s\n", proposedPath)
 	log.Println()
 
 	fixture, err = LoadFixture(fixturePath)
@@ -60,12 +58,8 @@ func TestMain(m *testing.M) {
 		log.Fatalf("Failed to load fixture: %v", err)
 	}
 
-	plugins, err = LoadPlugins(proposedPath)
-	if err != nil {
-		log.Fatalf("Failed to load plugins: %v", err)
-	}
-
-	log.Printf("Loaded %d plugins from proposed.yaml\n", len(plugins))
+	plugins = GetTestPlugins()
+	log.Printf("Using %d test plugins\n", len(plugins))
 
 	jwtToken, err = GenerateJWT(jwtSecret, fixture.Vault.PublicKey, "integration-token-1", 24)
 	if err != nil {

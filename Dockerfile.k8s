@@ -35,5 +35,3 @@ WORKDIR /app
 COPY --from=builder /app/main .
 COPY --from=builder /usr/local/lib/dkls /usr/local/lib/dkls
 ENV LD_LIBRARY_PATH=/usr/local/lib/dkls/includes/linux:$LD_LIBRARY_PATH
-ARG PROPOSED_YAML=proposed.yaml
-COPY ${PROPOSED_YAML} proposed.yaml

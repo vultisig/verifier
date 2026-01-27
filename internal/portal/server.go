@@ -425,33 +425,44 @@ func (s *Server) UpdatePlugin(c echo.Context) error {
 	}
 
 	// Build map of signed updates
-	updateMap := make(map[string]string)
+	updateMap := make(map[string]sigutil.FieldUpdate)
 	for _, u := range req.SignedMessage.Updates {
-		updateMap[u.Field] = u.NewValue
+		updateMap[u.Field] = u
 	}
 
 	// Validate each field:
-	// - If field is in updateMap (being changed): signed value must match request value
+	// - If field is in updateMap (being changed):
+	//   1. signed NewValue must match request value
+	//   2. signed OldValue must match current DB value (prevents replay/stale-signature attacks)
 	// - If field is NOT in updateMap (unchanged): request value must match existing DB value
-	if signedTitle, ok := updateMap["title"]; ok {
-		if signedTitle != req.Title {
+	if fieldUpdate, ok := updateMap["title"]; ok {
+		if fieldUpdate.NewValue != req.Title {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "title does not match signed value"})
+		}
+		if fieldUpdate.OldValue != existingPlugin.Title {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "title old value does not match current value"})
 		}
 	} else if req.Title != existingPlugin.Title {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "title change must be signed"})
 	}
 
-	if signedDesc, ok := updateMap["description"]; ok {
-		if signedDesc != req.Description {
+	if fieldUpdate, ok := updateMap["description"]; ok {
+		if fieldUpdate.NewValue != req.Description {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "description does not match signed value"})
+		}
+		if fieldUpdate.OldValue != existingPlugin.Description {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "description old value does not match current value"})
 		}
 	} else if req.Description != existingPlugin.Description {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "description change must be signed"})
 	}
 
-	if signedEndpoint, ok := updateMap["serverEndpoint"]; ok {
-		if signedEndpoint != req.ServerEndpoint {
+	if fieldUpdate, ok := updateMap["serverEndpoint"]; ok {
+		if fieldUpdate.NewValue != req.ServerEndpoint {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "server_endpoint does not match signed value"})
+		}
+		if fieldUpdate.OldValue != existingPlugin.ServerEndpoint {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "server_endpoint old value does not match current value"})
 		}
 	} else if req.ServerEndpoint != existingPlugin.ServerEndpoint {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "server_endpoint change must be signed"})

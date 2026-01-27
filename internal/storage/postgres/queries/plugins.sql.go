@@ -11,6 +11,53 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createPluginApiKey = `-- name: CreatePluginApiKey :one
+INSERT INTO plugin_apikey (plugin_id, apikey, expires_at, status)
+VALUES ($1, $2, $3, 1)
+RETURNING id, plugin_id, apikey, created_at, expires_at, status
+`
+
+type CreatePluginApiKeyParams struct {
+	PluginID  PluginID           `json:"plugin_id"`
+	Apikey    string             `json:"apikey"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
+func (q *Queries) CreatePluginApiKey(ctx context.Context, arg *CreatePluginApiKeyParams) (*PluginApikey, error) {
+	row := q.db.QueryRow(ctx, createPluginApiKey, arg.PluginID, arg.Apikey, arg.ExpiresAt)
+	var i PluginApikey
+	err := row.Scan(
+		&i.ID,
+		&i.PluginID,
+		&i.Apikey,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.Status,
+	)
+	return &i, err
+}
+
+const expirePluginApiKey = `-- name: ExpirePluginApiKey :one
+UPDATE plugin_apikey
+SET expires_at = NOW()
+WHERE id = $1
+RETURNING id, plugin_id, apikey, created_at, expires_at, status
+`
+
+func (q *Queries) ExpirePluginApiKey(ctx context.Context, id pgtype.UUID) (*PluginApikey, error) {
+	row := q.db.QueryRow(ctx, expirePluginApiKey, id)
+	var i PluginApikey
+	err := row.Scan(
+		&i.ID,
+		&i.PluginID,
+		&i.Apikey,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.Status,
+	)
+	return &i, err
+}
+
 const getEarningsByPluginForOwner = `-- name: GetEarningsByPluginForOwner :many
 SELECT
     f.plugin_id,
@@ -227,6 +274,25 @@ func (q *Queries) GetEarningsSummaryByPluginOwner(ctx context.Context, publicKey
 	row := q.db.QueryRow(ctx, getEarningsSummaryByPluginOwner, publicKey)
 	var i GetEarningsSummaryByPluginOwnerRow
 	err := row.Scan(&i.TotalEarnings, &i.TotalTransactions)
+	return &i, err
+}
+
+const getPluginApiKeyByID = `-- name: GetPluginApiKeyByID :one
+SELECT id, plugin_id, apikey, created_at, expires_at, status FROM plugin_apikey
+WHERE id = $1
+`
+
+func (q *Queries) GetPluginApiKeyByID(ctx context.Context, id pgtype.UUID) (*PluginApikey, error) {
+	row := q.db.QueryRow(ctx, getPluginApiKeyByID, id)
+	var i PluginApikey
+	err := row.Scan(
+		&i.ID,
+		&i.PluginID,
+		&i.Apikey,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.Status,
+	)
 	return &i, err
 }
 
@@ -465,6 +531,32 @@ func (q *Queries) UpdatePlugin(ctx context.Context, arg *UpdatePluginParams) (*P
 		&i.Faqs,
 		&i.Features,
 		&i.Audited,
+	)
+	return &i, err
+}
+
+const updatePluginApiKeyStatus = `-- name: UpdatePluginApiKeyStatus :one
+UPDATE plugin_apikey
+SET status = $2
+WHERE id = $1
+RETURNING id, plugin_id, apikey, created_at, expires_at, status
+`
+
+type UpdatePluginApiKeyStatusParams struct {
+	ID     pgtype.UUID `json:"id"`
+	Status int32       `json:"status"`
+}
+
+func (q *Queries) UpdatePluginApiKeyStatus(ctx context.Context, arg *UpdatePluginApiKeyStatusParams) (*PluginApikey, error) {
+	row := q.db.QueryRow(ctx, updatePluginApiKeyStatus, arg.ID, arg.Status)
+	var i PluginApikey
+	err := row.Scan(
+		&i.ID,
+		&i.PluginID,
+		&i.Apikey,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.Status,
 	)
 	return &i, err
 }

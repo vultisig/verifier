@@ -1,6 +1,7 @@
 package portal
 
 import (
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -73,6 +75,9 @@ func (s *Server) registerRoutes(e *echo.Echo) {
 	protected := e.Group("")
 	protected.Use(s.JWTAuthMiddleware)
 	protected.GET("/plugins/:id/api-keys", s.GetPluginApiKeys)
+	protected.POST("/plugins/:id/api-keys", s.CreatePluginApiKey)
+	protected.PUT("/plugins/:id/api-keys/:keyId", s.UpdatePluginApiKey)
+	protected.DELETE("/plugins/:id/api-keys/:keyId", s.DeletePluginApiKey)
 	protected.GET("/earnings", s.GetEarnings)
 	protected.GET("/earnings/summary", s.GetEarningsSummary)
 }
@@ -322,7 +327,7 @@ func (s *Server) GetPluginApiKeys(c echo.Context) error {
 		response[i] = PluginApiKeyResponse{
 			ID:        k.ID.String(),
 			PluginID:  string(k.PluginID),
-			ApiKey:    k.Apikey,
+			ApiKey:    maskApiKey(k.Apikey),
 			CreatedAt: k.CreatedAt.Time.Format(time.RFC3339),
 			ExpiresAt: expiresAt,
 			Status:    k.Status,
@@ -330,6 +335,296 @@ func (s *Server) GetPluginApiKeys(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, response)
+}
+
+// maskApiKey masks an API key showing only the prefix and first/last 4 hex chars
+// e.g., "vbt_abc123...def456"
+func maskApiKey(key string) string {
+	// Key format: vbt_<64 hex chars>
+	if len(key) < 12 {
+		return key
+	}
+	// Get the prefix (vbt_) and the hex part
+	if strings.HasPrefix(key, "vbt_") {
+		hexPart := key[4:]
+		if len(hexPart) >= 8 {
+			return "vbt_" + hexPart[:4] + "..." + hexPart[len(hexPart)-4:]
+		}
+	}
+	// Fallback for keys without prefix
+	return key[:4] + "..." + key[len(key)-4:]
+}
+
+// generateApiKey generates a random API key with vbt_ prefix and 32 bytes hex
+func generateApiKey() (string, error) {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return "vbt_" + hex.EncodeToString(bytes), nil
+}
+
+// CreateApiKeyRequest represents the request to create a new API key
+type CreateApiKeyRequest struct {
+	ExpiresAt *string `json:"expiresAt"` // RFC3339 format, optional
+}
+
+// CreateApiKeyResponse represents the response with the full API key (shown only once)
+type CreateApiKeyResponse struct {
+	ID        string  `json:"id"`
+	PluginID  string  `json:"pluginId"`
+	ApiKey    string  `json:"apikey"` // Full key, shown only on creation
+	CreatedAt string  `json:"createdAt"`
+	ExpiresAt *string `json:"expiresAt"`
+	Status    int32   `json:"status"`
+}
+
+// CreatePluginApiKey creates a new API key for a plugin
+func (s *Server) CreatePluginApiKey(c echo.Context) error {
+	id := c.Param("id")
+	if id == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+	}
+
+	// Get address from JWT context
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
+
+	// Verify the requester owns this plugin
+	_, err := s.queries.GetPluginOwner(c.Request().Context(), &queries.GetPluginOwnerParams{
+		PluginID:  queries.PluginID(id),
+		PublicKey: address,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "not authorized to manage API keys for this plugin"})
+		}
+		s.logger.WithError(err).Error("failed to check plugin ownership")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	var req CreateApiKeyRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	}
+
+	// Generate the API key
+	apiKey, err := generateApiKey()
+	if err != nil {
+		s.logger.WithError(err).Error("failed to generate API key")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to generate API key"})
+	}
+
+	// Parse optional expiry time
+	var expiresAt pgtype.Timestamptz
+	if req.ExpiresAt != nil && *req.ExpiresAt != "" {
+		t, err := time.Parse(time.RFC3339, *req.ExpiresAt)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid expiry time format"})
+		}
+		expiresAt = pgtype.Timestamptz{Time: t, Valid: true}
+	}
+
+	// Create the API key in the database
+	created, err := s.queries.CreatePluginApiKey(c.Request().Context(), &queries.CreatePluginApiKeyParams{
+		PluginID:  queries.PluginID(id),
+		Apikey:    apiKey,
+		ExpiresAt: expiresAt,
+	})
+	if err != nil {
+		s.logger.WithError(err).Error("failed to create API key")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create API key"})
+	}
+
+	var expiresAtStr *string
+	if created.ExpiresAt.Valid {
+		t := created.ExpiresAt.Time.Format(time.RFC3339)
+		expiresAtStr = &t
+	}
+
+	s.logger.WithFields(logrus.Fields{
+		"plugin_id": id,
+		"key_id":    created.ID.String(),
+	}).Info("API key created successfully")
+
+	// Return the full API key (only shown once)
+	return c.JSON(http.StatusCreated, CreateApiKeyResponse{
+		ID:        created.ID.String(),
+		PluginID:  string(created.PluginID),
+		ApiKey:    apiKey, // Full key returned only on creation
+		CreatedAt: created.CreatedAt.Time.Format(time.RFC3339),
+		ExpiresAt: expiresAtStr,
+		Status:    created.Status,
+	})
+}
+
+// UpdateApiKeyRequest represents the request to update an API key
+type UpdateApiKeyRequest struct {
+	Status int32 `json:"status"` // 0 = disabled, 1 = enabled
+}
+
+// UpdatePluginApiKey updates an API key's status (enable/disable)
+func (s *Server) UpdatePluginApiKey(c echo.Context) error {
+	pluginID := c.Param("id")
+	keyID := c.Param("keyId")
+	if pluginID == "" || keyID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id and key id are required"})
+	}
+
+	// Get address from JWT context
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
+
+	// Verify the requester owns this plugin
+	_, err := s.queries.GetPluginOwner(c.Request().Context(), &queries.GetPluginOwnerParams{
+		PluginID:  queries.PluginID(pluginID),
+		PublicKey: address,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "not authorized to manage API keys for this plugin"})
+		}
+		s.logger.WithError(err).Error("failed to check plugin ownership")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	var req UpdateApiKeyRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	}
+
+	// Validate status
+	if req.Status != 0 && req.Status != 1 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "status must be 0 or 1"})
+	}
+
+	// Parse UUID
+	keyUUID, err := uuid.Parse(keyID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid key id format"})
+	}
+
+	// Verify the key belongs to this plugin
+	existingKey, err := s.queries.GetPluginApiKeyByID(c.Request().Context(), pgtype.UUID{Bytes: keyUUID, Valid: true})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "API key not found"})
+		}
+		s.logger.WithError(err).Error("failed to get API key")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+	if string(existingKey.PluginID) != pluginID {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "API key does not belong to this plugin"})
+	}
+
+	// Update the status
+	updated, err := s.queries.UpdatePluginApiKeyStatus(c.Request().Context(), &queries.UpdatePluginApiKeyStatusParams{
+		ID:     pgtype.UUID{Bytes: keyUUID, Valid: true},
+		Status: req.Status,
+	})
+	if err != nil {
+		s.logger.WithError(err).Error("failed to update API key status")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update API key"})
+	}
+
+	var expiresAt *string
+	if updated.ExpiresAt.Valid {
+		t := updated.ExpiresAt.Time.Format(time.RFC3339)
+		expiresAt = &t
+	}
+
+	s.logger.WithFields(logrus.Fields{
+		"plugin_id": pluginID,
+		"key_id":    keyID,
+		"status":    req.Status,
+	}).Info("API key status updated")
+
+	return c.JSON(http.StatusOK, PluginApiKeyResponse{
+		ID:        updated.ID.String(),
+		PluginID:  string(updated.PluginID),
+		ApiKey:    maskApiKey(updated.Apikey),
+		CreatedAt: updated.CreatedAt.Time.Format(time.RFC3339),
+		ExpiresAt: expiresAt,
+		Status:    updated.Status,
+	})
+}
+
+// DeletePluginApiKey expires an API key immediately (soft delete)
+func (s *Server) DeletePluginApiKey(c echo.Context) error {
+	pluginID := c.Param("id")
+	keyID := c.Param("keyId")
+	if pluginID == "" || keyID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id and key id are required"})
+	}
+
+	// Get address from JWT context
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
+
+	// Verify the requester owns this plugin
+	_, err := s.queries.GetPluginOwner(c.Request().Context(), &queries.GetPluginOwnerParams{
+		PluginID:  queries.PluginID(pluginID),
+		PublicKey: address,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "not authorized to manage API keys for this plugin"})
+		}
+		s.logger.WithError(err).Error("failed to check plugin ownership")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	// Parse UUID
+	keyUUID, err := uuid.Parse(keyID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid key id format"})
+	}
+
+	// Verify the key belongs to this plugin
+	existingKey, err := s.queries.GetPluginApiKeyByID(c.Request().Context(), pgtype.UUID{Bytes: keyUUID, Valid: true})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "API key not found"})
+		}
+		s.logger.WithError(err).Error("failed to get API key")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+	if string(existingKey.PluginID) != pluginID {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "API key does not belong to this plugin"})
+	}
+
+	// Expire the key (set expires_at to NOW())
+	expired, err := s.queries.ExpirePluginApiKey(c.Request().Context(), pgtype.UUID{Bytes: keyUUID, Valid: true})
+	if err != nil {
+		s.logger.WithError(err).Error("failed to expire API key")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to delete API key"})
+	}
+
+	var expiresAt *string
+	if expired.ExpiresAt.Valid {
+		t := expired.ExpiresAt.Time.Format(time.RFC3339)
+		expiresAt = &t
+	}
+
+	s.logger.WithFields(logrus.Fields{
+		"plugin_id": pluginID,
+		"key_id":    keyID,
+	}).Info("API key expired (deleted)")
+
+	return c.JSON(http.StatusOK, PluginApiKeyResponse{
+		ID:        expired.ID.String(),
+		PluginID:  string(expired.PluginID),
+		ApiKey:    maskApiKey(expired.Apikey),
+		CreatedAt: expired.CreatedAt.Time.Format(time.RFC3339),
+		ExpiresAt: expiresAt,
+		Status:    expired.Status,
+	})
 }
 
 // EarningTransactionResponse is the API response for earning transactions

@@ -401,23 +401,6 @@ func (s *Server) UpdatePlugin(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid signature"})
 	}
 
-	// Validate that the updates in the signed message match what's being requested
-	updateMap := make(map[string]string)
-	for _, u := range req.SignedMessage.Updates {
-		updateMap[u.Field] = u.NewValue
-	}
-
-	// Check that requested values match signed values
-	if title, ok := updateMap["title"]; ok && title != req.Title {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "title does not match signed value"})
-	}
-	if desc, ok := updateMap["description"]; ok && desc != req.Description {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "description does not match signed value"})
-	}
-	if endpoint, ok := updateMap["serverEndpoint"]; ok && endpoint != req.ServerEndpoint {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "server_endpoint does not match signed value"})
-	}
-
 	// Authorization check - verify signer owns this plugin
 	_, err = s.queries.GetPluginOwner(c.Request().Context(), &queries.GetPluginOwnerParams{
 		PluginID:  queries.PluginID(id),
@@ -431,7 +414,50 @@ func (s *Server) UpdatePlugin(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
 
-	// Update the plugin
+	// Fetch existing plugin to validate unchanged fields match DB values
+	existingPlugin, err := s.queries.GetPluginByID(c.Request().Context(), queries.PluginID(id))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "plugin not found"})
+		}
+		s.logger.WithError(err).Error("failed to fetch existing plugin")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	// Build map of signed updates
+	updateMap := make(map[string]string)
+	for _, u := range req.SignedMessage.Updates {
+		updateMap[u.Field] = u.NewValue
+	}
+
+	// Validate each field:
+	// - If field is in updateMap (being changed): signed value must match request value
+	// - If field is NOT in updateMap (unchanged): request value must match existing DB value
+	if signedTitle, ok := updateMap["title"]; ok {
+		if signedTitle != req.Title {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "title does not match signed value"})
+		}
+	} else if req.Title != existingPlugin.Title {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "title change must be signed"})
+	}
+
+	if signedDesc, ok := updateMap["description"]; ok {
+		if signedDesc != req.Description {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "description does not match signed value"})
+		}
+	} else if req.Description != existingPlugin.Description {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "description change must be signed"})
+	}
+
+	if signedEndpoint, ok := updateMap["serverEndpoint"]; ok {
+		if signedEndpoint != req.ServerEndpoint {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "server_endpoint does not match signed value"})
+		}
+	} else if req.ServerEndpoint != existingPlugin.ServerEndpoint {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "server_endpoint change must be signed"})
+	}
+
+	// Update the plugin with validated request values
 	plugin, err := s.queries.UpdatePlugin(c.Request().Context(), &queries.UpdatePluginParams{
 		ID:             queries.PluginID(id),
 		Title:          req.Title,

@@ -1021,12 +1021,12 @@ func (s *Server) UpdatePlugin(c echo.Context) error {
 
 // TeamMemberResponse represents a team member in API responses
 type TeamMemberResponse struct {
-	PublicKey  string `json:"publicKey"`
-	Role       string `json:"role"`
-	AddedVia   string `json:"addedVia"`
-	AddedBy    string `json:"addedBy,omitempty"`
-	CreatedAt  string `json:"createdAt"`
-	IsCurrentUser bool `json:"isCurrentUser"`
+	PublicKey     string `json:"publicKey"`
+	Role          string `json:"role"`
+	AddedVia      string `json:"addedVia"`
+	AddedBy       string `json:"addedBy,omitempty"`
+	CreatedAt     string `json:"createdAt"`
+	IsCurrentUser bool   `json:"isCurrentUser"`
 }
 
 // ListTeamMembers returns team members for a plugin (admin only, excludes staff)

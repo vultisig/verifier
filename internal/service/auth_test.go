@@ -395,8 +395,8 @@ func (m *MockDatabaseStorage) GetPricingsByPluginIDs(ctx context.Context, plugin
 	return args.Get(0).(map[string][]itypes.PricingInfo), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason string, cooldown time.Duration) error {
-	args := m.Called(ctx, pluginID, publicKey, reason, cooldown)
+func (m *MockDatabaseStorage) UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason, details string, cooldown time.Duration) error {
+	args := m.Called(ctx, pluginID, publicKey, reason, details, cooldown)
 	return args.Error(0)
 }
 

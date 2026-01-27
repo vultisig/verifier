@@ -18,7 +18,7 @@ const (
 	PLUGIN_PAUSE_HISTORY_TABLE = "plugin_pause_history"
 )
 
-func (p *PostgresBackend) UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason string, cooldown time.Duration) error {
+func (p *PostgresBackend) UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason, details string, cooldown time.Duration) error {
 	if p.pool == nil {
 		return fmt.Errorf("database pool is nil")
 	}
@@ -26,16 +26,17 @@ func (p *PostgresBackend) UpsertReport(ctx context.Context, pluginID types.Plugi
 	intervalStr := fmt.Sprintf("%d seconds", int64(cooldown.Seconds()))
 
 	query := fmt.Sprintf(`
-		INSERT INTO %s (plugin_id, reporter_public_key, reason, created_at, last_reported_at, report_count)
-		VALUES ($1, $2, $3, NOW(), NOW(), 1)
+		INSERT INTO %s (plugin_id, reporter_public_key, reason, details, created_at, last_reported_at, report_count)
+		VALUES ($1, $2, $3, $4, NOW(), NOW(), 1)
 		ON CONFLICT (plugin_id, reporter_public_key) DO UPDATE
 		SET last_reported_at = NOW(),
 		    reason = EXCLUDED.reason,
+		    details = EXCLUDED.details,
 		    report_count = %s.report_count + 1
-		WHERE %s.last_reported_at < NOW() - $4::interval`,
+		WHERE %s.last_reported_at < NOW() - $5::interval`,
 		PLUGIN_REPORTS_TABLE, PLUGIN_REPORTS_TABLE, PLUGIN_REPORTS_TABLE)
 
-	result, err := p.pool.Exec(ctx, query, pluginID, publicKey, reason, intervalStr)
+	result, err := p.pool.Exec(ctx, query, pluginID, publicKey, reason, details, intervalStr)
 	if err != nil {
 		return fmt.Errorf("failed to upsert report: %w", err)
 	}
@@ -53,7 +54,7 @@ func (p *PostgresBackend) GetReport(ctx context.Context, pluginID types.PluginID
 	}
 
 	query := fmt.Sprintf(`
-		SELECT plugin_id, reporter_public_key, reason, created_at, last_reported_at, report_count
+		SELECT plugin_id, reporter_public_key, reason, details, created_at, last_reported_at, report_count
 		FROM %s
 		WHERE plugin_id = $1 AND reporter_public_key = $2`,
 		PLUGIN_REPORTS_TABLE)
@@ -63,6 +64,7 @@ func (p *PostgresBackend) GetReport(ctx context.Context, pluginID types.PluginID
 		&report.PluginID,
 		&report.ReporterPubKey,
 		&report.Reason,
+		&report.Details,
 		&report.CreatedAt,
 		&report.LastReportedAt,
 		&report.ReportCount,

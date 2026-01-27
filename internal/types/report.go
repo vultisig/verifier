@@ -17,6 +17,7 @@ type PluginReport struct {
 	PluginID       types.PluginID `json:"plugin_id"`
 	ReporterPubKey string         `json:"reporter_public_key"`
 	Reason         string         `json:"reason"`
+	Details        string         `json:"details"`
 	CreatedAt      time.Time      `json:"created_at"`
 	LastReportedAt time.Time      `json:"last_reported_at"`
 	ReportCount    int            `json:"report_count"`
@@ -35,7 +36,8 @@ type PauseHistoryRecord struct {
 }
 
 type ReportCreateRequest struct {
-	Reason string `json:"reason" validate:"required"`
+	Reason  string `json:"reason" validate:"required,max=200"`
+	Details string `json:"details" validate:"max=2000"`
 }
 
 type ReportSubmitResult struct {

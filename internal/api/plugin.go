@@ -863,13 +863,26 @@ func (s *Server) ReportPlugin(c echo.Context) error {
 
 	err = c.Validate(&req)
 	if err != nil {
-		return s.badRequest(c, msgReasonRequired, err)
+		errStr := err.Error()
+		var msg string
+		switch {
+		case strings.Contains(errStr, "Reason") && strings.Contains(errStr, "required"):
+			msg = msgReportReasonRequired
+		case strings.Contains(errStr, "Reason") && strings.Contains(errStr, "max"):
+			msg = msgReportReasonTooLong
+		case strings.Contains(errStr, "Details") && strings.Contains(errStr, "max"):
+			msg = msgReportDetailsTooLong
+		default:
+			msg = msgReportValidationFailed
+		}
+		return s.badRequest(c, msg, err)
 	}
 
 	p := bluemonday.StrictPolicy()
 	reason := p.Sanitize(req.Reason)
+	details := p.Sanitize(req.Details)
 
-	result, err := s.reportService.SubmitReport(c.Request().Context(), vtypes.PluginID(pluginID), publicKey, reason)
+	result, err := s.reportService.SubmitReport(c.Request().Context(), vtypes.PluginID(pluginID), publicKey, reason, details)
 	if err != nil {
 		if errors.Is(err, service.ErrNotEligible) {
 			return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgReportNotEligible))

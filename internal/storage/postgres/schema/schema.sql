@@ -281,7 +281,7 @@ CREATE TABLE "plugin_reports" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "last_reported_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "report_count" integer DEFAULT 1 NOT NULL,
-    "details" "text" NOT NULL DEFAULT ''
+    "details" "text" DEFAULT ''::"text" NOT NULL
 );
 
 CREATE TABLE "plugin_tags" (

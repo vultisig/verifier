@@ -79,6 +79,7 @@
                     goose
                     hurl
                     flyctl
+                    sqlc
                   ];
 
                   enterShell = ''

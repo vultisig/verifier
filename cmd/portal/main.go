@@ -1,26 +1,23 @@
 package main
 
 import (
-	"context"
-
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/portal"
+	"github.com/vultisig/verifier/internal/storage/postgres"
 )
 
 func main() {
-	ctx := context.Background()
-
 	cfg, err := config.ReadPortalConfig()
 	if err != nil {
 		panic(err)
 	}
 
-	pool, err := pgxpool.New(ctx, cfg.Database.DSN)
+	db, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil, "")
 	if err != nil {
 		panic(err)
 	}
+
+	pool := db.Pool()
 	defer pool.Close()
 
 	server := portal.NewServer(*cfg, pool)

@@ -11,6 +11,56 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addPluginTeamMember = `-- name: AddPluginTeamMember :one
+INSERT INTO plugin_owners (plugin_id, public_key, role, added_via, added_by_public_key, link_id)
+VALUES ($1, $2, $3, 'magic_link', $4, $5)
+RETURNING plugin_id, public_key, active, role, added_via, added_by_public_key, link_id, created_at, updated_at
+`
+
+type AddPluginTeamMemberParams struct {
+	PluginID         PluginID        `json:"plugin_id"`
+	PublicKey        string          `json:"public_key"`
+	Role             PluginOwnerRole `json:"role"`
+	AddedByPublicKey pgtype.Text     `json:"added_by_public_key"`
+	LinkID           pgtype.UUID     `json:"link_id"`
+}
+
+// Add a new team member via magic link invite
+func (q *Queries) AddPluginTeamMember(ctx context.Context, arg *AddPluginTeamMemberParams) (*PluginOwner, error) {
+	row := q.db.QueryRow(ctx, addPluginTeamMember,
+		arg.PluginID,
+		arg.PublicKey,
+		arg.Role,
+		arg.AddedByPublicKey,
+		arg.LinkID,
+	)
+	var i PluginOwner
+	err := row.Scan(
+		&i.PluginID,
+		&i.PublicKey,
+		&i.Active,
+		&i.Role,
+		&i.AddedVia,
+		&i.AddedByPublicKey,
+		&i.LinkID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const checkLinkIdUsed = `-- name: CheckLinkIdUsed :one
+SELECT EXISTS(SELECT 1 FROM plugin_owners WHERE link_id = $1) as used
+`
+
+// Check if a link_id has already been used
+func (q *Queries) CheckLinkIdUsed(ctx context.Context, linkID pgtype.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, checkLinkIdUsed, linkID)
+	var used bool
+	err := row.Scan(&used)
+	return used, err
+}
+
 const createPluginApiKey = `-- name: CreatePluginApiKey :one
 INSERT INTO plugin_apikey (plugin_id, apikey, expires_at, status)
 VALUES ($1, $2, $3, 1)
@@ -388,7 +438,7 @@ func (q *Queries) GetPluginByIDAndOwner(ctx context.Context, arg *GetPluginByIDA
 }
 
 const getPluginOwner = `-- name: GetPluginOwner :one
-SELECT plugin_id, public_key, active, role, added_via, added_by_public_key, created_at, updated_at FROM plugin_owners
+SELECT plugin_id, public_key, active, role, added_via, added_by_public_key, link_id, created_at, updated_at FROM plugin_owners
 WHERE plugin_id = $1 AND public_key = $2 AND active = true
 `
 
@@ -407,6 +457,35 @@ func (q *Queries) GetPluginOwner(ctx context.Context, arg *GetPluginOwnerParams)
 		&i.Role,
 		&i.AddedVia,
 		&i.AddedByPublicKey,
+		&i.LinkID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const getPluginOwnerWithRole = `-- name: GetPluginOwnerWithRole :one
+SELECT plugin_id, public_key, active, role, added_via, added_by_public_key, link_id, created_at, updated_at FROM plugin_owners
+WHERE plugin_id = $1 AND public_key = $2 AND active = true
+`
+
+type GetPluginOwnerWithRoleParams struct {
+	PluginID  PluginID `json:"plugin_id"`
+	PublicKey string   `json:"public_key"`
+}
+
+// Get a specific owner with their role for permission checks
+func (q *Queries) GetPluginOwnerWithRole(ctx context.Context, arg *GetPluginOwnerWithRoleParams) (*PluginOwner, error) {
+	row := q.db.QueryRow(ctx, getPluginOwnerWithRole, arg.PluginID, arg.PublicKey)
+	var i PluginOwner
+	err := row.Scan(
+		&i.PluginID,
+		&i.PublicKey,
+		&i.Active,
+		&i.Role,
+		&i.AddedVia,
+		&i.AddedByPublicKey,
+		&i.LinkID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -450,7 +529,7 @@ func (q *Queries) GetPluginPricings(ctx context.Context, pluginID PluginID) ([]*
 }
 
 const listPluginOwners = `-- name: ListPluginOwners :many
-SELECT plugin_id, public_key, active, role, added_via, added_by_public_key, created_at, updated_at FROM plugin_owners
+SELECT plugin_id, public_key, active, role, added_via, added_by_public_key, link_id, created_at, updated_at FROM plugin_owners
 WHERE plugin_id = $1 AND active = true
 ORDER BY created_at ASC
 `
@@ -471,6 +550,52 @@ func (q *Queries) ListPluginOwners(ctx context.Context, pluginID PluginID) ([]*P
 			&i.Role,
 			&i.AddedVia,
 			&i.AddedByPublicKey,
+			&i.LinkID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPluginTeamMembers = `-- name: ListPluginTeamMembers :many
+
+SELECT plugin_id, public_key, active, role, added_via, added_by_public_key, link_id, created_at, updated_at FROM plugin_owners
+WHERE plugin_id = $1 AND active = true AND role != 'staff'
+ORDER BY
+    CASE role
+        WHEN 'admin' THEN 1
+        WHEN 'editor' THEN 2
+        WHEN 'viewer' THEN 3
+    END,
+    created_at ASC
+`
+
+// Team Management Queries
+// List team members for a plugin, excluding staff role (admins can't see staff)
+func (q *Queries) ListPluginTeamMembers(ctx context.Context, pluginID PluginID) ([]*PluginOwner, error) {
+	rows, err := q.db.Query(ctx, listPluginTeamMembers, pluginID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*PluginOwner{}
+	for rows.Next() {
+		var i PluginOwner
+		if err := rows.Scan(
+			&i.PluginID,
+			&i.PublicKey,
+			&i.Active,
+			&i.Role,
+			&i.AddedVia,
+			&i.AddedByPublicKey,
+			&i.LinkID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -562,6 +687,23 @@ func (q *Queries) ListPluginsByOwner(ctx context.Context, publicKey string) ([]*
 		return nil, err
 	}
 	return items, nil
+}
+
+const removePluginTeamMember = `-- name: RemovePluginTeamMember :exec
+UPDATE plugin_owners
+SET active = false, updated_at = NOW()
+WHERE plugin_id = $1 AND public_key = $2 AND role != 'staff'
+`
+
+type RemovePluginTeamMemberParams struct {
+	PluginID  PluginID `json:"plugin_id"`
+	PublicKey string   `json:"public_key"`
+}
+
+// Deactivate a team member (soft delete)
+func (q *Queries) RemovePluginTeamMember(ctx context.Context, arg *RemovePluginTeamMemberParams) error {
+	_, err := q.db.Exec(ctx, removePluginTeamMember, arg.PluginID, arg.PublicKey)
+	return err
 }
 
 const updatePlugin = `-- name: UpdatePlugin :one

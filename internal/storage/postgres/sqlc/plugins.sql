@@ -144,3 +144,38 @@ WHERE f.plugin_id IN (
 )
 AND f.transaction_type = 'debit'
 GROUP BY f.plugin_id;
+
+-- Team Management Queries
+
+-- name: ListPluginTeamMembers :many
+-- List team members for a plugin, excluding staff role (admins can't see staff)
+SELECT * FROM plugin_owners
+WHERE plugin_id = $1 AND active = true AND role != 'staff'
+ORDER BY
+    CASE role
+        WHEN 'admin' THEN 1
+        WHEN 'editor' THEN 2
+        WHEN 'viewer' THEN 3
+    END,
+    created_at ASC;
+
+-- name: GetPluginOwnerWithRole :one
+-- Get a specific owner with their role for permission checks
+SELECT * FROM plugin_owners
+WHERE plugin_id = $1 AND public_key = $2 AND active = true;
+
+-- name: CheckLinkIdUsed :one
+-- Check if a link_id has already been used
+SELECT EXISTS(SELECT 1 FROM plugin_owners WHERE link_id = $1) as used;
+
+-- name: AddPluginTeamMember :one
+-- Add a new team member via magic link invite
+INSERT INTO plugin_owners (plugin_id, public_key, role, added_via, added_by_public_key, link_id)
+VALUES ($1, $2, $3, 'magic_link', $4, $5)
+RETURNING *;
+
+-- name: RemovePluginTeamMember :exec
+-- Deactivate a team member (soft delete)
+UPDATE plugin_owners
+SET active = false, updated_at = NOW()
+WHERE plugin_id = $1 AND public_key = $2 AND role != 'staff';

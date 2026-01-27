@@ -60,9 +60,11 @@ type MetricsConfig struct {
 type PortalConfig struct {
 	LogFormat logging.LogFormat `mapstructure:"log_format" json:"log_format,omitempty"`
 	Server    struct {
-		Host      string `mapstructure:"host" json:"host,omitempty"`
-		Port      int    `mapstructure:"port" json:"port,omitempty"`
-		JWTSecret string `mapstructure:"jwt_secret" json:"jwt_secret,omitempty"`
+		Host       string `mapstructure:"host" json:"host,omitempty"`
+		Port       int    `mapstructure:"port" json:"port,omitempty"`
+		JWTSecret  string `mapstructure:"jwt_secret" json:"jwt_secret,omitempty"`
+		HMACSecret string `mapstructure:"hmac_secret" json:"hmac_secret,omitempty"`
+		BaseURL    string `mapstructure:"base_url" json:"base_url,omitempty"` // Base URL for magic links
 	} `mapstructure:"server" json:"server"`
 	Database config.Database `mapstructure:"database" json:"database,omitempty"`
 }

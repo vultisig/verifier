@@ -710,6 +710,7 @@ type PluginReport struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	LastReportedAt    pgtype.Timestamptz `json:"last_reported_at"`
 	ReportCount       int32              `json:"report_count"`
+	Details           string             `json:"details"`
 }
 
 type PluginTag struct {

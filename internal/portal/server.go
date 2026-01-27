@@ -65,19 +65,22 @@ func (s *Server) registerRoutes(e *echo.Echo) {
 	// Auth endpoint (public)
 	e.POST("/auth", s.Auth)
 
-	// Plugin routes (public - no auth required)
-	e.GET("/plugins", s.ListPlugins)
-	e.GET("/plugins/:id", s.GetPlugin)
-	e.PUT("/plugins/:id", s.UpdatePlugin)
+	// Public plugin routes (pricings only)
 	e.GET("/plugins/:id/pricings", s.GetPluginPricings)
 
 	// Protected routes (require JWT auth)
 	protected := e.Group("")
 	protected.Use(s.JWTAuthMiddleware)
+	// Plugin routes - only return plugins owned by the authenticated user
+	protected.GET("/plugins", s.ListPlugins)
+	protected.GET("/plugins/:id", s.GetPlugin)
+	protected.PUT("/plugins/:id", s.UpdatePlugin)
+	// API key management
 	protected.GET("/plugins/:id/api-keys", s.GetPluginApiKeys)
 	protected.POST("/plugins/:id/api-keys", s.CreatePluginApiKey)
 	protected.PUT("/plugins/:id/api-keys/:keyId", s.UpdatePluginApiKey)
 	protected.DELETE("/plugins/:id/api-keys/:keyId", s.DeletePluginApiKey)
+	// Earnings
 	protected.GET("/earnings", s.GetEarnings)
 	protected.GET("/earnings/summary", s.GetEarningsSummary)
 }
@@ -208,7 +211,17 @@ func (s *Server) GetPlugin(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
 	}
 
-	plugin, err := s.queries.GetPluginByID(c.Request().Context(), queries.PluginID(id))
+	// Get address from JWT context (set by JWTAuthMiddleware)
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
+
+	// Only return the plugin if the authenticated user owns it
+	plugin, err := s.queries.GetPluginByIDAndOwner(c.Request().Context(), &queries.GetPluginByIDAndOwnerParams{
+		ID:        queries.PluginID(id),
+		PublicKey: address,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "plugin not found"})
@@ -221,7 +234,14 @@ func (s *Server) GetPlugin(c echo.Context) error {
 }
 
 func (s *Server) ListPlugins(c echo.Context) error {
-	plugins, err := s.queries.ListPlugins(c.Request().Context())
+	// Get address from JWT context (set by JWTAuthMiddleware)
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
+
+	// Only return plugins owned by the authenticated user
+	plugins, err := s.queries.ListPluginsByOwner(c.Request().Context(), address)
 	if err != nil {
 		s.logger.WithError(err).Error("failed to list plugins")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})

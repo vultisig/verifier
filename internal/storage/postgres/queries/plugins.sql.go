@@ -355,6 +355,38 @@ func (q *Queries) GetPluginByID(ctx context.Context, id PluginID) (*Plugin, erro
 	return &i, err
 }
 
+const getPluginByIDAndOwner = `-- name: GetPluginByIDAndOwner :one
+SELECT p.id, p.title, p.description, p.server_endpoint, p.category, p.created_at, p.updated_at, p.logo_url, p.thumbnail_url, p.images, p.faqs, p.features, p.audited FROM plugins p
+JOIN plugin_owners po ON p.id::text = po.plugin_id::text
+WHERE p.id = $1 AND po.public_key = $2 AND po.active = true
+`
+
+type GetPluginByIDAndOwnerParams struct {
+	ID        PluginID `json:"id"`
+	PublicKey string   `json:"public_key"`
+}
+
+func (q *Queries) GetPluginByIDAndOwner(ctx context.Context, arg *GetPluginByIDAndOwnerParams) (*Plugin, error) {
+	row := q.db.QueryRow(ctx, getPluginByIDAndOwner, arg.ID, arg.PublicKey)
+	var i Plugin
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Description,
+		&i.ServerEndpoint,
+		&i.Category,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LogoUrl,
+		&i.ThumbnailUrl,
+		&i.Images,
+		&i.Faqs,
+		&i.Features,
+		&i.Audited,
+	)
+	return &i, err
+}
+
 const getPluginOwner = `-- name: GetPluginOwner :one
 SELECT plugin_id, public_key, active, role, added_via, added_by_public_key, created_at, updated_at FROM plugin_owners
 WHERE plugin_id = $1 AND public_key = $2 AND active = true
@@ -459,6 +491,47 @@ ORDER BY updated_at DESC
 
 func (q *Queries) ListPlugins(ctx context.Context) ([]*Plugin, error) {
 	rows, err := q.db.Query(ctx, listPlugins)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Plugin{}
+	for rows.Next() {
+		var i Plugin
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Description,
+			&i.ServerEndpoint,
+			&i.Category,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.LogoUrl,
+			&i.ThumbnailUrl,
+			&i.Images,
+			&i.Faqs,
+			&i.Features,
+			&i.Audited,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPluginsByOwner = `-- name: ListPluginsByOwner :many
+SELECT p.id, p.title, p.description, p.server_endpoint, p.category, p.created_at, p.updated_at, p.logo_url, p.thumbnail_url, p.images, p.faqs, p.features, p.audited FROM plugins p
+JOIN plugin_owners po ON p.id::text = po.plugin_id::text
+WHERE po.public_key = $1 AND po.active = true
+ORDER BY p.updated_at DESC
+`
+
+func (q *Queries) ListPluginsByOwner(ctx context.Context, publicKey string) ([]*Plugin, error) {
+	rows, err := q.db.Query(ctx, listPluginsByOwner, publicKey)
 	if err != nil {
 		return nil, err
 	}

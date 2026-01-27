@@ -90,7 +90,7 @@ jobs:
           ./scripts/deploy.sh
   deploy-portal:
     needs: [test, build]
-    # if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/release/')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/release/')
     environment: production
     runs-on: ubuntu-22.04
     steps:

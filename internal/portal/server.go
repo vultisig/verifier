@@ -2,6 +2,7 @@ package portal
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -20,19 +21,24 @@ import (
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/sigutil"
 	"github.com/vultisig/verifier/internal/storage/postgres/queries"
+	"github.com/vultisig/vultisig-go/address"
+	vcommon "github.com/vultisig/vultisig-go/common"
 )
 
 type Server struct {
-	cfg     config.PortalConfig
-	queries *queries.Queries
-	logger  *logrus.Logger
+	cfg         config.PortalConfig
+	queries     *queries.Queries
+	logger      *logrus.Logger
+	authService *PortalAuthService
 }
 
 func NewServer(cfg config.PortalConfig, pool *pgxpool.Pool) *Server {
+	logger := logrus.WithField("service", "portal").Logger
 	return &Server{
-		cfg:     cfg,
-		queries: queries.New(pool),
-		logger:  logrus.WithField("service", "portal").Logger,
+		cfg:         cfg,
+		queries:     queries.New(pool),
+		logger:      logger,
+		authService: NewPortalAuthService(cfg.Server.JWTSecret, logger),
 	}
 }
 
@@ -54,20 +60,141 @@ func (s *Server) Start() error {
 func (s *Server) registerRoutes(e *echo.Echo) {
 	e.GET("/healthz", s.Healthz)
 
-	// Plugin routes
+	// Auth endpoint (public)
+	e.POST("/auth", s.Auth)
+
+	// Plugin routes (public - no auth required)
 	e.GET("/plugins", s.ListPlugins)
 	e.GET("/plugins/:id", s.GetPlugin)
 	e.PUT("/plugins/:id", s.UpdatePlugin)
 	e.GET("/plugins/:id/pricings", s.GetPluginPricings)
-	e.GET("/plugins/:id/api-keys", s.GetPluginApiKeys)
 
-	// Earnings routes
-	e.GET("/earnings", s.GetEarnings)
-	e.GET("/earnings/summary", s.GetEarningsSummary)
+	// Protected routes (require JWT auth)
+	protected := e.Group("")
+	protected.Use(s.JWTAuthMiddleware)
+	protected.GET("/plugins/:id/api-keys", s.GetPluginApiKeys)
+	protected.GET("/earnings", s.GetEarnings)
+	protected.GET("/earnings/summary", s.GetEarningsSummary)
 }
 
 func (s *Server) Healthz(c echo.Context) error {
 	return c.String(http.StatusOK, "OK")
+}
+
+// JWTAuthMiddleware validates JWT tokens and extracts user information
+func (s *Server) JWTAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
+		if authHeader == "" {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authorization header required"})
+		}
+
+		tokenParts := strings.Fields(authHeader)
+		if len(tokenParts) != 2 || !strings.EqualFold(tokenParts[0], "Bearer") {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid authorization header format"})
+		}
+		tokenStr := tokenParts[1]
+
+		claims, err := s.authService.ValidateToken(tokenStr)
+		if err != nil {
+			s.logger.Warnf("failed to validate token: %v", err)
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid or expired token"})
+		}
+
+		// Store claims in context for use by handlers
+		c.Set("public_key", claims.PublicKey)
+		c.Set("address", claims.Address)
+
+		return next(c)
+	}
+}
+
+// AuthRequest represents the request body for authentication
+type AuthRequest struct {
+	Message      string `json:"message"`
+	Signature    string `json:"signature"`
+	PublicKey    string `json:"public_key"`
+	ChainCodeHex string `json:"chain_code_hex"`
+}
+
+// AuthResponse represents the response for authentication
+type AuthResponse struct {
+	Token   string `json:"token"`
+	Address string `json:"address"`
+}
+
+// Auth handles user authentication and returns a JWT token
+func (s *Server) Auth(c echo.Context) error {
+	var req AuthRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request format"})
+	}
+
+	// Validate required fields
+	if req.Message == "" || req.Signature == "" || req.PublicKey == "" || req.ChainCodeHex == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "missing required fields"})
+	}
+
+	// Parse and validate the message
+	var msgData struct {
+		Message   string `json:"message"`
+		Nonce     string `json:"nonce"`
+		ExpiresAt string `json:"expiresAt"`
+		Address   string `json:"address"`
+	}
+	if err := json.Unmarshal([]byte(req.Message), &msgData); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid message format"})
+	}
+
+	// Validate expiry time
+	expiryTime, err := time.Parse(time.RFC3339, msgData.ExpiresAt)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid expiry time format"})
+	}
+	if time.Now().After(expiryTime) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "message has expired"})
+	}
+
+	// Decode signature from hex
+	sigBytes, err := hex.DecodeString(strings.TrimPrefix(req.Signature, "0x"))
+	if err != nil {
+		s.logger.WithError(err).Error("failed to decode signature")
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid signature format"})
+	}
+
+	// Get Ethereum address from public key and chain code
+	ethAddress, _, _, err := address.GetAddress(req.PublicKey, req.ChainCodeHex, vcommon.Ethereum)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to derive address")
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid public key or chain code"})
+	}
+
+	// Verify signature
+	valid, err := sigutil.VerifyEthAddressSignature(common.HexToAddress(ethAddress), []byte(req.Message), sigBytes)
+	if err != nil {
+		s.logger.WithError(err).Error("signature verification failed")
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "signature verification failed"})
+	}
+	if !valid {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid signature"})
+	}
+
+	// Generate JWT token
+	token, err := s.authService.GenerateToken(req.PublicKey, ethAddress)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to generate token")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to generate token"})
+	}
+
+	s.logger.WithFields(logrus.Fields{
+		"address":    ethAddress,
+		"public_key": req.PublicKey,
+	}).Info("user authenticated successfully")
+
+	return c.JSON(http.StatusOK, AuthResponse{
+		Token:   token,
+		Address: ethAddress,
+	})
 }
 
 func (s *Server) GetPlugin(c echo.Context) error {
@@ -159,16 +286,16 @@ func (s *Server) GetPluginApiKeys(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
 	}
 
-	// Get public key from header for authorization
-	publicKey := c.Request().Header.Get("X-Public-Key")
-	if publicKey == "" {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "public key required"})
+	// Get address from JWT context (set by JWTAuthMiddleware)
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
 	}
 
-	// Verify the requester owns this plugin
+	// Verify the requester owns this plugin (using Ethereum address from JWT)
 	_, err := s.queries.GetPluginOwner(c.Request().Context(), &queries.GetPluginOwnerParams{
 		PluginID:  queries.PluginID(id),
-		PublicKey: publicKey,
+		PublicKey: address,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -220,10 +347,10 @@ type EarningTransactionResponse struct {
 }
 
 func (s *Server) GetEarnings(c echo.Context) error {
-	// Get public key from header for authorization
-	publicKey := c.Request().Header.Get("X-Public-Key")
-	if publicKey == "" {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "public key required"})
+	// Get address from JWT context (set by JWTAuthMiddleware)
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
 	}
 
 	// Parse filter parameters
@@ -231,9 +358,9 @@ func (s *Server) GetEarnings(c echo.Context) error {
 	dateFrom := c.QueryParam("dateFrom")
 	dateTo := c.QueryParam("dateTo")
 
-	// Build filter params
+	// Build filter params (using Ethereum address from JWT)
 	params := &queries.GetEarningsByPluginOwnerFilteredParams{
-		PublicKey: publicKey,
+		PublicKey: address,
 		Column2:   pluginID,
 	}
 
@@ -293,21 +420,21 @@ type EarningsSummaryResponse struct {
 }
 
 func (s *Server) GetEarningsSummary(c echo.Context) error {
-	// Get public key from header for authorization
-	publicKey := c.Request().Header.Get("X-Public-Key")
-	if publicKey == "" {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "public key required"})
+	// Get address from JWT context (set by JWTAuthMiddleware)
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
 	}
 
-	// Get total summary
-	summary, err := s.queries.GetEarningsSummaryByPluginOwner(c.Request().Context(), publicKey)
+	// Get total summary (using Ethereum address from JWT)
+	summary, err := s.queries.GetEarningsSummaryByPluginOwner(c.Request().Context(), address)
 	if err != nil {
 		s.logger.WithError(err).Error("failed to get earnings summary")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
 
 	// Get earnings by plugin
-	byPlugin, err := s.queries.GetEarningsByPluginForOwner(c.Request().Context(), publicKey)
+	byPlugin, err := s.queries.GetEarningsByPluginForOwner(c.Request().Context(), address)
 	if err != nil {
 		s.logger.WithError(err).Error("failed to get earnings by plugin")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})

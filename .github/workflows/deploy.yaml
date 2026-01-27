@@ -66,6 +66,7 @@ jobs:
           go build -o verifier cmd/verifier/main.go
           go build -o tx_indexer cmd/tx_indexer/main.go
           go build -o worker cmd/worker/main.go
+          go build -o portal cmd/portal/main.go
   deploy-production:
     needs: [test, build]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/release/')
@@ -87,3 +88,24 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan $SERVER >> ~/.ssh/known_hosts
           ./scripts/deploy.sh
+  deploy-portal:
+    needs: [test, build]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/release/')
+    environment: production
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy portal to production
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
+          SERVER: ${{ secrets.PORTAL_SERVER }}
+          USER: ${{ secrets.PORTAL_USER }}
+          DEPLOY_PATH: ${{ secrets.SSH_PATH }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan $SERVER >> ~/.ssh/known_hosts
+          ./scripts/deploy.sh portal

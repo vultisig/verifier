@@ -642,9 +642,9 @@ type PluginOwner struct {
 	Role             PluginOwnerRole     `json:"role"`
 	AddedVia         PluginOwnerAddedVia `json:"added_via"`
 	AddedByPublicKey pgtype.Text         `json:"added_by_public_key"`
-	LinkID           pgtype.UUID         `json:"link_id"`
 	CreatedAt        pgtype.Timestamptz  `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz  `json:"updated_at"`
+	LinkID           pgtype.UUID         `json:"link_id"`
 }
 
 type PluginPauseHistory struct {

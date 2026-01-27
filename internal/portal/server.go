@@ -1,7 +1,6 @@
 package portal
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -30,7 +29,6 @@ import (
 
 type Server struct {
 	cfg           config.PortalConfig
-	pool          *pgxpool.Pool
 	queries       *queries.Queries
 	logger        *logrus.Logger
 	authService   *PortalAuthService
@@ -41,7 +39,6 @@ func NewServer(cfg config.PortalConfig, pool *pgxpool.Pool) *Server {
 	logger := logrus.WithField("service", "portal").Logger
 	return &Server{
 		cfg:           cfg,
-		pool:          pool,
 		queries:       queries.New(pool),
 		logger:        logger,
 		authService:   NewPortalAuthService(cfg.Server.JWTSecret, logger),
@@ -1457,20 +1454,26 @@ func (s *Server) GetKillSwitch(c echo.Context) error {
 	keygenKey := pluginID + "-keygen"
 	keysignKey := pluginID + "-keysign"
 
-	flags, err := s.getControlFlags(c.Request().Context(), keygenKey, keysignKey)
+	flags, err := s.queries.GetControlFlagsByKeys(c.Request().Context(), []string{keygenKey, keysignKey})
 	if err != nil {
 		s.logger.WithError(err).Error("failed to get control flags")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to get kill switch status"})
 	}
 
+	// Build a map for easy lookup
+	flagMap := make(map[string]bool, len(flags))
+	for _, f := range flags {
+		flagMap[f.Key] = f.Enabled
+	}
+
 	// Default to enabled if no flag exists
 	keygenEnabled := true
-	if enabled, ok := flags[keygenKey]; ok {
+	if enabled, ok := flagMap[keygenKey]; ok {
 		keygenEnabled = enabled
 	}
 
 	keysignEnabled := true
-	if enabled, ok := flags[keysignKey]; ok {
+	if enabled, ok := flagMap[keysignKey]; ok {
 		keysignEnabled = enabled
 	}
 
@@ -1534,33 +1537,45 @@ func (s *Server) SetKillSwitch(c echo.Context) error {
 	keysignKey := pluginID + "-keysign"
 
 	if req.KeygenEnabled != nil {
-		if err := s.upsertControlFlag(c.Request().Context(), keygenKey, *req.KeygenEnabled); err != nil {
+		if err := s.queries.UpsertControlFlag(c.Request().Context(), &queries.UpsertControlFlagParams{
+			Key:     keygenKey,
+			Enabled: *req.KeygenEnabled,
+		}); err != nil {
 			s.logger.WithError(err).Error("failed to update keygen flag")
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update kill switch"})
 		}
 	}
 
 	if req.KeysignEnabled != nil {
-		if err := s.upsertControlFlag(c.Request().Context(), keysignKey, *req.KeysignEnabled); err != nil {
+		if err := s.queries.UpsertControlFlag(c.Request().Context(), &queries.UpsertControlFlagParams{
+			Key:     keysignKey,
+			Enabled: *req.KeysignEnabled,
+		}); err != nil {
 			s.logger.WithError(err).Error("failed to update keysign flag")
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update kill switch"})
 		}
 	}
 
 	// Get updated state
-	flags, err := s.getControlFlags(c.Request().Context(), keygenKey, keysignKey)
+	flags, err := s.queries.GetControlFlagsByKeys(c.Request().Context(), []string{keygenKey, keysignKey})
 	if err != nil {
 		s.logger.WithError(err).Error("failed to get control flags after update")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to confirm kill switch status"})
 	}
 
+	// Build a map for easy lookup
+	flagMap := make(map[string]bool, len(flags))
+	for _, f := range flags {
+		flagMap[f.Key] = f.Enabled
+	}
+
 	keygenEnabled := true
-	if enabled, ok := flags[keygenKey]; ok {
+	if enabled, ok := flagMap[keygenKey]; ok {
 		keygenEnabled = enabled
 	}
 
 	keysignEnabled := true
-	if enabled, ok := flags[keysignKey]; ok {
+	if enabled, ok := flagMap[keysignKey]; ok {
 		keysignEnabled = enabled
 	}
 
@@ -1576,43 +1591,4 @@ func (s *Server) SetKillSwitch(c echo.Context) error {
 		KeygenEnabled:  keygenEnabled,
 		KeysignEnabled: keysignEnabled,
 	})
-}
-
-// getControlFlags retrieves control flags from the database
-func (s *Server) getControlFlags(ctx context.Context, k1, k2 string) (map[string]bool, error) {
-	result := make(map[string]bool, 2)
-
-	const q = `
-		SELECT key, enabled
-		FROM control_flags
-		WHERE key IN ($1, $2)
-	`
-	rows, err := s.pool.Query(ctx, q, k1, k2)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var k string
-		var enabled bool
-		if err := rows.Scan(&k, &enabled); err != nil {
-			return nil, err
-		}
-		result[k] = enabled
-	}
-
-	return result, rows.Err()
-}
-
-// upsertControlFlag inserts or updates a control flag
-func (s *Server) upsertControlFlag(ctx context.Context, key string, enabled bool) error {
-	const q = `
-		INSERT INTO control_flags (key, enabled, updated_at)
-		VALUES ($1, $2, NOW())
-		ON CONFLICT (key) DO UPDATE
-		SET enabled = EXCLUDED.enabled, updated_at = NOW()
-	`
-	_, err := s.pool.Exec(ctx, q, key, enabled)
-	return err
 }

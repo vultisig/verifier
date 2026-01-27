@@ -330,16 +330,16 @@ type UpdatePluginRequest struct {
 	ServerEndpoint string `json:"server_endpoint"`
 
 	// EIP-712 signature data
-	Signature     string                  `json:"signature"`
+	Signature     string                    `json:"signature"`
 	SignedMessage UpdatePluginSignedMessage `json:"signed_message"`
 }
 
 // UpdatePluginSignedMessage represents the EIP-712 message that was signed
 type UpdatePluginSignedMessage struct {
-	PluginID  string               `json:"pluginId"`
-	Signer    string               `json:"signer"`
-	Nonce     int64                `json:"nonce"`
-	Timestamp int64                `json:"timestamp"`
+	PluginID  string                `json:"pluginId"`
+	Signer    string                `json:"signer"`
+	Nonce     int64                 `json:"nonce"`
+	Timestamp int64                 `json:"timestamp"`
 	Updates   []sigutil.FieldUpdate `json:"updates"`
 }
 

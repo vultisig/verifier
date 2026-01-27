@@ -35,7 +35,6 @@ type PluginConfig struct {
 	Audited        bool
 }
 
-
 func LoadFixture(path string) (*FixtureData, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {

@@ -264,9 +264,13 @@ func (s *Server) GetEarnings(c echo.Context) error {
 		if pt, ok := e.PricingType.(string); ok {
 			pricingType = pt
 		}
+		pluginID := ""
+		if e.PluginID.Valid {
+			pluginID = e.PluginID.String
+		}
 		response[i] = EarningTransactionResponse{
 			ID:          strconv.FormatInt(e.ID, 10),
-			PluginID:    e.PluginID.String,
+			PluginID:    pluginID,
 			PluginName:  e.PluginName,
 			Amount:      e.Amount,
 			Asset:       e.Asset,

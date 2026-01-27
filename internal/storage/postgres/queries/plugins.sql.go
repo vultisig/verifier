@@ -145,7 +145,7 @@ WHERE f.plugin_id IN (
     SELECT po.plugin_id::text FROM plugin_owners po WHERE po.public_key = $1 AND po.active = true
 )
 AND f.transaction_type = 'debit'
-AND ($2::text IS NULL OR f.plugin_id = $2)
+AND (NULLIF($2, '')::text IS NULL OR f.plugin_id = $2)
 AND ($3::timestamptz IS NULL OR f.created_at >= $3)
 AND ($4::timestamptz IS NULL OR f.created_at <= $4)
 ORDER BY f.created_at DESC
@@ -153,7 +153,7 @@ ORDER BY f.created_at DESC
 
 type GetEarningsByPluginOwnerFilteredParams struct {
 	PublicKey string             `json:"public_key"`
-	Column2   string             `json:"column_2"`
+	Column2   interface{}        `json:"column_2"`
 	Column3   pgtype.Timestamptz `json:"column_3"`
 	Column4   pgtype.Timestamptz `json:"column_4"`
 }

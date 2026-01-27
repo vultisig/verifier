@@ -1,6 +1,6 @@
 -- +goose Up
 
-ALTER TABLE plugin_reports ADD COLUMN details TEXT;
+ALTER TABLE plugin_reports ADD COLUMN details TEXT NOT NULL DEFAULT '';
 
 -- +goose Down
 

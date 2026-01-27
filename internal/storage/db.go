@@ -133,7 +133,7 @@ type ControlFlagsRepository interface {
 }
 
 type ReportRepository interface {
-	UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason string, cooldown time.Duration) error
+	UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason, details string, cooldown time.Duration) error
 	GetReport(ctx context.Context, pluginID types.PluginID, publicKey string) (*itypes.PluginReport, error)
 	CountReportsInWindow(ctx context.Context, pluginID types.PluginID, window time.Duration) (int, error)
 	HasInstallation(ctx context.Context, pluginID types.PluginID, publicKey string) (bool, error)

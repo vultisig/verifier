@@ -56,9 +56,12 @@ const (
 	msgReactivateInvalidReason = "cannot reactivate policy with this deactivation reason"
 
 	// Plugin Report
-	msgReportNotEligible    = "not eligible to report: no installation found"
-	msgReportCooldownActive = "cooldown active: please wait before reporting again"
-	msgReasonRequired       = "reason is required"
+	msgReportNotEligible      = "not eligible to report: no installation found"
+	msgReportCooldownActive   = "cooldown active: please wait before reporting again"
+	msgReportValidationFailed = "validation failed"
+	msgReportReasonRequired   = "reason is required"
+	msgReportReasonTooLong    = "reason must be at most 200 characters"
+	msgReportDetailsTooLong   = "details must be at most 2000 characters"
 
 	// PricingID
 	msgRequiredPricingID = "pricingId is required"

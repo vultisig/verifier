@@ -20,7 +20,7 @@ var (
 )
 
 type ReportServiceStorage interface {
-	UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason string, cooldown time.Duration) error
+	UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason, details string, cooldown time.Duration) error
 	GetReport(ctx context.Context, pluginID types.PluginID, publicKey string) (*itypes.PluginReport, error)
 	CountReportsInWindow(ctx context.Context, pluginID types.PluginID, window time.Duration) (int, error)
 	HasInstallation(ctx context.Context, pluginID types.PluginID, publicKey string) (bool, error)
@@ -53,7 +53,7 @@ func NewReportService(db ReportServiceStorage, syncer SafetySyncer, logger *logr
 	}, nil
 }
 
-func (s *ReportService) SubmitReport(ctx context.Context, pluginID types.PluginID, publicKey, reason string) (*itypes.ReportSubmitResult, error) {
+func (s *ReportService) SubmitReport(ctx context.Context, pluginID types.PluginID, publicKey, reason, details string) (*itypes.ReportSubmitResult, error) {
 	hasInstallation, err := s.db.HasInstallation(ctx, pluginID, publicKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check installation: %w", err)
@@ -85,7 +85,7 @@ func (s *ReportService) SubmitReport(ctx context.Context, pluginID types.PluginI
 		}
 	}
 
-	err = s.db.UpsertReport(ctx, pluginID, publicKey, reason, cooldown)
+	err = s.db.UpsertReport(ctx, pluginID, publicKey, reason, details, cooldown)
 	if err != nil {
 		if errors.Is(err, itypes.ErrReportCooldown) {
 			return nil, fmt.Errorf("%w: concurrent request detected", ErrCooldownActive)

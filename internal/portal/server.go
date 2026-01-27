@@ -1,6 +1,7 @@
 package portal
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -29,6 +30,7 @@ import (
 
 type Server struct {
 	cfg           config.PortalConfig
+	pool          *pgxpool.Pool
 	queries       *queries.Queries
 	logger        *logrus.Logger
 	authService   *PortalAuthService
@@ -39,6 +41,7 @@ func NewServer(cfg config.PortalConfig, pool *pgxpool.Pool) *Server {
 	logger := logrus.WithField("service", "portal").Logger
 	return &Server{
 		cfg:           cfg,
+		pool:          pool,
 		queries:       queries.New(pool),
 		logger:        logger,
 		authService:   NewPortalAuthService(cfg.Server.JWTSecret, logger),
@@ -91,6 +94,9 @@ func (s *Server) registerRoutes(e *echo.Echo) {
 	protected.POST("/plugins/:id/team/invite", s.CreateInvite)
 	protected.POST("/plugins/:id/team/accept", s.AcceptInvite)
 	protected.DELETE("/plugins/:id/team/:publicKey", s.RemoveTeamMember)
+	// Kill switch management (staff only)
+	protected.GET("/plugins/:id/kill-switch", s.GetKillSwitch)
+	protected.PUT("/plugins/:id/kill-switch", s.SetKillSwitch)
 	// Earnings
 	protected.GET("/earnings", s.GetEarnings)
 	protected.GET("/earnings/summary", s.GetEarningsSummary)
@@ -1407,4 +1413,206 @@ func (s *Server) RemoveTeamMember(c echo.Context) error {
 	}).Info("team member removed")
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "team member removed successfully"})
+}
+
+// KillSwitchResponse represents the kill switch status for a plugin
+type KillSwitchResponse struct {
+	PluginID       string `json:"pluginId"`
+	KeygenEnabled  bool   `json:"keygenEnabled"`
+	KeysignEnabled bool   `json:"keysignEnabled"`
+}
+
+// GetKillSwitch returns the kill switch status for a plugin (staff only)
+func (s *Server) GetKillSwitch(c echo.Context) error {
+	pluginID := c.Param("id")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+	}
+
+	// Get address from JWT context
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
+
+	// Check if the requester is a staff member of this plugin
+	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
+		PluginID:  queries.PluginID(pluginID),
+		PublicKey: address,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "not authorized to view kill switch"})
+		}
+		s.logger.WithError(err).Error("failed to check plugin ownership")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	// Only staff or admin can view kill switch
+	if owner.Role != queries.PluginOwnerRoleStaff && owner.Role != queries.PluginOwnerRoleAdmin {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "only staff can view kill switch"})
+	}
+
+	// Get control flags for this plugin
+	keygenKey := pluginID + "-keygen"
+	keysignKey := pluginID + "-keysign"
+
+	flags, err := s.getControlFlags(c.Request().Context(), keygenKey, keysignKey)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to get control flags")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to get kill switch status"})
+	}
+
+	// Default to enabled if no flag exists
+	keygenEnabled := true
+	if enabled, ok := flags[keygenKey]; ok {
+		keygenEnabled = enabled
+	}
+
+	keysignEnabled := true
+	if enabled, ok := flags[keysignKey]; ok {
+		keysignEnabled = enabled
+	}
+
+	return c.JSON(http.StatusOK, KillSwitchResponse{
+		PluginID:       pluginID,
+		KeygenEnabled:  keygenEnabled,
+		KeysignEnabled: keysignEnabled,
+	})
+}
+
+// SetKillSwitchRequest represents a request to set kill switch status
+type SetKillSwitchRequest struct {
+	KeygenEnabled  *bool `json:"keygenEnabled"`
+	KeysignEnabled *bool `json:"keysignEnabled"`
+}
+
+// SetKillSwitch sets the kill switch status for a plugin (staff only)
+func (s *Server) SetKillSwitch(c echo.Context) error {
+	pluginID := c.Param("id")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+	}
+
+	// Get address from JWT context
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
+
+	// Check if the requester is a staff member of this plugin
+	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
+		PluginID:  queries.PluginID(pluginID),
+		PublicKey: address,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "not authorized to set kill switch"})
+		}
+		s.logger.WithError(err).Error("failed to check plugin ownership")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	// Only staff or admin can set kill switch
+	if owner.Role != queries.PluginOwnerRoleStaff && owner.Role != queries.PluginOwnerRoleAdmin {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "only staff can set kill switch"})
+	}
+
+	// Parse request body
+	var req SetKillSwitchRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	}
+
+	// At least one flag must be provided
+	if req.KeygenEnabled == nil && req.KeysignEnabled == nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "at least one of keygenEnabled or keysignEnabled must be provided"})
+	}
+
+	// Update control flags
+	keygenKey := pluginID + "-keygen"
+	keysignKey := pluginID + "-keysign"
+
+	if req.KeygenEnabled != nil {
+		if err := s.upsertControlFlag(c.Request().Context(), keygenKey, *req.KeygenEnabled); err != nil {
+			s.logger.WithError(err).Error("failed to update keygen flag")
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update kill switch"})
+		}
+	}
+
+	if req.KeysignEnabled != nil {
+		if err := s.upsertControlFlag(c.Request().Context(), keysignKey, *req.KeysignEnabled); err != nil {
+			s.logger.WithError(err).Error("failed to update keysign flag")
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update kill switch"})
+		}
+	}
+
+	// Get updated state
+	flags, err := s.getControlFlags(c.Request().Context(), keygenKey, keysignKey)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to get control flags after update")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to confirm kill switch status"})
+	}
+
+	keygenEnabled := true
+	if enabled, ok := flags[keygenKey]; ok {
+		keygenEnabled = enabled
+	}
+
+	keysignEnabled := true
+	if enabled, ok := flags[keysignKey]; ok {
+		keysignEnabled = enabled
+	}
+
+	s.logger.WithFields(logrus.Fields{
+		"plugin_id":       pluginID,
+		"staff":           address,
+		"keygen_enabled":  keygenEnabled,
+		"keysign_enabled": keysignEnabled,
+	}).Info("kill switch updated")
+
+	return c.JSON(http.StatusOK, KillSwitchResponse{
+		PluginID:       pluginID,
+		KeygenEnabled:  keygenEnabled,
+		KeysignEnabled: keysignEnabled,
+	})
+}
+
+// getControlFlags retrieves control flags from the database
+func (s *Server) getControlFlags(ctx context.Context, k1, k2 string) (map[string]bool, error) {
+	result := make(map[string]bool, 2)
+
+	const q = `
+		SELECT key, enabled
+		FROM control_flags
+		WHERE key IN ($1, $2)
+	`
+	rows, err := s.pool.Query(ctx, q, k1, k2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var k string
+		var enabled bool
+		if err := rows.Scan(&k, &enabled); err != nil {
+			return nil, err
+		}
+		result[k] = enabled
+	}
+
+	return result, rows.Err()
+}
+
+// upsertControlFlag inserts or updates a control flag
+func (s *Server) upsertControlFlag(ctx context.Context, key string, enabled bool) error {
+	const q = `
+		INSERT INTO control_flags (key, enabled, updated_at)
+		VALUES ($1, $2, NOW())
+		ON CONFLICT (key) DO UPDATE
+		SET enabled = EXCLUDED.enabled, updated_at = NOW()
+	`
+	_, err := s.pool.Exec(ctx, q, key, enabled)
+	return err
 }

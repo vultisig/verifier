@@ -11,10 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/vultisig/verifier/internal/portal"
+	"github.com/vultisig/verifier/internal/types"
 )
 
 var (
@@ -22,6 +25,7 @@ var (
 	portalJWTSecret string
 	testPluginID    string
 	pool            *pgxpool.Pool
+	authService     *portal.PortalAuthService
 )
 
 func TestMain(m *testing.M) {
@@ -41,6 +45,8 @@ func TestMain(m *testing.M) {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer pool.Close()
+
+	authService = portal.NewPortalAuthService(portalJWTSecret, logrus.New())
 
 	log.Println("Portal Integration Tests")
 	log.Println("========================")
@@ -93,35 +99,14 @@ func waitForPortalHealth(timeout time.Duration) error {
 	return fmt.Errorf("portal not healthy after %v", timeout)
 }
 
-type PortalClaims struct {
-	jwt.RegisteredClaims
-	PublicKey string `json:"public_key"`
-	Address   string `json:"address"`
-	TokenID   string `json:"token_id"`
-}
-
-func generatePortalJWT(address string) (string, error) {
-	claims := &PortalClaims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-		},
-		PublicKey: "test-pubkey-" + address,
-		Address:   address,
-		TokenID:   "test-token-id",
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(portalJWTSecret))
-}
-
 func seedPluginOwner(ctx context.Context, pluginID, address string) error {
 	_, err := pool.Exec(ctx, `
 		INSERT INTO plugin_owners (plugin_id, public_key, role, added_via, active)
-		VALUES ($1, $2, 'admin', 'admin_cli', true)
+		VALUES ($1, $2, $3, $4, true)
 		ON CONFLICT (plugin_id, public_key) DO UPDATE SET
-			role = 'admin',
+			role = $3,
 			active = true
-	`, pluginID, address)
+	`, pluginID, address, types.PluginOwnerRoleAdmin, types.PluginOwnerAddedViaAdminCLI)
 	return err
 }
 
@@ -149,7 +134,7 @@ func TestApiKeyLimit(t *testing.T) {
 	err = cleanupApiKeys(ctx, testPluginID)
 	require.NoError(t, err, "Failed to cleanup existing API keys")
 
-	token, err := generatePortalJWT(testAddress)
+	token, err := authService.GenerateToken("test-pubkey", testAddress)
 	require.NoError(t, err, "Failed to generate JWT")
 
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -228,7 +213,7 @@ func TestApiKeyLimitAfterExpiry(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), count, "Expired keys should not count")
 
-	token, err := generatePortalJWT(testAddress)
+	token, err := authService.GenerateToken("test-pubkey", testAddress)
 	require.NoError(t, err)
 
 	client := &http.Client{Timeout: 10 * time.Second}

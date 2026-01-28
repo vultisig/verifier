@@ -97,11 +97,8 @@ type PluginOwnerRepository interface {
 }
 
 type PluginImageRepository interface {
-	CreatePluginImage(ctx context.Context, params itypes.PluginImageCreateParams) (*itypes.PluginImageRecord, error)
 	GetPluginImagesByPluginIDs(ctx context.Context, pluginIDs []types.PluginID) ([]itypes.PluginImageRecord, error)
 	GetPluginImageByType(ctx context.Context, pluginID types.PluginID, imageType itypes.PluginImageType) (*itypes.PluginImageRecord, error)
-	SoftDeletePluginImage(ctx context.Context, pluginID types.PluginID, imageID uuid.UUID) (string, error)
-	ReplacePluginImage(ctx context.Context, pluginID types.PluginID, imageType itypes.PluginImageType, s3Path string, uploadedBy string) (*itypes.PluginImageRecord, error)
 	GetNextMediaOrder(ctx context.Context, pluginID types.PluginID) (int, error)
 }
 

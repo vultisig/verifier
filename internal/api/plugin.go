@@ -347,7 +347,48 @@ func (s *Server) GetPlugin(c echo.Context) error {
 		return s.internal(c, msgGetPluginFailed, err)
 	}
 
+	s.enrichPluginWithImages(c.Request().Context(), &plugin.Plugin)
+
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, plugin))
+}
+
+func (s *Server) enrichPluginWithImages(ctx context.Context, plugin *types.Plugin) {
+	images, err := s.db.GetPluginImagesByPluginIDs(ctx, []vtypes.PluginID{plugin.ID})
+	if err != nil {
+		s.logger.WithError(err).Warn("failed to fetch plugin images for enrichment")
+		return
+	}
+	if len(images) == 0 {
+		return
+	}
+
+	// TODO: remove this check once all plugins are migrated to plugin_images table
+	hasMediaImages := false
+	for _, img := range images {
+		if img.ImageType == types.PluginImageTypeMedia {
+			hasMediaImages = true
+			break
+		}
+	}
+	if hasMediaImages {
+		plugin.Images = nil
+	}
+
+	for _, img := range images {
+		url := s.assetStorage.GetPublicURL(img.S3Path)
+		switch img.ImageType {
+		case types.PluginImageTypeLogo:
+			plugin.LogoURL = url
+		case types.PluginImageTypeThumbnail:
+			plugin.ThumbnailURL = url
+		case types.PluginImageTypeMedia:
+			plugin.Images = append(plugin.Images, types.PluginImage{
+				ID:        img.ID.String(),
+				URL:       url,
+				SortOrder: img.ImageOrder,
+			})
+		}
+	}
 }
 
 func (s *Server) GetInstalledPlugins(c echo.Context) error {

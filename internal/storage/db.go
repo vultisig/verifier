@@ -30,6 +30,7 @@ type DatabaseStorage interface {
 	PricingRepository
 	PluginRepository
 	PluginOwnerRepository
+	PluginImageRepository
 	FeeRepository
 	TagRepository
 	ReviewRepository
@@ -84,10 +85,6 @@ type PluginRepository interface {
 	FindPlugins(ctx context.Context, filters itypes.PluginFilters, take int, skip int, sort string) (*itypes.PluginsPaginatedList, error)
 	FindPluginById(ctx context.Context, dbTx pgx.Tx, id types.PluginID) (*itypes.Plugin, error)
 	GetPluginTitlesByIDs(ctx context.Context, ids []string) (map[string]string, error)
-	UpdatePluginLogo(ctx context.Context, pluginID types.PluginID, logoURL, logoS3Key string) error
-	UpdatePluginThumbnail(ctx context.Context, pluginID types.PluginID, thumbnailURL, thumbnailS3Key string) error
-	UpdatePluginImages(ctx context.Context, pluginID types.PluginID, images []itypes.PluginImage) error
-	GetPluginS3Keys(ctx context.Context, pluginID types.PluginID) (logoS3Key, thumbnailS3Key string, images []itypes.PluginImage, err error)
 
 	Pool() *pgxpool.Pool
 }
@@ -97,6 +94,15 @@ type PluginOwnerRepository interface {
 	GetPluginsByOwner(ctx context.Context, publicKey string) ([]types.PluginID, error)
 	AddOwner(ctx context.Context, pluginID types.PluginID, publicKey string, addedVia itypes.PluginOwnerAddedVia, addedBy string) error
 	DeactivateOwner(ctx context.Context, pluginID types.PluginID, publicKey string) error
+}
+
+type PluginImageRepository interface {
+	CreatePluginImage(ctx context.Context, params itypes.PluginImageCreateParams) (*itypes.PluginImageRecord, error)
+	GetPluginImagesByPluginIDs(ctx context.Context, pluginIDs []types.PluginID) ([]itypes.PluginImageRecord, error)
+	GetPluginImageByType(ctx context.Context, pluginID types.PluginID, imageType itypes.PluginImageType) (*itypes.PluginImageRecord, error)
+	SoftDeletePluginImage(ctx context.Context, pluginID types.PluginID, imageID uuid.UUID) (string, error)
+	ReplacePluginImage(ctx context.Context, pluginID types.PluginID, imageType itypes.PluginImageType, s3Path string, uploadedBy string) (*itypes.PluginImageRecord, error)
+	GetNextMediaOrder(ctx context.Context, pluginID types.PluginID) (int, error)
 }
 
 type VaultTokenRepository interface {

@@ -105,6 +105,10 @@ func (s *Server) UploadPluginLogo(c echo.Context) error {
 	}
 
 	pluginID := types.PluginID(c.Param("pluginId"))
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok || publicKey == "" {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
+	}
 
 	data, contentType, err := s.readUploadedImage(c)
 	if err != nil {
@@ -116,9 +120,9 @@ func (s *Server) UploadPluginLogo(c echo.Context) error {
 	ext := getExtensionForContentType(contentType)
 	s3Key := fmt.Sprintf("plugins/%s/logo/%s%s", pluginID, hashStr, ext)
 
-	oldLogoKey, _, _, err := s.db.GetPluginS3Keys(c.Request().Context(), pluginID)
+	oldImage, err := s.db.GetPluginImageByType(c.Request().Context(), pluginID, itypes.PluginImageTypeLogo)
 	if err != nil {
-		s.logger.WithError(err).Error("failed to get old S3 keys")
+		s.logger.WithError(err).Error("failed to get old logo")
 	}
 
 	err = s.assetStorage.Upload(c.Request().Context(), s3Key, data, contentType)
@@ -127,25 +131,28 @@ func (s *Server) UploadPluginLogo(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgImageUploadFailed))
 	}
 
-	logoURL := s.assetStorage.GetPublicURL(s3Key)
-	err = s.db.UpdatePluginLogo(c.Request().Context(), pluginID, logoURL, s3Key)
+	record, err := s.db.ReplacePluginImage(c.Request().Context(), pluginID, itypes.PluginImageTypeLogo, s3Key, publicKey)
 	if err != nil {
-		if delErr := s.assetStorage.Delete(c.Request().Context(), s3Key); delErr != nil {
+		delErr := s.assetStorage.Delete(c.Request().Context(), s3Key)
+		if delErr != nil {
 			s.logger.WithError(delErr).Warn("failed to cleanup uploaded logo from S3")
 		}
 		s.logger.WithError(err).Error("failed to update plugin logo in DB")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgImageUploadFailed))
 	}
 
-	if oldLogoKey != "" && oldLogoKey != s3Key {
-		if delErr := s.assetStorage.Delete(c.Request().Context(), oldLogoKey); delErr != nil {
+	if oldImage != nil && oldImage.S3Path != s3Key {
+		delErr := s.assetStorage.Delete(c.Request().Context(), oldImage.S3Path)
+		if delErr != nil {
 			s.logger.WithError(delErr).Warn("failed to delete old logo from S3")
 		}
 	}
 
+	logoURL := s.assetStorage.GetPublicURL(s3Key)
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, map[string]string{
 		"logo_url": logoURL,
 		"s3_key":   s3Key,
+		"image_id": record.ID.String(),
 	}))
 }
 
@@ -155,6 +162,10 @@ func (s *Server) UploadPluginThumbnail(c echo.Context) error {
 	}
 
 	pluginID := types.PluginID(c.Param("pluginId"))
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok || publicKey == "" {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
+	}
 
 	data, contentType, err := s.readUploadedImage(c)
 	if err != nil {
@@ -166,9 +177,9 @@ func (s *Server) UploadPluginThumbnail(c echo.Context) error {
 	ext := getExtensionForContentType(contentType)
 	s3Key := fmt.Sprintf("plugins/%s/thumbnail/%s%s", pluginID, hashStr, ext)
 
-	_, oldThumbKey, _, err := s.db.GetPluginS3Keys(c.Request().Context(), pluginID)
+	oldImage, err := s.db.GetPluginImageByType(c.Request().Context(), pluginID, itypes.PluginImageTypeThumbnail)
 	if err != nil {
-		s.logger.WithError(err).Error("failed to get old S3 keys")
+		s.logger.WithError(err).Error("failed to get old thumbnail")
 	}
 
 	err = s.assetStorage.Upload(c.Request().Context(), s3Key, data, contentType)
@@ -177,25 +188,28 @@ func (s *Server) UploadPluginThumbnail(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgImageUploadFailed))
 	}
 
-	thumbnailURL := s.assetStorage.GetPublicURL(s3Key)
-	err = s.db.UpdatePluginThumbnail(c.Request().Context(), pluginID, thumbnailURL, s3Key)
+	record, err := s.db.ReplacePluginImage(c.Request().Context(), pluginID, itypes.PluginImageTypeThumbnail, s3Key, publicKey)
 	if err != nil {
-		if delErr := s.assetStorage.Delete(c.Request().Context(), s3Key); delErr != nil {
+		delErr := s.assetStorage.Delete(c.Request().Context(), s3Key)
+		if delErr != nil {
 			s.logger.WithError(delErr).Warn("failed to cleanup uploaded thumbnail from S3")
 		}
 		s.logger.WithError(err).Error("failed to update plugin thumbnail in DB")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgImageUploadFailed))
 	}
 
-	if oldThumbKey != "" && oldThumbKey != s3Key {
-		if delErr := s.assetStorage.Delete(c.Request().Context(), oldThumbKey); delErr != nil {
+	if oldImage != nil && oldImage.S3Path != s3Key {
+		delErr := s.assetStorage.Delete(c.Request().Context(), oldImage.S3Path)
+		if delErr != nil {
 			s.logger.WithError(delErr).Warn("failed to delete old thumbnail from S3")
 		}
 	}
 
+	thumbnailURL := s.assetStorage.GetPublicURL(s3Key)
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, map[string]string{
 		"thumbnail_url": thumbnailURL,
 		"s3_key":        s3Key,
+		"image_id":      record.ID.String(),
 	}))
 }
 
@@ -205,14 +219,24 @@ func (s *Server) AddPluginImage(c echo.Context) error {
 	}
 
 	pluginID := types.PluginID(c.Param("pluginId"))
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok || publicKey == "" {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
+	}
 
-	_, _, images, err := s.db.GetPluginS3Keys(c.Request().Context(), pluginID)
+	existingImages, err := s.db.GetPluginImagesByPluginIDs(c.Request().Context(), []types.PluginID{pluginID})
 	if err != nil {
 		s.logger.WithError(err).Error("failed to get plugin images")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgImageUploadFailed))
 	}
 
-	if len(images) >= maxGalleryImages {
+	mediaCount := 0
+	for _, img := range existingImages {
+		if img.ImageType == itypes.PluginImageTypeMedia {
+			mediaCount++
+		}
+	}
+	if mediaCount >= maxGalleryImages {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgTooManyImages))
 	}
 
@@ -221,9 +245,9 @@ func (s *Server) AddPluginImage(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(err.Error()))
 	}
 
-	imageID := uuid.New().String()
+	imageID := uuid.New()
 	ext := getExtensionForContentType(contentType)
-	s3Key := fmt.Sprintf("plugins/%s/gallery/%s%s", pluginID, imageID, ext)
+	s3Key := fmt.Sprintf("plugins/%s/media/%s%s", pluginID, imageID.String(), ext)
 
 	err = s.assetStorage.Upload(c.Request().Context(), s3Key, data, contentType)
 	if err != nil {
@@ -231,43 +255,41 @@ func (s *Server) AddPluginImage(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgImageUploadFailed))
 	}
 
-	imageURL := s.assetStorage.GetPublicURL(s3Key)
-
-	sortOrder := len(images)
-	if so := c.QueryParam("sort_order"); so != "" {
-		if parsed, err := strconv.Atoi(so); err == nil {
-			sortOrder = parsed
-		}
-	}
-	var zIndex int
-	if zi := c.QueryParam("z_index"); zi != "" {
-		if parsed, err := strconv.Atoi(zi); err == nil {
-			zIndex = parsed
-		}
-	}
-
-	newImage := itypes.PluginImage{
-		ID:        imageID,
-		URL:       imageURL,
-		S3Key:     s3Key,
-		Caption:   c.QueryParam("caption"),
-		AltText:   c.QueryParam("alt_text"),
-		SortOrder: sortOrder,
-		ZIndex:    zIndex,
-	}
-	images = append(images, newImage)
-
-	err = s.db.UpdatePluginImages(c.Request().Context(), pluginID, images)
+	imageOrder, err := s.db.GetNextMediaOrder(c.Request().Context(), pluginID)
 	if err != nil {
-		if delErr := s.assetStorage.Delete(c.Request().Context(), s3Key); delErr != nil {
+		s.logger.WithError(err).Warn("failed to get next media order, using 0")
+		imageOrder = 0
+	}
+	if so := c.QueryParam("sort_order"); so != "" {
+		if parsed, parseErr := strconv.Atoi(so); parseErr == nil {
+			imageOrder = parsed
+		}
+	}
+
+	record, err := s.db.CreatePluginImage(c.Request().Context(), itypes.PluginImageCreateParams{
+		PluginID:            pluginID,
+		ImageType:           itypes.PluginImageTypeMedia,
+		S3Path:              s3Key,
+		ImageOrder:          imageOrder,
+		UploadedByPublicKey: publicKey,
+	})
+	if err != nil {
+		delErr := s.assetStorage.Delete(c.Request().Context(), s3Key)
+		if delErr != nil {
 			s.logger.WithError(delErr).Warn("failed to cleanup uploaded image from S3")
 		}
-		s.logger.WithError(err).Error("failed to update plugin images in DB")
+		s.logger.WithError(err).Error("failed to create plugin image in DB")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgImageUploadFailed))
 	}
 
+	imageURL := s.assetStorage.GetPublicURL(s3Key)
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, map[string]any{
-		"image": newImage,
+		"image": map[string]any{
+			"id":         record.ID.String(),
+			"url":        imageURL,
+			"s3_key":     s3Key,
+			"sort_order": record.ImageOrder,
+		},
 	}))
 }
 
@@ -277,35 +299,45 @@ func (s *Server) UpdatePluginImage(c echo.Context) error {
 	}
 
 	pluginID := types.PluginID(c.Param("pluginId"))
-	imageID := c.Param("imageId")
+	imageIDStr := c.Param("imageId")
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok || publicKey == "" {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
+	}
+
+	imageID, err := uuid.Parse(imageIDStr)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid image ID"))
+	}
 
 	data, contentType, err := s.readUploadedImage(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(err.Error()))
 	}
 
-	_, _, images, err := s.db.GetPluginS3Keys(c.Request().Context(), pluginID)
+	existingImages, err := s.db.GetPluginImagesByPluginIDs(c.Request().Context(), []types.PluginID{pluginID})
 	if err != nil {
 		s.logger.WithError(err).Error("failed to get plugin images")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgImageUploadFailed))
 	}
 
-	var oldS3Key string
-	var imageIndex int = -1
-	for i, img := range images {
+	var oldImage itypes.PluginImageRecord
+	found := false
+	for _, img := range existingImages {
 		if img.ID == imageID {
-			oldS3Key = img.S3Key
-			imageIndex = i
+			oldImage = img
+			found = true
 			break
 		}
 	}
 
-	if imageIndex == -1 {
+	if !found {
 		return c.JSON(http.StatusNotFound, NewErrorResponseWithMessage(msgImageNotFound))
 	}
 
+	newImageID := uuid.New()
 	ext := getExtensionForContentType(contentType)
-	s3Key := fmt.Sprintf("plugins/%s/gallery/%s%s", pluginID, imageID, ext)
+	s3Key := fmt.Sprintf("plugins/%s/media/%s%s", pluginID, newImageID.String(), ext)
 
 	err = s.assetStorage.Upload(c.Request().Context(), s3Key, data, contentType)
 	if err != nil {
@@ -313,43 +345,52 @@ func (s *Server) UpdatePluginImage(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgImageUploadFailed))
 	}
 
-	imageURL := s.assetStorage.GetPublicURL(s3Key)
-	images[imageIndex].URL = imageURL
-	images[imageIndex].S3Key = s3Key
-	if caption := c.QueryParam("caption"); caption != "" {
-		images[imageIndex].Caption = caption
-	}
-	if altText := c.QueryParam("alt_text"); altText != "" {
-		images[imageIndex].AltText = altText
-	}
+	imageOrder := oldImage.ImageOrder
 	if so := c.QueryParam("sort_order"); so != "" {
-		if parsed, err := strconv.Atoi(so); err == nil {
-			images[imageIndex].SortOrder = parsed
-		}
-	}
-	if zi := c.QueryParam("z_index"); zi != "" {
-		if parsed, err := strconv.Atoi(zi); err == nil {
-			images[imageIndex].ZIndex = parsed
+		if parsed, parseErr := strconv.Atoi(so); parseErr == nil {
+			imageOrder = parsed
 		}
 	}
 
-	err = s.db.UpdatePluginImages(c.Request().Context(), pluginID, images)
+	_, err = s.db.SoftDeletePluginImage(c.Request().Context(), pluginID, imageID)
 	if err != nil {
-		if delErr := s.assetStorage.Delete(c.Request().Context(), s3Key); delErr != nil {
+		delErr := s.assetStorage.Delete(c.Request().Context(), s3Key)
+		if delErr != nil {
 			s.logger.WithError(delErr).Warn("failed to cleanup uploaded image from S3")
 		}
-		s.logger.WithError(err).Error("failed to update plugin images in DB")
+		s.logger.WithError(err).Error("failed to delete old plugin image")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgImageUploadFailed))
 	}
 
-	if oldS3Key != "" && oldS3Key != s3Key {
-		if delErr := s.assetStorage.Delete(c.Request().Context(), oldS3Key); delErr != nil {
-			s.logger.WithError(delErr).Warn("failed to delete old image from S3")
+	record, err := s.db.CreatePluginImage(c.Request().Context(), itypes.PluginImageCreateParams{
+		PluginID:            pluginID,
+		ImageType:           itypes.PluginImageTypeMedia,
+		S3Path:              s3Key,
+		ImageOrder:          imageOrder,
+		UploadedByPublicKey: publicKey,
+	})
+	if err != nil {
+		delErr := s.assetStorage.Delete(c.Request().Context(), s3Key)
+		if delErr != nil {
+			s.logger.WithError(delErr).Warn("failed to cleanup uploaded image from S3")
 		}
+		s.logger.WithError(err).Error("failed to create new plugin image in DB")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgImageUploadFailed))
 	}
 
+	delErr := s.assetStorage.Delete(c.Request().Context(), oldImage.S3Path)
+	if delErr != nil {
+		s.logger.WithError(delErr).Warn("failed to delete old image from S3")
+	}
+
+	imageURL := s.assetStorage.GetPublicURL(s3Key)
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, map[string]any{
-		"image": images[imageIndex],
+		"image": map[string]any{
+			"id":         record.ID.String(),
+			"url":        imageURL,
+			"s3_key":     s3Key,
+			"sort_order": record.ImageOrder,
+		},
 	}))
 }
 
@@ -359,36 +400,21 @@ func (s *Server) DeletePluginImage(c echo.Context) error {
 	}
 
 	pluginID := types.PluginID(c.Param("pluginId"))
-	imageID := c.Param("imageId")
+	imageIDStr := c.Param("imageId")
 
-	_, _, images, err := s.db.GetPluginS3Keys(c.Request().Context(), pluginID)
+	imageID, err := uuid.Parse(imageIDStr)
 	if err != nil {
-		s.logger.WithError(err).Error("failed to get plugin images")
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid image ID format"))
+	}
+
+	s3Path, err := s.db.SoftDeletePluginImage(c.Request().Context(), pluginID, imageID)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to soft delete plugin image")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgImageDeleteFailed))
 	}
 
-	var s3KeyToDelete string
-	var newImages []itypes.PluginImage
-	for _, img := range images {
-		if img.ID == imageID {
-			s3KeyToDelete = img.S3Key
-		} else {
-			newImages = append(newImages, img)
-		}
-	}
-
-	if s3KeyToDelete == "" {
-		return c.JSON(http.StatusNotFound, NewErrorResponseWithMessage(msgImageNotFound))
-	}
-
-	err = s.db.UpdatePluginImages(c.Request().Context(), pluginID, newImages)
-	if err != nil {
-		s.logger.WithError(err).Error("failed to update plugin images in DB")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgImageDeleteFailed))
-	}
-
-	if s3KeyToDelete != "" {
-		deleteErr := s.assetStorage.Delete(c.Request().Context(), s3KeyToDelete)
+	if s3Path != "" {
+		deleteErr := s.assetStorage.Delete(c.Request().Context(), s3Path)
 		if deleteErr != nil {
 			s.logger.WithError(deleteErr).Warn("failed to delete image from S3 (best-effort)")
 		}

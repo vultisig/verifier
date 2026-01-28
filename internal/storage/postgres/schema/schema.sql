@@ -307,9 +307,7 @@ CREATE TABLE "plugins" (
     "images" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
     "faqs" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
     "features" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
-    "audited" boolean DEFAULT false NOT NULL,
-    "logo_s3_key" "text" DEFAULT ''::"text" NOT NULL,
-    "thumbnail_s3_key" "text" DEFAULT ''::"text" NOT NULL
+    "audited" boolean DEFAULT false NOT NULL
 );
 
 CREATE TABLE "pricings" (

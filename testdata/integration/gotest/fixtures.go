@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-
-	"gopkg.in/yaml.v3"
 )
 
 type FixtureData struct {
@@ -27,18 +25,14 @@ type FixtureData struct {
 }
 
 type PluginConfig struct {
-	ID             string `yaml:"id"`
-	Title          string `yaml:"title"`
-	Description    string `yaml:"description"`
-	ServerEndpoint string `yaml:"server_endpoint"`
-	Category       string `yaml:"category"`
-	LogoURL        string `yaml:"logo_url"`
-	ThumbnailURL   string `yaml:"thumbnail_url"`
-	Audited        bool   `yaml:"audited"`
-}
-
-type ProposedYAML struct {
-	Plugins []PluginConfig `yaml:"plugins"`
+	ID             string
+	Title          string
+	Description    string
+	ServerEndpoint string
+	Category       string
+	LogoURL        string
+	ThumbnailURL   string
+	Audited        bool
 }
 
 func LoadFixture(path string) (*FixtureData, error) {
@@ -56,17 +50,21 @@ func LoadFixture(path string) (*FixtureData, error) {
 	return &fixture, nil
 }
 
-func LoadPlugins(proposedPath string) ([]PluginConfig, error) {
-	data, err := os.ReadFile(proposedPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read proposed.yaml: %w", err)
+func GetTestPlugins() []PluginConfig {
+	return []PluginConfig{
+		{
+			ID:             "vultisig-dca-0000",
+			Title:          "DCA (Dollar Cost Averaging)",
+			Description:    "Automated recurring swaps and transfers",
+			ServerEndpoint: envOrDefault("DCA_PLUGIN_URL", "http://localhost:8082"),
+			Category:       "app",
+		},
 	}
+}
 
-	var proposed ProposedYAML
-	err = yaml.Unmarshal(data, &proposed)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse proposed.yaml: %w", err)
+func envOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
 	}
-
-	return proposed.Plugins, nil
+	return defaultValue
 }

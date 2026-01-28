@@ -27,7 +27,6 @@ jobs:
       image_name: ${{ github.repository }}
       tag: dev-${{ github.sha }}
       additional_tag: dev-latest
-      proposed_yaml: proposed_dev.yaml
 
   build-worker:
     uses: ./.github/workflows/build-push-image.yaml

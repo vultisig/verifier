@@ -26,7 +26,6 @@ jobs:
       image_name: ${{ github.repository }}
       tag: ${{ inputs.tag || github.event.release.tag_name }}
       additional_tag: latest
-      proposed_yaml: proposed.yaml
 
   build-worker:
     uses: ./.github/workflows/build-push-image.yaml

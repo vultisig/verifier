@@ -9,6 +9,11 @@ S3_ACCESS_KEY ?= minioadmin
 S3_SECRET_KEY ?= minioadmin
 S3_BUCKET ?= vultisig-verifier
 
+# vcli defaults for integration tests
+DATABASE_DSN ?= postgres://vultisig:vultisig@localhost:5432/vultisig-verifier?sslmode=disable
+ENCRYPTION_SECRET ?= dev-encryption-secret-32b
+JWT_SECRET ?= devsecret
+
 .PHONY: up up-dev down down-dev build build-dev seed-db run-server run-worker dump-schema test-integration itest
 
 up:
@@ -33,9 +38,11 @@ seed-db:
 	VS_VERIFIER_CONFIG_NAME=verifier.example go run testdata/scripts/seed_db.go
 
 test-integration:
-	@echo "Running integration tests..."
+	@echo "Running integration tests (requires vcli running)..."
 	@VERIFIER_URL=$(VERIFIER_URL) \
-	VS_VERIFIER_CONFIG_NAME=$(VS_VERIFIER_CONFIG_NAME) \
+	DATABASE_DSN="$(DATABASE_DSN)" \
+	ENCRYPTION_SECRET=$(ENCRYPTION_SECRET) \
+	JWT_SECRET=$(JWT_SECRET) \
 	S3_ENDPOINT=$(S3_ENDPOINT) \
 	S3_ACCESS_KEY=$(S3_ACCESS_KEY) \
 	S3_SECRET_KEY=$(S3_SECRET_KEY) \

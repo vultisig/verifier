@@ -28,19 +28,21 @@ import (
 )
 
 type Server struct {
-	cfg         config.PortalConfig
-	queries     *queries.Queries
-	logger      *logrus.Logger
-	authService *PortalAuthService
+	cfg           config.PortalConfig
+	queries       *queries.Queries
+	logger        *logrus.Logger
+	authService   *PortalAuthService
+	inviteService *InviteService
 }
 
 func NewServer(cfg config.PortalConfig, pool *pgxpool.Pool) *Server {
 	logger := logrus.WithField("service", "portal").Logger
 	return &Server{
-		cfg:         cfg,
-		queries:     queries.New(pool),
-		logger:      logger,
-		authService: NewPortalAuthService(cfg.Server.JWTSecret, logger),
+		cfg:           cfg,
+		queries:       queries.New(pool),
+		logger:        logger,
+		authService:   NewPortalAuthService(cfg.Server.JWTSecret, logger),
+		inviteService: NewInviteService(cfg.Server.HMACSecret, cfg.Server.BaseURL),
 	}
 }
 
@@ -65,19 +67,34 @@ func (s *Server) registerRoutes(e *echo.Echo) {
 	// Auth endpoint (public)
 	e.POST("/auth", s.Auth)
 
-	// Plugin routes (public - no auth required)
-	e.GET("/plugins", s.ListPlugins)
-	e.GET("/plugins/:id", s.GetPlugin)
-	e.PUT("/plugins/:id", s.UpdatePlugin)
+	// Public plugin routes (pricings only)
 	e.GET("/plugins/:id/pricings", s.GetPluginPricings)
+
+	// Public invite validation endpoint (validates magic link, returns invite info)
+	e.GET("/invite/validate", s.ValidateInvite)
 
 	// Protected routes (require JWT auth)
 	protected := e.Group("")
 	protected.Use(s.JWTAuthMiddleware)
+	// Plugin routes - only return plugins owned by the authenticated user
+	protected.GET("/plugins", s.ListPlugins)
+	protected.GET("/plugins/:id", s.GetPlugin)
+	protected.GET("/plugins/:id/my-role", s.GetMyPluginRole)
+	protected.PUT("/plugins/:id", s.UpdatePlugin)
+	// API key management
 	protected.GET("/plugins/:id/api-keys", s.GetPluginApiKeys)
 	protected.POST("/plugins/:id/api-keys", s.CreatePluginApiKey)
 	protected.PUT("/plugins/:id/api-keys/:keyId", s.UpdatePluginApiKey)
 	protected.DELETE("/plugins/:id/api-keys/:keyId", s.DeletePluginApiKey)
+	// Team management
+	protected.GET("/plugins/:id/team", s.ListTeamMembers)
+	protected.POST("/plugins/:id/team/invite", s.CreateInvite)
+	protected.POST("/plugins/:id/team/accept", s.AcceptInvite)
+	protected.DELETE("/plugins/:id/team/:publicKey", s.RemoveTeamMember)
+	// Kill switch management (staff only)
+	protected.GET("/plugins/:id/kill-switch", s.GetKillSwitch)
+	protected.PUT("/plugins/:id/kill-switch", s.SetKillSwitch)
+	// Earnings
 	protected.GET("/earnings", s.GetEarnings)
 	protected.GET("/earnings/summary", s.GetEarningsSummary)
 }
@@ -208,7 +225,17 @@ func (s *Server) GetPlugin(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
 	}
 
-	plugin, err := s.queries.GetPluginByID(c.Request().Context(), queries.PluginID(id))
+	// Get address from JWT context (set by JWTAuthMiddleware)
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
+
+	// Only return the plugin if the authenticated user owns it
+	plugin, err := s.queries.GetPluginByIDAndOwner(c.Request().Context(), &queries.GetPluginByIDAndOwnerParams{
+		ID:        queries.PluginID(id),
+		PublicKey: address,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "plugin not found"})
@@ -220,8 +247,56 @@ func (s *Server) GetPlugin(c echo.Context) error {
 	return c.JSON(http.StatusOK, plugin)
 }
 
+// MyRoleResponse represents the user's role for a plugin
+type MyRoleResponse struct {
+	Role    string `json:"role"`
+	CanEdit bool   `json:"canEdit"`
+}
+
+// GetMyPluginRole returns the current user's role for a plugin
+func (s *Server) GetMyPluginRole(c echo.Context) error {
+	id := c.Param("id")
+	if id == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+	}
+
+	// Get address from JWT context
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
+
+	// Get the user's role for this plugin
+	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
+		PluginID:  queries.PluginID(id),
+		PublicKey: address,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "not a member of this plugin"})
+		}
+		s.logger.WithError(err).Error("failed to get plugin role")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	// Determine if user can edit (viewers cannot edit)
+	canEdit := owner.Role != queries.PluginOwnerRoleViewer
+
+	return c.JSON(http.StatusOK, MyRoleResponse{
+		Role:    string(owner.Role),
+		CanEdit: canEdit,
+	})
+}
+
 func (s *Server) ListPlugins(c echo.Context) error {
-	plugins, err := s.queries.ListPlugins(c.Request().Context())
+	// Get address from JWT context (set by JWTAuthMiddleware)
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
+
+	// Only return plugins owned by the authenticated user
+	plugins, err := s.queries.ListPluginsByOwner(c.Request().Context(), address)
 	if err != nil {
 		s.logger.WithError(err).Error("failed to list plugins")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
@@ -297,8 +372,8 @@ func (s *Server) GetPluginApiKeys(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
 	}
 
-	// Verify the requester owns this plugin (using Ethereum address from JWT)
-	_, err := s.queries.GetPluginOwner(c.Request().Context(), &queries.GetPluginOwnerParams{
+	// Verify the requester is an admin of this plugin
+	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
 		PluginID:  queries.PluginID(id),
 		PublicKey: address,
 	})
@@ -308,6 +383,11 @@ func (s *Server) GetPluginApiKeys(c echo.Context) error {
 		}
 		s.logger.WithError(err).Error("failed to check plugin ownership")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	// Only admins can view/manage API keys
+	if owner.Role != queries.PluginOwnerRoleAdmin {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "only admins can manage API keys"})
 	}
 
 	apiKeys, err := s.queries.GetPluginApiKeys(c.Request().Context(), queries.PluginID(id))
@@ -392,8 +472,8 @@ func (s *Server) CreatePluginApiKey(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
 	}
 
-	// Verify the requester owns this plugin
-	_, err := s.queries.GetPluginOwner(c.Request().Context(), &queries.GetPluginOwnerParams{
+	// Verify the requester is an admin of this plugin
+	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
 		PluginID:  queries.PluginID(id),
 		PublicKey: address,
 	})
@@ -403,6 +483,11 @@ func (s *Server) CreatePluginApiKey(c echo.Context) error {
 		}
 		s.logger.WithError(err).Error("failed to check plugin ownership")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	// Only admins can manage API keys
+	if owner.Role != queries.PluginOwnerRoleAdmin {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "only admins can manage API keys"})
 	}
 
 	var req CreateApiKeyRequest
@@ -479,8 +564,8 @@ func (s *Server) UpdatePluginApiKey(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
 	}
 
-	// Verify the requester owns this plugin
-	_, err := s.queries.GetPluginOwner(c.Request().Context(), &queries.GetPluginOwnerParams{
+	// Verify the requester is an admin of this plugin
+	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
 		PluginID:  queries.PluginID(pluginID),
 		PublicKey: address,
 	})
@@ -490,6 +575,11 @@ func (s *Server) UpdatePluginApiKey(c echo.Context) error {
 		}
 		s.logger.WithError(err).Error("failed to check plugin ownership")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	// Only admins can manage API keys
+	if owner.Role != queries.PluginOwnerRoleAdmin {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "only admins can manage API keys"})
 	}
 
 	var req UpdateApiKeyRequest
@@ -567,8 +657,8 @@ func (s *Server) DeletePluginApiKey(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
 	}
 
-	// Verify the requester owns this plugin
-	_, err := s.queries.GetPluginOwner(c.Request().Context(), &queries.GetPluginOwnerParams{
+	// Verify the requester owns this plugin and is an admin
+	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
 		PluginID:  queries.PluginID(pluginID),
 		PublicKey: address,
 	})
@@ -578,6 +668,11 @@ func (s *Server) DeletePluginApiKey(c echo.Context) error {
 		}
 		s.logger.WithError(err).Error("failed to check plugin ownership")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	// Only admins can manage API keys
+	if owner.Role != queries.PluginOwnerRoleAdmin {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "only admins can manage API keys"})
 	}
 
 	// Parse UUID
@@ -827,8 +922,8 @@ func (s *Server) UpdatePlugin(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid signature"})
 	}
 
-	// Authorization check - verify signer owns this plugin
-	_, err = s.queries.GetPluginOwner(c.Request().Context(), &queries.GetPluginOwnerParams{
+	// Authorization check - verify signer owns this plugin and get their role
+	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
 		PluginID:  queries.PluginID(id),
 		PublicKey: signerAddr.Hex(),
 	})
@@ -838,6 +933,12 @@ func (s *Server) UpdatePlugin(c echo.Context) error {
 		}
 		s.logger.WithError(err).Error("failed to check plugin ownership")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	// Role-based edit restrictions
+	// Viewers cannot edit anything
+	if owner.Role == queries.PluginOwnerRoleViewer {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "viewers cannot edit plugins"})
 	}
 
 	// Fetch existing plugin to validate unchanged fields match DB values
@@ -884,6 +985,10 @@ func (s *Server) UpdatePlugin(c echo.Context) error {
 	}
 
 	if fieldUpdate, ok := updateMap["serverEndpoint"]; ok {
+		// Editors cannot modify server_endpoint
+		if owner.Role == queries.PluginOwnerRoleEditor {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "editors cannot modify server endpoint"})
+		}
 		if fieldUpdate.NewValue != req.ServerEndpoint {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "server_endpoint does not match signed value"})
 		}
@@ -915,4 +1020,579 @@ func (s *Server) UpdatePlugin(c echo.Context) error {
 	}).Info("plugin updated successfully")
 
 	return c.JSON(http.StatusOK, plugin)
+}
+
+// TeamMemberResponse represents a team member in API responses
+type TeamMemberResponse struct {
+	PublicKey     string `json:"publicKey"`
+	Role          string `json:"role"`
+	AddedVia      string `json:"addedVia"`
+	AddedBy       string `json:"addedBy,omitempty"`
+	CreatedAt     string `json:"createdAt"`
+	IsCurrentUser bool   `json:"isCurrentUser"`
+}
+
+// ListTeamMembers returns team members for a plugin (admin only, excludes staff)
+func (s *Server) ListTeamMembers(c echo.Context) error {
+	pluginID := c.Param("id")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+	}
+
+	// Get address from JWT context
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
+
+	// Check if the requester is an admin of this plugin
+	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
+		PluginID:  queries.PluginID(pluginID),
+		PublicKey: address,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "not authorized to view team members"})
+		}
+		s.logger.WithError(err).Error("failed to check plugin ownership")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	// Only admins can view team members
+	if owner.Role != queries.PluginOwnerRoleAdmin {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "only admins can view team members"})
+	}
+
+	// Get team members (excludes staff)
+	members, err := s.queries.ListPluginTeamMembers(c.Request().Context(), queries.PluginID(pluginID))
+	if err != nil {
+		s.logger.WithError(err).Error("failed to list team members")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	// Convert to response format
+	response := make([]TeamMemberResponse, len(members))
+	for i, m := range members {
+		addedBy := ""
+		if m.AddedByPublicKey.Valid {
+			addedBy = m.AddedByPublicKey.String
+		}
+		response[i] = TeamMemberResponse{
+			PublicKey:     m.PublicKey,
+			Role:          string(m.Role),
+			AddedVia:      string(m.AddedVia),
+			AddedBy:       addedBy,
+			CreatedAt:     m.CreatedAt.Time.Format(time.RFC3339),
+			IsCurrentUser: m.PublicKey == address,
+		}
+	}
+
+	return c.JSON(http.StatusOK, response)
+}
+
+// CreateInviteRequest represents a request to create an invite link
+type CreateInviteRequest struct {
+	Role string `json:"role"` // "editor" or "viewer"
+}
+
+// CreateInviteResponse represents the response with the invite link
+type CreateInviteResponse struct {
+	Link      string `json:"link"`
+	ExpiresAt string `json:"expiresAt"`
+	Role      string `json:"role"`
+}
+
+// CreateInvite generates a magic link to invite a new team member
+func (s *Server) CreateInvite(c echo.Context) error {
+	pluginID := c.Param("id")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+	}
+
+	// Get address from JWT context
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
+
+	// Check if the requester is an admin of this plugin
+	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
+		PluginID:  queries.PluginID(pluginID),
+		PublicKey: address,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "not authorized to create invites"})
+		}
+		s.logger.WithError(err).Error("failed to check plugin ownership")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	// Only admins can create invites
+	if owner.Role != queries.PluginOwnerRoleAdmin {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "only admins can create invites"})
+	}
+
+	var req CreateInviteRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	}
+
+	// Validate role
+	if req.Role != "editor" && req.Role != "viewer" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "role must be 'editor' or 'viewer'"})
+	}
+
+	// Generate invite link
+	link, _, err := s.inviteService.GenerateInviteLink(pluginID, req.Role, address)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to generate invite link")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to generate invite link"})
+	}
+
+	expiresAt := time.Now().Add(InviteLinkExpiry).Format(time.RFC3339)
+
+	s.logger.WithFields(logrus.Fields{
+		"plugin_id":  pluginID,
+		"role":       req.Role,
+		"invited_by": address,
+	}).Info("invite link created")
+
+	return c.JSON(http.StatusCreated, CreateInviteResponse{
+		Link:      link,
+		ExpiresAt: expiresAt,
+		Role:      req.Role,
+	})
+}
+
+// ValidateInviteResponse represents the response when validating an invite
+type ValidateInviteResponse struct {
+	PluginID   string `json:"pluginId"`
+	PluginName string `json:"pluginName"`
+	Role       string `json:"role"`
+	InvitedBy  string `json:"invitedBy"`
+	ExpiresAt  string `json:"expiresAt"`
+}
+
+// ValidateInvite validates a magic link without accepting it (for preview)
+func (s *Server) ValidateInvite(c echo.Context) error {
+	data := c.QueryParam("data")
+	sig := c.QueryParam("sig")
+
+	if data == "" || sig == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "missing data or sig parameter"})
+	}
+
+	// Validate the invite link
+	payload, err := s.inviteService.ValidateInviteLink(data, sig)
+	if err != nil {
+		if errors.Is(err, ErrInvalidSignature) {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid invite link"})
+		}
+		if errors.Is(err, ErrInviteExpired) {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invite link has expired"})
+		}
+		s.logger.WithError(err).Error("failed to validate invite")
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid invite link"})
+	}
+
+	// Check if link_id has already been used
+	linkUUID, err := uuid.Parse(payload.LinkID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid invite link"})
+	}
+	used, err := s.queries.CheckLinkIdUsed(c.Request().Context(), pgtype.UUID{
+		Bytes: linkUUID,
+		Valid: true,
+	})
+	if err != nil {
+		s.logger.WithError(err).Error("failed to check link usage")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+	if used {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invite link has already been used"})
+	}
+
+	// Get plugin info
+	plugin, err := s.queries.GetPluginByID(c.Request().Context(), queries.PluginID(payload.PluginID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "plugin not found"})
+		}
+		s.logger.WithError(err).Error("failed to get plugin")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	return c.JSON(http.StatusOK, ValidateInviteResponse{
+		PluginID:   payload.PluginID,
+		PluginName: plugin.Title,
+		Role:       payload.Role,
+		InvitedBy:  payload.InvitedBy,
+		ExpiresAt:  time.Unix(payload.ExpiresAt, 0).Format(time.RFC3339),
+	})
+}
+
+// AcceptInviteRequest represents the request to accept an invite
+type AcceptInviteRequest struct {
+	Data      string `json:"data"`      // Base64-encoded invite payload
+	Signature string `json:"signature"` // Base64-encoded HMAC signature
+}
+
+// AcceptInvite accepts a magic link invite and adds the user as a team member
+func (s *Server) AcceptInvite(c echo.Context) error {
+	pluginID := c.Param("id")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+	}
+
+	// Get address from JWT context (user must be authenticated)
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
+
+	var req AcceptInviteRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	}
+
+	if req.Data == "" || req.Signature == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "missing data or signature"})
+	}
+
+	// Validate the invite link
+	payload, err := s.inviteService.ValidateInviteLink(req.Data, req.Signature)
+	if err != nil {
+		if errors.Is(err, ErrInvalidSignature) {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid invite link"})
+		}
+		if errors.Is(err, ErrInviteExpired) {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invite link has expired"})
+		}
+		s.logger.WithError(err).Error("failed to validate invite")
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid invite link"})
+	}
+
+	// Verify plugin ID matches
+	if payload.PluginID != pluginID {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invite is for a different plugin"})
+	}
+
+	// Check if link_id has already been used
+	linkUUID := uuid.MustParse(payload.LinkID)
+	used, err := s.queries.CheckLinkIdUsed(c.Request().Context(), pgtype.UUID{
+		Bytes: linkUUID,
+		Valid: true,
+	})
+	if err != nil {
+		s.logger.WithError(err).Error("failed to check link usage")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+	if used {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invite link has already been used"})
+	}
+
+	// Check if user is already a team member
+	existingOwner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
+		PluginID:  queries.PluginID(pluginID),
+		PublicKey: address,
+	})
+	if err == nil && existingOwner.Active {
+		return c.JSON(http.StatusConflict, map[string]string{"error": "you are already a team member of this plugin"})
+	}
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		s.logger.WithError(err).Error("failed to check existing membership")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	// Map role string to enum
+	var role queries.PluginOwnerRole
+	switch payload.Role {
+	case "editor":
+		role = queries.PluginOwnerRoleEditor
+	case "viewer":
+		role = queries.PluginOwnerRoleViewer
+	default:
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid role in invite"})
+	}
+
+	// Add the team member
+	_, err = s.queries.AddPluginTeamMember(c.Request().Context(), &queries.AddPluginTeamMemberParams{
+		PluginID:         queries.PluginID(pluginID),
+		PublicKey:        address,
+		Role:             role,
+		AddedByPublicKey: pgtype.Text{String: payload.InvitedBy, Valid: true},
+		LinkID:           pgtype.UUID{Bytes: linkUUID, Valid: true},
+	})
+	if err != nil {
+		s.logger.WithError(err).Error("failed to add team member")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to accept invite"})
+	}
+
+	s.logger.WithFields(logrus.Fields{
+		"plugin_id":  pluginID,
+		"public_key": address,
+		"role":       payload.Role,
+		"invited_by": payload.InvitedBy,
+	}).Info("invite accepted, team member added")
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": "invite accepted successfully",
+		"role":    payload.Role,
+	})
+}
+
+// RemoveTeamMember removes a team member from a plugin (admin only)
+func (s *Server) RemoveTeamMember(c echo.Context) error {
+	pluginID := c.Param("id")
+	targetPublicKey := c.Param("publicKey")
+	if pluginID == "" || targetPublicKey == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id and public key are required"})
+	}
+
+	// Get address from JWT context
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
+
+	// Check if the requester is an admin of this plugin
+	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
+		PluginID:  queries.PluginID(pluginID),
+		PublicKey: address,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "not authorized to remove team members"})
+		}
+		s.logger.WithError(err).Error("failed to check plugin ownership")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	// Only admins can remove team members
+	if owner.Role != queries.PluginOwnerRoleAdmin {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "only admins can remove team members"})
+	}
+
+	// Cannot remove yourself
+	if targetPublicKey == address {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "cannot remove yourself from the team"})
+	}
+
+	// Check target exists and is not an admin (admins cannot be removed via API)
+	target, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
+		PluginID:  queries.PluginID(pluginID),
+		PublicKey: targetPublicKey,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "team member not found"})
+		}
+		s.logger.WithError(err).Error("failed to get target member")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	// Cannot remove other admins or staff
+	if target.Role == queries.PluginOwnerRoleAdmin || target.Role == queries.PluginOwnerRoleStaff {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "cannot remove admin or staff members"})
+	}
+
+	// Remove the team member
+	err = s.queries.RemovePluginTeamMember(c.Request().Context(), &queries.RemovePluginTeamMemberParams{
+		PluginID:  queries.PluginID(pluginID),
+		PublicKey: targetPublicKey,
+	})
+	if err != nil {
+		s.logger.WithError(err).Error("failed to remove team member")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to remove team member"})
+	}
+
+	s.logger.WithFields(logrus.Fields{
+		"plugin_id":  pluginID,
+		"removed_by": address,
+		"removed":    targetPublicKey,
+	}).Info("team member removed")
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "team member removed successfully"})
+}
+
+// KillSwitchResponse represents the kill switch status for a plugin
+type KillSwitchResponse struct {
+	PluginID       string `json:"pluginId"`
+	KeygenEnabled  bool   `json:"keygenEnabled"`
+	KeysignEnabled bool   `json:"keysignEnabled"`
+}
+
+// GetKillSwitch returns the kill switch status for a plugin (staff only)
+func (s *Server) GetKillSwitch(c echo.Context) error {
+	pluginID := c.Param("id")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+	}
+
+	// Get address from JWT context
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
+
+	// Check if the requester is a staff member of this plugin
+	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
+		PluginID:  queries.PluginID(pluginID),
+		PublicKey: address,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "not authorized to view kill switch"})
+		}
+		s.logger.WithError(err).Error("failed to check plugin ownership")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	// Only staff or admin can view kill switch
+	if owner.Role != queries.PluginOwnerRoleStaff && owner.Role != queries.PluginOwnerRoleAdmin {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "only staff can view kill switch"})
+	}
+
+	// Get control flags for this plugin
+	keygenKey := pluginID + "-keygen"
+	keysignKey := pluginID + "-keysign"
+
+	flags, err := s.queries.GetControlFlagsByKeys(c.Request().Context(), []string{keygenKey, keysignKey})
+	if err != nil {
+		s.logger.WithError(err).Error("failed to get control flags")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to get kill switch status"})
+	}
+
+	// Build a map for easy lookup
+	flagMap := make(map[string]bool, len(flags))
+	for _, f := range flags {
+		flagMap[f.Key] = f.Enabled
+	}
+
+	// Default to enabled if no flag exists
+	keygenEnabled := true
+	if enabled, ok := flagMap[keygenKey]; ok {
+		keygenEnabled = enabled
+	}
+
+	keysignEnabled := true
+	if enabled, ok := flagMap[keysignKey]; ok {
+		keysignEnabled = enabled
+	}
+
+	return c.JSON(http.StatusOK, KillSwitchResponse{
+		PluginID:       pluginID,
+		KeygenEnabled:  keygenEnabled,
+		KeysignEnabled: keysignEnabled,
+	})
+}
+
+// SetKillSwitchRequest represents a request to set kill switch status
+type SetKillSwitchRequest struct {
+	KeygenEnabled  *bool `json:"keygenEnabled"`
+	KeysignEnabled *bool `json:"keysignEnabled"`
+}
+
+// SetKillSwitch sets the kill switch status for a plugin (staff only)
+func (s *Server) SetKillSwitch(c echo.Context) error {
+	pluginID := c.Param("id")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+	}
+
+	// Get address from JWT context
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
+
+	// Check if the requester is a staff member of this plugin
+	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
+		PluginID:  queries.PluginID(pluginID),
+		PublicKey: address,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "not authorized to set kill switch"})
+		}
+		s.logger.WithError(err).Error("failed to check plugin ownership")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	// Only staff or admin can set kill switch
+	if owner.Role != queries.PluginOwnerRoleStaff && owner.Role != queries.PluginOwnerRoleAdmin {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "only staff can set kill switch"})
+	}
+
+	// Parse request body
+	var req SetKillSwitchRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	}
+
+	// At least one flag must be provided
+	if req.KeygenEnabled == nil && req.KeysignEnabled == nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "at least one of keygenEnabled or keysignEnabled must be provided"})
+	}
+
+	// Update control flags
+	keygenKey := pluginID + "-keygen"
+	keysignKey := pluginID + "-keysign"
+
+	if req.KeygenEnabled != nil {
+		if err := s.queries.UpsertControlFlag(c.Request().Context(), &queries.UpsertControlFlagParams{
+			Key:     keygenKey,
+			Enabled: *req.KeygenEnabled,
+		}); err != nil {
+			s.logger.WithError(err).Error("failed to update keygen flag")
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update kill switch"})
+		}
+	}
+
+	if req.KeysignEnabled != nil {
+		if err := s.queries.UpsertControlFlag(c.Request().Context(), &queries.UpsertControlFlagParams{
+			Key:     keysignKey,
+			Enabled: *req.KeysignEnabled,
+		}); err != nil {
+			s.logger.WithError(err).Error("failed to update keysign flag")
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update kill switch"})
+		}
+	}
+
+	// Get updated state
+	flags, err := s.queries.GetControlFlagsByKeys(c.Request().Context(), []string{keygenKey, keysignKey})
+	if err != nil {
+		s.logger.WithError(err).Error("failed to get control flags after update")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to confirm kill switch status"})
+	}
+
+	// Build a map for easy lookup
+	flagMap := make(map[string]bool, len(flags))
+	for _, f := range flags {
+		flagMap[f.Key] = f.Enabled
+	}
+
+	keygenEnabled := true
+	if enabled, ok := flagMap[keygenKey]; ok {
+		keygenEnabled = enabled
+	}
+
+	keysignEnabled := true
+	if enabled, ok := flagMap[keysignKey]; ok {
+		keysignEnabled = enabled
+	}
+
+	s.logger.WithFields(logrus.Fields{
+		"plugin_id":       pluginID,
+		"staff":           address,
+		"keygen_enabled":  keygenEnabled,
+		"keysign_enabled": keysignEnabled,
+	}).Info("kill switch updated")
+
+	return c.JSON(http.StatusOK, KillSwitchResponse{
+		PluginID:       pluginID,
+		KeygenEnabled:  keygenEnabled,
+		KeysignEnabled: keysignEnabled,
+	})
 }

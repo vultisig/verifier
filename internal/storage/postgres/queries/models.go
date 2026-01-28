@@ -191,6 +191,7 @@ const (
 	PluginOwnerAddedViaBootstrapPluginKey PluginOwnerAddedVia = "bootstrap_plugin_key"
 	PluginOwnerAddedViaOwnerApi           PluginOwnerAddedVia = "owner_api"
 	PluginOwnerAddedViaAdminCli           PluginOwnerAddedVia = "admin_cli"
+	PluginOwnerAddedViaMagicLink          PluginOwnerAddedVia = "magic_link"
 )
 
 func (e *PluginOwnerAddedVia) Scan(src interface{}) error {
@@ -231,7 +232,10 @@ func (ns NullPluginOwnerAddedVia) Value() (driver.Value, error) {
 type PluginOwnerRole string
 
 const (
-	PluginOwnerRoleAdmin PluginOwnerRole = "admin"
+	PluginOwnerRoleAdmin  PluginOwnerRole = "admin"
+	PluginOwnerRoleStaff  PluginOwnerRole = "staff"
+	PluginOwnerRoleEditor PluginOwnerRole = "editor"
+	PluginOwnerRoleViewer PluginOwnerRole = "viewer"
 )
 
 func (e *PluginOwnerRole) Scan(src interface{}) error {
@@ -640,6 +644,7 @@ type PluginOwner struct {
 	AddedByPublicKey pgtype.Text         `json:"added_by_public_key"`
 	CreatedAt        pgtype.Timestamptz  `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz  `json:"updated_at"`
+	LinkID           pgtype.UUID         `json:"link_id"`
 }
 
 type PluginPauseHistory struct {
@@ -710,6 +715,7 @@ type PluginReport struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	LastReportedAt    pgtype.Timestamptz `json:"last_reported_at"`
 	ReportCount       int32              `json:"report_count"`
+	Details           string             `json:"details"`
 }
 
 type PluginTag struct {

@@ -464,7 +464,7 @@ func (m *MockDatabaseStorage) DeactivateOwner(ctx context.Context, pluginID type
 	return args.Error(0)
 }
 
-func TestGenerateToken(t *testing.T) {
+func TestGenerateTokenPair(t *testing.T) {
 	testCases := []struct {
 		name          string
 		secret        string
@@ -472,9 +472,9 @@ func TestGenerateToken(t *testing.T) {
 		expectedError bool
 	}{
 		{
-			name:          "Valid secret",
+			name:          "Valid token pair generation",
 			secret:        "test-secret",
-			publicKey:     "test-public-key",
+			publicKey:     testPublicKey,
 			expectedError: false,
 		},
 	}
@@ -488,15 +488,36 @@ func TestGenerateToken(t *testing.T) {
 			}, nil)
 
 			auth := service.NewAuthService(tt.secret, mockDB, testLogger)
-			token, err := auth.GenerateToken(context.Background(), tt.publicKey)
+			tokenPair, err := auth.GenerateTokenPair(context.Background(), tt.publicKey)
 
 			if tt.expectedError {
 				assert.Error(t, err)
-				assert.Nil(t, token)
+				assert.Nil(t, tokenPair)
 			} else {
 				assert.NoError(t, err)
-				assert.NotNil(t, token)
-				assert.NotEmpty(t, token)
+				assert.NotNil(t, tokenPair)
+				assert.NotEmpty(t, tokenPair.AccessToken)
+				assert.NotEmpty(t, tokenPair.RefreshToken)
+				assert.NotEqual(t, tokenPair.AccessToken, tokenPair.RefreshToken, "Access and refresh tokens should be different")
+				assert.Equal(t, 3600, tokenPair.ExpiresIn, "Access token should expire in 3600 seconds (60 minutes)")
+
+				accessClaims, err := auth.ValidateToken(context.Background(), tokenPair.AccessToken)
+				assert.NoError(t, err)
+				assert.NotNil(t, accessClaims)
+				assert.Equal(t, service.TokenTypeAccess, accessClaims.TokenType)
+				assert.Equal(t, tt.publicKey, accessClaims.PublicKey)
+
+				mockDB.On("GetVaultToken", mock.Anything, mock.Anything).Return(&itypes.VaultToken{
+					TokenID:   uuid.New().String(),
+					PublicKey: tt.publicKey,
+				}, nil)
+				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
+
+				refreshClaims, err := auth.ValidateToken(context.Background(), tokenPair.RefreshToken)
+				assert.NoError(t, err)
+				assert.NotNil(t, refreshClaims)
+				assert.Equal(t, service.TokenTypeRefresh, refreshClaims.TokenType)
+				assert.Equal(t, tt.publicKey, refreshClaims.PublicKey)
 			}
 		})
 	}
@@ -525,8 +546,8 @@ func TestValidateToken(t *testing.T) {
 				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
 
 				auth := service.NewAuthService(secret, mockDB, testLogger)
-				token, _ := auth.GenerateToken(context.Background(), "test-public-key")
-				return token
+				tokenPair, _ := auth.GenerateTokenPair(context.Background(), "test-public-key")
+				return tokenPair.RefreshToken
 			},
 			secret:      secret,
 			shouldError: false,
@@ -539,6 +560,9 @@ func TestValidateToken(t *testing.T) {
 					RegisteredClaims: jwt.RegisteredClaims{
 						ExpiresAt: jwt.NewNumericDate(time.Now().Add(-1 * time.Hour)),
 					},
+					PublicKey: "test-public-key",
+					TokenID:   "test-token-id",
+					TokenType: service.TokenTypeAccess,
 				}
 				token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 				tokenString, _ := token.SignedString([]byte(secret))
@@ -554,6 +578,9 @@ func TestValidateToken(t *testing.T) {
 					RegisteredClaims: jwt.RegisteredClaims{
 						ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 					},
+					PublicKey: "test-public-key",
+					TokenID:   "test-token-id",
+					TokenType: service.TokenTypeAccess,
 				}
 				token := jwt.NewWithClaims(jwt.SigningMethodNone, claims)
 				tokenString, _ := token.SignedString(jwt.UnsafeAllowNoneSignatureType)
@@ -571,9 +598,8 @@ func TestValidateToken(t *testing.T) {
 				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
 
 				auth := service.NewAuthService(secret, mockDB, testLogger)
-				var token string
-				token, _ = auth.GenerateToken(context.Background(), "test-public-key")
-				return token
+				tokenPair, _ := auth.GenerateTokenPair(context.Background(), "test-public-key")
+				return tokenPair.RefreshToken
 			},
 			secret:      wrongSecret,
 			shouldError: true,
@@ -622,7 +648,7 @@ func TestRefreshToken(t *testing.T) {
 		shouldError bool
 	}{
 		{
-			name: "Valid token refresh",
+			name: "Valid refresh token",
 			setupToken: func() string {
 				mockDB := new(MockDatabaseStorage)
 				tokenID := uuid.New().String()
@@ -637,21 +663,23 @@ func TestRefreshToken(t *testing.T) {
 						PublicKey: testPublicKey,
 					}, nil)
 				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, tokenID).Return(nil)
-				mockDB.On("RevokeVaultToken", mock.Anything, tokenID).Return(nil)
 
 				auth := service.NewAuthService(secret, mockDB, testLogger)
-				token, _ := auth.GenerateToken(context.Background(), testPublicKey)
-				return token
+				tokenPair, _ := auth.GenerateTokenPair(context.Background(), testPublicKey)
+				return tokenPair.RefreshToken
 			},
 			shouldError: false,
 		},
 		{
-			name: "Expired token refresh",
+			name: "Expired refresh token",
 			setupToken: func() string {
 				claims := &service.Claims{
 					RegisteredClaims: jwt.RegisteredClaims{
 						ExpiresAt: jwt.NewNumericDate(time.Now().Add(-1 * time.Hour)),
 					},
+					PublicKey: testPublicKey,
+					TokenID:   "test-token-id",
+					TokenType: service.TokenTypeRefresh,
 				}
 				token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 				tokenString, _ := token.SignedString([]byte(secret))
@@ -666,6 +694,24 @@ func TestRefreshToken(t *testing.T) {
 			},
 			shouldError: true,
 		},
+		{
+			name: "Access token used for refresh (should fail)",
+			setupToken: func() string {
+				claims := &service.Claims{
+					RegisteredClaims: jwt.RegisteredClaims{
+						ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
+						IssuedAt:  jwt.NewNumericDate(time.Now()),
+					},
+					PublicKey: testPublicKey,
+					TokenID:   uuid.New().String(),
+					TokenType: service.TokenTypeAccess,
+				}
+				token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+				tokenString, _ := token.SignedString([]byte(secret))
+				return tokenString
+			},
+			shouldError: true,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -674,36 +720,33 @@ func TestRefreshToken(t *testing.T) {
 			mockDB := new(MockDatabaseStorage)
 
 			if !tc.shouldError {
-				// For valid token case, set up mock expectations
-				tokenID := uuid.New().String()
-				mockDB.On("CreateVaultToken", mock.Anything, mock.Anything).
-					Return(&itypes.VaultToken{
-						TokenID:   tokenID,
-						PublicKey: testPublicKey,
-					}, nil)
 				mockDB.On("GetVaultToken", mock.Anything, mock.Anything).
 					Return(&itypes.VaultToken{
-						TokenID:   tokenID,
+						TokenID:   uuid.New().String(),
 						PublicKey: testPublicKey,
 					}, nil)
 				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
-				mockDB.On("RevokeVaultToken", mock.Anything, mock.Anything).Return(nil)
 			}
 
 			authService := service.NewAuthService(secret, mockDB, testLogger)
-			newToken, err := authService.RefreshToken(context.Background(), tokenString)
+			tokenPair, err := authService.RefreshToken(context.Background(), tokenString)
 
 			if tc.shouldError {
 				assert.Error(t, err)
-				assert.Empty(t, newToken)
+				assert.Nil(t, tokenPair)
 			} else {
 				assert.NoError(t, err)
-				assert.NotEmpty(t, newToken)
-				assert.NotEqual(t, tokenString, newToken, "Refreshed token should be different from the original")
+				assert.NotNil(t, tokenPair)
+				assert.NotEmpty(t, tokenPair.AccessToken)
+				assert.NotEmpty(t, tokenPair.RefreshToken)
+				assert.Equal(t, tokenString, tokenPair.RefreshToken, "Refresh token should remain the same")
+				assert.NotEqual(t, tokenString, tokenPair.AccessToken, "Access token should be different from refresh token")
+				assert.Equal(t, 3600, tokenPair.ExpiresIn, "Access token should expire in 3600 seconds (60 minutes)")
 
-				claims, validationErr := authService.ValidateToken(context.Background(), newToken)
+				claims, validationErr := authService.ValidateToken(context.Background(), tokenPair.AccessToken)
 				assert.NoError(t, validationErr)
 				assert.NotNil(t, claims)
+				assert.Equal(t, service.TokenTypeAccess, claims.TokenType, "New token should be an access token")
 			}
 		})
 	}

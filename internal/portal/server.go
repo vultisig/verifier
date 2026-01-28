@@ -495,6 +495,18 @@ func (s *Server) CreatePluginApiKey(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
 	}
 
+	// Check API key limit
+	if s.cfg.MaxApiKeysPerPlugin > 0 {
+		count, err := s.queries.CountActiveApiKeys(c.Request().Context(), queries.PluginID(id))
+		if err != nil {
+			s.logger.WithError(err).Error("failed to count active API keys")
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		}
+		if int(count) >= s.cfg.MaxApiKeysPerPlugin {
+			return c.JSON(http.StatusConflict, map[string]string{"error": fmt.Sprintf("maximum number of API keys (%d) reached for this plugin", s.cfg.MaxApiKeysPerPlugin)})
+		}
+	}
+
 	// Generate the API key
 	apiKey, err := generateApiKey()
 	if err != nil {

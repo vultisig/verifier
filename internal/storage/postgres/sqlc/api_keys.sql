@@ -25,3 +25,9 @@ UPDATE plugin_apikey
 SET expires_at = NOW()
 WHERE id = $1
 RETURNING *;
+
+-- name: CountActiveApiKeys :one
+SELECT COUNT(*) FROM plugin_apikey
+WHERE plugin_id = $1
+  AND status = 1
+  AND (expires_at IS NULL OR expires_at > NOW());

@@ -14,7 +14,7 @@ DATABASE_DSN ?= postgres://vultisig:vultisig@localhost:5432/vultisig-verifier?ss
 ENCRYPTION_SECRET ?= dev-encryption-secret-32b
 JWT_SECRET ?= devsecret
 
-.PHONY: up up-dev down down-dev build build-dev seed-db run-server run-worker dump-schema test-integration itest
+.PHONY: up up-dev down down-dev build build-dev seed-db run-server run-worker run-portal dump-schema test-integration test-portal itest
 
 up:
 	@docker compose up -d --remove-orphans;
@@ -50,6 +50,18 @@ test-integration:
 	go test -v -count=1 -timeout 10m ./testdata/integration/gotest/...
 itest: test-integration
 
+# Portal integration test defaults
+PORTAL_URL ?= http://localhost:8081
+PORTAL_JWT_SECRET ?= test-portal-secret
+MAX_API_KEYS_PER_PLUGIN ?= 5
+
+test-portal:
+	@echo "Running portal integration tests (requires portal running)..."
+	@PORTAL_URL=$(PORTAL_URL) \
+	PORTAL_JWT_SECRET=$(PORTAL_JWT_SECRET) \
+	DATABASE_DSN="$(DATABASE_DSN)" \
+	go test -v -count=1 -timeout 5m ./testdata/integration/portal/...
+
 # Run the verifier server
 run-server:
 	@DYLD_LIBRARY_PATH=$(DYLD_LIBRARY) VS_CONFIG_NAME=config go run cmd/verifier/main.go
@@ -57,6 +69,16 @@ run-server:
 # Run the worker process
 run-worker:
 	@DYLD_LIBRARY_PATH=$(DYLD_LIBRARY) VS_CONFIG_NAME=config go run cmd/worker/main.go
+
+# Run the portal server
+run-portal:
+	@SERVER_HOST=localhost \
+	SERVER_PORT=8081 \
+	SERVER_JWT_SECRET=$(PORTAL_JWT_SECRET) \
+	SERVER_HMAC_SECRET=test-hmac-secret \
+	DATABASE_DSN="$(DATABASE_DSN)" \
+	MAX_API_KEYS_PER_PLUGIN=$(MAX_API_KEYS_PER_PLUGIN) \
+	go run cmd/portal/main.go
 
 # Dump database schema
 # Usage: make dump-schema CONFIG=config.json

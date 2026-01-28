@@ -29,11 +29,22 @@ type Claims struct {
 	jwt.RegisteredClaims
 	PublicKey string `json:"public_key"`
 	TokenID   string `json:"token_id"`
+	TokenType string `json:"token_type"`
+}
+
+type TokenPair struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int    `json:"expires_in"`
 }
 
 const (
-	expireDuration = 7 * 24 * time.Hour
-	tokenIDLength  = 32
+	TokenTypeAccess  = "access"
+	TokenTypeRefresh = "refresh"
+
+	accessTokenDuration  = 60 * time.Minute
+	refreshTokenDuration = 7 * 24 * time.Hour
+	tokenIDLength        = 32
 )
 
 type AuthService struct {
@@ -61,6 +72,7 @@ func generateTokenID() (string, error) {
 }
 
 // GenerateToken creates a new JWT token and stores it in the database
+// Deprecated: Use GenerateTokenPair instead
 func (a *AuthService) GenerateToken(ctx context.Context, publicKey string) (string, error) {
 	// Generate a unique token ID
 	tokenID, err := generateTokenID()
@@ -68,7 +80,7 @@ func (a *AuthService) GenerateToken(ctx context.Context, publicKey string) (stri
 		return "", err
 	}
 
-	expirationTime := time.Now().Add(expireDuration)
+	expirationTime := time.Now().Add(refreshTokenDuration)
 	claims := &Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
@@ -76,6 +88,7 @@ func (a *AuthService) GenerateToken(ctx context.Context, publicKey string) (stri
 		},
 		PublicKey: publicKey,
 		TokenID:   tokenID,
+		TokenType: TokenTypeRefresh,
 	}
 
 	// Create JWT token
@@ -96,6 +109,88 @@ func (a *AuthService) GenerateToken(ctx context.Context, publicKey string) (stri
 	}
 
 	return tokenString, nil
+}
+
+// GenerateTokenPair creates both access and refresh tokens
+func (a *AuthService) GenerateTokenPair(ctx context.Context, publicKey string) (*TokenPair, error) {
+	refreshToken, refreshTokenID, err := a.generateRefreshToken(ctx, publicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	accessToken, err := a.generateAccessToken(publicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	a.logger.WithFields(logrus.Fields{
+		"public_key":       publicKey,
+		"refresh_token_id": refreshTokenID,
+	}).Info("Generated token pair")
+
+	return &TokenPair{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    int(accessTokenDuration.Seconds()),
+	}, nil
+}
+
+// generateAccessToken creates a stateless access token (no DB storage)
+func (a *AuthService) generateAccessToken(publicKey string) (string, error) {
+	tokenID, err := generateTokenID()
+	if err != nil {
+		return "", err
+	}
+
+	expirationTime := time.Now().Add(accessTokenDuration)
+	claims := &Claims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+		PublicKey: publicKey,
+		TokenID:   tokenID,
+		TokenType: TokenTypeAccess,
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(a.JWTSecret)
+}
+
+// generateRefreshToken creates a DB-stored refresh token
+func (a *AuthService) generateRefreshToken(ctx context.Context, publicKey string) (string, string, error) {
+	tokenID, err := generateTokenID()
+	if err != nil {
+		return "", "", err
+	}
+
+	expirationTime := time.Now().Add(refreshTokenDuration)
+	claims := &Claims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+		PublicKey: publicKey,
+		TokenID:   tokenID,
+		TokenType: TokenTypeRefresh,
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString(a.JWTSecret)
+	if err != nil {
+		return "", "", err
+	}
+
+	_, err = a.db.CreateVaultToken(ctx, types.VaultTokenCreate{
+		PublicKey: publicKey,
+		TokenID:   tokenID,
+		ExpiresAt: expirationTime,
+	})
+	if err != nil {
+		return "", "", err
+	}
+
+	return tokenString, tokenID, nil
 }
 
 // ValidateToken validates a JWT token and checks its revocation status
@@ -121,45 +216,60 @@ func (a *AuthService) ValidateToken(ctx context.Context, tokenStr string) (*Clai
 	if claims.TokenID == "" {
 		return nil, errors.New("token missing token ID")
 	}
-
-	// Check if token is revoked
-	dbToken, err := a.db.GetVaultToken(ctx, claims.TokenID)
-	if err != nil {
-		return nil, errors.New("token not found in database")
+	if claims.TokenType == "" {
+		return nil, errors.New("token missing token type")
 	}
 
-	if dbToken == nil {
-		return nil, errors.New("token not found in database")
-	}
+	if claims.TokenType == TokenTypeRefresh {
+		dbToken, err := a.db.GetVaultToken(ctx, claims.TokenID)
+		if err != nil {
+			return nil, errors.New("token not found in database")
+		}
 
-	if dbToken.IsRevoked() {
-		return nil, errors.New("token has been revoked")
-	}
+		if dbToken == nil {
+			return nil, errors.New("token not found in database")
+		}
 
-	// Update last used timestamp
-	err = a.db.UpdateVaultTokenLastUsed(ctx, claims.TokenID)
-	if err != nil {
-		a.logger.WithError(err).Error("failed to update token last used")
+		if dbToken.IsRevoked() {
+			return nil, errors.New("token has been revoked")
+		}
+
+		// Update last used timestamp
+		err = a.db.UpdateVaultTokenLastUsed(ctx, claims.TokenID)
+		if err != nil {
+			a.logger.WithError(err).Error("failed to update token last used")
+		}
 	}
 
 	return claims, nil
 }
 
-// RefreshToken refreshes a JWT token while preserving the public key
-func (a *AuthService) RefreshToken(ctx context.Context, oldToken string) (string, error) {
-	claims, err := a.ValidateToken(ctx, oldToken)
+// RefreshToken validates refresh token and issues new access token
+func (a *AuthService) RefreshToken(ctx context.Context, refreshTokenStr string) (*TokenPair, error) {
+	claims, err := a.ValidateToken(ctx, refreshTokenStr)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	// Revoke old token
-	err = a.db.RevokeVaultToken(ctx, claims.TokenID)
-	if err != nil {
-		return "", err
+	if claims.TokenType != TokenTypeRefresh {
+		return nil, errors.New("invalid token type: expected refresh token")
 	}
 
-	// Generate new token
-	return a.GenerateToken(ctx, claims.PublicKey)
+	accessToken, err := a.generateAccessToken(claims.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	a.logger.WithFields(logrus.Fields{
+		"public_key": claims.PublicKey,
+		"token_id":   claims.TokenID,
+	}).Info("Refreshed access token")
+
+	return &TokenPair{
+		AccessToken:  accessToken,
+		RefreshToken: refreshTokenStr,
+		ExpiresIn:    int(accessTokenDuration.Seconds()),
+	}, nil
 }
 
 // RevokeToken revokes a specific token

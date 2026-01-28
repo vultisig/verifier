@@ -145,7 +145,7 @@ func (s *Server) StartServer() error {
 
 	// Auth endpoints - not requiring authentication
 	e.POST("/auth", s.Auth)
-	e.POST("/auth/refresh", s.RefreshToken, s.VaultAuthMiddleware) // only when user has logged in with their vault
+	e.POST("/auth/refresh", s.RefreshToken)
 
 	// Token management endpoints
 	tokenGroup := e.Group("/auth/tokens", s.VaultAuthMiddleware)
@@ -500,16 +500,15 @@ func (s *Server) Auth(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgNonceStoreFailed))
 	}
 
-	// Generate JWT token with the public key
-	token, err := s.authService.GenerateToken(c.Request().Context(), req.PublicKey)
+	tokenPair, err := s.authService.GenerateTokenPair(c.Request().Context(), req.PublicKey)
 	if err != nil {
-		s.logger.Error("failed to generate token:", err)
+		s.logger.Error("failed to generate token pair:", err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgTokenGenerateFailed))
 	}
 
 	// Store logged-in user's public key in cache for quick access
-	cacheKey := "user_pubkey:" + token
-	err = s.redis.Set(c.Request().Context(), cacheKey, req.PublicKey, 7*24*time.Hour) // Same as token expiration
+	cacheKey := "user_pubkey:" + tokenPair.AccessToken
+	err = s.redis.Set(c.Request().Context(), cacheKey, req.PublicKey, time.Duration(tokenPair.ExpiresIn)*time.Second)
 	if err != nil {
 		s.logger.WithError(err).Warnf("Failed to cache user info")
 	}
@@ -523,8 +522,7 @@ func (s *Server) Auth(c echo.Context) error {
 	}
 
 	status := http.StatusOK
-	resp := map[string]string{"token": token}
-	return c.JSON(status, NewSuccessResponse(status, resp))
+	return c.JSON(status, NewSuccessResponse(status, tokenPair))
 }
 
 // parseAuthMessage extracts nonce and expiry time from the auth message
@@ -554,27 +552,26 @@ func parseAuthMessage(message string) (string, time.Time, error) {
 
 func (s *Server) RefreshToken(c echo.Context) error {
 	var req struct {
-		Token string `json:"token"`
+		RefreshToken string `json:"refresh_token"`
 	}
 
 	if err := c.Bind(&req); err != nil {
-		s.logger.WithError(err).Errorf("fail to decode token")
+		s.logger.WithError(err).Errorf("fail to decode refresh token")
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidRequestFormat))
 	}
 
-	if req.Token == "" {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgMissingTokenID))
+	if req.RefreshToken == "" {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("missing refresh token"))
 	}
 
-	newToken, err := s.authService.RefreshToken(c.Request().Context(), req.Token)
+	tokenPair, err := s.authService.RefreshToken(c.Request().Context(), req.RefreshToken)
 	if err != nil {
 		s.logger.WithError(err).Error("fail to refresh token")
 		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgInvalidOrExpiredToken))
 	}
 
 	status := http.StatusOK
-	resp := map[string]string{"token": newToken}
-	return c.JSON(status, NewSuccessResponse(status, resp))
+	return c.JSON(status, NewSuccessResponse(status, tokenPair))
 }
 
 // RevokeToken revokes a specific token

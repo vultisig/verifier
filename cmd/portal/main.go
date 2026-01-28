@@ -12,7 +12,7 @@ func main() {
 		panic(err)
 	}
 
-	db, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil, "")
+	db, err := postgres.NewPostgresBackend(cfg.Database.DSN, nil)
 	if err != nil {
 		panic(err)
 	}

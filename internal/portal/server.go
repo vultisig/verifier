@@ -1197,8 +1197,12 @@ func (s *Server) ValidateInvite(c echo.Context) error {
 	}
 
 	// Check if link_id has already been used
+	linkUUID, err := uuid.Parse(payload.LinkID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid invite link"})
+	}
 	used, err := s.queries.CheckLinkIdUsed(c.Request().Context(), pgtype.UUID{
-		Bytes: uuid.MustParse(payload.LinkID),
+		Bytes: linkUUID,
 		Valid: true,
 	})
 	if err != nil {

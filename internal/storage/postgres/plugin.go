@@ -718,6 +718,8 @@ func EnrichPluginsWithImages(plugins []itypes.Plugin, imageRecords []itypes.Plug
 				plugin.LogoURL = url
 			case itypes.PluginImageTypeThumbnail:
 				plugin.ThumbnailURL = url
+			case itypes.PluginImageTypeBanner:
+				plugin.BannerURL = url
 			case itypes.PluginImageTypeMedia:
 				mediaImages = append(mediaImages, itypes.PluginImage{
 					ID:        rec.ID.String(),

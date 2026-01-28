@@ -381,6 +381,8 @@ func (s *Server) enrichPluginWithImages(ctx context.Context, plugin *types.Plugi
 			plugin.LogoURL = url
 		case types.PluginImageTypeThumbnail:
 			plugin.ThumbnailURL = url
+		case types.PluginImageTypeBanner:
+			plugin.BannerURL = url
 		case types.PluginImageTypeMedia:
 			plugin.Images = append(plugin.Images, types.PluginImage{
 				ID:        img.ID.String(),

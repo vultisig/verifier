@@ -245,16 +245,15 @@ func migrateImage(ctx context.Context, logger *logrus.Logger, client *http.Clien
 }
 
 func downloadImage(ctx context.Context, client *http.Client, url string) ([]byte, string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to create request: %w", err)
-	}
-
 	var resp *http.Response
 	var lastErr error
 	for attempt := 0; attempt < 3; attempt++ {
 		if attempt > 0 {
 			time.Sleep(time.Duration(attempt) * time.Second)
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to create request: %w", err)
 		}
 		resp, lastErr = client.Do(req)
 		if lastErr == nil && resp.StatusCode == http.StatusOK {

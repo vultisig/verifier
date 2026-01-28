@@ -16,10 +16,11 @@ type Plugin struct {
 	Category       PluginCategory  `json:"category_id" yaml:"category" validate:"required"`
 	CreatedAt      time.Time       `json:"created_at" yaml:"-"`
 	UpdatedAt      time.Time       `json:"updated_at" yaml:"-"`
-	Pricing        []types.Pricing `json:"pricing,omitempty" yaml:"-"`                             // New field for multiple pricing options
-	LogoURL        string          `json:"logo_url,omitempty" yaml:"logo_url,omitempty"`           // New field, should be validated once plugins have this data in db.
-	ThumbnailURL   string          `json:"thumbnail_url,omitempty" yaml:"thumbnail_url,omitempty"` // New field, should be validated once plugins have this data in db.
-	Images         []PluginImage   `json:"images,omitempty" yaml:"images,omitempty"`               // New field, should be validated once plugins have this data in db.
+	Pricing        []types.Pricing `json:"pricing,omitempty" yaml:"-"` // New field for multiple pricing options
+	LogoURL        string          `json:"logo_url,omitempty" yaml:"logo_url,omitempty"`
+	ThumbnailURL   string          `json:"thumbnail_url,omitempty" yaml:"thumbnail_url,omitempty"`
+	BannerURL      string          `json:"banner_url,omitempty" yaml:"banner_url,omitempty"`
+	Images         []PluginImage   `json:"images,omitempty" yaml:"images,omitempty"`
 	FAQs           []FAQItem       `json:"faqs,omitempty" yaml:"faqs,omitempty"`
 	Features       []string        `json:"features,omitempty" yaml:"features,omitempty"`
 	Audited        bool            `json:"audited" yaml:"audited,omitempty"`

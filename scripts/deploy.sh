@@ -2,11 +2,20 @@
 
 set -e
 
+DEPLOY_TYPE="${1:-default}"
+
+# Validate deployment type
+if [ "$DEPLOY_TYPE" != "default" ] && [ "$DEPLOY_TYPE" != "portal" ]; then
+    echo "Error: Invalid deployment type '$DEPLOY_TYPE'. Use 'default' or 'portal'"
+    exit 1
+fi
+
 if [ -z "$SERVER" ] || [ -z "$USER" ] || [ -z "$DEPLOY_PATH" ]; then
     echo "Error: SERVER, USER, and DEPLOY_PATH environment variables must be set"
     exit 1
 fi
 
+echo "Deployment type: $DEPLOY_TYPE"
 echo "Deploying to $USER@$SERVER:$DEPLOY_PATH..."
 
 echo "1. Syncing files to server..."
@@ -20,8 +29,36 @@ rsync -avz --delete \
     --exclude='.github/' \
     ./ $USER@$SERVER:$DEPLOY_PATH/
 
-echo "2. Building and deploying on server..."
-ssh $USER@$SERVER << EOF
+if [ "$DEPLOY_TYPE" = "portal" ]; then
+    echo "2. Building and deploying portal on server..."
+    ssh $USER@$SERVER << EOF
+cd $DEPLOY_PATH
+echo "Building portal binary..."
+go build -o portal cmd/portal/main.go
+echo "Stopping portal service before binary replacement..."
+sudo systemctl stop portal || true
+echo "Installing portal binary to /usr/local/bin/..."
+sudo cp portal /usr/local/bin/
+sudo chmod +x /usr/local/bin/portal
+# Verify binary was installed
+if [ ! -f "/usr/local/bin/portal" ]; then
+    echo "ERROR: portal binary not found in /usr/local/bin/"
+    exit 1
+fi
+echo "Creating application directory..."
+sudo mkdir -p /var/lib/vultisig
+sudo chown $USER:$USER /var/lib/vultisig
+echo "Binary installation successful:"
+ls -la /usr/local/bin/portal
+echo "Restarting portal service..."
+sudo systemctl restart portal
+echo "Checking service status..."
+sudo systemctl status portal --no-pager -l
+echo "Portal deployment completed!"
+EOF
+else
+    echo "2. Building and deploying on server..."
+    ssh $USER@$SERVER << EOF
 cd $DEPLOY_PATH
 echo "Building Go binaries..."
 go build -o verifier cmd/verifier/main.go
@@ -64,5 +101,6 @@ sudo systemctl status txindexer --no-pager -l
 sudo systemctl status worker --no-pager -l
 echo "Deployment completed!"
 EOF
+fi
 
 echo "Deployment finished successfully!"

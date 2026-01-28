@@ -28,11 +28,15 @@ CREATE TYPE "plugin_id" AS ENUM (
 CREATE TYPE "plugin_owner_added_via" AS ENUM (
     'bootstrap_plugin_key',
     'owner_api',
-    'admin_cli'
+    'admin_cli',
+    'magic_link'
 );
 
 CREATE TYPE "plugin_owner_role" AS ENUM (
-    'admin'
+    'admin',
+    'staff',
+    'editor',
+    'viewer'
 );
 
 CREATE TYPE "pricing_asset" AS ENUM (
@@ -209,7 +213,8 @@ CREATE TABLE "plugin_owners" (
     "added_via" "plugin_owner_added_via" NOT NULL,
     "added_by_public_key" "text",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "link_id" "uuid"
 );
 
 CREATE TABLE "plugin_pause_history" (
@@ -280,7 +285,8 @@ CREATE TABLE "plugin_reports" (
     "reason" "text" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "last_reported_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "report_count" integer DEFAULT 1 NOT NULL
+    "report_count" integer DEFAULT 1 NOT NULL,
+    "details" "text" DEFAULT ''::"text" NOT NULL
 );
 
 CREATE TABLE "plugin_tags" (
@@ -463,6 +469,8 @@ CREATE INDEX "idx_fees_underlying_entity" ON "fees" USING "btree" ("underlying_t
 CREATE INDEX "idx_plugin_apikey_apikey" ON "plugin_apikey" USING "btree" ("apikey");
 
 CREATE INDEX "idx_plugin_apikey_plugin_id" ON "plugin_apikey" USING "btree" ("plugin_id");
+
+CREATE UNIQUE INDEX "idx_plugin_owners_link_id" ON "plugin_owners" USING "btree" ("link_id") WHERE ("link_id" IS NOT NULL);
 
 CREATE INDEX "idx_plugin_owners_public_key" ON "plugin_owners" USING "btree" ("public_key");
 

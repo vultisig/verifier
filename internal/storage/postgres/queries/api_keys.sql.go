@@ -11,6 +11,29 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const acquireApiKeyLock = `-- name: AcquireApiKeyLock :exec
+SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))
+`
+
+func (q *Queries) AcquireApiKeyLock(ctx context.Context, dollar_1 string) error {
+	_, err := q.db.Exec(ctx, acquireApiKeyLock, dollar_1)
+	return err
+}
+
+const countActiveApiKeys = `-- name: CountActiveApiKeys :one
+SELECT COUNT(*) FROM plugin_apikey
+WHERE plugin_id = $1
+  AND status = 1
+  AND (expires_at IS NULL OR expires_at > NOW())
+`
+
+func (q *Queries) CountActiveApiKeys(ctx context.Context, pluginID PluginID) (int64, error) {
+	row := q.db.QueryRow(ctx, countActiveApiKeys, pluginID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createPluginApiKey = `-- name: CreatePluginApiKey :one
 INSERT INTO plugin_apikey (plugin_id, apikey, expires_at, status)
 VALUES ($1, $2, $3, 1)

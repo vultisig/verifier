@@ -21,9 +21,16 @@ SET expires_at = NOW()
 WHERE id = $1
 RETURNING *;
 
--- name: CreatePluginApiKeyWithLimit :one
+-- name: AcquireApiKeyLock :exec
+SELECT pg_advisory_xact_lock(hashtext($1::text));
+
+-- name: CountActiveApiKeys :one
+SELECT COUNT(*) FROM plugin_apikey
+WHERE plugin_id = $1
+  AND status = 1
+  AND (expires_at IS NULL OR expires_at > NOW());
+
+-- name: CreatePluginApiKey :one
 INSERT INTO plugin_apikey (plugin_id, apikey, expires_at, status)
-SELECT $1, $2, $3, 1
-WHERE (SELECT COUNT(*) FROM plugin_apikey
-       WHERE plugin_id = $1 AND status = 1 AND (expires_at IS NULL OR expires_at > NOW())) < sqlc.arg(max_keys)::int
+VALUES ($1, $2, $3, 1)
 RETURNING *;

@@ -29,6 +29,7 @@ import (
 
 type Server struct {
 	cfg           config.PortalConfig
+	pool          *pgxpool.Pool
 	queries       *queries.Queries
 	logger        *logrus.Logger
 	authService   *PortalAuthService
@@ -39,6 +40,7 @@ func NewServer(cfg config.PortalConfig, pool *pgxpool.Pool) *Server {
 	logger := logrus.WithField("service", "portal").Logger
 	return &Server{
 		cfg:           cfg,
+		pool:          pool,
 		queries:       queries.New(pool),
 		logger:        logger,
 		authService:   NewPortalAuthService(cfg.Server.JWTSecret, logger),
@@ -512,18 +514,49 @@ func (s *Server) CreatePluginApiKey(c echo.Context) error {
 		expiresAt = pgtype.Timestamptz{Time: t, Valid: true}
 	}
 
-	// Create the API key in the database (atomic with limit check)
-	created, err := s.queries.CreatePluginApiKeyWithLimit(c.Request().Context(), &queries.CreatePluginApiKeyWithLimitParams{
+	// Create the API key in a transaction with advisory lock to prevent race conditions
+	ctx := c.Request().Context()
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to begin transaction")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create API key"})
+	}
+	defer tx.Rollback(ctx)
+
+	txQueries := queries.New(tx)
+
+	// Acquire advisory lock for this plugin to prevent concurrent inserts
+	err = txQueries.AcquireApiKeyLock(ctx, id)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to acquire lock")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create API key"})
+	}
+
+	// Check current count of active API keys
+	count, err := txQueries.CountActiveApiKeys(ctx, queries.PluginID(id))
+	if err != nil {
+		s.logger.WithError(err).Error("failed to count API keys")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create API key"})
+	}
+
+	if count >= int64(s.cfg.MaxApiKeysPerPlugin) {
+		return c.JSON(http.StatusConflict, map[string]string{"error": fmt.Sprintf("maximum number of API keys (%d) reached for this plugin", s.cfg.MaxApiKeysPerPlugin)})
+	}
+
+	// Create the API key
+	created, err := txQueries.CreatePluginApiKey(ctx, &queries.CreatePluginApiKeyParams{
 		PluginID:  queries.PluginID(id),
 		Apikey:    apiKey,
 		ExpiresAt: expiresAt,
-		MaxKeys:   int32(s.cfg.MaxApiKeysPerPlugin),
 	})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return c.JSON(http.StatusConflict, map[string]string{"error": fmt.Sprintf("maximum number of API keys (%d) reached for this plugin", s.cfg.MaxApiKeysPerPlugin)})
-		}
 		s.logger.WithError(err).Error("failed to create API key")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create API key"})
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to commit transaction")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create API key"})
 	}
 

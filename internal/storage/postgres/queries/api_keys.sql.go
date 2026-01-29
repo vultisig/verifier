@@ -11,28 +11,43 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const createPluginApiKeyWithLimit = `-- name: CreatePluginApiKeyWithLimit :one
+const acquireApiKeyLock = `-- name: AcquireApiKeyLock :exec
+SELECT pg_advisory_xact_lock(hashtext($1::text))
+`
+
+func (q *Queries) AcquireApiKeyLock(ctx context.Context, dollar_1 string) error {
+	_, err := q.db.Exec(ctx, acquireApiKeyLock, dollar_1)
+	return err
+}
+
+const countActiveApiKeys = `-- name: CountActiveApiKeys :one
+SELECT COUNT(*) FROM plugin_apikey
+WHERE plugin_id = $1
+  AND status = 1
+  AND (expires_at IS NULL OR expires_at > NOW())
+`
+
+func (q *Queries) CountActiveApiKeys(ctx context.Context, pluginID PluginID) (int64, error) {
+	row := q.db.QueryRow(ctx, countActiveApiKeys, pluginID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const createPluginApiKey = `-- name: CreatePluginApiKey :one
 INSERT INTO plugin_apikey (plugin_id, apikey, expires_at, status)
-SELECT $1, $2, $3, 1
-WHERE (SELECT COUNT(*) FROM plugin_apikey
-       WHERE plugin_id = $1 AND status = 1 AND (expires_at IS NULL OR expires_at > NOW())) < $4::int
+VALUES ($1, $2, $3, 1)
 RETURNING id, plugin_id, apikey, created_at, expires_at, status
 `
 
-type CreatePluginApiKeyWithLimitParams struct {
+type CreatePluginApiKeyParams struct {
 	PluginID  PluginID           `json:"plugin_id"`
 	Apikey    string             `json:"apikey"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
-	MaxKeys   int32              `json:"max_keys"`
 }
 
-func (q *Queries) CreatePluginApiKeyWithLimit(ctx context.Context, arg *CreatePluginApiKeyWithLimitParams) (*PluginApikey, error) {
-	row := q.db.QueryRow(ctx, createPluginApiKeyWithLimit,
-		arg.PluginID,
-		arg.Apikey,
-		arg.ExpiresAt,
-		arg.MaxKeys,
-	)
+func (q *Queries) CreatePluginApiKey(ctx context.Context, arg *CreatePluginApiKeyParams) (*PluginApikey, error) {
+	row := q.db.QueryRow(ctx, createPluginApiKey, arg.PluginID, arg.Apikey, arg.ExpiresAt)
 	var i PluginApikey
 	err := row.Scan(
 		&i.ID,

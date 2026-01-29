@@ -10,6 +10,20 @@ type CreditMetadata struct {
 	Network         string `json:"network"`          // Blockchain network (e.g., "ethereum", "polygon")
 }
 
+type FeeAsset struct {
+	Symbol   string `json:"symbol"`
+	Addr     string `json:"addr"`
+	Decimals uint8  `json:"decimals"`
+	Network  string `json:"network"`
+}
+
+var DefaultFeeAsset = FeeAsset{
+	Symbol:   "USDC",
+	Decimals: 6,
+	Network:  "ethereum",
+	Addr:     "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+}
+
 // TODO: Temporary solution for testing purposes.
 // This will be replaced by integrating the fee policy into every relevant policy.
 var FeeDefaultPolicy = &types.Policy{

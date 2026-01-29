@@ -8,6 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
+
+	"github.com/vultisig/verifier/internal/service"
 )
 
 func (s *Server) AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
@@ -57,6 +59,11 @@ func (s *Server) VaultAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		if err != nil {
 			s.logger.Warnf("fail to validate token, err: %v", err)
 			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgUnauthorized))
+		}
+
+		if claims.TokenType != service.TokenTypeAccess {
+			s.logger.Warnf("invalid token type: expected access token, got: %s", claims.TokenType)
+			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("access token required"))
 		}
 
 		// Get requested vault's public key from URL parameter

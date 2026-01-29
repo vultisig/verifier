@@ -58,15 +58,16 @@ type MetricsConfig struct {
 }
 
 type PluginAssetsConfig struct {
-	Host          string `mapstructure:"host" json:"host,omitempty"`
-	Region        string `mapstructure:"region" json:"region,omitempty"`
-	Bucket        string `mapstructure:"bucket" json:"bucket,omitempty"`
-	AccessKey     string `mapstructure:"access_key" json:"access_key,omitempty"`
-	Secret        string `mapstructure:"secret" json:"secret,omitempty"`
-	PublicBaseURL string `mapstructure:"public_base_url" json:"public_base_url,omitempty"`
+	Host          string `mapstructure:"host" json:"host"`
+	Region        string `mapstructure:"region" json:"region"`
+	Bucket        string `mapstructure:"bucket" json:"bucket"`
+	AccessKey     string `mapstructure:"access_key" json:"access_key"`
+	Secret        string `mapstructure:"secret" json:"secret"`
+	PublicBaseURL string `mapstructure:"public_base_url" json:"public_base_url"`
 }
 
-func (c PluginAssetsConfig) Validate() (missing []string) {
+func (c PluginAssetsConfig) Validate() []string {
+	var missing []string
 	if c.Host == "" {
 		missing = append(missing, "host")
 	}

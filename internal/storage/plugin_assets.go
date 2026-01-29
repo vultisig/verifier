@@ -32,10 +32,6 @@ type S3PluginAssetStorage struct {
 var _ PluginAssetStorage = (*S3PluginAssetStorage)(nil)
 
 func NewS3PluginAssetStorage(cfg config.PluginAssetsConfig) (*S3PluginAssetStorage, error) {
-	if cfg.Bucket == "" {
-		return nil, errors.New("plugin assets bucket not configured")
-	}
-
 	sess, err := session.NewSession(&aws.Config{
 		Region:           aws.String(cfg.Region),
 		Endpoint:         aws.String(cfg.Host),

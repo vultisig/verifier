@@ -73,6 +73,7 @@ type PluginFeeResponse struct {
 	PublicKey       string           `json:"public_key"`
 	TransactionType string           `json:"transaction_type"` // fee type: installation_fee, subscription_fee, etc.
 	Amount          string           `json:"amount"`           // String for consistency with plugin history
+	FeeAsset        FeeAsset         `json:"fee_asset"`
 	Status          vtypes.FeeStatus `json:"status"`
 	CreatedAt       time.Time        `json:"created_at"`
 }
@@ -97,6 +98,7 @@ func FromFeesWithStatus(fees []FeeWithStatus, titleMap map[string]string) []Plug
 			PublicKey:       fee.PublicKey,
 			TransactionType: fee.FeeType,
 			Amount:          strconv.FormatUint(fee.Amount, 10),
+			FeeAsset:        DefaultFeeAsset,
 			Status:          fee.Status,
 			CreatedAt:       fee.CreatedAt.UTC(),
 		}

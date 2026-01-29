@@ -61,6 +61,11 @@ spec:
                 configMapKeyRef:
                   name: portal
                   key: log-format
+            - name: MAX_API_KEYS_PER_PLUGIN
+              valueFrom:
+                configMapKeyRef:
+                  name: portal
+                  key: max-api-keys-per-plugin
           resources:
             requests:
               memory: "64Mi"

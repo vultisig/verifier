@@ -7,12 +7,4 @@ data:
   server-port: "80"
   log-format: "json"
   base-url: "https://portal.dev.plugins.vultisig.com"
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: portal
-type: Opaque
-stringData:
-  jwt-secret: "CHANGE_ME_IN_PRODUCTION"
-  hmac-secret: "CHANGE_ME_IN_PRODUCTION"
+  max-api-keys-per-plugin: "5"

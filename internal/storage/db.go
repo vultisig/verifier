@@ -30,6 +30,7 @@ type DatabaseStorage interface {
 	PricingRepository
 	PluginRepository
 	PluginOwnerRepository
+	PluginImageRepository
 	FeeRepository
 	TagRepository
 	ReviewRepository
@@ -93,6 +94,12 @@ type PluginOwnerRepository interface {
 	GetPluginsByOwner(ctx context.Context, publicKey string) ([]types.PluginID, error)
 	AddOwner(ctx context.Context, pluginID types.PluginID, publicKey string, addedVia itypes.PluginOwnerAddedVia, addedBy string) error
 	DeactivateOwner(ctx context.Context, pluginID types.PluginID, publicKey string) error
+}
+
+type PluginImageRepository interface {
+	GetPluginImagesByPluginIDs(ctx context.Context, pluginIDs []types.PluginID) ([]itypes.PluginImageRecord, error)
+	GetPluginImageByType(ctx context.Context, pluginID types.PluginID, imageType itypes.PluginImageType) (*itypes.PluginImageRecord, error)
+	GetNextMediaOrder(ctx context.Context, pluginID types.PluginID) (int, error)
 }
 
 type VaultTokenRepository interface {

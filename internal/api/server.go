@@ -46,6 +46,7 @@ type Server struct {
 	db               storage.DatabaseStorage
 	redis            *storage.RedisStorage
 	vaultStorage     vault.Storage
+	assetStorage     storage.PluginAssetStorage
 	asynqClient      *asynq.Client
 	inspector        *asynq.Inspector
 	policyService    service.Policy
@@ -65,6 +66,7 @@ func NewServer(
 	db *postgres.PostgresBackend,
 	redis *storage.RedisStorage,
 	vaultStorage vault.Storage,
+	assetStorage storage.PluginAssetStorage,
 	asynqClient *asynq.Client,
 	inspector *asynq.Inspector,
 	jwtSecret string,
@@ -109,6 +111,7 @@ func NewServer(
 		asynqClient:      asynqClient,
 		inspector:        inspector,
 		vaultStorage:     vaultStorage,
+		assetStorage:     assetStorage,
 		db:               db,
 		logger:           logger,
 		policyService:    policyService,

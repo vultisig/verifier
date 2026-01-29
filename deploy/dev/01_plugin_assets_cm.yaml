@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plugin-assets
+data:
+  host: "https://sgp1.digitaloceanspaces.com"
+  region: "us-east-1"
+  bucket: "plugins-dev-assets"
+  public-base-url: "https://plugins-dev-assets.sgp1.digitaloceanspaces.com"

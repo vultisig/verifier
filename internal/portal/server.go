@@ -834,16 +834,21 @@ func (s *Server) GetEarnings(c echo.Context) error {
 	dateFrom := c.QueryParam("dateFrom")
 	dateTo := c.QueryParam("dateTo")
 
+	// TODO: Remove legacy response format once FE is updated to use pagination params
+	pageParam := c.QueryParam("page")
+	limitParam := c.QueryParam("limit")
+	usePagination := pageParam != "" || limitParam != ""
+
 	page := 1
-	if p := c.QueryParam("page"); p != "" {
-		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+	if pageParam != "" {
+		if parsed, err := strconv.Atoi(pageParam); err == nil && parsed > 0 {
 			page = parsed
 		}
 	}
 
 	limit := 20
-	if l := c.QueryParam("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
+	if limitParam != "" {
+		if parsed, err := strconv.Atoi(limitParam); err == nil && parsed > 0 && parsed <= 100 {
 			limit = parsed
 		}
 	}
@@ -866,16 +871,12 @@ func (s *Server) GetEarnings(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	countParams := &queries.CountEarningsByPluginOwnerFilteredParams{
-		PublicKey: address,
-		Column2:   pluginID,
-		Column3:   dateFromTs,
-		Column4:   dateToTs,
-	}
-	total, err := s.queries.CountEarningsByPluginOwnerFiltered(ctx, countParams)
-	if err != nil {
-		s.logger.WithError(err).Error("failed to count earnings")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	// TODO: Remove once FE uses pagination params
+	queryLimit := int32(limit)
+	queryOffset := int32(offset)
+	if !usePagination {
+		queryLimit = 10000
+		queryOffset = 0
 	}
 
 	params := &queries.GetEarningsByPluginOwnerFilteredParams{
@@ -883,8 +884,8 @@ func (s *Server) GetEarnings(c echo.Context) error {
 		Column2:   pluginID,
 		Column3:   dateFromTs,
 		Column4:   dateToTs,
-		Limit:     int32(limit),
-		Offset:    int32(offset),
+		Limit:     queryLimit,
+		Offset:    queryOffset,
 	}
 
 	earnings, err := s.queries.GetEarningsByPluginOwnerFiltered(ctx, params)
@@ -915,6 +916,23 @@ func (s *Server) GetEarnings(c echo.Context) error {
 			TxHash:      e.TxHash,
 			Status:      e.Status,
 		}
+	}
+
+	// TODO: Remove legacy response format once FE is updated to use pagination params
+	if !usePagination {
+		return c.JSON(http.StatusOK, data)
+	}
+
+	countParams := &queries.CountEarningsByPluginOwnerFilteredParams{
+		PublicKey: address,
+		Column2:   pluginID,
+		Column3:   dateFromTs,
+		Column4:   dateToTs,
+	}
+	total, err := s.queries.CountEarningsByPluginOwnerFiltered(ctx, countParams)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to count earnings")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
 
 	totalPages := (total + int64(limit) - 1) / int64(limit)

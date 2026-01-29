@@ -9,11 +9,6 @@ ORDER BY created_at DESC;
 SELECT * FROM plugin_apikey
 WHERE id = $1;
 
--- name: CreatePluginApiKey :one
-INSERT INTO plugin_apikey (plugin_id, apikey, expires_at, status)
-VALUES ($1, $2, $3, 1)
-RETURNING *;
-
 -- name: UpdatePluginApiKeyStatus :one
 UPDATE plugin_apikey
 SET status = $2
@@ -24,4 +19,18 @@ RETURNING *;
 UPDATE plugin_apikey
 SET expires_at = NOW()
 WHERE id = $1
+RETURNING *;
+
+-- name: AcquireApiKeyLock :exec
+SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0));
+
+-- name: CountActiveApiKeys :one
+SELECT COUNT(*) FROM plugin_apikey
+WHERE plugin_id = $1
+  AND status = 1
+  AND (expires_at IS NULL OR expires_at > NOW());
+
+-- name: CreatePluginApiKey :one
+INSERT INTO plugin_apikey (plugin_id, apikey, expires_at, status)
+VALUES ($1, $2, $3, 1)
 RETURNING *;

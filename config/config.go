@@ -65,7 +65,8 @@ type PortalConfig struct {
 		HMACSecret string `mapstructure:"hmac_secret" json:"hmac_secret,omitempty"`
 		BaseURL    string `mapstructure:"base_url" json:"base_url,omitempty"` // Base URL for magic links
 	} `mapstructure:"server" json:"server"`
-	Database config.Database `mapstructure:"database" json:"database,omitempty"`
+	Database            config.Database `mapstructure:"database" json:"database,omitempty"`
+	MaxApiKeysPerPlugin int             `mapstructure:"max_api_keys_per_plugin" json:"max_api_keys_per_plugin,omitempty"`
 }
 
 func GetConfigure() (*WorkerConfig, error) {
@@ -142,6 +143,7 @@ func ReadPortalConfig() (*PortalConfig, error) {
 	viper.AutomaticEnv()
 
 	viper.SetDefault("log_format", "text")
+	viper.SetDefault("max_api_keys_per_plugin", 5)
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {

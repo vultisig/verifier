@@ -11,20 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countActiveApiKeys = `-- name: CountActiveApiKeys :one
-SELECT COUNT(*) FROM plugin_apikey
-WHERE plugin_id = $1
-  AND status = 1
-  AND (expires_at IS NULL OR expires_at > NOW())
-`
-
-func (q *Queries) CountActiveApiKeys(ctx context.Context, pluginID PluginID) (int64, error) {
-	row := q.db.QueryRow(ctx, countActiveApiKeys, pluginID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const createPluginApiKeyWithLimit = `-- name: CreatePluginApiKeyWithLimit :one
 INSERT INTO plugin_apikey (plugin_id, apikey, expires_at, status)
 SELECT $1, $2, $3, 1

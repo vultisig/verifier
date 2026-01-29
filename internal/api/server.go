@@ -143,7 +143,7 @@ func (s *Server) StartServer() error {
 
 	e.GET("/healthz", s.Ping)
 
-	// Auth endpoints - not requiring authentication
+	// Auth endpoints
 	e.POST("/auth", s.Auth)
 	e.POST("/auth/refresh", s.RefreshToken)
 

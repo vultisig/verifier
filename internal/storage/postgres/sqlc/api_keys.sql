@@ -22,7 +22,7 @@ WHERE id = $1
 RETURNING *;
 
 -- name: AcquireApiKeyLock :exec
-SELECT pg_advisory_xact_lock(hashtext($1::text));
+SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0));
 
 -- name: CountActiveApiKeys :one
 SELECT COUNT(*) FROM plugin_apikey

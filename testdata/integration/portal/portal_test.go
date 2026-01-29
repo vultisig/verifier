@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -235,6 +236,76 @@ func TestApiKeyLimitAfterExpiry(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, resp.StatusCode,
 		"Should allow new key when existing keys are expired: %s", string(body))
+
+	err = cleanupApiKeys(ctx, testPluginID)
+	require.NoError(t, err)
+}
+
+func TestApiKeyLimitConcurrent(t *testing.T) {
+	ctx := context.Background()
+	testAddress := "0x1234567890123456789012345678901234567892"
+
+	err := seedPluginOwner(ctx, testPluginID, testAddress)
+	require.NoError(t, err, "Failed to seed plugin owner")
+
+	err = cleanupApiKeys(ctx, testPluginID)
+	require.NoError(t, err, "Failed to cleanup existing API keys")
+
+	token, err := authService.GenerateToken("test-pubkey", testAddress)
+	require.NoError(t, err, "Failed to generate JWT")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+
+	createApiKey := func() int {
+		url := fmt.Sprintf("%s/plugins/%s/api-keys", portalURL, testPluginID)
+		req, err := http.NewRequest(http.MethodPost, url, nil)
+		if err != nil {
+			return 0
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := client.Do(req)
+		if err != nil {
+			return 0
+		}
+		defer resp.Body.Close()
+		io.ReadAll(resp.Body)
+		return resp.StatusCode
+	}
+
+	numRequests := 10
+	maxKeys := 5
+
+	var wg sync.WaitGroup
+	results := make(chan int, numRequests)
+
+	for i := 0; i < numRequests; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			results <- createApiKey()
+		}()
+	}
+
+	wg.Wait()
+	close(results)
+
+	created, conflict := 0, 0
+	for code := range results {
+		if code == http.StatusCreated {
+			created++
+		}
+		if code == http.StatusConflict {
+			conflict++
+		}
+	}
+
+	assert.Equal(t, maxKeys, created, "Should create exactly %d keys", maxKeys)
+	assert.Equal(t, numRequests-maxKeys, conflict, "Should reject %d keys", numRequests-maxKeys)
+
+	count, err := countApiKeys(ctx, testPluginID)
+	require.NoError(t, err)
+	assert.Equal(t, int64(maxKeys), count, "Database should have exactly %d active keys", maxKeys)
 
 	err = cleanupApiKeys(ctx, testPluginID)
 	require.NoError(t, err)

@@ -648,14 +648,59 @@ func (s *Server) UpdatePluginApiKey(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "API key does not belong to this plugin"})
 	}
 
-	// Update the status
-	updated, err := s.queries.UpdatePluginApiKeyStatus(c.Request().Context(), &queries.UpdatePluginApiKeyStatusParams{
-		ID:     pgtype.UUID{Bytes: keyUUID, Valid: true},
-		Status: req.Status,
-	})
-	if err != nil {
-		s.logger.WithError(err).Error("failed to update API key status")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update API key"})
+	ctx := c.Request().Context()
+	var updated *queries.PluginApikey
+
+	enabling := req.Status == 1 && existingKey.Status == 0
+	if enabling {
+		tx, err := s.pool.Begin(ctx)
+		if err != nil {
+			s.logger.WithError(err).Error("failed to begin transaction")
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update API key"})
+		}
+		defer tx.Rollback(ctx)
+
+		q := queries.New(tx)
+
+		err = q.AcquireApiKeyLock(ctx, pluginID)
+		if err != nil {
+			s.logger.WithError(err).Error("failed to acquire lock")
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update API key"})
+		}
+
+		count, err := q.CountActiveApiKeys(ctx, queries.PluginID(pluginID))
+		if err != nil {
+			s.logger.WithError(err).Error("failed to count API keys")
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update API key"})
+		}
+
+		if count >= int64(s.cfg.MaxApiKeysPerPlugin) {
+			return c.JSON(http.StatusConflict, map[string]string{"error": fmt.Sprintf("maximum number of API keys (%d) reached for this plugin", s.cfg.MaxApiKeysPerPlugin)})
+		}
+
+		updated, err = q.UpdatePluginApiKeyStatus(ctx, &queries.UpdatePluginApiKeyStatusParams{
+			ID:     pgtype.UUID{Bytes: keyUUID, Valid: true},
+			Status: req.Status,
+		})
+		if err != nil {
+			s.logger.WithError(err).Error("failed to update API key status")
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update API key"})
+		}
+
+		err = tx.Commit(ctx)
+		if err != nil {
+			s.logger.WithError(err).Error("failed to commit transaction")
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update API key"})
+		}
+	} else {
+		updated, err = s.queries.UpdatePluginApiKeyStatus(ctx, &queries.UpdatePluginApiKeyStatusParams{
+			ID:     pgtype.UUID{Bytes: keyUUID, Valid: true},
+			Status: req.Status,
+		})
+		if err != nil {
+			s.logger.WithError(err).Error("failed to update API key status")
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update API key"})
+		}
 	}
 
 	var expiresAt *string

@@ -523,17 +523,15 @@ func (s *Server) CreatePluginApiKey(c echo.Context) error {
 	}
 	defer tx.Rollback(ctx)
 
-	txQueries := queries.New(tx)
+	q := queries.New(tx)
 
-	// Acquire advisory lock for this plugin to prevent concurrent inserts
-	err = txQueries.AcquireApiKeyLock(ctx, id)
+	err = q.AcquireApiKeyLock(ctx, id)
 	if err != nil {
 		s.logger.WithError(err).Error("failed to acquire lock")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create API key"})
 	}
 
-	// Check current count of active API keys
-	count, err := txQueries.CountActiveApiKeys(ctx, queries.PluginID(id))
+	count, err := q.CountActiveApiKeys(ctx, queries.PluginID(id))
 	if err != nil {
 		s.logger.WithError(err).Error("failed to count API keys")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create API key"})
@@ -543,8 +541,7 @@ func (s *Server) CreatePluginApiKey(c echo.Context) error {
 		return c.JSON(http.StatusConflict, map[string]string{"error": fmt.Sprintf("maximum number of API keys (%d) reached for this plugin", s.cfg.MaxApiKeysPerPlugin)})
 	}
 
-	// Create the API key
-	created, err := txQueries.CreatePluginApiKey(ctx, &queries.CreatePluginApiKeyParams{
+	created, err := q.CreatePluginApiKey(ctx, &queries.CreatePluginApiKeyParams{
 		PluginID:  queries.PluginID(id),
 		Apikey:    apiKey,
 		ExpiresAt: expiresAt,

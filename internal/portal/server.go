@@ -495,18 +495,6 @@ func (s *Server) CreatePluginApiKey(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
 	}
 
-	// Check API key limit
-	if s.cfg.MaxApiKeysPerPlugin > 0 {
-		count, err := s.queries.CountActiveApiKeys(c.Request().Context(), queries.PluginID(id))
-		if err != nil {
-			s.logger.WithError(err).Error("failed to count active API keys")
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
-		}
-		if int(count) >= s.cfg.MaxApiKeysPerPlugin {
-			return c.JSON(http.StatusConflict, map[string]string{"error": fmt.Sprintf("maximum number of API keys (%d) reached for this plugin", s.cfg.MaxApiKeysPerPlugin)})
-		}
-	}
-
 	// Generate the API key
 	apiKey, err := generateApiKey()
 	if err != nil {
@@ -524,13 +512,17 @@ func (s *Server) CreatePluginApiKey(c echo.Context) error {
 		expiresAt = pgtype.Timestamptz{Time: t, Valid: true}
 	}
 
-	// Create the API key in the database
-	created, err := s.queries.CreatePluginApiKey(c.Request().Context(), &queries.CreatePluginApiKeyParams{
+	// Create the API key in the database (atomic with limit check)
+	created, err := s.queries.CreatePluginApiKeyWithLimit(c.Request().Context(), &queries.CreatePluginApiKeyWithLimitParams{
 		PluginID:  queries.PluginID(id),
 		Apikey:    apiKey,
 		ExpiresAt: expiresAt,
+		MaxKeys:   int32(s.cfg.MaxApiKeysPerPlugin),
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusConflict, map[string]string{"error": fmt.Sprintf("maximum number of API keys (%d) reached for this plugin", s.cfg.MaxApiKeysPerPlugin)})
+		}
 		s.logger.WithError(err).Error("failed to create API key")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create API key"})
 	}

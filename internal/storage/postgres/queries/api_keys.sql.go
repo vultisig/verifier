@@ -25,20 +25,28 @@ func (q *Queries) CountActiveApiKeys(ctx context.Context, pluginID PluginID) (in
 	return count, err
 }
 
-const createPluginApiKey = `-- name: CreatePluginApiKey :one
+const createPluginApiKeyWithLimit = `-- name: CreatePluginApiKeyWithLimit :one
 INSERT INTO plugin_apikey (plugin_id, apikey, expires_at, status)
-VALUES ($1, $2, $3, 1)
+SELECT $1, $2, $3, 1
+WHERE (SELECT COUNT(*) FROM plugin_apikey
+       WHERE plugin_id = $1 AND status = 1 AND (expires_at IS NULL OR expires_at > NOW())) < $4::int
 RETURNING id, plugin_id, apikey, created_at, expires_at, status
 `
 
-type CreatePluginApiKeyParams struct {
+type CreatePluginApiKeyWithLimitParams struct {
 	PluginID  PluginID           `json:"plugin_id"`
 	Apikey    string             `json:"apikey"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	MaxKeys   int32              `json:"max_keys"`
 }
 
-func (q *Queries) CreatePluginApiKey(ctx context.Context, arg *CreatePluginApiKeyParams) (*PluginApikey, error) {
-	row := q.db.QueryRow(ctx, createPluginApiKey, arg.PluginID, arg.Apikey, arg.ExpiresAt)
+func (q *Queries) CreatePluginApiKeyWithLimit(ctx context.Context, arg *CreatePluginApiKeyWithLimitParams) (*PluginApikey, error) {
+	row := q.db.QueryRow(ctx, createPluginApiKeyWithLimit,
+		arg.PluginID,
+		arg.Apikey,
+		arg.ExpiresAt,
+		arg.MaxKeys,
+	)
 	var i PluginApikey
 	err := row.Scan(
 		&i.ID,

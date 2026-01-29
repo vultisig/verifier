@@ -42,9 +42,9 @@ func TestMain(m *testing.M) {
 	var err error
 	pool, err = pgxpool.New(context.Background(), dsn)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Printf("Failed to connect to database: %v", err)
+		os.Exit(1)
 	}
-	defer pool.Close()
 
 	authService = portal.NewPortalAuthService(portalJWTSecret, logrus.New())
 
@@ -54,15 +54,20 @@ func TestMain(m *testing.M) {
 	log.Printf("Test Plugin ID: %s", testPluginID)
 
 	if err := ensureTestPlugin(context.Background()); err != nil {
-		log.Fatalf("Failed to ensure test plugin exists: %v", err)
+		log.Printf("Failed to ensure test plugin exists: %v", err)
+		pool.Close()
+		os.Exit(1)
 	}
 
 	if err := waitForPortalHealth(10 * time.Second); err != nil {
-		log.Fatalf("Portal not healthy: %v", err)
+		log.Printf("Portal not healthy: %v", err)
+		pool.Close()
+		os.Exit(1)
 	}
 	log.Println("Portal is healthy")
 
 	code := m.Run()
+	pool.Close()
 	os.Exit(code)
 }
 

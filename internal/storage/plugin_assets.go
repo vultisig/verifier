@@ -110,27 +110,3 @@ func (s *S3PluginAssetStorage) Exists(ctx context.Context, key string) (bool, er
 func (s *S3PluginAssetStorage) GetPublicURL(key string) string {
 	return fmt.Sprintf("%s/%s", s.cfg.EffectivePublicBaseURL(), key)
 }
-
-type NoopPluginAssetStorage struct{}
-
-var _ PluginAssetStorage = (*NoopPluginAssetStorage)(nil)
-
-func NewNoopPluginAssetStorage() *NoopPluginAssetStorage {
-	return &NoopPluginAssetStorage{}
-}
-
-func (n *NoopPluginAssetStorage) Upload(ctx context.Context, key string, data []byte, contentType string) error {
-	return errors.New("plugin asset storage not configured")
-}
-
-func (n *NoopPluginAssetStorage) Delete(ctx context.Context, key string) error {
-	return nil
-}
-
-func (n *NoopPluginAssetStorage) Exists(ctx context.Context, key string) (bool, error) {
-	return false, nil
-}
-
-func (n *NoopPluginAssetStorage) GetPublicURL(key string) string {
-	return ""
-}

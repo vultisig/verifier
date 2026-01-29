@@ -102,16 +102,13 @@ func main() {
 	}
 
 	// Initialize plugin asset storage
-	var assetStorage storage.PluginAssetStorage = storage.NewNoopPluginAssetStorage()
-	if cfg.PluginAssets.IsConfigured() {
-		assetStorage, err = storage.NewS3PluginAssetStorage(cfg.PluginAssets)
-		if err != nil {
-			logger.Warnf("Failed to initialize plugin asset storage: %v", err)
-			assetStorage = storage.NewNoopPluginAssetStorage()
-		}
-	} else {
+	if !cfg.PluginAssets.IsConfigured() {
 		missing := cfg.PluginAssets.Validate()
-		logger.Infof("Plugin asset storage not configured, missing: %s — image uploads disabled", strings.Join(missing, ", "))
+		logger.Fatalf("Plugin asset storage not configured, missing: %s", strings.Join(missing, ", "))
+	}
+	assetStorage, err := storage.NewS3PluginAssetStorage(cfg.PluginAssets)
+	if err != nil {
+		logger.Fatalf("Failed to initialize plugin asset storage: %v", err)
 	}
 
 	server := api.NewServer(

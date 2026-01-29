@@ -61,6 +61,7 @@ LIMIT $5 OFFSET $6;
 -- name: CountEarningsByPluginOwnerFiltered :one
 SELECT COUNT(f.id)::bigint as total
 FROM fees f
+JOIN plugins p ON f.plugin_id::plugin_id = p.id
 WHERE f.plugin_id IN (
     SELECT po.plugin_id::text FROM plugin_owners po WHERE po.public_key = $1 AND po.active = true
 )

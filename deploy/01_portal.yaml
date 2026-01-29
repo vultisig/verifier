@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portal
+  labels:
+    app: portal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: portal
+  template:
+    metadata:
+      labels:
+        app: portal
+      annotations:
+        prometheus.io/scrape: "false"
+    spec:
+      imagePullSecrets:
+        - name: ghcr
+      containers:
+        - name: portal
+          image: busybox
+          command: ["/app/main"]
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            - name: SERVER_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: portal
+                  key: server-host
+            - name: SERVER_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: portal
+                  key: server-port
+            - name: SERVER_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: portal
+                  key: jwt-secret
+            - name: SERVER_HMAC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: portal
+                  key: hmac-secret
+            - name: SERVER_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: portal
+                  key: base-url
+            - name: DATABASE_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: postgres
+                  key: dsn
+            - name: LOG_FORMAT
+              valueFrom:
+                configMapKeyRef:
+                  name: portal
+                  key: log-format
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: portal
+  labels:
+    app: portal
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+  selector:
+    app: portal

@@ -52,8 +52,20 @@ jobs:
       tag: dev-${{ github.sha }}
       additional_tag: dev-latest
 
+  build-portal:
+    uses: ./.github/workflows/build-push-image.yaml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      service: portal
+      registry: ghcr.io
+      image_name: ${{ github.repository }}
+      tag: dev-${{ github.sha }}
+      additional_tag: dev-latest
+
   deploy:
-    needs: [build-verifier, build-worker, build-tx-indexer]
+    needs: [build-verifier, build-worker, build-tx-indexer, build-portal]
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -76,6 +88,7 @@ jobs:
           sed -i "s|image: busybox|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/verifier:${TAG}|" deploy/01_verifier.yaml
           sed -i "s|image: busybox|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/worker:${TAG}|" deploy/01_worker.yaml
           sed -i "s|image: busybox|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/tx_indexer:${TAG}|" deploy/01_tx_indexer.yaml
+          sed -i "s|image: busybox|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/portal:${TAG}|" deploy/01_portal.yaml
 
       - name: Deploy to Kubernetes
         run: |
@@ -84,7 +97,9 @@ jobs:
           kubectl -n ${{ env.NS }} apply -f deploy/01_verifier.yaml
           kubectl -n ${{ env.NS }} apply -f deploy/01_worker.yaml
           kubectl -n ${{ env.NS }} apply -f deploy/01_tx_indexer.yaml
+          kubectl -n ${{ env.NS }} apply -f deploy/01_portal.yaml
 
           kubectl -n ${{ env.NS }} rollout status deployment/verifier --timeout=300s
           kubectl -n ${{ env.NS }} rollout status deployment/worker --timeout=300s
           kubectl -n ${{ env.NS }} rollout status deployment/tx-indexer --timeout=300s
+          kubectl -n ${{ env.NS }} rollout status deployment/portal --timeout=300s

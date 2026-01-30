@@ -815,58 +815,98 @@ type EarningTransactionResponse struct {
 	Status      string `json:"status"`
 }
 
+// EarningsResponse is the paginated API response for earnings
+type EarningsResponse struct {
+	Data       []EarningTransactionResponse `json:"data"`
+	Page       int                          `json:"page"`
+	Limit      int                          `json:"limit"`
+	Total      int64                        `json:"total"`
+	TotalPages int64                        `json:"totalPages"`
+}
+
 func (s *Server) GetEarnings(c echo.Context) error {
-	// Get address from JWT context (set by JWTAuthMiddleware)
 	address, ok := c.Get("address").(string)
 	if !ok || address == "" {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
 	}
 
-	// Parse filter parameters
 	pluginID := c.QueryParam("pluginId")
 	dateFrom := c.QueryParam("dateFrom")
 	dateTo := c.QueryParam("dateTo")
 
-	// Build filter params (using Ethereum address from JWT)
-	params := &queries.GetEarningsByPluginOwnerFilteredParams{
-		PublicKey: address,
-		Column2:   pluginID,
+	// TODO: Remove legacy response format once FE is updated to use pagination params
+	pageParam := c.QueryParam("page")
+	limitParam := c.QueryParam("limit")
+	usePagination := pageParam != "" || limitParam != ""
+
+	page := 1
+	if pageParam != "" {
+		if parsed, err := strconv.Atoi(pageParam); err == nil && parsed > 0 {
+			page = parsed
+		}
 	}
 
+	limit := 20
+	if limitParam != "" {
+		if parsed, err := strconv.Atoi(limitParam); err == nil && parsed > 0 && parsed <= 100 {
+			limit = parsed
+		}
+	}
+
+	offset := (page - 1) * limit
+
+	var dateFromTs, dateToTs pgtype.Timestamptz
 	if dateFrom != "" {
 		t, err := time.Parse(time.RFC3339, dateFrom)
 		if err == nil {
-			params.Column3 = pgtype.Timestamptz{Time: t, Valid: true}
+			dateFromTs = pgtype.Timestamptz{Time: t, Valid: true}
 		}
 	}
-
 	if dateTo != "" {
 		t, err := time.Parse(time.RFC3339, dateTo)
 		if err == nil {
-			params.Column4 = pgtype.Timestamptz{Time: t, Valid: true}
+			dateToTs = pgtype.Timestamptz{Time: t, Valid: true}
 		}
 	}
 
-	earnings, err := s.queries.GetEarningsByPluginOwnerFiltered(c.Request().Context(), params)
+	ctx := c.Request().Context()
+
+	// TODO: Remove once FE uses pagination params
+	queryLimit := int32(limit)
+	queryOffset := int32(offset)
+	if !usePagination {
+		queryLimit = 10000
+		queryOffset = 0
+	}
+
+	params := &queries.GetEarningsByPluginOwnerFilteredParams{
+		PublicKey: address,
+		Column2:   pluginID,
+		Column3:   dateFromTs,
+		Column4:   dateToTs,
+		Limit:     queryLimit,
+		Offset:    queryOffset,
+	}
+
+	earnings, err := s.queries.GetEarningsByPluginOwnerFiltered(ctx, params)
 	if err != nil {
 		s.logger.WithError(err).Error("failed to get earnings")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
 
-	// Convert to API response format
-	response := make([]EarningTransactionResponse, len(earnings))
+	data := make([]EarningTransactionResponse, len(earnings))
 	for i, e := range earnings {
 		pricingType := "per-tx"
 		if pt, ok := e.PricingType.(string); ok {
 			pricingType = pt
 		}
-		pluginID := ""
+		pid := ""
 		if e.PluginID.Valid {
-			pluginID = e.PluginID.String
+			pid = e.PluginID.String
 		}
-		response[i] = EarningTransactionResponse{
+		data[i] = EarningTransactionResponse{
 			ID:          strconv.FormatInt(e.ID, 10),
-			PluginID:    pluginID,
+			PluginID:    pid,
 			PluginName:  e.PluginName,
 			Amount:      e.Amount,
 			Asset:       e.Asset,
@@ -878,7 +918,32 @@ func (s *Server) GetEarnings(c echo.Context) error {
 		}
 	}
 
-	return c.JSON(http.StatusOK, response)
+	// TODO: Remove legacy response format once FE is updated to use pagination params
+	if !usePagination {
+		return c.JSON(http.StatusOK, data)
+	}
+
+	countParams := &queries.CountEarningsByPluginOwnerFilteredParams{
+		PublicKey: address,
+		Column2:   pluginID,
+		Column3:   dateFromTs,
+		Column4:   dateToTs,
+	}
+	total, err := s.queries.CountEarningsByPluginOwnerFiltered(ctx, countParams)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to count earnings")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	totalPages := (total + int64(limit) - 1) / int64(limit)
+
+	return c.JSON(http.StatusOK, EarningsResponse{
+		Data:       data,
+		Page:       page,
+		Limit:      limit,
+		Total:      total,
+		TotalPages: totalPages,
+	})
 }
 
 // EarningsSummaryResponse is the API response for earnings summary

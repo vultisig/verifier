@@ -101,6 +101,36 @@ spec:
               value: "8088"
             - name: FEES_USDC_ADDRESS
               value: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+            - name: PLUGIN_ASSETS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: plugin-assets
+                  key: host
+            - name: PLUGIN_ASSETS_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: plugin-assets
+                  key: region
+            - name: PLUGIN_ASSETS_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: plugin-assets
+                  key: access-key
+            - name: PLUGIN_ASSETS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: plugin-assets
+                  key: secret
+            - name: PLUGIN_ASSETS_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: plugin-assets
+                  key: bucket
+            - name: PLUGIN_ASSETS_PUBLIC_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: plugin-assets
+                  key: public-base-url
           resources:
             requests:
               memory: "64Mi"

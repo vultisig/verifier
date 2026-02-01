@@ -16,10 +16,11 @@ type Plugin struct {
 	Category       PluginCategory  `json:"category_id" yaml:"category" validate:"required"`
 	CreatedAt      time.Time       `json:"created_at" yaml:"-"`
 	UpdatedAt      time.Time       `json:"updated_at" yaml:"-"`
-	Pricing        []types.Pricing `json:"pricing,omitempty" yaml:"-"`                             // New field for multiple pricing options
-	LogoURL        string          `json:"logo_url,omitempty" yaml:"logo_url,omitempty"`           // New field, should be validated once plugins have this data in db.
-	ThumbnailURL   string          `json:"thumbnail_url,omitempty" yaml:"thumbnail_url,omitempty"` // New field, should be validated once plugins have this data in db.
-	Images         []PluginImage   `json:"images,omitempty" yaml:"images,omitempty"`               // New field, should be validated once plugins have this data in db.
+	Pricing        []types.Pricing `json:"pricing,omitempty" yaml:"-"` // New field for multiple pricing options
+	LogoURL        string          `json:"logo_url,omitempty" yaml:"logo_url,omitempty"`
+	ThumbnailURL   string          `json:"thumbnail_url,omitempty" yaml:"thumbnail_url,omitempty"`
+	BannerURL      string          `json:"banner_url,omitempty" yaml:"banner_url,omitempty"`
+	Images         []PluginImage   `json:"images,omitempty" yaml:"images,omitempty"`
 	FAQs           []FAQItem       `json:"faqs,omitempty" yaml:"faqs,omitempty"`
 	Features       []string        `json:"features,omitempty" yaml:"features,omitempty"`
 	Audited        bool            `json:"audited" yaml:"audited,omitempty"`
@@ -34,11 +35,10 @@ type FAQItem struct {
 }
 
 type PluginImage struct {
+	ID        string `json:"id" yaml:"id,omitempty"`
 	URL       string `json:"url" yaml:"url"`
-	Caption   string `json:"caption" yaml:"caption,omitempty"`
-	AltText   string `json:"alt_text" yaml:"alt_text,omitempty"`
-	SortOrder int    `json:"sort_order" yaml:"sort_order,omitempty"` // for carousels
-	ZIndex    int    `json:"z_index" yaml:"z_index,omitempty"`       // for overlays
+	S3Key     string `json:"-" yaml:"s3_key,omitempty"`
+	SortOrder int    `json:"sort_order" yaml:"sort_order,omitempty"`
 }
 
 // PluginWithRatings is used for API responses that include rating statistics

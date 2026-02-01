@@ -10,7 +10,6 @@ import (
 )
 
 const getPluginByID = `-- name: GetPluginByID :one
-
 SELECT id, title, description, server_endpoint, category, created_at, updated_at, logo_url, thumbnail_url, images, faqs, features, audited FROM plugins
 WHERE id = $1
 `

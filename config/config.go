@@ -42,8 +42,9 @@ type VerifierConfig struct {
 		// pointer so it must be explicitly set to false, no value considered as enabled
 		Enabled *bool `mapstructure:"enabled" json:"enabled,omitempty"`
 	} `mapstructure:"auth" json:"auth"`
-	Fees    FeesConfig    `mapstructure:"fees" json:"fees"`
-	Metrics MetricsConfig `mapstructure:"metrics" json:"metrics,omitempty"`
+	Fees         FeesConfig         `mapstructure:"fees" json:"fees"`
+	Metrics      MetricsConfig      `mapstructure:"metrics" json:"metrics,omitempty"`
+	PluginAssets PluginAssetsConfig `mapstructure:"plugin_assets" json:"plugin_assets,omitempty"`
 }
 
 type FeesConfig struct {
@@ -54,6 +55,47 @@ type MetricsConfig struct {
 	Enabled bool   `mapstructure:"enabled" json:"enabled,omitempty"`
 	Host    string `mapstructure:"host" json:"host,omitempty"`
 	Port    int    `mapstructure:"port" json:"port,omitempty"`
+}
+
+type PluginAssetsConfig struct {
+	Host          string `mapstructure:"host" json:"host"`
+	Region        string `mapstructure:"region" json:"region"`
+	Bucket        string `mapstructure:"bucket" json:"bucket"`
+	AccessKey     string `mapstructure:"access_key" json:"access_key"`
+	Secret        string `mapstructure:"secret" json:"secret"`
+	PublicBaseURL string `mapstructure:"public_base_url" json:"public_base_url"`
+}
+
+func (c PluginAssetsConfig) Validate() []string {
+	var missing []string
+	if c.Host == "" {
+		missing = append(missing, "host")
+	}
+	if c.Bucket == "" {
+		missing = append(missing, "bucket")
+	}
+	if c.AccessKey == "" {
+		missing = append(missing, "access_key")
+	}
+	if c.Secret == "" {
+		missing = append(missing, "secret")
+	}
+	return missing
+}
+
+func (c PluginAssetsConfig) IsConfigured() bool {
+	return len(c.Validate()) == 0
+}
+
+func (c PluginAssetsConfig) EffectivePublicBaseURL() string {
+	if c.PublicBaseURL != "" {
+		return strings.TrimRight(c.PublicBaseURL, "/")
+	}
+	host := strings.TrimRight(c.Host, "/")
+	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
+		host = "https://" + host
+	}
+	return host + "/" + c.Bucket
 }
 
 type PortalConfig struct {

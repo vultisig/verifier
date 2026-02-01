@@ -22,3 +22,28 @@ spec:
                 name: verifier
                 port:
                   number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: portal
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    cert-manager.io/cluster-issuer: "letsencrypt"
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - portal.dev.plugins.vultisig.com
+      secretName: portal-tls
+  rules:
+    - host: portal.dev.plugins.vultisig.com
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: portal
+                port:
+                  number: 80

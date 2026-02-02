@@ -9,10 +9,16 @@ type ValidationError struct {
 }
 
 func (e *ValidationError) Error() string {
+	if e == nil || e.Err == nil {
+		return "validation error"
+	}
 	return e.Err.Error()
 }
 
 func (e *ValidationError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
 	return e.Err
 }
 

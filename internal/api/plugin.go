@@ -709,9 +709,9 @@ func (s *Server) GetPluginRecipeSpecificationSuggest(c echo.Context) error {
 				Message string `json:"message"`
 			}
 			if json.Unmarshal([]byte(httpErr.Body), &errResp) == nil && errResp.Message != "" {
-				return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(errResp.Message))
+				return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(errResp.Message))
 			}
-			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("invalid request"))
+			return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage("invalid request"))
 		}
 		return s.internal(c, msgGetRecipeSuggestFailed, err)
 	}

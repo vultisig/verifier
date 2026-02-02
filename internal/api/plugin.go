@@ -33,6 +33,7 @@ import (
 	"github.com/vultisig/verifier/internal/safety"
 	"github.com/vultisig/verifier/internal/service"
 	"github.com/vultisig/verifier/internal/types"
+	"github.com/vultisig/verifier/plugin/libhttp"
 	"github.com/vultisig/verifier/plugin/scheduler"
 	"github.com/vultisig/verifier/plugin/tasks"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
@@ -700,6 +701,18 @@ func (s *Server) GetPluginRecipeSpecificationSuggest(c echo.Context) error {
 		req.Configuration,
 	)
 	if err != nil {
+		// Check if it's a validation error from the plugin (returned as HTTP 400)
+		var httpErr *libhttp.HTTPError
+		if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusBadRequest {
+			// Parse the error message from the plugin response body
+			var errResp struct {
+				Message string `json:"message"`
+			}
+			if json.Unmarshal([]byte(httpErr.Body), &errResp) == nil && errResp.Message != "" {
+				return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(errResp.Message))
+			}
+			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("invalid request"))
+		}
 		return s.internal(c, msgGetRecipeSuggestFailed, err)
 	}
 

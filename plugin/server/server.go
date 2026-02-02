@@ -433,7 +433,7 @@ func (s *Server) handleGetRecipeSpecificationSuggest(c echo.Context) error {
 		s.logger.WithError(err).Error("Failed to suggest recipe spec")
 		var validationErr *plugin.ValidationError
 		if errors.As(err, &validationErr) {
-			return c.JSON(http.StatusInternalServerError, NewErrorResponse(validationErr.Message))
+			return c.JSON(http.StatusBadRequest, NewErrorResponse(validationErr.Message))
 		}
 		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to suggest recipe spec"))
 	}

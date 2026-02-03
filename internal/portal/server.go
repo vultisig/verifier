@@ -27,6 +27,16 @@ import (
 	vcommon "github.com/vultisig/vultisig-go/common"
 )
 
+const usdcDecimals = 1_000_000
+
+func formatAmount(amount int64) string {
+	amountFloat := float64(amount) / usdcDecimals
+	if amountFloat == float64(int64(amountFloat)) {
+		return strconv.FormatInt(int64(amountFloat), 10)
+	}
+	return fmt.Sprintf("%.6f", amountFloat)
+}
+
 type Server struct {
 	cfg           config.PortalConfig
 	pool          *pgxpool.Pool
@@ -314,7 +324,7 @@ type PluginPricingResponse struct {
 	Asset     string  `json:"asset"`
 	Type      string  `json:"type"`
 	Frequency *string `json:"frequency"`
-	Amount    int64   `json:"amount"`
+	Amount    string  `json:"amount"`
 	Metric    string  `json:"metric"`
 }
 
@@ -344,7 +354,7 @@ func (s *Server) GetPluginPricings(c echo.Context) error {
 			Asset:     string(p.Asset),
 			Type:      string(p.Type),
 			Frequency: freq,
-			Amount:    p.Amount,
+			Amount:    formatAmount(p.Amount),
 			Metric:    string(p.Metric),
 		}
 	}
@@ -806,7 +816,7 @@ type EarningTransactionResponse struct {
 	ID          string `json:"id"`
 	PluginID    string `json:"pluginId"`
 	PluginName  string `json:"pluginName"`
-	Amount      int64  `json:"amount"`
+	Amount      string `json:"amount"`
 	Asset       string `json:"asset"`
 	Type        string `json:"type"`
 	CreatedAt   string `json:"createdAt"`
@@ -908,7 +918,7 @@ func (s *Server) GetEarnings(c echo.Context) error {
 			ID:          strconv.FormatInt(e.ID, 10),
 			PluginID:    pid,
 			PluginName:  e.PluginName,
-			Amount:      e.Amount,
+			Amount:      formatAmount(e.Amount),
 			Asset:       e.Asset,
 			Type:        pricingType,
 			CreatedAt:   e.CreatedAt.Time.Format(time.RFC3339),
@@ -948,9 +958,9 @@ func (s *Server) GetEarnings(c echo.Context) error {
 
 // EarningsSummaryResponse is the API response for earnings summary
 type EarningsSummaryResponse struct {
-	TotalEarnings     int64            `json:"totalEarnings"`
-	TotalTransactions int64            `json:"totalTransactions"`
-	EarningsByPlugin  map[string]int64 `json:"earningsByPlugin"`
+	TotalEarnings     string            `json:"totalEarnings"`
+	TotalTransactions int64             `json:"totalTransactions"`
+	EarningsByPlugin  map[string]string `json:"earningsByPlugin"`
 }
 
 func (s *Server) GetEarningsSummary(c echo.Context) error {
@@ -974,15 +984,15 @@ func (s *Server) GetEarningsSummary(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
 
-	earningsByPlugin := make(map[string]int64)
+	earningsByPlugin := make(map[string]string)
 	for _, p := range byPlugin {
 		if p.PluginID.Valid {
-			earningsByPlugin[p.PluginID.String] = p.Total
+			earningsByPlugin[p.PluginID.String] = formatAmount(p.Total)
 		}
 	}
 
 	return c.JSON(http.StatusOK, EarningsSummaryResponse{
-		TotalEarnings:     summary.TotalEarnings,
+		TotalEarnings:     formatAmount(summary.TotalEarnings),
 		TotalTransactions: summary.TotalTransactions,
 		EarningsByPlugin:  earningsByPlugin,
 	})

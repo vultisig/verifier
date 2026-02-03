@@ -66,7 +66,10 @@ type PluginImageResponse struct {
 func (s *Server) ListPluginImages(c echo.Context) error {
 	ctx := c.Request().Context()
 	pluginID := c.Param("id")
-	address := c.Get("address").(string)
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
 
 	owner, err := s.queries.GetPluginOwnerWithRole(ctx, &queries.GetPluginOwnerWithRoleParams{
 		PluginID:  queries.PluginID(pluginID),
@@ -107,7 +110,10 @@ func (s *Server) ListPluginImages(c echo.Context) error {
 func (s *Server) GetImageUploadURL(c echo.Context) error {
 	ctx := c.Request().Context()
 	pluginID := c.Param("id")
-	address := c.Get("address").(string)
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
 
 	owner, err := s.queries.GetPluginOwnerWithRole(ctx, &queries.GetPluginOwnerWithRoleParams{
 		PluginID:  queries.PluginID(pluginID),
@@ -224,7 +230,10 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 	ctx := c.Request().Context()
 	pluginID := c.Param("id")
 	imageIDStr := c.Param("imageId")
-	address := c.Get("address").(string)
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
 
 	owner, err := s.queries.GetPluginOwnerWithRole(ctx, &queries.GetPluginOwnerWithRoleParams{
 		PluginID:  queries.PluginID(pluginID),
@@ -291,12 +300,13 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 	width, height, parseErr := ParseImageDimensions(data, detectedType)
 	if parseErr != nil && detectedType == "image/jpeg" {
 		rangeEnd = int64(extendedRangeBytes)
-		data, err = s.assetStorage.GetObjectRange(ctx, img.S3Path, 0, rangeEnd)
-		if err != nil {
-			s.logger.Errorf("failed to get extended object range: %v", err)
+		extendedData, storageErr := s.assetStorage.GetObjectRange(ctx, img.S3Path, 0, rangeEnd)
+		if storageErr != nil {
+			s.logger.Errorf("failed to get extended object range: %v", storageErr)
+			s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID)
 			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "storage temporarily unavailable, please retry"})
 		}
-		width, height, parseErr = ParseImageDimensions(data, detectedType)
+		width, height, parseErr = ParseImageDimensions(extendedData, detectedType)
 	}
 	if parseErr != nil {
 		s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID)
@@ -346,8 +356,17 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
 
-	img, _ = s.db.GetPluginImageByID(ctx, types.PluginID(pluginID), imageID)
+	img, err = s.db.GetPluginImageByID(ctx, types.PluginID(pluginID), imageID)
+	if err != nil {
+		if img != nil {
+			s.logger.Warnf("error fetching confirmed image (returning anyway): %v", err)
+			return c.JSON(http.StatusOK, toImageResponse(*img, s.assetStorage.GetPublicURL(img.S3Path)))
+		}
+		s.logger.Errorf("failed to fetch confirmed image: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
 	if img == nil {
+		s.logger.Errorf("confirmed image not found after commit")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
 
@@ -358,7 +377,10 @@ func (s *Server) UpdatePluginImage(c echo.Context) error {
 	ctx := c.Request().Context()
 	pluginID := c.Param("id")
 	imageIDStr := c.Param("imageId")
-	address := c.Get("address").(string)
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
 
 	owner, err := s.queries.GetPluginOwnerWithRole(ctx, &queries.GetPluginOwnerWithRoleParams{
 		PluginID:  queries.PluginID(pluginID),
@@ -414,7 +436,10 @@ func (s *Server) DeletePluginImage(c echo.Context) error {
 	ctx := c.Request().Context()
 	pluginID := c.Param("id")
 	imageIDStr := c.Param("imageId")
-	address := c.Get("address").(string)
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
 
 	owner, err := s.queries.GetPluginOwnerWithRole(ctx, &queries.GetPluginOwnerWithRoleParams{
 		PluginID:  queries.PluginID(pluginID),
@@ -447,7 +472,10 @@ func (s *Server) DeletePluginImage(c echo.Context) error {
 func (s *Server) ReorderPluginImages(c echo.Context) error {
 	ctx := c.Request().Context()
 	pluginID := c.Param("id")
-	address := c.Get("address").(string)
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
 
 	owner, err := s.queries.GetPluginOwnerWithRole(ctx, &queries.GetPluginOwnerWithRoleParams{
 		PluginID:  queries.PluginID(pluginID),
@@ -484,6 +512,12 @@ func (s *Server) ReorderPluginImages(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
 	defer tx.Rollback(ctx)
+
+	err = s.db.LockPluginForUpdate(ctx, tx, types.PluginID(pluginID))
+	if err != nil {
+		s.logger.Errorf("failed to lock plugin: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
 
 	err = s.db.ReorderMediaImages(ctx, tx, types.PluginID(pluginID), imageIDs)
 	if err != nil {

@@ -27,14 +27,21 @@ import (
 	vcommon "github.com/vultisig/vultisig-go/common"
 )
 
-const usdcDecimals = 1_000_000
+const usdcDecimals int64 = 1_000_000
 
 func formatAmount(amount int64) string {
-	amountFloat := float64(amount) / usdcDecimals
-	if amountFloat == float64(int64(amountFloat)) {
-		return strconv.FormatInt(int64(amountFloat), 10)
+	whole := amount / usdcDecimals
+	frac := amount % usdcDecimals
+	if frac == 0 {
+		return strconv.FormatInt(whole, 10)
 	}
-	return fmt.Sprintf("%.6f", amountFloat)
+	if frac < 0 {
+		frac = -frac
+		if whole == 0 {
+			whole = -1
+		}
+	}
+	return fmt.Sprintf("%d.%06d", whole, frac)
 }
 
 type Server struct {

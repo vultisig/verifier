@@ -18,12 +18,13 @@ import (
 )
 
 const (
-	initialRangeBytes    = 64 * 1024
-	extendedRangeBytes   = 256 * 1024
-	defaultMaxImageBytes = 5 * 1024 * 1024
-	maxFilenameLength    = 255
-	asciiSpace           = 32
-	asciiDEL             = 127
+	initialRangeBytes       = 64 * 1024
+	extendedRangeBytes      = 256 * 1024
+	defaultMaxImageBytes    = 5 * 1024 * 1024
+	defaultMaxMediaImages   = 10
+	maxFilenameLength       = 255
+	asciiSpace              = 32
+	asciiDEL                = 127
 )
 
 type GetUploadURLRequest struct {
@@ -164,12 +165,16 @@ func (s *Server) GetImageUploadURL(c echo.Context) error {
 	}
 
 	if imageType == itypes.PluginImageTypeMedia {
+		maxMedia := s.cfg.MaxMediaImagesPerPlugin
+		if maxMedia == 0 {
+			maxMedia = defaultMaxMediaImages
+		}
 		count, err := s.db.CountVisibleMediaImages(ctx, tx, types.PluginID(pluginID))
 		if err != nil {
 			s.logger.Errorf("failed to count media images: %v", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		}
-		if count >= s.cfg.MaxMediaImagesPerPlugin {
+		if count >= maxMedia {
 			return c.JSON(http.StatusConflict, map[string]string{"error": "maximum media images limit exceeded"})
 		}
 	}
@@ -266,12 +271,16 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "storage temporarily unavailable, please retry"})
 	}
 	if meta == nil {
-		s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID)
+		if _, err := s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID); err != nil {
+			s.logger.Warnf("failed to soft-delete pending image %s: %v", imageID, err)
+		}
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "file not found in storage"})
 	}
 
 	if meta.ContentType == "" || !itypes.AllowedContentTypes[meta.ContentType] || meta.ContentType != img.ContentType {
-		s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID)
+		if _, err := s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID); err != nil {
+			s.logger.Warnf("failed to soft-delete pending image %s: %v", imageID, err)
+		}
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid content type"})
 	}
 
@@ -280,7 +289,9 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 		maxSize = defaultMaxImageBytes
 	}
 	if meta.ContentLength > maxSize {
-		s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID)
+		if _, err := s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID); err != nil {
+			s.logger.Warnf("failed to soft-delete pending image %s: %v", imageID, err)
+		}
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "image file too large"})
 	}
 
@@ -293,7 +304,9 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 
 	detectedType := DetectContentType(data)
 	if detectedType != img.ContentType {
-		s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID)
+		if _, err := s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID); err != nil {
+			s.logger.Warnf("failed to soft-delete pending image %s: %v", imageID, err)
+		}
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "file content does not match declared content type"})
 	}
 
@@ -303,19 +316,29 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 		extendedData, storageErr := s.assetStorage.GetObjectRange(ctx, img.S3Path, 0, rangeEnd)
 		if storageErr != nil {
 			s.logger.Errorf("failed to get extended object range: %v", storageErr)
-			s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID)
 			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "storage temporarily unavailable, please retry"})
 		}
 		width, height, parseErr = ParseImageDimensions(extendedData, detectedType)
 	}
 	if parseErr != nil {
-		s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID)
+		if _, err := s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID); err != nil {
+			s.logger.Warnf("failed to soft-delete pending image %s: %v", imageID, err)
+		}
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "failed to parse image dimensions"})
 	}
 
-	constraints := itypes.ImageTypeConstraints[img.ImageType]
+	constraints, ok := itypes.ImageTypeConstraints[img.ImageType]
+	if !ok {
+		s.logger.Errorf("unknown image type %q for image %s", img.ImageType, imageID)
+		if _, err := s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID); err != nil {
+			s.logger.Warnf("failed to soft-delete pending image %s: %v", imageID, err)
+		}
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid image type"})
+	}
 	if width > constraints.MaxWidth || height > constraints.MaxHeight {
-		s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID)
+		if _, err := s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID); err != nil {
+			s.logger.Warnf("failed to soft-delete pending image %s: %v", imageID, err)
+		}
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("image exceeds maximum dimensions of %dx%d", constraints.MaxWidth, constraints.MaxHeight)})
 	}
 
@@ -333,13 +356,19 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 	}
 
 	if img.ImageType == itypes.PluginImageTypeMedia {
+		maxMedia := s.cfg.MaxMediaImagesPerPlugin
+		if maxMedia == 0 {
+			maxMedia = defaultMaxMediaImages
+		}
 		count, err := s.db.CountVisibleMediaImages(ctx, tx, types.PluginID(pluginID))
 		if err != nil {
 			s.logger.Errorf("failed to count media images: %v", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		}
-		if count >= s.cfg.MaxMediaImagesPerPlugin {
-			s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID)
+		if count >= maxMedia {
+			if _, err := s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID); err != nil {
+				s.logger.Warnf("failed to soft-delete pending image %s: %v", imageID, err)
+			}
 			return c.JSON(http.StatusConflict, map[string]string{"error": "maximum media images limit exceeded"})
 		}
 	}

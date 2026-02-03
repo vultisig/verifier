@@ -244,8 +244,7 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 	meta, err := s.assetStorage.HeadObject(ctx, img.S3Path)
 	if err != nil {
 		s.logger.Errorf("failed to head object: %v", err)
-		s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID)
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "file not found in storage"})
+		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "storage temporarily unavailable, please retry"})
 	}
 	if meta == nil {
 		s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID)
@@ -270,8 +269,7 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 	data, err := s.assetStorage.GetObjectRange(ctx, img.S3Path, 0, rangeEnd)
 	if err != nil {
 		s.logger.Errorf("failed to get object range: %v", err)
-		s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID)
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "failed to parse image dimensions"})
+		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "storage temporarily unavailable, please retry"})
 	}
 
 	detectedType := DetectContentType(data)
@@ -306,13 +304,13 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 	}
 	defer tx.Rollback(ctx)
 
-	if img.ImageType == itypes.PluginImageTypeMedia {
-		err = s.db.LockPluginForUpdate(ctx, tx, types.PluginID(pluginID))
-		if err != nil {
-			s.logger.Errorf("failed to lock plugin: %v", err)
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
-		}
+	err = s.db.LockPluginForUpdate(ctx, tx, types.PluginID(pluginID))
+	if err != nil {
+		s.logger.Errorf("failed to lock plugin: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
 
+	if img.ImageType == itypes.PluginImageTypeMedia {
 		count, err := s.db.CountVisibleMediaImages(ctx, tx, types.PluginID(pluginID))
 		if err != nil {
 			s.logger.Errorf("failed to count media images: %v", err)
@@ -477,8 +475,9 @@ func (s *Server) ReorderPluginImages(c echo.Context) error {
 
 	err = s.db.ReorderMediaImages(ctx, tx, types.PluginID(pluginID), imageIDs)
 	if err != nil {
-		if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "not found") {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "duplicate") || strings.Contains(errMsg, "not found") || strings.Contains(errMsg, "not media") {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": errMsg})
 		}
 		s.logger.Errorf("failed to reorder media images: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})

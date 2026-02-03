@@ -3,6 +3,7 @@ package portal
 import (
 	"encoding/binary"
 	"errors"
+	"math"
 )
 
 var (
@@ -68,14 +69,14 @@ func parsePNGDimensions(data []byte) (int, int, error) {
 		}
 	}
 
-	width := int(binary.BigEndian.Uint32(data[16:20]))
-	height := int(binary.BigEndian.Uint32(data[20:24]))
+	w32 := binary.BigEndian.Uint32(data[16:20])
+	h32 := binary.BigEndian.Uint32(data[20:24])
 
-	if width <= 0 || height <= 0 {
+	if w32 == 0 || h32 == 0 || w32 > math.MaxInt32 || h32 > math.MaxInt32 {
 		return 0, 0, ErrInvalidDimensions
 	}
 
-	return width, height, nil
+	return int(w32), int(h32), nil
 }
 
 // parseJPEGDimensions scans JPEG markers to find SOF (Start of Frame) which contains dimensions.

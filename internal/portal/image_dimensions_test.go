@@ -241,7 +241,7 @@ func buildJPEG(width, height int) []byte {
 }
 
 func buildJPEGWithLargeAPP(width, height, appSize int) []byte {
-	data := make([]byte, 4+appSize+11)
+	data := make([]byte, 4+appSize+13)
 	data[0] = 0xFF
 	data[1] = 0xD8
 	data[2] = 0xFF

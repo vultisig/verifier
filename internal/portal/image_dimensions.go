@@ -117,6 +117,11 @@ func parseJPEGDimensions(data []byte) (int, int, error) {
 			continue
 		}
 
+		// SOS (Start of Scan) marker before SOF means malformed JPEG
+		if marker == 0xDA {
+			return 0, 0, ErrInvalidDimensions
+		}
+
 		// Read segment length (includes the 2 length bytes, excludes marker)
 		if i+2 > len(data) {
 			break
@@ -128,7 +133,7 @@ func parseJPEGDimensions(data []byte) (int, int, error) {
 
 		// SOF markers contain dimensions at offset +3 (height) and +5 (width) from length field
 		if isSOFMarker(marker) {
-			if i+7 > len(data) {
+			if segmentLen < 7 || i+segmentLen > len(data) {
 				return 0, 0, ErrInvalidDimensions
 			}
 			height := int(binary.BigEndian.Uint16(data[i+3 : i+5]))

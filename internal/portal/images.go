@@ -18,13 +18,13 @@ import (
 )
 
 const (
-	initialRangeBytes       = 64 * 1024
-	extendedRangeBytes      = 256 * 1024
-	defaultMaxImageBytes    = 5 * 1024 * 1024
-	defaultMaxMediaImages   = 10
-	maxFilenameLength       = 255
-	asciiSpace              = 32
-	asciiDEL                = 127
+	initialRangeBytes     = 64 * 1024
+	extendedRangeBytes    = 256 * 1024
+	defaultMaxImageBytes  = 5 * 1024 * 1024
+	defaultMaxMediaImages = 10
+	maxFilenameLength     = 255
+	asciiSpace            = 32
+	asciiDEL              = 127
 )
 
 type GetUploadURLRequest struct {

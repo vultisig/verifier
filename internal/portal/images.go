@@ -6,6 +6,7 @@ import (
 	"path"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -14,6 +15,15 @@ import (
 	"github.com/vultisig/verifier/internal/storage/postgres/queries"
 	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/types"
+)
+
+const (
+	initialRangeBytes    = 64 * 1024
+	extendedRangeBytes   = 256 * 1024
+	defaultMaxImageBytes = 5 * 1024 * 1024
+	maxFilenameLength    = 255
+	asciiSpace           = 32
+	asciiDEL             = 127
 )
 
 type GetUploadURLRequest struct {
@@ -258,14 +268,14 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 
 	maxSize := s.cfg.MaxImageSizeBytes
 	if maxSize == 0 {
-		maxSize = 5 * 1024 * 1024
+		maxSize = defaultMaxImageBytes
 	}
 	if meta.ContentLength > maxSize {
 		s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID)
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "image file too large"})
 	}
 
-	rangeEnd := int64(65535)
+	rangeEnd := int64(initialRangeBytes)
 	data, err := s.assetStorage.GetObjectRange(ctx, img.S3Path, 0, rangeEnd)
 	if err != nil {
 		s.logger.Errorf("failed to get object range: %v", err)
@@ -278,15 +288,17 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "file content does not match declared content type"})
 	}
 
-	width, height, err := ParseImageDimensions(data, detectedType)
-	if err != nil && detectedType == "image/jpeg" {
-		rangeEnd = int64(262143)
+	width, height, parseErr := ParseImageDimensions(data, detectedType)
+	if parseErr != nil && detectedType == "image/jpeg" {
+		rangeEnd = int64(extendedRangeBytes)
 		data, err = s.assetStorage.GetObjectRange(ctx, img.S3Path, 0, rangeEnd)
-		if err == nil {
-			width, height, err = ParseImageDimensions(data, detectedType)
+		if err != nil {
+			s.logger.Errorf("failed to get extended object range: %v", err)
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "storage temporarily unavailable, please retry"})
 		}
+		width, height, parseErr = ParseImageDimensions(data, detectedType)
 	}
-	if err != nil {
+	if parseErr != nil {
 		s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID)
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "failed to parse image dimensions"})
 	}
@@ -515,15 +527,19 @@ func sanitizeFilename(filename string) string {
 
 	var clean strings.Builder
 	for _, r := range base {
-		if r < 32 || r == 127 {
+		if r < asciiSpace || r == asciiDEL {
 			continue
 		}
 		clean.WriteRune(r)
 	}
 	result := clean.String()
 
-	if len(result) > 255 {
-		result = result[:255]
+	if len(result) > maxFilenameLength {
+		truncateAt := maxFilenameLength
+		for truncateAt > 0 && !utf8.RuneStart(result[truncateAt]) {
+			truncateAt--
+		}
+		result = result[:truncateAt]
 	}
 
 	if result == "" || result == "." || result == ".." {

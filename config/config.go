@@ -108,12 +108,12 @@ type PortalConfig struct {
 		HMACSecret string `mapstructure:"hmac_secret" json:"hmac_secret,omitempty"`
 		BaseURL    string `mapstructure:"base_url" json:"base_url,omitempty"` // Base URL for magic links
 	} `mapstructure:"server" json:"server"`
-	Database                config.Database      `mapstructure:"database" json:"database,omitempty"`
-	MaxApiKeysPerPlugin     int                  `mapstructure:"max_api_keys_per_plugin" json:"max_api_keys_per_plugin,omitempty"`
-	PluginAssets            PluginAssetsConfig   `mapstructure:"plugin_assets" json:"plugin_assets,omitempty"`
-	MaxMediaImagesPerPlugin int                  `mapstructure:"max_media_images_per_plugin" json:"max_media_images_per_plugin,omitempty"`
-	MaxImageSizeBytes       int64                `mapstructure:"max_image_size_bytes" json:"max_image_size_bytes,omitempty"`
-	PresignedURLExpiry      time.Duration        `mapstructure:"presigned_url_expiry" json:"presigned_url_expiry,omitempty"`
+	Database                config.Database    `mapstructure:"database" json:"database,omitempty"`
+	MaxApiKeysPerPlugin     int                `mapstructure:"max_api_keys_per_plugin" json:"max_api_keys_per_plugin,omitempty"`
+	PluginAssets            PluginAssetsConfig `mapstructure:"plugin_assets" json:"plugin_assets,omitempty"`
+	MaxMediaImagesPerPlugin int                `mapstructure:"max_media_images_per_plugin" json:"max_media_images_per_plugin,omitempty"`
+	MaxImageSizeBytes       int64              `mapstructure:"max_image_size_bytes" json:"max_image_size_bytes,omitempty"`
+	PresignedURLExpiry      time.Duration      `mapstructure:"presigned_url_expiry" json:"presigned_url_expiry,omitempty"`
 }
 
 func GetConfigure() (*WorkerConfig, error) {

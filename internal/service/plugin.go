@@ -21,6 +21,12 @@ import (
 	ptypes "github.com/vultisig/verifier/types"
 )
 
+// PluginSkills represents the skills returned from a plugin's /skills endpoint.
+type PluginSkills struct {
+	PluginID string `json:"plugin_id"`
+	SkillsMD string `json:"skills_md"`
+}
+
 type Plugin interface {
 	GetPluginWithRating(ctx context.Context, pluginId string) (*types.PluginWithRatings, error)
 	CreatePluginReviewWithRating(ctx context.Context, reviewDto types.ReviewCreateDto, pluginId string) (*types.ReviewDto, error)
@@ -32,6 +38,7 @@ type Plugin interface {
 	) (*rtypes.PolicySuggest, error)
 	GetPluginRecipeFunctions(ctx context.Context, pluginID string) (types.RecipeFunctions, error)
 	GetPluginTitlesByIDs(ctx context.Context, ids []string) (map[string]string, error)
+	GetPluginSkills(ctx context.Context, pluginID string) (*PluginSkills, error)
 }
 
 type PluginServiceStorage interface {
@@ -375,4 +382,84 @@ func (s *PluginService) fetchRecipeSpecificationFromPlugin(ctx context.Context, 
 	}
 
 	return recipeSpec, nil
+}
+
+// GetPluginSkills fetches skills from plugin server with caching
+func (s *PluginService) GetPluginSkills(ctx context.Context, pluginID string) (*PluginSkills, error) {
+	// Check cache first
+	cacheKey := fmt.Sprintf("plugin_skills:%s", pluginID)
+
+	if s.redis != nil {
+		cached, err := s.redis.Get(ctx, cacheKey)
+		if err == nil && cached != "" {
+			cachedSkills := &PluginSkills{}
+			if err := json.Unmarshal([]byte(cached), cachedSkills); err == nil {
+				s.logger.Debugf("[GetPluginSkills] Cache hit for plugin %s", pluginID)
+				return cachedSkills, nil
+			}
+		}
+	}
+
+	// Get plugin from database to get server endpoint
+	plugin, err := s.db.FindPluginById(ctx, nil, ptypes.PluginID(pluginID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to find plugin: %w", err)
+	}
+	keyInfo, err := s.db.GetAPIKeyByPluginId(ctx, pluginID)
+	if err != nil || keyInfo == nil {
+		return nil, fmt.Errorf("failed to find plugin server info: %w", err)
+	}
+
+	// Call plugin server endpoint
+	skills, err := s.fetchSkillsFromPlugin(ctx, plugin.ServerEndpoint, keyInfo.ApiKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch skills from plugin: %w", err)
+	}
+
+	// Cache for 2 hours
+	if s.redis != nil {
+		skillsBytes, err := json.Marshal(skills)
+		if err != nil {
+			s.logger.WithError(err).Warn("Failed to serialize skills for caching")
+			return skills, nil
+		}
+		err = s.redis.Set(ctx, cacheKey, string(skillsBytes), 2*time.Hour)
+		if err != nil {
+			s.logger.WithError(err).Warnf("Failed to cache skills for plugin %s", pluginID)
+			return skills, nil
+		}
+		s.logger.Debugf("[GetPluginSkills] Cached skills for plugin %s", pluginID)
+	}
+
+	return skills, nil
+}
+
+func (s *PluginService) fetchSkillsFromPlugin(ctx context.Context, serverEndpoint, token string) (*PluginSkills, error) {
+	url := fmt.Sprintf("%s/skills", strings.TrimSuffix(serverEndpoint, "/"))
+
+	s.logger.Debugf("[fetchSkillsFromPlugin] Calling plugin endpoint: %s", url)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Add("Authorization", "Bearer "+token)
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call plugin endpoint: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("plugin endpoint returned status %d", resp.StatusCode)
+	}
+
+	skills := &PluginSkills{}
+	if err := json.NewDecoder(resp.Body).Decode(skills); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return skills, nil
 }

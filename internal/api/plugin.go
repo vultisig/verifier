@@ -939,6 +939,105 @@ func (s *Server) ReportPlugin(c echo.Context) error {
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, result))
 }
 
+// AvailablePlugin represents a plugin available for AI agents to interact with.
+type AvailablePlugin struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	SkillsMD string `json:"skills_md"`
+}
+
+// AvailablePluginsResponse is the response format for the /plugins/available endpoint.
+type AvailablePluginsResponse struct {
+	Plugins []AvailablePlugin `json:"plugins"`
+}
+
+// GetAvailablePlugins returns a list of available plugins with their metadata and skills.
+// This endpoint is public and does not require authentication.
+// It is intended for AI agents to discover plugins and their capabilities.
+// Plugins that fail to respond to skills requests are excluded (considered unavailable).
+func (s *Server) GetAvailablePlugins(c echo.Context) error {
+	ctx := c.Request().Context()
+	pluginList, err := s.db.FindPlugins(ctx, types.PluginFilters{}, 1000, 0, "")
+	if err != nil {
+		return s.internal(c, msgGetPluginsFailed, err)
+	}
+
+	// Fetch skills with bounded concurrency using semaphore.
+	// Note: Plugin count should be manageable for now, but semaphore ensures safety at scale.
+	type result struct {
+		index   int
+		plugin  AvailablePlugin
+		success bool
+	}
+
+	const maxConcurrent = 10
+	sem := make(chan struct{}, maxConcurrent)
+	results := make(chan result, len(pluginList.Plugins))
+
+	for i, plugin := range pluginList.Plugins {
+		sem <- struct{}{} // acquire
+		go func(idx int, p types.Plugin) {
+			defer func() { <-sem }() // release
+
+			skills, err := s.pluginService.GetPluginSkills(ctx, string(p.ID))
+			if err != nil {
+				s.logger.WithError(err).Warnf("Plugin %s unavailable, excluding from available list", p.ID)
+				results <- result{index: idx, success: false}
+				return
+			}
+			results <- result{
+				index: idx,
+				plugin: AvailablePlugin{
+					ID:       string(p.ID),
+					Name:     p.Title,
+					SkillsMD: skills.SkillsMD,
+				},
+				success: true,
+			}
+		}(i, plugin)
+	}
+
+	// Collect results into ordered slice, preserving original DB order
+	ordered := make([]*AvailablePlugin, len(pluginList.Plugins))
+	for range pluginList.Plugins {
+		r := <-results
+		if r.success {
+			ordered[r.index] = &r.plugin
+		}
+	}
+
+	// Filter out failed fetches while preserving order
+	available := make([]AvailablePlugin, 0, len(pluginList.Plugins))
+	for _, p := range ordered {
+		if p != nil {
+			available = append(available, *p)
+		}
+	}
+
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, AvailablePluginsResponse{
+		Plugins: available,
+	}))
+}
+
+// GetPluginSkills returns the skills for a specific plugin.
+// This endpoint is public and does not require authentication.
+// It is intended for AI agents to understand a plugin's capabilities.
+// Returns 404 if the plugin is not found or unavailable.
+func (s *Server) GetPluginSkills(c echo.Context) error {
+	pluginID := c.Param("pluginId")
+	if pluginID == "" {
+		return s.badRequest(c, msgRequiredPluginID, nil)
+	}
+
+	skills, err := s.pluginService.GetPluginSkills(c.Request().Context(), pluginID)
+	if err != nil {
+		s.logger.WithError(err).Warnf("Plugin %s not found or unavailable", pluginID)
+		return c.JSON(http.StatusNotFound, NewErrorResponseWithMessage("plugin not found or unavailable"))
+	}
+
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, skills))
+}
+
 // deriveSigningHashes derives signing hashes from transaction bytes based on chain type.
 // This is the core security function that ensures the verifier derives hashes independently,
 // preventing malicious plugins from substituting different hashes for signing.

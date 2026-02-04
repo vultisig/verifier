@@ -430,7 +430,11 @@ func (s *Server) UpdatePluginImage(c echo.Context) error {
 
 	if req.ImageOrder != nil {
 		img, err := s.db.GetPluginImageByID(ctx, types.PluginID(pluginID), imageID)
-		if err != nil || img == nil {
+		if err != nil {
+			s.logger.Errorf("failed to get plugin image: %v", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		}
+		if img == nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "image not found"})
 		}
 		if img.ImageType != itypes.PluginImageTypeMedia {

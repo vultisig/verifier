@@ -963,15 +963,22 @@ func (s *Server) GetAvailablePlugins(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	// Fetch skills from each plugin in parallel
+	// Fetch skills with bounded concurrency using semaphore.
+	// Note: Plugin count should be manageable for now, but semaphore ensures safety at scale.
 	type result struct {
 		plugin  AvailablePlugin
 		success bool
 	}
+
+	const maxConcurrent = 10
+	sem := make(chan struct{}, maxConcurrent)
 	results := make(chan result, len(pluginList.Plugins))
 
 	for _, plugin := range pluginList.Plugins {
+		sem <- struct{}{} // acquire
 		go func(p types.Plugin) {
+			defer func() { <-sem }() // release
+
 			skills, err := s.pluginService.GetPluginSkills(ctx, string(p.ID))
 			if err != nil {
 				s.logger.WithError(err).Warnf("Plugin %s unavailable, excluding from available list", p.ID)

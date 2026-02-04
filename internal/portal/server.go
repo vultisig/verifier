@@ -28,23 +28,6 @@ import (
 	vcommon "github.com/vultisig/vultisig-go/common"
 )
 
-const usdcDecimals int64 = 1_000_000
-
-func formatAmount(amount int64) string {
-	whole := amount / usdcDecimals
-	frac := amount % usdcDecimals
-	if frac == 0 {
-		return strconv.FormatInt(whole, 10)
-	}
-	if frac < 0 {
-		frac = -frac
-		if whole == 0 {
-			whole = -1
-		}
-	}
-	return fmt.Sprintf("%d.%06d", whole, frac)
-}
-
 type Server struct {
 	cfg           config.PortalConfig
 	pool          *pgxpool.Pool
@@ -327,13 +310,13 @@ func (s *Server) ListPlugins(c echo.Context) error {
 
 // PluginPricingResponse is the API response for plugin pricing
 type PluginPricingResponse struct {
-	ID        string  `json:"id"`
-	PluginID  string  `json:"pluginId"`
-	Asset     string  `json:"asset"`
-	Type      string  `json:"type"`
-	Frequency *string `json:"frequency"`
-	Amount    string  `json:"amount"`
-	Metric    string  `json:"metric"`
+	ID        string          `json:"id"`
+	PluginID  string          `json:"pluginId"`
+	Type      string          `json:"type"`
+	Frequency *string         `json:"frequency"`
+	Amount    string          `json:"amount"`
+	FeeAsset  itypes.FeeAsset `json:"fee_asset"`
+	Metric    string          `json:"metric"`
 }
 
 func (s *Server) GetPluginPricings(c echo.Context) error {
@@ -359,10 +342,10 @@ func (s *Server) GetPluginPricings(c echo.Context) error {
 		response[i] = PluginPricingResponse{
 			ID:        p.ID.String(),
 			PluginID:  string(p.PluginID),
-			Asset:     string(p.Asset),
 			Type:      string(p.Type),
 			Frequency: freq,
-			Amount:    formatAmount(p.Amount),
+			Amount:    strconv.FormatInt(p.Amount, 10),
+			FeeAsset:  itypes.DefaultFeeAsset,
 			Metric:    string(p.Metric),
 		}
 	}

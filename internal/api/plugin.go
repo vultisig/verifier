@@ -956,12 +956,11 @@ type AvailablePluginsResponse struct {
 // It is intended for AI agents to discover plugins and their capabilities.
 // Plugins that fail to respond to skills requests are excluded (considered unavailable).
 func (s *Server) GetAvailablePlugins(c echo.Context) error {
-	pluginList, err := s.db.FindPlugins(c.Request().Context(), types.PluginFilters{}, 1000, 0, "")
+	ctx := c.Request().Context()
+	pluginList, err := s.db.FindPlugins(ctx, types.PluginFilters{}, 1000, 0, "")
 	if err != nil {
 		return s.internal(c, msgGetPluginsFailed, err)
 	}
-
-	ctx := c.Request().Context()
 
 	// Fetch skills with bounded concurrency using semaphore.
 	// Note: Plugin count should be manageable for now, but semaphore ensures safety at scale.

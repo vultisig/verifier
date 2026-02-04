@@ -192,6 +192,7 @@ func (s *Server) StartServer() error {
 
 	pluginsGroup := e.Group("/plugins")
 	pluginsGroup.GET("", s.GetPlugins)
+	pluginsGroup.GET("/available", s.GetAvailablePlugins)
 	pluginsGroup.GET("/:pluginId", s.GetPlugin)
 	pluginsGroup.GET("/installed", s.GetInstalledPlugins, s.VaultAuthMiddleware)
 
@@ -200,6 +201,7 @@ func (s *Server) StartServer() error {
 	pluginsGroup.GET("/:pluginId/recipe-specification", s.GetPluginRecipeSpecification)
 	pluginsGroup.GET("/:pluginId/recipe-functions", s.GetPluginRecipeFunctions)
 	pluginsGroup.POST("/:pluginId/recipe-specification/suggest", s.GetPluginRecipeSpecificationSuggest)
+	pluginsGroup.GET("/:pluginId/skills", s.GetPluginSkills)
 	pluginsGroup.GET("/:pluginId/average-rating", s.GetPluginAvgRating)
 	pluginsGroup.POST("/:pluginId/report", s.ReportPlugin, s.VaultAuthMiddleware)
 

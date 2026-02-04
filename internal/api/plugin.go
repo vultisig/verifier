@@ -966,6 +966,7 @@ func (s *Server) GetAvailablePlugins(c echo.Context) error {
 	// Fetch skills with bounded concurrency using semaphore.
 	// Note: Plugin count should be manageable for now, but semaphore ensures safety at scale.
 	type result struct {
+		index   int
 		plugin  AvailablePlugin
 		success bool
 	}
@@ -974,18 +975,19 @@ func (s *Server) GetAvailablePlugins(c echo.Context) error {
 	sem := make(chan struct{}, maxConcurrent)
 	results := make(chan result, len(pluginList.Plugins))
 
-	for _, plugin := range pluginList.Plugins {
+	for i, plugin := range pluginList.Plugins {
 		sem <- struct{}{} // acquire
-		go func(p types.Plugin) {
+		go func(idx int, p types.Plugin) {
 			defer func() { <-sem }() // release
 
 			skills, err := s.pluginService.GetPluginSkills(ctx, string(p.ID))
 			if err != nil {
 				s.logger.WithError(err).Warnf("Plugin %s unavailable, excluding from available list", p.ID)
-				results <- result{success: false}
+				results <- result{index: idx, success: false}
 				return
 			}
 			results <- result{
+				index: idx,
 				plugin: AvailablePlugin{
 					ID:       string(p.ID),
 					Name:     p.Title,
@@ -993,15 +995,23 @@ func (s *Server) GetAvailablePlugins(c echo.Context) error {
 				},
 				success: true,
 			}
-		}(plugin)
+		}(i, plugin)
 	}
 
-	// Collect results, only include successful fetches
-	available := make([]AvailablePlugin, 0, len(pluginList.Plugins))
+	// Collect results into ordered slice, preserving original DB order
+	ordered := make([]*AvailablePlugin, len(pluginList.Plugins))
 	for range pluginList.Plugins {
 		r := <-results
 		if r.success {
-			available = append(available, r.plugin)
+			ordered[r.index] = &r.plugin
+		}
+	}
+
+	// Filter out failed fetches while preserving order
+	available := make([]AvailablePlugin, 0, len(pluginList.Plugins))
+	for _, p := range ordered {
+		if p != nil {
+			available = append(available, *p)
 		}
 	}
 

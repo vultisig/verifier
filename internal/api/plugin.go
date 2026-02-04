@@ -965,8 +965,8 @@ func (s *Server) GetAvailablePlugins(c echo.Context) error {
 
 	// Fetch skills from each plugin in parallel
 	type result struct {
-		plugin   AvailablePlugin
-		success  bool
+		plugin  AvailablePlugin
+		success bool
 	}
 	results := make(chan result, len(pluginList.Plugins))
 

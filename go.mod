@@ -35,6 +35,7 @@ require (
 	github.com/vultisig/vultiserver v0.0.0-20250825042420-c6e6ac281110
 	github.com/vultisig/vultisig-go v0.0.0-20260114092710-6c38516a0c85
 	github.com/xyield/xrpl-go v0.0.0-20230914223425-9abe75c05830
+	golang.org/x/image v0.0.0-20220302094943-723b81ca9867
 	golang.org/x/sync v0.16.0
 	google.golang.org/protobuf v1.36.8
 	sigs.k8s.io/yaml v1.6.0

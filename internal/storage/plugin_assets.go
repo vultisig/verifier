@@ -31,6 +31,7 @@ type PluginAssetStorage interface {
 	PresignPut(ctx context.Context, key, contentType string, expiry time.Duration) (string, error)
 	HeadObject(ctx context.Context, key string) (*ObjectMetadata, error)
 	GetObjectRange(ctx context.Context, key string, rangeStart, rangeEnd int64) ([]byte, error)
+	GetObject(ctx context.Context, key string) (io.ReadCloser, error)
 }
 
 type S3PluginAssetStorage struct {
@@ -165,4 +166,15 @@ func (s *S3PluginAssetStorage) GetObjectRange(ctx context.Context, key string, r
 	}
 	defer out.Body.Close()
 	return io.ReadAll(out.Body)
+}
+
+func (s *S3PluginAssetStorage) GetObject(ctx context.Context, key string) (io.ReadCloser, error) {
+	out, err := s.s3Client.GetObjectWithContext(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(s.cfg.Bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get object: %w", err)
+	}
+	return out.Body, nil
 }

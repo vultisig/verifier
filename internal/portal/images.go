@@ -2,6 +2,7 @@ package portal
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"path"
 	"strings"
@@ -18,8 +19,6 @@ import (
 )
 
 const (
-	initialRangeBytes     = 64 * 1024
-	extendedRangeBytes    = 256 * 1024
 	defaultMaxImageBytes  = 5 * 1024 * 1024
 	defaultMaxMediaImages = 10
 	maxFilenameLength     = 255
@@ -81,11 +80,20 @@ func (s *Server) ListPluginImages(c echo.Context) error {
 	}
 
 	includeHidden := owner.Role != queries.PluginOwnerRoleViewer
-	includeDeleted := c.QueryParam("include_deleted") == "true" && owner.Role == queries.PluginOwnerRoleAdmin
+	includeDeleted := false
+	if c.QueryParam("include_deleted") == "true" {
+		if owner.Role != queries.PluginOwnerRoleAdmin {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "only admins can view deleted images"})
+		}
+		includeDeleted = true
+	}
 
 	var imageTypeFilter *itypes.PluginImageType
 	if it := c.QueryParam("image_type"); it != "" {
 		t := itypes.PluginImageType(it)
+		if _, ok := itypes.ImageTypeConstraints[t]; !ok {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid image type"})
+		}
 		imageTypeFilter = &t
 	}
 
@@ -149,7 +157,10 @@ func (s *Server) GetImageUploadURL(c echo.Context) error {
 
 	imageID := uuid.New()
 	ext := contentTypeToExt(req.ContentType)
-	s3Key := fmt.Sprintf("plugins/%s/%s/%s%s", pluginID, req.ImageType, imageID.String(), ext)
+	if ext == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid content type"})
+	}
+	s3Key := fmt.Sprintf("plugins/%s/%s/%s%s", pluginID, string(imageType), imageID.String(), ext)
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -188,6 +199,17 @@ func (s *Server) GetImageUploadURL(c echo.Context) error {
 		}
 	}
 
+	expiry := s.cfg.PresignedURLExpiry
+	if expiry == 0 {
+		expiry = 15 * time.Minute
+	}
+
+	uploadURL, err := s.assetStorage.PresignPut(ctx, s3Key, req.ContentType, expiry)
+	if err != nil {
+		s.logger.Errorf("failed to presign put: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
 	_, err = s.db.CreatePendingPluginImage(ctx, tx, itypes.PluginImageCreateParams{
 		ID:                  imageID,
 		PluginID:            types.PluginID(pluginID),
@@ -207,17 +229,6 @@ func (s *Server) GetImageUploadURL(c echo.Context) error {
 	err = tx.Commit(ctx)
 	if err != nil {
 		s.logger.Errorf("failed to commit transaction: %v", err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
-	}
-
-	expiry := s.cfg.PresignedURLExpiry
-	if expiry == 0 {
-		expiry = 15 * time.Minute
-	}
-
-	uploadURL, err := s.assetStorage.PresignPut(ctx, s3Key, req.ContentType, expiry)
-	if err != nil {
-		s.logger.Errorf("failed to presign put: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
 
@@ -256,6 +267,12 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid image id"})
 	}
 
+	markPendingDeleted := func() {
+		if _, delErr := s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID); delErr != nil {
+			s.logger.Warnf("failed to soft-delete pending image %s: %v", imageID, delErr)
+		}
+	}
+
 	img, err := s.db.GetPluginImageByID(ctx, types.PluginID(pluginID), imageID)
 	if err != nil {
 		s.logger.Errorf("failed to get plugin image: %v", err)
@@ -271,16 +288,12 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "storage temporarily unavailable, please retry"})
 	}
 	if meta == nil {
-		if _, err := s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID); err != nil {
-			s.logger.Warnf("failed to soft-delete pending image %s: %v", imageID, err)
-		}
+		markPendingDeleted()
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "file not found in storage"})
 	}
 
 	if meta.ContentType == "" || !itypes.AllowedContentTypes[meta.ContentType] || meta.ContentType != img.ContentType {
-		if _, err := s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID); err != nil {
-			s.logger.Warnf("failed to soft-delete pending image %s: %v", imageID, err)
-		}
+		markPendingDeleted()
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid content type"})
 	}
 
@@ -289,56 +302,49 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 		maxSize = defaultMaxImageBytes
 	}
 	if meta.ContentLength > maxSize {
-		if _, err := s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID); err != nil {
-			s.logger.Warnf("failed to soft-delete pending image %s: %v", imageID, err)
-		}
+		markPendingDeleted()
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "image file too large"})
 	}
 
-	rangeEnd := int64(initialRangeBytes)
-	data, err := s.assetStorage.GetObjectRange(ctx, img.S3Path, 0, rangeEnd)
+	reader, err := s.assetStorage.GetObject(ctx, img.S3Path)
 	if err != nil {
-		s.logger.Errorf("failed to get object range: %v", err)
+		s.logger.Errorf("failed to get object: %v", err)
+		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "storage temporarily unavailable, please retry"})
+	}
+	defer reader.Close()
+
+	limitedReader := io.LimitReader(reader, maxSize+1)
+	data, err := io.ReadAll(limitedReader)
+	if err != nil {
+		s.logger.Errorf("failed to read object: %v", err)
 		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "storage temporarily unavailable, please retry"})
 	}
 
-	detectedType := DetectContentType(data)
-	if detectedType != img.ContentType {
-		if _, err := s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID); err != nil {
-			s.logger.Warnf("failed to soft-delete pending image %s: %v", imageID, err)
-		}
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "file content does not match declared content type"})
+	if int64(len(data)) > maxSize {
+		markPendingDeleted()
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "image file too large"})
 	}
 
-	width, height, parseErr := ParseImageDimensions(data, detectedType)
-	if parseErr != nil && detectedType == "image/jpeg" {
-		rangeEnd = int64(extendedRangeBytes)
-		extendedData, storageErr := s.assetStorage.GetObjectRange(ctx, img.S3Path, 0, rangeEnd)
-		if storageErr != nil {
-			s.logger.Errorf("failed to get extended object range: %v", storageErr)
-			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "storage temporarily unavailable, please retry"})
-		}
-		width, height, parseErr = ParseImageDimensions(extendedData, detectedType)
-	}
+	info, parseErr := ParseImageInfo(data)
 	if parseErr != nil {
-		if _, err := s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID); err != nil {
-			s.logger.Warnf("failed to soft-delete pending image %s: %v", imageID, err)
-		}
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "failed to parse image dimensions"})
+		s.logger.Warnf("failed to parse image info for %s: %v", imageID, parseErr)
+		markPendingDeleted()
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "failed to parse image"})
+	}
+
+	if info.MIME != img.ContentType {
+		markPendingDeleted()
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "file content does not match declared content type"})
 	}
 
 	constraints, ok := itypes.ImageTypeConstraints[img.ImageType]
 	if !ok {
 		s.logger.Errorf("unknown image type %q for image %s", img.ImageType, imageID)
-		if _, err := s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID); err != nil {
-			s.logger.Warnf("failed to soft-delete pending image %s: %v", imageID, err)
-		}
+		markPendingDeleted()
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid image type"})
 	}
-	if width > constraints.MaxWidth || height > constraints.MaxHeight {
-		if _, err := s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID); err != nil {
-			s.logger.Warnf("failed to soft-delete pending image %s: %v", imageID, err)
-		}
+	if info.Width > constraints.MaxWidth || info.Height > constraints.MaxHeight {
+		markPendingDeleted()
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("image exceeds maximum dimensions of %dx%d", constraints.MaxWidth, constraints.MaxHeight)})
 	}
 
@@ -366,14 +372,14 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		}
 		if count >= maxMedia {
-			if _, err := s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID); err != nil {
+			if _, err := s.db.SoftDeletePluginImageTx(ctx, tx, types.PluginID(pluginID), imageID); err != nil {
 				s.logger.Warnf("failed to soft-delete pending image %s: %v", imageID, err)
 			}
 			return c.JSON(http.StatusConflict, map[string]string{"error": "maximum media images limit exceeded"})
 		}
 	}
 
-	err = s.db.ConfirmPluginImage(ctx, tx, types.PluginID(pluginID), imageID)
+	confirmedImg, err := s.db.ConfirmPluginImage(ctx, tx, types.PluginID(pluginID), imageID)
 	if err != nil {
 		s.logger.Errorf("failed to confirm plugin image: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
@@ -385,21 +391,7 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
 
-	img, err = s.db.GetPluginImageByID(ctx, types.PluginID(pluginID), imageID)
-	if err != nil {
-		if img != nil {
-			s.logger.Warnf("error fetching confirmed image (returning anyway): %v", err)
-			return c.JSON(http.StatusOK, toImageResponse(*img, s.assetStorage.GetPublicURL(img.S3Path)))
-		}
-		s.logger.Errorf("failed to fetch confirmed image: %v", err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
-	}
-	if img == nil {
-		s.logger.Errorf("confirmed image not found after commit")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
-	}
-
-	return c.JSON(http.StatusOK, toImageResponse(*img, s.assetStorage.GetPublicURL(img.S3Path)))
+	return c.JSON(http.StatusOK, toImageResponse(*confirmedImg, s.assetStorage.GetPublicURL(confirmedImg.S3Path)))
 }
 
 func (s *Server) UpdatePluginImage(c echo.Context) error {
@@ -605,6 +597,7 @@ func sanitizeFilename(filename string) string {
 		result = result[:truncateAt]
 	}
 
+	result = strings.TrimSpace(result)
 	if result == "" || result == "." || result == ".." {
 		result = "file"
 	}

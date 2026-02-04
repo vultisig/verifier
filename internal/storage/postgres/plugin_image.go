@@ -150,6 +150,19 @@ func (p *PostgresBackend) SoftDeletePluginImage(ctx context.Context, pluginID ty
 	return s3Path, nil
 }
 
+func (p *PostgresBackend) SoftDeletePluginImageTx(ctx context.Context, tx pgx.Tx, pluginID types.PluginID, imageID uuid.UUID) (string, error) {
+	query := `UPDATE plugin_images SET deleted = true, visible = false, updated_at = NOW() WHERE plugin_id = $1 AND id = $2 AND deleted = false RETURNING s3_path`
+	var s3Path string
+	err := tx.QueryRow(ctx, query, pluginID, imageID).Scan(&s3Path)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", fmt.Errorf("plugin image not found: %s", imageID)
+		}
+		return "", fmt.Errorf("failed to soft delete plugin image: %w", err)
+	}
+	return s3Path, nil
+}
+
 func (p *PostgresBackend) ReplacePluginImage(ctx context.Context, pluginID types.PluginID, imageType itypes.PluginImageType, s3Path, contentType, filename, uploadedBy string) (*itypes.PluginImageRecord, error) {
 	if imageType == itypes.PluginImageTypeMedia {
 		return nil, fmt.Errorf("ReplacePluginImage not valid for media type, use CreatePluginImage instead")
@@ -388,14 +401,14 @@ func (p *PostgresBackend) ListPluginImages(ctx context.Context, params ListPlugi
 	return records, nil
 }
 
-func (p *PostgresBackend) ConfirmPluginImage(ctx context.Context, tx pgx.Tx, pluginID types.PluginID, imageID uuid.UUID) error {
+func (p *PostgresBackend) ConfirmPluginImage(ctx context.Context, tx pgx.Tx, pluginID types.PluginID, imageID uuid.UUID) (*itypes.PluginImageRecord, error) {
 	var imageType string
 	err := tx.QueryRow(ctx, `SELECT image_type FROM plugin_images WHERE id = $1 AND plugin_id = $2 AND visible = false AND deleted = false`, imageID, pluginID).Scan(&imageType)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return fmt.Errorf("pending image not found")
+			return nil, fmt.Errorf("pending image not found")
 		}
-		return fmt.Errorf("failed to get pending image type: %w", err)
+		return nil, fmt.Errorf("failed to get pending image type: %w", err)
 	}
 
 	if imageType != "media" {
@@ -405,24 +418,38 @@ func (p *PostgresBackend) ConfirmPluginImage(ctx context.Context, tx pgx.Tx, plu
 			WHERE plugin_id = $1 AND image_type = $2 AND deleted = false AND visible = true AND id <> $3
 		`, pluginID, imageType, imageID)
 		if err != nil {
-			return fmt.Errorf("failed to soft delete existing singleton: %w", err)
+			return nil, fmt.Errorf("failed to soft delete existing singleton: %w", err)
 		}
 	}
 
-	result, err := tx.Exec(ctx, `
+	var r itypes.PluginImageRecord
+	err = tx.QueryRow(ctx, `
 		UPDATE plugin_images
 		SET visible = true, updated_at = NOW()
 		WHERE id = $1 AND plugin_id = $2 AND visible = false AND deleted = false
-	`, imageID, pluginID)
+		RETURNING id, plugin_id, image_type, s3_path, image_order, uploaded_by_public_key, visible, deleted, content_type, filename, created_at, updated_at
+	`, imageID, pluginID).Scan(
+		&r.ID,
+		&r.PluginID,
+		&r.ImageType,
+		&r.S3Path,
+		&r.ImageOrder,
+		&r.UploadedByPublicKey,
+		&r.Visible,
+		&r.Deleted,
+		&r.ContentType,
+		&r.Filename,
+		&r.CreatedAt,
+		&r.UpdatedAt,
+	)
 	if err != nil {
-		return fmt.Errorf("failed to confirm plugin image: %w", err)
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("pending image not found or already confirmed")
+		}
+		return nil, fmt.Errorf("failed to confirm plugin image: %w", err)
 	}
 
-	if result.RowsAffected() == 0 {
-		return fmt.Errorf("pending image not found or already confirmed")
-	}
-
-	return nil
+	return &r, nil
 }
 
 func (p *PostgresBackend) UpdatePluginImage(ctx context.Context, pluginID types.PluginID, imageID uuid.UUID, visible *bool, imageOrder *int) (*itypes.PluginImageRecord, error) {

@@ -14,6 +14,10 @@ type Spec interface {
 	// Suggest generates policy suggestions based on configuration.
 	// Context is required as implementations may make RPC calls to external services.
 	Suggest(ctx context.Context, configuration map[string]any) (*rtypes.PolicySuggest, error)
+	// GetPluginID returns the unique identifier for this plugin.
+	GetPluginID() string
+	// GetSkills returns markdown describing the plugin's capabilities for AI agents.
+	GetSkills() string
 }
 
 // Unimplemented for backward compatibility in the case of new interface methods
@@ -30,4 +34,12 @@ func (*Unimplemented) ValidatePluginPolicy(_ types.PluginPolicy) error {
 
 func (*Unimplemented) Suggest(_ context.Context, _ map[string]any) (*rtypes.PolicySuggest, error) {
 	return nil, errors.New("not implemented")
+}
+
+func (*Unimplemented) GetPluginID() string {
+	return ""
+}
+
+func (*Unimplemented) GetSkills() string {
+	return ""
 }

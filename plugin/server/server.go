@@ -129,6 +129,8 @@ func (s *Server) GetRouter() *echo.Echo {
 	plg.DELETE("/policy/:policyId", s.handleDeletePluginPolicyById, s.VerifierAuthMiddleware)
 	plg.PUT("/safety", s.handleSyncSafety, s.VerifierAuthMiddleware)
 
+	e.GET("/skills", s.handleGetSkills)
+
 	return e
 }
 
@@ -162,6 +164,19 @@ func (s *Server) Start(ctx context.Context) error {
 
 func (s *Server) handleHealthz(c echo.Context) error {
 	return c.String(http.StatusOK, "plugin server is running")
+}
+
+// SkillsResponse represents the response for the /skills endpoint.
+type SkillsResponse struct {
+	PluginID string `json:"plugin_id"`
+	SkillsMD string `json:"skills_md"`
+}
+
+func (s *Server) handleGetSkills(c echo.Context) error {
+	return c.JSON(http.StatusOK, SkillsResponse{
+		PluginID: s.spec.GetPluginID(),
+		SkillsMD: s.spec.GetSkills(),
+	})
 }
 
 // ReshareVault is a handler to reshare a vault

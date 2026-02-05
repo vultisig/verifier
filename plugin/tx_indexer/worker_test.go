@@ -138,6 +138,8 @@ func TestWorker_positive(t *testing.T) {
 	}
 }
 
+// TestWorker_failedTransaction tests error message extraction for failed EVM transactions.
+// Uses real failed transactions from Sepolia testnet. Requires RPC_ETHEREUM_URL pointing to Sepolia.
 func TestWorker_failedTransaction(t *testing.T) {
 	if os.Getenv("INTEGRATION_TESTS") != "true" {
 		return
@@ -150,6 +152,7 @@ func TestWorker_failedTransaction(t *testing.T) {
 	defer stop()
 
 	type suite struct {
+		name                 string
 		chain                common.Chain
 		hash                 string
 		fromPublicKey        string
@@ -158,15 +161,27 @@ func TestWorker_failedTransaction(t *testing.T) {
 		expectedErrorContain string
 	}
 
-	for _, testcase := range []suite{{
-		chain:                common.Ethereum,
-		hash:                 "0x2e82f8e5d0e3bbd5e5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5",
-		fromPublicKey:        "0x0000000000000000000000000000000000000001",
-		toPublicKey:          "0x0000000000000000000000000000000000000002",
-		expectedStatus:       rpc.TxOnChainFail,
-		expectedErrorContain: "",
-	}} {
-		t.Run(testcase.chain.String()+"_failed", func(t *testing.T) {
+	for _, testcase := range []suite{
+		{
+			name:                 "out_of_gas",
+			chain:                common.Ethereum,
+			hash:                 "0x93914a5ed4244d24f6a5570dfd6cbf5dfc8d5f6083e6691072a52e25250a7fd4",
+			fromPublicKey:        "0xdF918324C0BBa4BA463f208328451C5710311a65",
+			toPublicKey:          "0xd8A62e777714535c9A3006872661263a825F8803",
+			expectedStatus:       rpc.TxOnChainFail,
+			expectedErrorContain: "out of gas",
+		},
+		{
+			name:                 "transaction_reverted",
+			chain:                common.Ethereum,
+			hash:                 "0x66b5d3e2a830b0fd10439112d60e0240cea042b6f4bd11eac6721116cf0b4020",
+			fromPublicKey:        "0xD7D771d3024A3d6C7CaEaF669048D54cD1a0C3c4",
+			toPublicKey:          "0x81027470d5626e93C31935d9c7666F5392464943",
+			expectedStatus:       rpc.TxOnChainFail,
+			expectedErrorContain: "transaction reverted",
+		},
+	} {
+		t.Run(testcase.name, func(t *testing.T) {
 			policyID, err := uuid.NewUUID()
 			require.Nil(t, err)
 
@@ -190,16 +205,13 @@ func TestWorker_failedTransaction(t *testing.T) {
 			require.Nil(t, err)
 
 			require.Equal(t, conv.Ptr(testcase.expectedStatus), txAfter.StatusOnChain)
+			require.NotNil(t, txAfter.ErrorMessage)
+			require.Contains(t, *txAfter.ErrorMessage, testcase.expectedErrorContain)
 
-			if testcase.expectedErrorContain != "" {
-				require.NotNil(t, txAfter.ErrorMessage)
-				require.Contains(t, *txAfter.ErrorMessage, testcase.expectedErrorContain)
-			}
-
-			t.Logf("Chain: %s, Status: %v, ErrorMessage: %v",
-				testcase.chain.String(),
+			t.Logf("Hash: %s, Status: %v, ErrorMessage: %s",
+				testcase.hash,
 				*txAfter.StatusOnChain,
-				conv.FromPtr(txAfter.ErrorMessage))
+				*txAfter.ErrorMessage)
 		})
 	}
 }

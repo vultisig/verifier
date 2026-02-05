@@ -74,8 +74,8 @@ func (t *Service) SetStatus(ctx context.Context, txID uuid.UUID, status storage.
 	return nil
 }
 
-func (t *Service) SetOnChainStatus(ctx context.Context, txID uuid.UUID, status rpc.TxOnChainStatus) error {
-	err := t.repo.SetOnChainStatus(ctx, txID, status)
+func (t *Service) SetOnChainStatus(ctx context.Context, txID uuid.UUID, status rpc.TxOnChainStatus, errorMessage *string) error {
+	err := t.repo.SetOnChainStatus(ctx, txID, status, errorMessage)
 	if err != nil {
 		return fmt.Errorf("t.repo.SetOnChainStatus: %w", err)
 	}

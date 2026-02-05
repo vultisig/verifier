@@ -26,6 +26,7 @@ type PluginTransactionResponse struct {
 	TxHash        *string              `json:"tx_hash"`
 	Status        storage.TxStatus     `json:"status"`
 	StatusOnChain *rpc.TxOnChainStatus `json:"status_onchain"`
+	ErrorMessage  *string              `json:"error_message"`
 	CreatedAt     time.Time            `json:"created_at"`
 	UpdatedAt     time.Time            `json:"updated_at"`
 	BroadcastedAt *time.Time           `json:"broadcasted_at"`
@@ -50,6 +51,7 @@ func FromStorageTxs(txs []storage.Tx, titleMap map[string]string) []PluginTransa
 			TxHash:        tx.TxHash,
 			Status:        tx.Status,
 			StatusOnChain: tx.StatusOnChain,
+			ErrorMessage:  tx.ErrorMessage,
 			CreatedAt:     tx.CreatedAt,
 			UpdatedAt:     tx.UpdatedAt,
 			BroadcastedAt: tx.BroadcastedAt,

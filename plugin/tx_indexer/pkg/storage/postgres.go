@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,6 +12,8 @@ import (
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
 	"github.com/vultisig/verifier/types"
 )
+
+const maxErrorMessageLength = 2048
 
 type PostgresTxIndexStore struct {
 	pool *pgxpool.Pool
@@ -116,18 +119,29 @@ func (p *PostgresTxIndexStore) SetStatus(c context.Context, id uuid.UUID, status
 	return nil
 }
 
-func (p *PostgresTxIndexStore) SetLost(c context.Context, id uuid.UUID) error {
+func (p *PostgresTxIndexStore) SetLost(c context.Context, id uuid.UUID, errorMessage string) error {
 	ctx, cancel := context.WithTimeout(c, defaultTimeout)
 	defer cancel()
+
+	var errMsg *string
+	errorMessage = strings.TrimSpace(errorMessage)
+	if errorMessage != "" {
+		if len(errorMessage) > maxErrorMessageLength {
+			errorMessage = errorMessage[:maxErrorMessageLength]
+		}
+		errMsg = &errorMessage
+	}
 
 	_, err := p.pool.Exec(
 		ctx,
 		`UPDATE tx_indexer SET lost = $1,
                                    status_onchain = $2::tx_indexer_status_onchain,
+                                   error_message = $3,
                                    updated_at = now()
-                               WHERE id = $3`,
+                               WHERE id = $4`,
 		true,
 		rpc.TxOnChainFail,
+		errMsg,
 		id,
 	)
 	if err != nil {
@@ -159,16 +173,18 @@ func (p *PostgresTxIndexStore) SetSignedAndBroadcasted(c context.Context, id uui
 	return nil
 }
 
-func (p *PostgresTxIndexStore) SetOnChainStatus(c context.Context, id uuid.UUID, status rpc.TxOnChainStatus) error {
+func (p *PostgresTxIndexStore) SetOnChainStatus(c context.Context, id uuid.UUID, status rpc.TxOnChainStatus, errorMessage *string) error {
 	ctx, cancel := context.WithTimeout(c, defaultTimeout)
 	defer cancel()
 
 	_, err := p.pool.Exec(
 		ctx,
 		`UPDATE tx_indexer SET status_onchain = $1::tx_indexer_status_onchain,
-                                   updated_at = now()
-                               WHERE id = $2`,
+		                       error_message = $2,
+                               updated_at = now()
+                           WHERE id = $3`,
 		status,
+		errorMessage,
 		id,
 	)
 	if err != nil {
@@ -450,7 +466,8 @@ func TxFromRow(rows pgx.Rows) (Tx, error) {
 		&tx.BroadcastedAt,
 		&tx.CreatedAt,
 		&tx.UpdatedAt,
-		&tx.Amount, // Added at end by ALTER TABLE
+		&tx.Amount,
+		&tx.ErrorMessage,
 	)
 	if err != nil {
 		return Tx{}, fmt.Errorf("rows.Scan: %w", err)

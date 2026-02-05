@@ -37,62 +37,57 @@ func NewUtxo(baseURL, chainPath string) (*Utxo, error) {
 // Returns TxOnChainPending if the transaction is not yet confirmed or not found,
 // TxOnChainSuccess if the transaction is confirmed with at least one confirmation,
 // or an error if the HTTP request or response parsing fails.
-func (u *Utxo) GetTxStatus(ctx context.Context, txHash string) (TxOnChainStatus, error) {
+// Note: This client does not attempt to extract/store failure reasons for UTXO chains;
+// it only returns pending vs confirmed. UTXO broadcast/mempool rejection reasons aren't captured here.
+func (u *Utxo) GetTxStatus(ctx context.Context, txHash string) (TxStatusResult, error) {
 	url := fmt.Sprintf("%s/%s/dashboards/transaction/%s", u.baseURL, u.chainPath, txHash)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return TxStatusResult{}, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	resp, err := u.client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to make request: %w", err)
+		return TxStatusResult{}, fmt.Errorf("failed to make request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// 404 or similar means transaction not found - treat as pending
 	if resp.StatusCode == http.StatusNotFound {
-		return TxOnChainPending, nil
+		return NewTxStatusResult(TxOnChainPending, ""), nil
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("blockchair API returned status %d", resp.StatusCode)
+		return TxStatusResult{}, fmt.Errorf("blockchair API returned status %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
+		return TxStatusResult{}, fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	var txResp blockchairTxResponse
 	if err := json.Unmarshal(body, &txResp); err != nil {
-		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+		return TxStatusResult{}, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
-	// Check for API-level errors
 	if txResp.Context.Code != 200 || txResp.Context.Error != "" {
-		// Only treat "not found" as pending; propagate other errors
-		// Blockchair returns code 404 for not found transactions
 		if txResp.Context.Code == 404 {
-			return TxOnChainPending, nil
+			return NewTxStatusResult(TxOnChainPending, ""), nil
 		}
-		return "", fmt.Errorf("blockchair API error: code=%d, error=%s", txResp.Context.Code, txResp.Context.Error)
+		return TxStatusResult{}, fmt.Errorf("blockchair API error: code=%d, error=%s", txResp.Context.Code, txResp.Context.Error)
 	}
 
-	// Check if transaction data exists
 	txData, exists := txResp.Data[txHash]
 	if !exists {
-		return TxOnChainPending, nil
+		return NewTxStatusResult(TxOnChainPending, ""), nil
 	}
 
-	// Check confirmations
 	if txData.Transaction.BlockID == 0 || txData.Transaction.Confirmations == 0 {
-		return TxOnChainPending, nil
+		return NewTxStatusResult(TxOnChainPending, ""), nil
 	}
 
-	// Transaction is confirmed
-	return TxOnChainSuccess, nil
+	return NewTxStatusResult(TxOnChainSuccess, ""), nil
 }
 
 // NewLitecoin creates a Litecoin RPC client using Blockchair

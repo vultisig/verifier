@@ -137,3 +137,69 @@ func TestWorker_positive(t *testing.T) {
 		require.Equal(t, conv.Ptr(rpc.TxOnChainSuccess), txAfter.StatusOnChain, testcase.chain.String())
 	}
 }
+
+func TestWorker_failedTransaction(t *testing.T) {
+	if os.Getenv("INTEGRATION_TESTS") != "true" {
+		return
+	}
+
+	ctx := context.Background()
+
+	worker, stop, db, createErr := createWorker()
+	require.Nil(t, createErr)
+	defer stop()
+
+	type suite struct {
+		chain                common.Chain
+		hash                 string
+		fromPublicKey        string
+		toPublicKey          string
+		expectedStatus       rpc.TxOnChainStatus
+		expectedErrorContain string
+	}
+
+	for _, testcase := range []suite{{
+		chain:                common.Ethereum,
+		hash:                 "0x2e82f8e5d0e3bbd5e5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5",
+		fromPublicKey:        "0x0000000000000000000000000000000000000001",
+		toPublicKey:          "0x0000000000000000000000000000000000000002",
+		expectedStatus:       rpc.TxOnChainFail,
+		expectedErrorContain: "",
+	}} {
+		t.Run(testcase.chain.String()+"_failed", func(t *testing.T) {
+			policyID, err := uuid.NewUUID()
+			require.Nil(t, err)
+
+			txBefore, err := db.CreateTx(ctx, storage.CreateTxDto{
+				PluginID:      "vultisig-test-0000",
+				ChainID:       testcase.chain,
+				PolicyID:      policyID,
+				FromPublicKey: testcase.fromPublicKey,
+				ToPublicKey:   testcase.toPublicKey,
+				ProposedTxHex: "0x1",
+			})
+			require.Nil(t, err)
+
+			err = db.SetSignedAndBroadcasted(ctx, txBefore.ID, testcase.hash)
+			require.Nil(t, err)
+
+			err = worker.updatePendingTxs()
+			require.Nil(t, err)
+
+			txAfter, err := db.GetTxByID(ctx, txBefore.ID)
+			require.Nil(t, err)
+
+			require.Equal(t, conv.Ptr(testcase.expectedStatus), txAfter.StatusOnChain)
+
+			if testcase.expectedErrorContain != "" {
+				require.NotNil(t, txAfter.ErrorMessage)
+				require.Contains(t, *txAfter.ErrorMessage, testcase.expectedErrorContain)
+			}
+
+			t.Logf("Chain: %s, Status: %v, ErrorMessage: %v",
+				testcase.chain.String(),
+				*txAfter.StatusOnChain,
+				conv.FromPtr(txAfter.ErrorMessage))
+		})
+	}
+}

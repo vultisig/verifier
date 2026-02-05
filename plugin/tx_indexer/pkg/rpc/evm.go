@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
@@ -31,23 +32,36 @@ func NewEvm(c context.Context, rpcURL string) (*Evm, error) {
 	}, nil
 }
 
-func (r *Evm) GetTxStatus(ct context.Context, txHash string) (TxOnChainStatus, error) {
+func (r *Evm) GetTxStatus(ct context.Context, txHash string) (TxStatusResult, error) {
 	ctx, cancel := context.WithTimeout(ct, defaultTimeout)
 	defer cancel()
 
-	rec, err := r.client.TransactionReceipt(ctx, common.HexToHash(txHash))
+	hash := common.HexToHash(txHash)
+	rec, err := r.client.TransactionReceipt(ctx, hash)
 	if err != nil {
 		if errors.Is(err, ethereum.NotFound) {
-			return TxOnChainPending, nil
+			return NewTxStatusResult(TxOnChainPending, ""), nil
 		}
-		return "", fmt.Errorf("r.client.TransactionReceipt: %w", err)
+		return TxStatusResult{}, fmt.Errorf("r.client.TransactionReceipt: %w", err)
 	}
 	switch rec.Status {
 	case 0:
-		return TxOnChainFail, nil
+		errorMsg := r.extractErrorMessage(ctx, hash, rec)
+		return NewTxStatusResult(TxOnChainFail, errorMsg), nil
 	case 1:
-		return TxOnChainSuccess, nil
+		return NewTxStatusResult(TxOnChainSuccess, ""), nil
 	default:
-		return "", errors.New("r.client.TransactionReceipt: unknown tx receipt status by hash=" + txHash)
+		return TxStatusResult{}, errors.New("r.client.TransactionReceipt: unknown tx receipt status by hash=" + txHash)
 	}
+}
+
+func (r *Evm) extractErrorMessage(ctx context.Context, hash common.Hash, rec *types.Receipt) string {
+	tx, _, err := r.client.TransactionByHash(ctx, hash)
+	if err != nil {
+		return "transaction reverted"
+	}
+	if tx != nil && rec.GasUsed == tx.Gas() {
+		return "out of gas"
+	}
+	return "transaction reverted"
 }

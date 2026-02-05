@@ -370,7 +370,8 @@ CREATE TABLE "tx_indexer" (
     "broadcasted_at" timestamp without time zone,
     "created_at" timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     "updated_at" timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    "amount" "text"
+    "amount" "text",
+    "error_message" "text"
 );
 
 CREATE TABLE "vault_tokens" (

@@ -9,13 +9,6 @@ S3_ACCESS_KEY ?= minioadmin
 S3_SECRET_KEY ?= minioadmin
 S3_BUCKET ?= vultisig-verifier
 
-# Plugin assets S3 config (defaults to local MinIO)
-PLUGIN_ASSETS_HOST ?= $(S3_ENDPOINT)
-PLUGIN_ASSETS_BUCKET ?= vultisig-plugin-assets
-PLUGIN_ASSETS_ACCESS_KEY ?= $(S3_ACCESS_KEY)
-PLUGIN_ASSETS_SECRET ?= $(S3_SECRET_KEY)
-PLUGIN_ASSETS_REGION ?= us-east-1
-
 # vcli defaults for integration tests
 DATABASE_DSN ?= postgres://vultisig:vultisig@localhost:5432/vultisig-verifier?sslmode=disable
 ENCRYPTION_SECRET ?= dev-encryption-secret-32b
@@ -85,11 +78,6 @@ run-portal:
 	SERVER_HMAC_SECRET=test-hmac-secret \
 	DATABASE_DSN="$(DATABASE_DSN)" \
 	MAX_API_KEYS_PER_PLUGIN=$(MAX_API_KEYS_PER_PLUGIN) \
-	PLUGIN_ASSETS_HOST=$(PLUGIN_ASSETS_HOST) \
-	PLUGIN_ASSETS_BUCKET=$(PLUGIN_ASSETS_BUCKET) \
-	PLUGIN_ASSETS_ACCESS_KEY=$(PLUGIN_ASSETS_ACCESS_KEY) \
-	PLUGIN_ASSETS_SECRET=$(PLUGIN_ASSETS_SECRET) \
-	PLUGIN_ASSETS_REGION=$(PLUGIN_ASSETS_REGION) \
 	go run cmd/portal/main.go
 
 # Dump database schema

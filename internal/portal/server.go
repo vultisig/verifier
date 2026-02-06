@@ -22,8 +22,6 @@ import (
 
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/sigutil"
-	"github.com/vultisig/verifier/internal/storage"
-	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/internal/storage/postgres/queries"
 	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/vultisig-go/address"
@@ -37,11 +35,9 @@ type Server struct {
 	logger        *logrus.Logger
 	authService   *PortalAuthService
 	inviteService *InviteService
-	db            *postgres.PostgresBackend
-	assetStorage  storage.PluginAssetStorage
 }
 
-func NewServer(cfg config.PortalConfig, pool *pgxpool.Pool, db *postgres.PostgresBackend, assetStorage storage.PluginAssetStorage) *Server {
+func NewServer(cfg config.PortalConfig, pool *pgxpool.Pool) *Server {
 	logger := logrus.WithField("service", "portal").Logger
 	return &Server{
 		cfg:           cfg,
@@ -50,8 +46,6 @@ func NewServer(cfg config.PortalConfig, pool *pgxpool.Pool, db *postgres.Postgre
 		logger:        logger,
 		authService:   NewPortalAuthService(cfg.Server.JWTSecret, logger),
 		inviteService: NewInviteService(cfg.Server.HMACSecret, cfg.Server.BaseURL),
-		db:            db,
-		assetStorage:  assetStorage,
 	}
 }
 
@@ -106,13 +100,6 @@ func (s *Server) registerRoutes(e *echo.Echo) {
 	// Earnings
 	protected.GET("/earnings", s.GetEarnings)
 	protected.GET("/earnings/summary", s.GetEarningsSummary)
-	// Image management
-	protected.GET("/plugins/:id/images", s.ListPluginImages)
-	protected.POST("/plugins/:id/images/upload-url", s.GetImageUploadURL)
-	protected.POST("/plugins/:id/images/:imageId/confirm", s.ConfirmImageUpload)
-	protected.PATCH("/plugins/:id/images/:imageId", s.UpdatePluginImage)
-	protected.DELETE("/plugins/:id/images/:imageId", s.DeletePluginImage)
-	protected.PUT("/plugins/:id/images/order", s.ReorderPluginImages)
 }
 
 func (s *Server) Healthz(c echo.Context) error {

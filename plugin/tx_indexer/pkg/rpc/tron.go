@@ -69,13 +69,13 @@ func NewTron(ctx context.Context, rpcURL string) (*Tron, error) {
 	return tron, nil
 }
 
-func (t *Tron) GetTxStatus(ctx context.Context, txHash string) (TxOnChainStatus, error) {
+func (t *Tron) GetTxStatus(ctx context.Context, txHash string) (TxStatusResult, error) {
 	if ctx.Err() != nil {
-		return "", ctx.Err()
+		return TxStatusResult{}, ctx.Err()
 	}
 
 	if txHash == "" {
-		return "", fmt.Errorf("txHash cannot be empty")
+		return TxStatusResult{}, fmt.Errorf("txHash cannot be empty")
 	}
 
 	req := TronRequest{
@@ -84,38 +84,37 @@ func (t *Tron) GetTxStatus(ctx context.Context, txHash string) (TxOnChainStatus,
 
 	respBody, err := t.makeRequest(ctx, "/wallet/gettransactioninfobyid", req)
 	if err != nil {
-		return "", fmt.Errorf("failed to get transaction info: %w", err)
+		return TxStatusResult{}, fmt.Errorf("failed to get transaction info: %w", err)
 	}
 
-	// Empty response means transaction not found (pending or doesn't exist)
 	if len(respBody) == 0 || string(respBody) == "{}" {
-		return TxOnChainPending, nil
+		return NewTxStatusResult(TxOnChainPending, ""), nil
 	}
 
 	var txInfo TronTransactionInfoResponse
 	if err := json.Unmarshal(respBody, &txInfo); err != nil {
-		return "", fmt.Errorf("failed to unmarshal Tron transaction response: %w", err)
+		return TxStatusResult{}, fmt.Errorf("failed to unmarshal Tron transaction response: %w", err)
 	}
 
-	// If ID is empty, transaction not found
 	if txInfo.ID == "" {
-		return TxOnChainPending, nil
+		return NewTxStatusResult(TxOnChainPending, ""), nil
 	}
 
-	// Check for explicit failure in Result field
 	if txInfo.Result == "FAILED" {
-		return TxOnChainFail, nil
+		errorMsg := txInfo.Receipt.Result
+		if errorMsg == "" {
+			errorMsg = "FAILED"
+		}
+		return NewTxStatusResult(TxOnChainFail, errorMsg), nil
 	}
 
-	// Check receipt result - empty or "SUCCESS" means success
 	switch txInfo.Receipt.Result {
 	case "", "SUCCESS":
-		return TxOnChainSuccess, nil
+		return NewTxStatusResult(TxOnChainSuccess, ""), nil
 	case "REVERT", "OUT_OF_ENERGY", "OUT_OF_TIME", "UNKNOWN":
-		return TxOnChainFail, nil
+		return NewTxStatusResult(TxOnChainFail, txInfo.Receipt.Result), nil
 	default:
-		// Any other receipt result is considered a failure
-		return TxOnChainFail, nil
+		return NewTxStatusResult(TxOnChainFail, txInfo.Receipt.Result), nil
 	}
 }
 

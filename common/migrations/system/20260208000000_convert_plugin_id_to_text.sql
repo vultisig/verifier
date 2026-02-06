@@ -56,6 +56,7 @@ BEGIN
         JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
         JOIN pg_type t ON t.oid = att.atttypid
         WHERE nsp.nspname = 'public'
+          AND rel.relkind = 'r'
           AND con.contype = 'f'
           AND t.typname = 'plugin_id'
     LOOP
@@ -74,6 +75,7 @@ BEGIN
         JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
         JOIN pg_type t ON t.oid = att.atttypid
         WHERE nsp.nspname = 'public'
+          AND rel.relkind = 'r'
           AND con.contype IN ('p', 'u')
           AND t.typname = 'plugin_id'
     LOOP
@@ -81,7 +83,7 @@ BEGIN
         RAISE NOTICE 'Dropped PK/UNIQUE: %.%', r.table_name, r.constraint_name;
     END LOOP;
 
-    -- 4. ALTER all columns typed as plugin_id to TEXT
+    -- 4. ALTER all columns typed as plugin_id to TEXT (tables only, not indexes)
     FOR r IN
         SELECT
             c.relname AS table_name,
@@ -91,6 +93,7 @@ BEGIN
         JOIN pg_namespace n ON n.oid = c.relnamespace
         JOIN pg_type t ON t.oid = a.atttypid
         WHERE n.nspname = 'public'
+          AND c.relkind = 'r'
           AND t.typname = 'plugin_id'
           AND a.attnum > 0
           AND NOT a.attisdropped
@@ -161,6 +164,7 @@ BEGIN
         JOIN pg_namespace n ON n.oid = c.relnamespace
         JOIN pg_type t ON t.oid = a.atttypid
         WHERE n.nspname = 'public'
+          AND c.relkind = 'r'
           AND t.typname = 'plugin_id'
           AND a.attnum > 0
           AND NOT a.attisdropped

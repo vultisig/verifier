@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -60,8 +61,46 @@ func (r *Evm) extractErrorMessage(ctx context.Context, hash common.Hash, rec *ty
 	if err != nil {
 		return "transaction reverted"
 	}
-	if tx != nil && rec.GasUsed == tx.Gas() {
+
+	if tx == nil || tx.To() == nil {
+		return "transaction reverted"
+	}
+
+	if rec.GasUsed == tx.Gas() {
 		return "out of gas"
 	}
+
+	revertData := r.getRevertData(ctx, tx, rec.BlockNumber)
+	if len(revertData) == 0 {
+		return "transaction reverted"
+	}
+
+	msg, ok := DecodeEVMRevert(revertData)
+	if ok {
+		return msg
+	}
+
 	return "transaction reverted"
+}
+
+func (r *Evm) getRevertData(ctx context.Context, tx *types.Transaction, blockNumber *big.Int) []byte {
+	msg := ethereum.CallMsg{
+		To:    tx.To(),
+		Value: tx.Value(),
+		Data:  tx.Data(),
+	}
+
+	sender, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
+	if err == nil {
+		msg.From = sender
+	}
+
+	out, err := r.client.CallContract(ctx, msg, blockNumber)
+	if err == nil {
+		return nil
+	}
+	if len(out) > 0 {
+		return out
+	}
+	return extractRevertBytesFromError(err)
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/internal/storage/postgres/queries"
+	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/vultisig-go/address"
 	vcommon "github.com/vultisig/vultisig-go/common"
 )
@@ -322,13 +323,13 @@ func (s *Server) ListPlugins(c echo.Context) error {
 
 // PluginPricingResponse is the API response for plugin pricing
 type PluginPricingResponse struct {
-	ID        string  `json:"id"`
-	PluginID  string  `json:"pluginId"`
-	Asset     string  `json:"asset"`
-	Type      string  `json:"type"`
-	Frequency *string `json:"frequency"`
-	Amount    int64   `json:"amount"`
-	Metric    string  `json:"metric"`
+	ID        string          `json:"id"`
+	PluginID  string          `json:"pluginId"`
+	Type      string          `json:"type"`
+	Frequency *string         `json:"frequency"`
+	Amount    string          `json:"amount"`
+	FeeAsset  itypes.FeeAsset `json:"fee_asset"`
+	Metric    string          `json:"metric"`
 }
 
 func (s *Server) GetPluginPricings(c echo.Context) error {
@@ -354,10 +355,10 @@ func (s *Server) GetPluginPricings(c echo.Context) error {
 		response[i] = PluginPricingResponse{
 			ID:        p.ID.String(),
 			PluginID:  string(p.PluginID),
-			Asset:     string(p.Asset),
 			Type:      string(p.Type),
 			Frequency: freq,
-			Amount:    p.Amount,
+			Amount:    strconv.FormatInt(p.Amount, 10),
+			FeeAsset:  itypes.DefaultFeeAsset,
 			Metric:    string(p.Metric),
 		}
 	}
@@ -816,16 +817,16 @@ func (s *Server) DeletePluginApiKey(c echo.Context) error {
 
 // EarningTransactionResponse is the API response for earning transactions
 type EarningTransactionResponse struct {
-	ID          string `json:"id"`
-	PluginID    string `json:"pluginId"`
-	PluginName  string `json:"pluginName"`
-	Amount      int64  `json:"amount"`
-	Asset       string `json:"asset"`
-	Type        string `json:"type"`
-	CreatedAt   string `json:"createdAt"`
-	FromAddress string `json:"fromAddress"`
-	TxHash      string `json:"txHash"`
-	Status      string `json:"status"`
+	ID          string          `json:"id"`
+	PluginID    string          `json:"pluginId"`
+	PluginName  string          `json:"pluginName"`
+	Amount      string          `json:"amount"`
+	FeeAsset    itypes.FeeAsset `json:"fee_asset"`
+	Type        string          `json:"type"`
+	CreatedAt   string          `json:"createdAt"`
+	FromAddress string          `json:"fromAddress"`
+	TxHash      string          `json:"txHash"`
+	Status      string          `json:"status"`
 }
 
 // EarningsResponse is the paginated API response for earnings
@@ -921,8 +922,8 @@ func (s *Server) GetEarnings(c echo.Context) error {
 			ID:          strconv.FormatInt(e.ID, 10),
 			PluginID:    pid,
 			PluginName:  e.PluginName,
-			Amount:      e.Amount,
-			Asset:       e.Asset,
+			Amount:      strconv.FormatInt(e.Amount, 10),
+			FeeAsset:    itypes.DefaultFeeAsset,
 			Type:        pricingType,
 			CreatedAt:   e.CreatedAt.Time.Format(time.RFC3339),
 			FromAddress: e.FromAddress,
@@ -959,11 +960,17 @@ func (s *Server) GetEarnings(c echo.Context) error {
 	})
 }
 
+// PluginEarning represents earnings for a single plugin
+type PluginEarning struct {
+	Amount   string          `json:"amount"`
+	FeeAsset itypes.FeeAsset `json:"fee_asset"`
+}
+
 // EarningsSummaryResponse is the API response for earnings summary
 type EarningsSummaryResponse struct {
-	TotalEarnings     int64            `json:"totalEarnings"`
-	TotalTransactions int64            `json:"totalTransactions"`
-	EarningsByPlugin  map[string]int64 `json:"earningsByPlugin"`
+	TotalEarnings     PluginEarning            `json:"totalEarnings"`
+	TotalTransactions int64                    `json:"totalTransactions"`
+	EarningsByPlugin  map[string]PluginEarning `json:"earningsByPlugin"`
 }
 
 func (s *Server) GetEarningsSummary(c echo.Context) error {
@@ -987,15 +994,21 @@ func (s *Server) GetEarningsSummary(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
 
-	earningsByPlugin := make(map[string]int64)
+	earningsByPlugin := make(map[string]PluginEarning)
 	for _, p := range byPlugin {
 		if p.PluginID.Valid {
-			earningsByPlugin[p.PluginID.String] = p.Total
+			earningsByPlugin[p.PluginID.String] = PluginEarning{
+				Amount:   strconv.FormatInt(p.Total, 10),
+				FeeAsset: itypes.DefaultFeeAsset,
+			}
 		}
 	}
 
 	return c.JSON(http.StatusOK, EarningsSummaryResponse{
-		TotalEarnings:     summary.TotalEarnings,
+		TotalEarnings: PluginEarning{
+			Amount:   strconv.FormatInt(summary.TotalEarnings, 10),
+			FeeAsset: itypes.DefaultFeeAsset,
+		},
 		TotalTransactions: summary.TotalTransactions,
 		EarningsByPlugin:  earningsByPlugin,
 	})

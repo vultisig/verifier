@@ -464,27 +464,6 @@ func (m *MockDatabaseStorage) DeactivateOwner(ctx context.Context, pluginID type
 	return args.Error(0)
 }
 
-func (m *MockDatabaseStorage) GetPluginImagesByPluginIDs(ctx context.Context, pluginIDs []types.PluginID) ([]itypes.PluginImageRecord, error) {
-	args := m.Called(ctx, pluginIDs)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]itypes.PluginImageRecord), args.Error(1)
-}
-
-func (m *MockDatabaseStorage) GetPluginImageByType(ctx context.Context, pluginID types.PluginID, imageType itypes.PluginImageType) (*itypes.PluginImageRecord, error) {
-	args := m.Called(ctx, pluginID, imageType)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*itypes.PluginImageRecord), args.Error(1)
-}
-
-func (m *MockDatabaseStorage) GetNextMediaOrder(ctx context.Context, pluginID types.PluginID) (int, error) {
-	args := m.Called(ctx, pluginID)
-	return args.Int(0), args.Error(1)
-}
-
 func TestGenerateTokenPair(t *testing.T) {
 	testCases := []struct {
 		name          string

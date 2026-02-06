@@ -199,20 +199,6 @@ CREATE TABLE "plugin_apikey" (
     CONSTRAINT "plugin_apikey_status_check" CHECK (("status" = ANY (ARRAY[0, 1])))
 );
 
-CREATE TABLE "plugin_images" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "plugin_id" "plugin_id" NOT NULL,
-    "image_type" "text" NOT NULL,
-    "s3_path" "text" NOT NULL,
-    "image_order" integer DEFAULT 0 NOT NULL,
-    "uploaded_by_public_key" "text" NOT NULL,
-    "visible" boolean DEFAULT true NOT NULL,
-    "deleted" boolean DEFAULT false NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "plugin_images_image_type_check" CHECK (("image_type" = ANY (ARRAY['logo'::"text", 'banner'::"text", 'thumbnail'::"text", 'media'::"text"])))
-);
-
 CREATE TABLE "plugin_installations" (
     "plugin_id" "plugin_id" NOT NULL,
     "public_key" "text" NOT NULL,
@@ -410,9 +396,6 @@ ALTER TABLE ONLY "plugin_apikey"
 ALTER TABLE ONLY "plugin_apikey"
     ADD CONSTRAINT "plugin_apikey_pkey" PRIMARY KEY ("id");
 
-ALTER TABLE ONLY "plugin_images"
-    ADD CONSTRAINT "plugin_images_pkey" PRIMARY KEY ("id");
-
 ALTER TABLE ONLY "plugin_installations"
     ADD CONSTRAINT "plugin_installations_pkey" PRIMARY KEY ("plugin_id", "public_key");
 
@@ -488,18 +471,6 @@ CREATE INDEX "idx_plugin_apikey_apikey" ON "plugin_apikey" USING "btree" ("apike
 
 CREATE INDEX "idx_plugin_apikey_plugin_id" ON "plugin_apikey" USING "btree" ("plugin_id");
 
-CREATE UNIQUE INDEX "idx_plugin_images_banner_unique" ON "plugin_images" USING "btree" ("plugin_id") WHERE (("image_type" = 'banner'::"text") AND ("deleted" = false) AND ("visible" = true));
-
-CREATE UNIQUE INDEX "idx_plugin_images_logo_unique" ON "plugin_images" USING "btree" ("plugin_id") WHERE (("image_type" = 'logo'::"text") AND ("deleted" = false) AND ("visible" = true));
-
-CREATE UNIQUE INDEX "idx_plugin_images_media_order_unique" ON "plugin_images" USING "btree" ("plugin_id", "image_order") WHERE (("image_type" = 'media'::"text") AND ("deleted" = false) AND ("visible" = true));
-
-CREATE INDEX "idx_plugin_images_plugin_id" ON "plugin_images" USING "btree" ("plugin_id");
-
-CREATE INDEX "idx_plugin_images_plugin_type" ON "plugin_images" USING "btree" ("plugin_id", "image_type") WHERE (("deleted" = false) AND ("visible" = true));
-
-CREATE UNIQUE INDEX "idx_plugin_images_thumbnail_unique" ON "plugin_images" USING "btree" ("plugin_id") WHERE (("image_type" = 'thumbnail'::"text") AND ("deleted" = false) AND ("visible" = true));
-
 CREATE UNIQUE INDEX "idx_plugin_owners_link_id" ON "plugin_owners" USING "btree" ("link_id") WHERE ("link_id" IS NOT NULL);
 
 CREATE INDEX "idx_plugin_owners_public_key" ON "plugin_owners" USING "btree" ("public_key");
@@ -559,9 +530,6 @@ ALTER TABLE ONLY "plugin_policy_billing"
 
 ALTER TABLE ONLY "plugin_apikey"
     ADD CONSTRAINT "plugin_apikey_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugins"("id") ON DELETE CASCADE;
-
-ALTER TABLE ONLY "plugin_images"
-    ADD CONSTRAINT "plugin_images_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugins"("id") ON DELETE CASCADE;
 
 ALTER TABLE ONLY "plugin_owners"
     ADD CONSTRAINT "plugin_owners_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugins"("id") ON DELETE CASCADE;

@@ -143,21 +143,8 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 			}
 			if len(imagesJSON) > 0 {
 				var imgs []itypes.PluginImage
-				err := json.Unmarshal(imagesJSON, &imgs)
-				if err == nil {
+				if err := json.Unmarshal(imagesJSON, &imgs); err == nil {
 					plugin.Images = imgs
-				} else {
-					// TODO: remove this legacy fallback once all plugins are migrated to plugin_images table
-					var legacyURLs []string
-					err = json.Unmarshal(imagesJSON, &legacyURLs)
-					if err == nil {
-						for i, url := range legacyURLs {
-							plugin.Images = append(plugin.Images, itypes.PluginImage{
-								URL:       url,
-								SortOrder: i,
-							})
-						}
-					}
 				}
 			}
 			if len(faqJSON) > 0 {
@@ -694,43 +681,4 @@ func (p *PostgresBackend) GetControlFlags(ctx context.Context, k1, k2 string) (m
 	}
 
 	return result, nil
-}
-
-func EnrichPluginsWithImages(plugins []itypes.Plugin, imageRecords []itypes.PluginImageRecord, assetBaseURL string) {
-	imagesByPlugin := make(map[types.PluginID][]itypes.PluginImageRecord)
-	for _, rec := range imageRecords {
-		imagesByPlugin[rec.PluginID] = append(imagesByPlugin[rec.PluginID], rec)
-	}
-
-	for i := range plugins {
-		plugin := &plugins[i]
-		records := imagesByPlugin[plugin.ID]
-		if len(records) == 0 {
-			continue
-		}
-
-		var mediaImages []itypes.PluginImage
-		for _, rec := range records {
-			url := assetBaseURL + "/" + rec.S3Path
-
-			switch rec.ImageType {
-			case itypes.PluginImageTypeLogo:
-				plugin.LogoURL = url
-			case itypes.PluginImageTypeThumbnail:
-				plugin.ThumbnailURL = url
-			case itypes.PluginImageTypeBanner:
-				plugin.BannerURL = url
-			case itypes.PluginImageTypeMedia:
-				mediaImages = append(mediaImages, itypes.PluginImage{
-					ID:        rec.ID.String(),
-					URL:       url,
-					SortOrder: rec.ImageOrder,
-				})
-			}
-		}
-
-		if len(mediaImages) > 0 {
-			plugin.Images = mediaImages
-		}
-	}
 }

@@ -87,14 +87,6 @@ jobs:
               "secret": "minioadmin",
               "bucket": "vultisig-verifier"
             },
-            "plugin_assets": {
-              "host": "http://localhost:9000",
-              "region": "us-east-1",
-              "access_key": "minioadmin",
-              "secret": "minioadmin",
-              "bucket": "vultisig-plugin-assets",
-              "public_base_url": "http://localhost:9000/vultisig-plugin-assets"
-            },
             "database": {
               "dsn": "postgres://myuser:mypassword@localhost:5432/vultisig-verifier?sslmode=disable"
             },

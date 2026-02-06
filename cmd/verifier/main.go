@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/hibiken/asynq"
 
@@ -101,22 +100,11 @@ func main() {
 		logger.Info("Verifier metrics disabled")
 	}
 
-	// Initialize plugin asset storage
-	if !cfg.PluginAssets.IsConfigured() {
-		missing := cfg.PluginAssets.Validate()
-		logger.Fatalf("Plugin asset storage not configured, missing: %s", strings.Join(missing, ", "))
-	}
-	assetStorage, err := storage.NewS3PluginAssetStorage(cfg.PluginAssets)
-	if err != nil {
-		logger.Fatalf("Failed to initialize plugin asset storage: %v", err)
-	}
-
 	server := api.NewServer(
 		*cfg,
 		db,
 		redisStorage,
 		vaultStorage,
-		assetStorage,
 		client,
 		inspector,
 		cfg.Server.JWTSecret,

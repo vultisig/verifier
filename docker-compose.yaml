@@ -57,12 +57,6 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       BLOCK_STORAGE_HOST: http://minio:9000
-      PLUGIN_ASSETS_HOST: http://minio:9000
-      PLUGIN_ASSETS_REGION: us-east-1
-      PLUGIN_ASSETS_BUCKET: vultisig-plugin-assets
-      PLUGIN_ASSETS_ACCESS_KEY: minioadmin
-      PLUGIN_ASSETS_SECRET: minioadmin
-      PLUGIN_ASSETS_PUBLIC_BASE_URL: http://localhost:9000/vultisig-plugin-assets
       DATABASE_DSN: postgres://myuser:mypassword@postgres:5432/vultisig-verifier?sslmode=disable
     ports:
       - "8080:8080"

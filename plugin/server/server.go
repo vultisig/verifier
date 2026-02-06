@@ -115,11 +115,11 @@ func (s *Server) GetRouter() *echo.Echo {
 	e.GET("/healthz", s.handleHealthz)
 
 	vlt := e.Group("/vault")
-	vlt.POST("/reshare", s.handleReshareVault)
+	vlt.POST("/reshare", s.handleReshareVault, s.VerifierAuthMiddleware)
 	vlt.GET("/get/:pluginId/:publicKeyECDSA", s.handleGetVault)
 	vlt.GET("/exist/:pluginId/:publicKeyECDSA", s.handleExistVault)
 	vlt.GET("/sign/response/:taskId", s.handleGetKeysignResult)
-	vlt.DELETE("/:pluginId/:publicKeyECDSA", s.handleDeleteVault)
+	vlt.DELETE("/:pluginId/:publicKeyECDSA", s.handleDeleteVault, s.VerifierAuthMiddleware)
 
 	plg := e.Group("/plugin")
 	plg.POST("/policy", s.handleCreatePluginPolicy, s.VerifierAuthMiddleware)

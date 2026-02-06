@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -16,11 +18,20 @@ import (
 	"github.com/vultisig/verifier/config"
 )
 
+type ObjectMetadata struct {
+	ContentType   string
+	ContentLength int64
+}
+
 type PluginAssetStorage interface {
 	Upload(ctx context.Context, key string, data []byte, contentType string) error
 	Delete(ctx context.Context, key string) error
 	Exists(ctx context.Context, key string) (bool, error)
 	GetPublicURL(key string) string
+	PresignPut(ctx context.Context, key, contentType string, expiry time.Duration) (string, error)
+	HeadObject(ctx context.Context, key string) (*ObjectMetadata, error)
+	GetObjectRange(ctx context.Context, key string, rangeStart, rangeEnd int64) ([]byte, error)
+	GetObject(ctx context.Context, key string) (io.ReadCloser, error)
 }
 
 type S3PluginAssetStorage struct {
@@ -58,6 +69,7 @@ func (s *S3PluginAssetStorage) Upload(ctx context.Context, key string, data []by
 		Body:          aws.ReadSeekCloser(bytes.NewReader(data)),
 		ContentLength: aws.Int64(int64(len(data))),
 		ContentType:   aws.String(contentType),
+		ACL:           aws.String("public-read"),
 	}
 
 	_, err := s.s3Client.PutObjectWithContext(ctx, input)
@@ -105,4 +117,66 @@ func (s *S3PluginAssetStorage) Exists(ctx context.Context, key string) (bool, er
 
 func (s *S3PluginAssetStorage) GetPublicURL(key string) string {
 	return fmt.Sprintf("%s/%s", s.cfg.EffectivePublicBaseURL(), key)
+}
+
+func (s *S3PluginAssetStorage) PresignPut(ctx context.Context, key, contentType string, expiry time.Duration) (string, error) {
+	req, _ := s.s3Client.PutObjectRequest(&s3.PutObjectInput{
+		Bucket:      aws.String(s.cfg.Bucket),
+		Key:         aws.String(key),
+		ContentType: aws.String(contentType),
+		ACL:         aws.String("public-read"),
+	})
+	if req.Error != nil {
+		return "", fmt.Errorf("failed to create PUT request: %w", req.Error)
+	}
+	url, err := req.Presign(expiry)
+	if err != nil {
+		return "", fmt.Errorf("failed to presign PUT URL: %w", err)
+	}
+	return url, nil
+}
+
+func (s *S3PluginAssetStorage) HeadObject(ctx context.Context, key string) (*ObjectMetadata, error) {
+	out, err := s.s3Client.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(s.cfg.Bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		var aerr awserr.Error
+		if errors.As(err, &aerr) {
+			if aerr.Code() == s3.ErrCodeNoSuchKey || aerr.Code() == "NotFound" {
+				return nil, nil
+			}
+		}
+		return nil, fmt.Errorf("failed to head object: %w", err)
+	}
+	return &ObjectMetadata{
+		ContentType:   aws.StringValue(out.ContentType),
+		ContentLength: aws.Int64Value(out.ContentLength),
+	}, nil
+}
+
+func (s *S3PluginAssetStorage) GetObjectRange(ctx context.Context, key string, rangeStart, rangeEnd int64) ([]byte, error) {
+	rangeHeader := fmt.Sprintf("bytes=%d-%d", rangeStart, rangeEnd)
+	out, err := s.s3Client.GetObjectWithContext(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(s.cfg.Bucket),
+		Key:    aws.String(key),
+		Range:  aws.String(rangeHeader),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get object range: %w", err)
+	}
+	defer out.Body.Close()
+	return io.ReadAll(out.Body)
+}
+
+func (s *S3PluginAssetStorage) GetObject(ctx context.Context, key string) (io.ReadCloser, error) {
+	out, err := s.s3Client.GetObjectWithContext(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(s.cfg.Bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get object: %w", err)
+	}
+	return out.Body, nil
 }

@@ -333,6 +333,8 @@ func (s *Server) GetPlugins(c echo.Context) error {
 		return s.internal(c, msgGetPluginsFailed, err)
 	}
 
+	s.enrichPluginsWithImages(c.Request().Context(), plugins.Plugins)
+
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, plugins))
 }
 
@@ -352,8 +354,46 @@ func (s *Server) GetPlugin(c echo.Context) error {
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, plugin))
 }
 
+func (s *Server) applyImageToPlugin(plugin *types.Plugin, img types.PluginImageRecord) {
+	url := s.assetStorage.GetPublicURL(img.S3Path)
+	switch img.ImageType {
+	case types.PluginImageTypeLogo:
+		plugin.LogoURL = url
+	case types.PluginImageTypeThumbnail:
+		plugin.ThumbnailURL = url
+	case types.PluginImageTypeBanner:
+		plugin.BannerURL = url
+	case types.PluginImageTypeMedia:
+		plugin.Images = append(plugin.Images, types.PluginImage{
+			ID:        img.ID.String(),
+			URL:       url,
+			SortOrder: img.ImageOrder,
+		})
+	}
+}
+
 func (s *Server) enrichPluginWithImages(ctx context.Context, plugin *types.Plugin) {
 	images, err := s.db.GetPluginImagesByPluginIDs(ctx, []vtypes.PluginID{plugin.ID})
+	if err != nil {
+		s.logger.WithError(err).Warn("failed to fetch plugin images for enrichment")
+		return
+	}
+	for _, img := range images {
+		s.applyImageToPlugin(plugin, img)
+	}
+}
+
+func (s *Server) enrichPluginsWithImages(ctx context.Context, plugins []types.Plugin) {
+	if len(plugins) == 0 {
+		return
+	}
+
+	pluginIDs := make([]vtypes.PluginID, len(plugins))
+	for i, p := range plugins {
+		pluginIDs[i] = p.ID
+	}
+
+	images, err := s.db.GetPluginImagesByPluginIDs(ctx, pluginIDs)
 	if err != nil {
 		s.logger.WithError(err).Warn("failed to fetch plugin images for enrichment")
 		return
@@ -362,33 +402,18 @@ func (s *Server) enrichPluginWithImages(ctx context.Context, plugin *types.Plugi
 		return
 	}
 
-	// TODO: remove this check once all plugins are migrated to plugin_images table
-	hasMediaImages := false
+	imagesByPlugin := make(map[vtypes.PluginID][]types.PluginImageRecord)
 	for _, img := range images {
-		if img.ImageType == types.PluginImageTypeMedia {
-			hasMediaImages = true
-			break
-		}
-	}
-	if hasMediaImages {
-		plugin.Images = nil
+		imagesByPlugin[vtypes.PluginID(img.PluginID)] = append(imagesByPlugin[vtypes.PluginID(img.PluginID)], img)
 	}
 
-	for _, img := range images {
-		url := s.assetStorage.GetPublicURL(img.S3Path)
-		switch img.ImageType {
-		case types.PluginImageTypeLogo:
-			plugin.LogoURL = url
-		case types.PluginImageTypeThumbnail:
-			plugin.ThumbnailURL = url
-		case types.PluginImageTypeBanner:
-			plugin.BannerURL = url
-		case types.PluginImageTypeMedia:
-			plugin.Images = append(plugin.Images, types.PluginImage{
-				ID:        img.ID.String(),
-				URL:       url,
-				SortOrder: img.ImageOrder,
-			})
+	for i := range plugins {
+		pluginImages, ok := imagesByPlugin[plugins[i].ID]
+		if !ok {
+			continue
+		}
+		for _, img := range pluginImages {
+			s.applyImageToPlugin(&plugins[i], img)
 		}
 	}
 }

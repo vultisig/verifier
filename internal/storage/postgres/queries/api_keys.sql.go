@@ -27,7 +27,7 @@ WHERE plugin_id = $1
   AND (expires_at IS NULL OR expires_at > NOW())
 `
 
-func (q *Queries) CountActiveApiKeys(ctx context.Context, pluginID PluginID) (int64, error) {
+func (q *Queries) CountActiveApiKeys(ctx context.Context, pluginID string) (int64, error) {
 	row := q.db.QueryRow(ctx, countActiveApiKeys, pluginID)
 	var count int64
 	err := row.Scan(&count)
@@ -41,7 +41,7 @@ RETURNING id, plugin_id, apikey, created_at, expires_at, status
 `
 
 type CreatePluginApiKeyParams struct {
-	PluginID  PluginID           `json:"plugin_id"`
+	PluginID  string             `json:"plugin_id"`
 	Apikey    string             `json:"apikey"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 }
@@ -108,7 +108,7 @@ ORDER BY created_at DESC
 `
 
 // Plugin API Keys table queries
-func (q *Queries) GetPluginApiKeys(ctx context.Context, pluginID PluginID) ([]*PluginApikey, error) {
+func (q *Queries) GetPluginApiKeys(ctx context.Context, pluginID string) ([]*PluginApikey, error) {
 	rows, err := q.db.Query(ctx, getPluginApiKeys, pluginID)
 	if err != nil {
 		return nil, err

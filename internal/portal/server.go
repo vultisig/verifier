@@ -249,7 +249,7 @@ func (s *Server) GetPlugin(c echo.Context) error {
 
 	// Only return the plugin if the authenticated user owns it
 	plugin, err := s.queries.GetPluginByIDAndOwner(c.Request().Context(), &queries.GetPluginByIDAndOwnerParams{
-		ID:        queries.PluginID(id),
+		ID:        id,
 		PublicKey: address,
 	})
 	if err != nil {
@@ -284,7 +284,7 @@ func (s *Server) GetMyPluginRole(c echo.Context) error {
 
 	// Get the user's role for this plugin
 	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
-		PluginID:  queries.PluginID(id),
+		PluginID:  id,
 		PublicKey: address,
 	})
 	if err != nil {
@@ -338,7 +338,7 @@ func (s *Server) GetPluginPricings(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
 	}
 
-	pricings, err := s.queries.GetPluginPricings(c.Request().Context(), queries.PluginID(id))
+	pricings, err := s.queries.GetPluginPricings(c.Request().Context(), id)
 	if err != nil {
 		s.logger.WithError(err).Error("failed to get plugin pricings")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
@@ -390,7 +390,7 @@ func (s *Server) GetPluginApiKeys(c echo.Context) error {
 
 	// Verify the requester is an admin of this plugin
 	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
-		PluginID:  queries.PluginID(id),
+		PluginID:  id,
 		PublicKey: address,
 	})
 	if err != nil {
@@ -406,7 +406,7 @@ func (s *Server) GetPluginApiKeys(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "only admins can manage API keys"})
 	}
 
-	apiKeys, err := s.queries.GetPluginApiKeys(c.Request().Context(), queries.PluginID(id))
+	apiKeys, err := s.queries.GetPluginApiKeys(c.Request().Context(), id)
 	if err != nil {
 		s.logger.WithError(err).Error("failed to get plugin api keys")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
@@ -490,7 +490,7 @@ func (s *Server) CreatePluginApiKey(c echo.Context) error {
 
 	// Verify the requester is an admin of this plugin
 	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
-		PluginID:  queries.PluginID(id),
+		PluginID:  id,
 		PublicKey: address,
 	})
 	if err != nil {
@@ -545,7 +545,7 @@ func (s *Server) CreatePluginApiKey(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create API key"})
 	}
 
-	count, err := q.CountActiveApiKeys(ctx, queries.PluginID(id))
+	count, err := q.CountActiveApiKeys(ctx, id)
 	if err != nil {
 		s.logger.WithError(err).Error("failed to count API keys")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create API key"})
@@ -556,7 +556,7 @@ func (s *Server) CreatePluginApiKey(c echo.Context) error {
 	}
 
 	created, err := q.CreatePluginApiKey(ctx, &queries.CreatePluginApiKeyParams{
-		PluginID:  queries.PluginID(id),
+		PluginID:  id,
 		Apikey:    apiKey,
 		ExpiresAt: expiresAt,
 	})
@@ -614,7 +614,7 @@ func (s *Server) UpdatePluginApiKey(c echo.Context) error {
 
 	// Verify the requester is an admin of this plugin
 	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
-		PluginID:  queries.PluginID(pluginID),
+		PluginID:  pluginID,
 		PublicKey: address,
 	})
 	if err != nil {
@@ -679,7 +679,7 @@ func (s *Server) UpdatePluginApiKey(c echo.Context) error {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update API key"})
 		}
 
-		count, err := q.CountActiveApiKeys(ctx, queries.PluginID(pluginID))
+		count, err := q.CountActiveApiKeys(ctx, pluginID)
 		if err != nil {
 			s.logger.WithError(err).Error("failed to count API keys")
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update API key"})
@@ -752,7 +752,7 @@ func (s *Server) DeletePluginApiKey(c echo.Context) error {
 
 	// Verify the requester owns this plugin and is an admin
 	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
-		PluginID:  queries.PluginID(pluginID),
+		PluginID:  pluginID,
 		PublicKey: address,
 	})
 	if err != nil {
@@ -1094,7 +1094,7 @@ func (s *Server) UpdatePlugin(c echo.Context) error {
 
 	// Authorization check - verify signer owns this plugin and get their role
 	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
-		PluginID:  queries.PluginID(id),
+		PluginID:  id,
 		PublicKey: signerAddr.Hex(),
 	})
 	if err != nil {
@@ -1112,7 +1112,7 @@ func (s *Server) UpdatePlugin(c echo.Context) error {
 	}
 
 	// Fetch existing plugin to validate unchanged fields match DB values
-	existingPlugin, err := s.queries.GetPluginByID(c.Request().Context(), queries.PluginID(id))
+	existingPlugin, err := s.queries.GetPluginByID(c.Request().Context(), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "plugin not found"})
@@ -1171,7 +1171,7 @@ func (s *Server) UpdatePlugin(c echo.Context) error {
 
 	// Update the plugin with validated request values
 	plugin, err := s.queries.UpdatePlugin(c.Request().Context(), &queries.UpdatePluginParams{
-		ID:             queries.PluginID(id),
+		ID:             id,
 		Title:          req.Title,
 		Description:    req.Description,
 		ServerEndpoint: req.ServerEndpoint,
@@ -1217,7 +1217,7 @@ func (s *Server) ListTeamMembers(c echo.Context) error {
 
 	// Check if the requester is an admin of this plugin
 	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
-		PluginID:  queries.PluginID(pluginID),
+		PluginID:  pluginID,
 		PublicKey: address,
 	})
 	if err != nil {
@@ -1234,7 +1234,7 @@ func (s *Server) ListTeamMembers(c echo.Context) error {
 	}
 
 	// Get team members (excludes staff)
-	members, err := s.queries.ListPluginTeamMembers(c.Request().Context(), queries.PluginID(pluginID))
+	members, err := s.queries.ListPluginTeamMembers(c.Request().Context(), pluginID)
 	if err != nil {
 		s.logger.WithError(err).Error("failed to list team members")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
@@ -1287,7 +1287,7 @@ func (s *Server) CreateInvite(c echo.Context) error {
 
 	// Check if the requester is an admin of this plugin
 	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
-		PluginID:  queries.PluginID(pluginID),
+		PluginID:  pluginID,
 		PublicKey: address,
 	})
 	if err != nil {
@@ -1384,7 +1384,7 @@ func (s *Server) ValidateInvite(c echo.Context) error {
 	}
 
 	// Get plugin info
-	plugin, err := s.queries.GetPluginByID(c.Request().Context(), queries.PluginID(payload.PluginID))
+	plugin, err := s.queries.GetPluginByID(c.Request().Context(), payload.PluginID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "plugin not found"})
@@ -1464,7 +1464,7 @@ func (s *Server) AcceptInvite(c echo.Context) error {
 
 	// Check if user is already a team member
 	existingOwner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
-		PluginID:  queries.PluginID(pluginID),
+		PluginID:  pluginID,
 		PublicKey: address,
 	})
 	if err == nil && existingOwner.Active {
@@ -1488,7 +1488,7 @@ func (s *Server) AcceptInvite(c echo.Context) error {
 
 	// Add the team member
 	_, err = s.queries.AddPluginTeamMember(c.Request().Context(), &queries.AddPluginTeamMemberParams{
-		PluginID:         queries.PluginID(pluginID),
+		PluginID:         pluginID,
 		PublicKey:        address,
 		Role:             role,
 		AddedByPublicKey: pgtype.Text{String: payload.InvitedBy, Valid: true},
@@ -1528,7 +1528,7 @@ func (s *Server) RemoveTeamMember(c echo.Context) error {
 
 	// Check if the requester is an admin of this plugin
 	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
-		PluginID:  queries.PluginID(pluginID),
+		PluginID:  pluginID,
 		PublicKey: address,
 	})
 	if err != nil {
@@ -1551,7 +1551,7 @@ func (s *Server) RemoveTeamMember(c echo.Context) error {
 
 	// Check target exists and is not an admin (admins cannot be removed via API)
 	target, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
-		PluginID:  queries.PluginID(pluginID),
+		PluginID:  pluginID,
 		PublicKey: targetPublicKey,
 	})
 	if err != nil {
@@ -1569,7 +1569,7 @@ func (s *Server) RemoveTeamMember(c echo.Context) error {
 
 	// Remove the team member
 	err = s.queries.RemovePluginTeamMember(c.Request().Context(), &queries.RemovePluginTeamMemberParams{
-		PluginID:  queries.PluginID(pluginID),
+		PluginID:  pluginID,
 		PublicKey: targetPublicKey,
 	})
 	if err != nil {
@@ -1608,7 +1608,7 @@ func (s *Server) GetKillSwitch(c echo.Context) error {
 
 	// Check if the requester is a staff member of this plugin
 	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
-		PluginID:  queries.PluginID(pluginID),
+		PluginID:  pluginID,
 		PublicKey: address,
 	})
 	if err != nil {
@@ -1679,7 +1679,7 @@ func (s *Server) SetKillSwitch(c echo.Context) error {
 
 	// Check if the requester is a staff member of this plugin
 	owner, err := s.queries.GetPluginOwnerWithRole(c.Request().Context(), &queries.GetPluginOwnerWithRoleParams{
-		PluginID:  queries.PluginID(pluginID),
+		PluginID:  pluginID,
 		PublicKey: address,
 	})
 	if err != nil {

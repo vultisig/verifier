@@ -29,9 +29,9 @@ func TestDecodeEVMRevert_ErrorString(t *testing.T) {
 func TestDecodeEVMRevert_Panic(t *testing.T) {
 	// Accepts either geth's abi.UnpackRevert output or our formatPanicCode fallback
 	tests := []struct {
-		name           string
-		code           string
-		acceptedMsgs   []string
+		name         string
+		code         string
+		acceptedMsgs []string
 	}{
 		{"assertion_failed", "01", []string{"assert(false)", "panic: assertion failed"}},
 		{"arithmetic_overflow", "11", []string{"arithmetic underflow or overflow", "panic: arithmetic overflow"}},

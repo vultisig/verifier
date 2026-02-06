@@ -210,6 +210,9 @@ CREATE TABLE "plugin_images" (
     "deleted" boolean DEFAULT false NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "content_type" "text" NOT NULL,
+    "filename" "text" NOT NULL,
+    CONSTRAINT "plugin_images_content_type_check" CHECK (("content_type" = ANY (ARRAY['image/jpeg'::"text", 'image/png'::"text", 'image/webp'::"text"]))),
     CONSTRAINT "plugin_images_image_type_check" CHECK (("image_type" = ANY (ARRAY['logo'::"text", 'banner'::"text", 'thumbnail'::"text", 'media'::"text"])))
 );
 

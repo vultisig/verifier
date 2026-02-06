@@ -68,9 +68,9 @@ func NewXRP(rpcURL string) (*XRP, error) {
 	return xrp, nil
 }
 
-func (x *XRP) GetTxStatus(ctx context.Context, txHash string) (TxOnChainStatus, error) {
+func (x *XRP) GetTxStatus(ctx context.Context, txHash string) (TxStatusResult, error) {
 	if ctx.Err() != nil {
-		return "", ctx.Err()
+		return TxStatusResult{}, ctx.Err()
 	}
 
 	req := XRPRequest{
@@ -85,35 +85,27 @@ func (x *XRP) GetTxStatus(ctx context.Context, txHash string) (TxOnChainStatus, 
 
 	respBody, err := x.makeRequest(ctx, req)
 	if err != nil {
-		// Propagate network errors, connection issues, etc.
-		return "", fmt.Errorf("failed to get transaction status: %w", err)
+		return TxStatusResult{}, fmt.Errorf("failed to get transaction status: %w", err)
 	}
 
 	var txResp XRPTransactionResponse
 	if err := json.Unmarshal(respBody, &txResp); err != nil {
-		return "", fmt.Errorf("failed to unmarshal XRP transaction response: %w", err)
+		return TxStatusResult{}, fmt.Errorf("failed to unmarshal XRP transaction response: %w", err)
 	}
 
-	// Check for RPC-level errors (transaction not found, etc.)
 	if txResp.Error != nil {
-		// In XRP RPC, transaction not found is an error response
-		// For now, treat any error as "transaction not found" (pending)
-		// This is a conservative approach - if needed, we can refine later
-		return TxOnChainPending, nil
+		return NewTxStatusResult(TxOnChainPending, ""), nil
 	}
 
-	// Check if transaction is validated
 	if !txResp.Result.Validated {
-		return TxOnChainPending, nil
+		return NewTxStatusResult(TxOnChainPending, ""), nil
 	}
 
-	// Check transaction result
 	switch txResp.Result.Meta.TransactionResult {
 	case "tesSUCCESS":
-		return TxOnChainSuccess, nil
+		return NewTxStatusResult(TxOnChainSuccess, ""), nil
 	default:
-		// Any other result code is considered a failure
-		return TxOnChainFail, nil
+		return NewTxStatusResult(TxOnChainFail, txResp.Result.Meta.TransactionResult), nil
 	}
 }
 

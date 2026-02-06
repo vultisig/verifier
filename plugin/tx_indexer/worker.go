@@ -145,7 +145,7 @@ func (w *Worker) UpdateTxStatus(ctx context.Context, tx storage.Tx) (*rpc.TxOnCh
 	w.metrics.RecordProcessing(chain)
 
 	if time.Now().After((*tx.BroadcastedAt).Add(w.getMarkLostAfter(chain))) {
-		err := w.repo.SetLost(ctx, tx.ID)
+		err := w.repo.SetLost(ctx, tx.ID, "timeout waiting for confirmation")
 		if err != nil {
 			w.metrics.RecordProcessingError(chain, "set_lost_timeout")
 			return nil, fmt.Errorf("w.repo.SetLost: %w", err)
@@ -158,7 +158,7 @@ func (w *Worker) UpdateTxStatus(ctx context.Context, tx storage.Tx) (*rpc.TxOnCh
 
 	client, ok := w.clients[chain]
 	if !ok {
-		err := w.repo.SetLost(ctx, tx.ID)
+		err := w.repo.SetLost(ctx, tx.ID, "chain not supported")
 		if err != nil {
 			w.metrics.RecordProcessingError(chain, "set_lost_unimplemented")
 			return nil, fmt.Errorf("w.repo.SetLost: %w", err)
@@ -173,27 +173,31 @@ func (w *Worker) UpdateTxStatus(ctx context.Context, tx storage.Tx) (*rpc.TxOnCh
 		return &newStatus, nil
 	}
 
-	newStatus, err := client.GetTxStatus(ctx, *tx.TxHash)
+	result, err := client.GetTxStatus(ctx, *tx.TxHash)
 	if err != nil {
 		w.metrics.RecordRPCError(chain)
 		return nil, fmt.Errorf("client.GetTxStatus: %w", err)
 	}
-	if newStatus == *tx.StatusOnChain {
+	if result.Status == *tx.StatusOnChain {
 		w.logger.WithFields(fields).Info("status didn't changed since last call")
 		return tx.StatusOnChain, nil
 	}
 
-	err = w.repo.SetOnChainStatus(ctx, tx.ID, newStatus)
+	var errorMsg *string
+	if result.Status == rpc.TxOnChainFail && result.ErrorMessage != "" {
+		errorMsg = &result.ErrorMessage
+	}
+
+	err = w.repo.SetOnChainStatus(ctx, tx.ID, result.Status, errorMsg)
 	if err != nil {
 		w.metrics.RecordProcessingError(chain, "set_status")
 		return nil, fmt.Errorf("w.repo.SetOnChainStatus: %w", err)
 	}
 
-	// Record successful status change
-	w.metrics.RecordTransactionStatus(chain, string(newStatus))
+	w.metrics.RecordTransactionStatus(chain, string(result.Status))
 
-	w.logger.WithFields(fields).Infof("status updated, newStatus=%s", newStatus)
-	return &newStatus, nil
+	w.logger.WithFields(fields).Infof("status updated, newStatus=%s", result.Status)
+	return &result.Status, nil
 }
 
 func (w *Worker) updatePendingTxs() error {

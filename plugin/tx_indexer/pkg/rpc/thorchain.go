@@ -40,50 +40,48 @@ type thorchainTxResponse struct {
 		Code   int    `json:"code"`
 		TxHash string `json:"txhash"`
 		Height string `json:"height"`
+		RawLog string `json:"raw_log"`
 	} `json:"tx_response"`
 }
 
-func (t *THORChain) GetTxStatus(ctx context.Context, txHash string) (TxOnChainStatus, error) {
+func (t *THORChain) GetTxStatus(ctx context.Context, txHash string) (TxStatusResult, error) {
 	if ctx.Err() != nil {
-		return "", ctx.Err()
+		return TxStatusResult{}, ctx.Err()
 	}
 
 	url := fmt.Sprintf("%s/cosmos/tx/v1beta1/txs/%s", t.baseURL, txHash)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return TxStatusResult{}, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	resp, err := t.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to query THORChain tx status: %w", err)
+		return TxStatusResult{}, fmt.Errorf("failed to query THORChain tx status: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// Transaction not found - still pending/not yet indexed
 	if resp.StatusCode == http.StatusNotFound {
-		return TxOnChainPending, nil
+		return NewTxStatusResult(TxOnChainPending, ""), nil
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("THORChain returned unexpected status %d for tx %s", resp.StatusCode, txHash)
+		return TxStatusResult{}, fmt.Errorf("THORChain returned unexpected status %d for tx %s", resp.StatusCode, txHash)
 	}
 
 	var txResp thorchainTxResponse
 	if err := json.NewDecoder(resp.Body).Decode(&txResp); err != nil {
-		return "", fmt.Errorf("failed to decode THORChain tx response: %w", err)
+		return TxStatusResult{}, fmt.Errorf("failed to decode THORChain tx response: %w", err)
 	}
 
-	// Transaction exists but not yet included in a block
 	if txResp.TxResponse.Height == "" || txResp.TxResponse.Height == "0" {
-		return TxOnChainPending, nil
+		return NewTxStatusResult(TxOnChainPending, ""), nil
 	}
 
-	// Non-zero code indicates transaction failed
 	if txResp.TxResponse.Code != 0 {
-		return TxOnChainFail, nil
+		return NewTxStatusResult(TxOnChainFail, txResp.TxResponse.RawLog), nil
 	}
 
-	return TxOnChainSuccess, nil
+	return NewTxStatusResult(TxOnChainSuccess, ""), nil
 }

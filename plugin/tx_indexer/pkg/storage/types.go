@@ -15,9 +15,9 @@ import (
 
 type TxIndexerRepo interface {
 	SetStatus(ctx context.Context, id uuid.UUID, status TxStatus) error
-	SetLost(ctx context.Context, id uuid.UUID) error
+	SetLost(ctx context.Context, id uuid.UUID, errorMessage string) error
 	SetSignedAndBroadcasted(ctx context.Context, id uuid.UUID, txHash string) error
-	SetOnChainStatus(ctx context.Context, id uuid.UUID, status rpc.TxOnChainStatus) error
+	SetOnChainStatus(ctx context.Context, id uuid.UUID, status rpc.TxOnChainStatus, errorMessage *string) error
 	GetPendingTxs(ctx context.Context) <-chan RowsStream[Tx]
 	CreateTx(ctx context.Context, req CreateTxDto) (Tx, error)
 	GetTxByID(ctx context.Context, id uuid.UUID) (Tx, error)
@@ -53,6 +53,7 @@ type Tx struct {
 	Amount        *string              `json:"amount"`
 	Status        TxStatus             `json:"status" validate:"required"`
 	StatusOnChain *rpc.TxOnChainStatus `json:"status_onchain"`
+	ErrorMessage  *string              `json:"error_message"`
 	Lost          bool                 `json:"lost"`
 	BroadcastedAt *time.Time           `json:"broadcasted_at"`
 	CreatedAt     time.Time            `json:"created_at"  validate:"required"`
@@ -70,6 +71,7 @@ func (t *Tx) Fields() logrus.Fields {
 		"from_public_key": t.FromPublicKey,
 		"status":          t.Status,
 		"status_onchain":  conv.FromPtr(t.StatusOnChain),
+		"error_message":   conv.FromPtr(t.ErrorMessage),
 		"lost":            t.Lost,
 		"broadcasted_at":  conv.FromPtr(t.BroadcastedAt).String(),
 		"created_at":      t.CreatedAt,

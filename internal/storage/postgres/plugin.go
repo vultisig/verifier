@@ -146,18 +146,6 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 				err := json.Unmarshal(imagesJSON, &imgs)
 				if err == nil {
 					plugin.Images = imgs
-				} else {
-					// TODO: remove this legacy fallback once all plugins are migrated to plugin_images table
-					var legacyURLs []string
-					err = json.Unmarshal(imagesJSON, &legacyURLs)
-					if err == nil {
-						for i, url := range legacyURLs {
-							plugin.Images = append(plugin.Images, itypes.PluginImage{
-								URL:       url,
-								SortOrder: i,
-							})
-						}
-					}
 				}
 			}
 			if len(faqJSON) > 0 {

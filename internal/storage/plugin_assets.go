@@ -69,6 +69,7 @@ func (s *S3PluginAssetStorage) Upload(ctx context.Context, key string, data []by
 		Body:          aws.ReadSeekCloser(bytes.NewReader(data)),
 		ContentLength: aws.Int64(int64(len(data))),
 		ContentType:   aws.String(contentType),
+		ACL:           aws.String("public-read"),
 	}
 
 	_, err := s.s3Client.PutObjectWithContext(ctx, input)
@@ -123,6 +124,7 @@ func (s *S3PluginAssetStorage) PresignPut(ctx context.Context, key, contentType 
 		Bucket:      aws.String(s.cfg.Bucket),
 		Key:         aws.String(key),
 		ContentType: aws.String(contentType),
+		ACL:         aws.String("public-read"),
 	})
 	if req.Error != nil {
 		return "", fmt.Errorf("failed to create PUT request: %w", req.Error)

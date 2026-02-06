@@ -333,6 +333,8 @@ func (s *Server) GetPlugins(c echo.Context) error {
 		return s.internal(c, msgGetPluginsFailed, err)
 	}
 
+	s.enrichPluginsWithImages(c.Request().Context(), plugins.Plugins)
+
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, plugins))
 }
 
@@ -362,18 +364,6 @@ func (s *Server) enrichPluginWithImages(ctx context.Context, plugin *types.Plugi
 		return
 	}
 
-	// TODO: remove this check once all plugins are migrated to plugin_images table
-	hasMediaImages := false
-	for _, img := range images {
-		if img.ImageType == types.PluginImageTypeMedia {
-			hasMediaImages = true
-			break
-		}
-	}
-	if hasMediaImages {
-		plugin.Images = nil
-	}
-
 	for _, img := range images {
 		url := s.assetStorage.GetPublicURL(img.S3Path)
 		switch img.ImageType {
@@ -389,6 +379,56 @@ func (s *Server) enrichPluginWithImages(ctx context.Context, plugin *types.Plugi
 				URL:       url,
 				SortOrder: img.ImageOrder,
 			})
+		}
+	}
+}
+
+func (s *Server) enrichPluginsWithImages(ctx context.Context, plugins []types.Plugin) {
+	if len(plugins) == 0 {
+		return
+	}
+
+	pluginIDs := make([]vtypes.PluginID, len(plugins))
+	for i, p := range plugins {
+		pluginIDs[i] = p.ID
+	}
+
+	images, err := s.db.GetPluginImagesByPluginIDs(ctx, pluginIDs)
+	if err != nil {
+		s.logger.WithError(err).Warn("failed to fetch plugin images for enrichment")
+		return
+	}
+	if len(images) == 0 {
+		return
+	}
+
+	imagesByPlugin := make(map[vtypes.PluginID][]types.PluginImageRecord)
+	for _, img := range images {
+		imagesByPlugin[vtypes.PluginID(img.PluginID)] = append(imagesByPlugin[vtypes.PluginID(img.PluginID)], img)
+	}
+
+	for i := range plugins {
+		pluginImages, ok := imagesByPlugin[plugins[i].ID]
+		if !ok {
+			continue
+		}
+
+		for _, img := range pluginImages {
+			url := s.assetStorage.GetPublicURL(img.S3Path)
+			switch img.ImageType {
+			case types.PluginImageTypeLogo:
+				plugins[i].LogoURL = url
+			case types.PluginImageTypeThumbnail:
+				plugins[i].ThumbnailURL = url
+			case types.PluginImageTypeBanner:
+				plugins[i].BannerURL = url
+			case types.PluginImageTypeMedia:
+				plugins[i].Images = append(plugins[i].Images, types.PluginImage{
+					ID:        img.ID.String(),
+					URL:       url,
+					SortOrder: img.ImageOrder,
+				})
+			}
 		}
 	}
 }

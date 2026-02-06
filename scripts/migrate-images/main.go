@@ -227,11 +227,14 @@ func migrateImage(ctx context.Context, logger *logrus.Logger, client *http.Clien
 		return fmt.Errorf("failed to upload to S3: %w", err)
 	}
 
+	filename := path.Base(sourceURL)
+	filename = strings.TrimSuffix(filename, ext)
+
 	insertQuery := `
-		INSERT INTO plugin_images (plugin_id, image_type, s3_path, image_order, uploaded_by_public_key)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO plugin_images (plugin_id, image_type, s3_path, image_order, uploaded_by_public_key, content_type, filename)
+		VALUES ($1, $2, $3, $4, $5, 'image/jpeg', $6)
 	`
-	_, err = pool.Exec(ctx, insertQuery, pluginID, string(imageType), s3Key, imageOrder, *uploadedBy)
+	_, err = pool.Exec(ctx, insertQuery, pluginID, string(imageType), s3Key, imageOrder, *uploadedBy, filename)
 	if err != nil {
 		delErr := assetStorage.Delete(ctx, s3Key)
 		if delErr != nil {

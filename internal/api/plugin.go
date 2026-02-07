@@ -457,6 +457,8 @@ func (s *Server) GetInstalledPlugins(c echo.Context) error {
 		}
 	}
 
+	s.enrichPluginsWithImages(c.Request().Context(), installed.Plugins)
+
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, installed))
 }
 

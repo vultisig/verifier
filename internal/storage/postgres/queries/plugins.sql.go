@@ -10,7 +10,8 @@ import (
 )
 
 const getPluginByID = `-- name: GetPluginByID :one
-SELECT id, title, description, server_endpoint, category, created_at, updated_at, logo_url, thumbnail_url, images, faqs, features, audited FROM plugins
+
+SELECT id, title, description, server_endpoint, category, created_at, updated_at, faqs, features, audited FROM plugins
 WHERE id = $1
 `
 
@@ -26,9 +27,6 @@ func (q *Queries) GetPluginByID(ctx context.Context, id PluginID) (*Plugin, erro
 		&i.Category,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.LogoUrl,
-		&i.ThumbnailUrl,
-		&i.Images,
 		&i.Faqs,
 		&i.Features,
 		&i.Audited,
@@ -37,7 +35,7 @@ func (q *Queries) GetPluginByID(ctx context.Context, id PluginID) (*Plugin, erro
 }
 
 const getPluginByIDAndOwner = `-- name: GetPluginByIDAndOwner :one
-SELECT p.id, p.title, p.description, p.server_endpoint, p.category, p.created_at, p.updated_at, p.logo_url, p.thumbnail_url, p.images, p.faqs, p.features, p.audited FROM plugins p
+SELECT p.id, p.title, p.description, p.server_endpoint, p.category, p.created_at, p.updated_at, p.faqs, p.features, p.audited FROM plugins p
 JOIN plugin_owners po ON p.id::text = po.plugin_id::text
 WHERE p.id = $1 AND po.public_key = $2 AND po.active = true
 `
@@ -58,9 +56,6 @@ func (q *Queries) GetPluginByIDAndOwner(ctx context.Context, arg *GetPluginByIDA
 		&i.Category,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.LogoUrl,
-		&i.ThumbnailUrl,
-		&i.Images,
 		&i.Faqs,
 		&i.Features,
 		&i.Audited,
@@ -105,7 +100,7 @@ func (q *Queries) GetPluginPricings(ctx context.Context, pluginID PluginID) ([]*
 }
 
 const listPlugins = `-- name: ListPlugins :many
-SELECT id, title, description, server_endpoint, category, created_at, updated_at, logo_url, thumbnail_url, images, faqs, features, audited FROM plugins
+SELECT id, title, description, server_endpoint, category, created_at, updated_at, faqs, features, audited FROM plugins
 ORDER BY updated_at DESC
 `
 
@@ -126,9 +121,6 @@ func (q *Queries) ListPlugins(ctx context.Context) ([]*Plugin, error) {
 			&i.Category,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.LogoUrl,
-			&i.ThumbnailUrl,
-			&i.Images,
 			&i.Faqs,
 			&i.Features,
 			&i.Audited,
@@ -144,7 +136,7 @@ func (q *Queries) ListPlugins(ctx context.Context) ([]*Plugin, error) {
 }
 
 const listPluginsByOwner = `-- name: ListPluginsByOwner :many
-SELECT p.id, p.title, p.description, p.server_endpoint, p.category, p.created_at, p.updated_at, p.logo_url, p.thumbnail_url, p.images, p.faqs, p.features, p.audited FROM plugins p
+SELECT p.id, p.title, p.description, p.server_endpoint, p.category, p.created_at, p.updated_at, p.faqs, p.features, p.audited FROM plugins p
 JOIN plugin_owners po ON p.id::text = po.plugin_id::text
 WHERE po.public_key = $1 AND po.active = true
 ORDER BY p.updated_at DESC
@@ -167,9 +159,6 @@ func (q *Queries) ListPluginsByOwner(ctx context.Context, publicKey string) ([]*
 			&i.Category,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.LogoUrl,
-			&i.ThumbnailUrl,
-			&i.Images,
 			&i.Faqs,
 			&i.Features,
 			&i.Audited,
@@ -192,7 +181,7 @@ SET
     server_endpoint = $4,
     updated_at = now()
 WHERE id = $1
-RETURNING id, title, description, server_endpoint, category, created_at, updated_at, logo_url, thumbnail_url, images, faqs, features, audited
+RETURNING id, title, description, server_endpoint, category, created_at, updated_at, faqs, features, audited
 `
 
 type UpdatePluginParams struct {
@@ -218,9 +207,6 @@ func (q *Queries) UpdatePlugin(ctx context.Context, arg *UpdatePluginParams) (*P
 		&i.Category,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.LogoUrl,
-		&i.ThumbnailUrl,
-		&i.Images,
 		&i.Faqs,
 		&i.Features,
 		&i.Audited,

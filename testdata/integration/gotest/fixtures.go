@@ -30,8 +30,6 @@ type PluginConfig struct {
 	Description    string
 	ServerEndpoint string
 	Category       string
-	LogoURL        string
-	ThumbnailURL   string
 	Audited        bool
 }
 

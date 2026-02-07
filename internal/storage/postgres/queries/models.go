@@ -612,9 +612,6 @@ type Plugin struct {
 	Category       PluginCategory     `json:"category"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	LogoUrl        string             `json:"logo_url"`
-	ThumbnailUrl   string             `json:"thumbnail_url"`
-	Images         []byte             `json:"images"`
 	Faqs           []byte             `json:"faqs"`
 	Features       []byte             `json:"features"`
 	Audited        bool               `json:"audited"`
@@ -627,6 +624,21 @@ type PluginApikey struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	Status    int32              `json:"status"`
+}
+
+type PluginImage struct {
+	ID                  pgtype.UUID        `json:"id"`
+	PluginID            PluginID           `json:"plugin_id"`
+	ImageType           string             `json:"image_type"`
+	S3Path              string             `json:"s3_path"`
+	ImageOrder          int32              `json:"image_order"`
+	UploadedByPublicKey string             `json:"uploaded_by_public_key"`
+	Visible             bool               `json:"visible"`
+	Deleted             bool               `json:"deleted"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	ContentType         string             `json:"content_type"`
+	Filename            string             `json:"filename"`
 }
 
 type PluginInstallation struct {
@@ -768,6 +780,7 @@ type TxIndexer struct {
 	CreatedAt     pgtype.Timestamp           `json:"created_at"`
 	UpdatedAt     pgtype.Timestamp           `json:"updated_at"`
 	Amount        pgtype.Text                `json:"amount"`
+	ErrorMessage  pgtype.Text                `json:"error_message"`
 }
 
 type VaultToken struct {

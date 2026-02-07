@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -22,17 +23,30 @@ import (
 	"github.com/vultisig/verifier/types"
 )
 
-var (
-	uploadedBy = flag.String("uploaded-by", "", "Public key to use as uploader (required)")
-	dryRun     = flag.Bool("dry-run", false, "Print what would be migrated without actually migrating")
-	verbose    = flag.Bool("verbose", false, "Enable verbose logging")
+const (
+	verifierAssetsBase   = "https://raw.githubusercontent.com/vultisig/verifier/48ee5b48c5de5e64e35bbd3f5dc6b0deecd6de27/assets/plugins"
+	marketplaceMediaBase = "https://raw.githubusercontent.com/vultisig/app-marketplace/main/public/media"
 )
 
-type legacyPluginData struct {
-	ID           types.PluginID
-	LogoURL      string
-	ThumbnailURL string
-	Images       []string
+var (
+	uploadedBy  = flag.String("uploaded-by", "", "Public key to use as uploader (required)")
+	mappingFile = flag.String("mapping", "", "JSON file with plugin image mapping (optional, uses defaults if not provided)")
+	dryRun      = flag.Bool("dry-run", false, "Print what would be migrated without actually migrating")
+	verbose     = flag.Bool("verbose", false, "Enable verbose logging")
+)
+
+type pluginImageMapping struct {
+	PluginID string   `json:"plugin_id"`
+	Logo     string   `json:"logo,omitempty"`
+	Banner   string   `json:"banner,omitempty"`
+	Media    []string `json:"media,omitempty"`
+}
+
+type pluginData struct {
+	ID        types.PluginID
+	LogoURL   string
+	BannerURL string
+	MediaURLs []string
 }
 
 func main() {
@@ -78,118 +92,181 @@ func main() {
 		logger.Fatalf("failed to create S3 storage: %v", err)
 	}
 
-	plugins, err := fetchLegacyPluginData(ctx, pool)
-	if err != nil {
-		logger.Fatalf("failed to fetch plugins: %v", err)
+	var plugins []pluginData
+	if *mappingFile != "" {
+		plugins, err = loadFromMappingFile(*mappingFile)
+		if err != nil {
+			logger.Fatalf("failed to load mapping file: %v", err)
+		}
+	} else {
+		plugins = getDefaultMapping()
 	}
 
-	logger.Infof("found %d plugins to process", len(plugins))
+	existingPlugins, err := getExistingPluginIDs(ctx, pool)
+	if err != nil {
+		logger.Fatalf("failed to get existing plugins: %v", err)
+	}
+
+	logger.Infof("found %d plugins in mapping, %d in database", len(plugins), len(existingPlugins))
 
 	httpClient := &http.Client{
 		Timeout: 30 * time.Second,
 	}
 
-	var migratedLogo, migratedThumb, migratedMedia int
-	var skippedLogo, skippedThumb, skippedMedia int
-	var failedLogo, failedThumb, failedMedia int
+	var migratedLogo, migratedBanner, migratedMedia int
+	var skippedLogo, skippedBanner, skippedMedia int
+	var failedLogo, failedBanner, failedMedia int
 
 	for _, p := range plugins {
+		if !existingPlugins[string(p.ID)] {
+			logger.Warnf("plugin %s not found in database, skipping", p.ID)
+			continue
+		}
+
 		logger.Debugf("processing plugin: %s", p.ID)
 
-		hasLogo, err := hasActiveImage(ctx, pool, p.ID, itypes.PluginImageTypeLogo)
-		if err != nil {
-			logger.Errorf("failed to check logo for plugin %s: %v", p.ID, err)
-			continue
-		}
-		if hasLogo {
-			logger.Debugf("plugin %s already has logo, skipping", p.ID)
-			skippedLogo++
-		} else if p.LogoURL != "" {
-			err = migrateImage(ctx, logger, httpClient, pool, assetStorage, p.ID, p.LogoURL, itypes.PluginImageTypeLogo, 0)
+		if p.LogoURL != "" {
+			hasLogo, err := hasActiveImage(ctx, pool, p.ID, itypes.PluginImageTypeLogo)
 			if err != nil {
-				logger.Errorf("failed to migrate logo for plugin %s: %v", p.ID, err)
-				failedLogo++
-			} else {
-				migratedLogo++
+				logger.Errorf("failed to check logo for plugin %s: %v", p.ID, err)
+				continue
 			}
-		}
-
-		hasThumb, err := hasActiveImage(ctx, pool, p.ID, itypes.PluginImageTypeThumbnail)
-		if err != nil {
-			logger.Errorf("failed to check thumbnail for plugin %s: %v", p.ID, err)
-			continue
-		}
-		if hasThumb {
-			logger.Debugf("plugin %s already has thumbnail, skipping", p.ID)
-			skippedThumb++
-		} else if p.ThumbnailURL != "" {
-			err = migrateImage(ctx, logger, httpClient, pool, assetStorage, p.ID, p.ThumbnailURL, itypes.PluginImageTypeThumbnail, 0)
-			if err != nil {
-				logger.Errorf("failed to migrate thumbnail for plugin %s: %v", p.ID, err)
-				failedThumb++
+			if hasLogo {
+				logger.Debugf("plugin %s already has logo, skipping", p.ID)
+				skippedLogo++
 			} else {
-				migratedThumb++
-			}
-		}
-
-		hasMedia, err := hasActiveImage(ctx, pool, p.ID, itypes.PluginImageTypeMedia)
-		if err != nil {
-			logger.Errorf("failed to check media for plugin %s: %v", p.ID, err)
-			continue
-		}
-		if hasMedia {
-			logger.Debugf("plugin %s already has media images, skipping", p.ID)
-			skippedMedia += len(p.Images)
-		} else if len(p.Images) > 0 {
-			for i, imgURL := range p.Images {
-				err = migrateImage(ctx, logger, httpClient, pool, assetStorage, p.ID, imgURL, itypes.PluginImageTypeMedia, i)
+				err = migrateImage(ctx, logger, httpClient, pool, assetStorage, p.ID, p.LogoURL, itypes.PluginImageTypeLogo, 0)
 				if err != nil {
-					logger.Errorf("failed to migrate media image %d for plugin %s: %v", i, p.ID, err)
-					failedMedia++
+					logger.Errorf("failed to migrate logo for plugin %s: %v", p.ID, err)
+					failedLogo++
 				} else {
-					migratedMedia++
+					migratedLogo++
+				}
+			}
+		}
+
+		if p.BannerURL != "" {
+			hasBanner, err := hasActiveImage(ctx, pool, p.ID, itypes.PluginImageTypeBanner)
+			if err != nil {
+				logger.Errorf("failed to check banner for plugin %s: %v", p.ID, err)
+				continue
+			}
+			if hasBanner {
+				logger.Debugf("plugin %s already has banner, skipping", p.ID)
+				skippedBanner++
+			} else {
+				err = migrateImage(ctx, logger, httpClient, pool, assetStorage, p.ID, p.BannerURL, itypes.PluginImageTypeBanner, 0)
+				if err != nil {
+					logger.Errorf("failed to migrate banner for plugin %s: %v", p.ID, err)
+					failedBanner++
+				} else {
+					migratedBanner++
+				}
+			}
+		}
+
+		if len(p.MediaURLs) > 0 {
+			hasMedia, err := hasActiveImage(ctx, pool, p.ID, itypes.PluginImageTypeMedia)
+			if err != nil {
+				logger.Errorf("failed to check media for plugin %s: %v", p.ID, err)
+				continue
+			}
+			if hasMedia {
+				logger.Debugf("plugin %s already has media, skipping", p.ID)
+				skippedMedia += len(p.MediaURLs)
+			} else {
+				for i, mediaURL := range p.MediaURLs {
+					err = migrateImage(ctx, logger, httpClient, pool, assetStorage, p.ID, mediaURL, itypes.PluginImageTypeMedia, i)
+					if err != nil {
+						logger.Errorf("failed to migrate media %d for plugin %s: %v", i, p.ID, err)
+						failedMedia++
+					} else {
+						migratedMedia++
+					}
 				}
 			}
 		}
 	}
 
 	logger.Info("=== Migration Summary ===")
-	logger.Infof("Logo:      migrated=%d, skipped=%d, failed=%d", migratedLogo, skippedLogo, failedLogo)
-	logger.Infof("Thumbnail: migrated=%d, skipped=%d, failed=%d", migratedThumb, skippedThumb, failedThumb)
-	logger.Infof("Media:     migrated=%d, skipped=%d, failed=%d", migratedMedia, skippedMedia, failedMedia)
+	logger.Infof("Logo:   migrated=%d, skipped=%d, failed=%d", migratedLogo, skippedLogo, failedLogo)
+	logger.Infof("Banner: migrated=%d, skipped=%d, failed=%d", migratedBanner, skippedBanner, failedBanner)
+	logger.Infof("Media:  migrated=%d, skipped=%d, failed=%d", migratedMedia, skippedMedia, failedMedia)
 }
 
-func fetchLegacyPluginData(ctx context.Context, pool *pgxpool.Pool) ([]legacyPluginData, error) {
-	query := `SELECT id, COALESCE(logo_url, ''), COALESCE(thumbnail_url, ''), COALESCE(images, '[]'::jsonb) FROM plugins`
-	rows, err := pool.Query(ctx, query)
+func getDefaultMapping() []pluginData {
+	return []pluginData{
+		{
+			ID:        "vultisig-recurring-sends-0000",
+			LogoURL:   verifierAssetsBase + "/recurring_send/icon.jpg",
+			BannerURL: verifierAssetsBase + "/recurring_send/banner.jpg",
+			MediaURLs: []string{
+				marketplaceMediaBase + "/recurring-sends-img-01.jpg",
+				marketplaceMediaBase + "/recurring-sends-img-02.jpg",
+				marketplaceMediaBase + "/recurring-sends-img-03.jpg",
+				marketplaceMediaBase + "/recurring-sends-img-04.jpg",
+			},
+		},
+		{
+			ID:        "vultisig-dca-0000",
+			LogoURL:   verifierAssetsBase + "/recurring_swap/icon.jpg",
+			BannerURL: verifierAssetsBase + "/recurring_swap/banner.jpg",
+			MediaURLs: []string{
+				marketplaceMediaBase + "/recurring-swaps-img-01.jpg",
+				marketplaceMediaBase + "/recurring-swaps-img-02.jpg",
+				marketplaceMediaBase + "/recurring-swaps-img-03.jpg",
+				marketplaceMediaBase + "/recurring-swaps-img-04.jpg",
+			},
+		},
+		{
+			ID:        "vultisig-fees-feee",
+			LogoURL:   verifierAssetsBase + "/payment/icon.jpg",
+			BannerURL: verifierAssetsBase + "/payment/banner.jpg",
+		},
+	}
+}
+
+func loadFromMappingFile(filePath string) ([]pluginData, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	var mappings []pluginImageMapping
+	err = json.Unmarshal(data, &mappings)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	var result []pluginData
+	for _, m := range mappings {
+		p := pluginData{ID: types.PluginID(m.PluginID)}
+		p.LogoURL = m.Logo
+		p.BannerURL = m.Banner
+		p.MediaURLs = m.Media
+		result = append(result, p)
+	}
+
+	return result, nil
+}
+
+func getExistingPluginIDs(ctx context.Context, pool *pgxpool.Pool) (map[string]bool, error) {
+	rows, err := pool.Query(ctx, "SELECT id FROM plugins")
 	if err != nil {
 		return nil, fmt.Errorf("failed to query plugins: %w", err)
 	}
 	defer rows.Close()
 
-	var result []legacyPluginData
+	result := make(map[string]bool)
 	for rows.Next() {
-		var p legacyPluginData
-		var imagesJSON []byte
-		err = rows.Scan(&p.ID, &p.LogoURL, &p.ThumbnailURL, &imagesJSON)
+		var id string
+		err = rows.Scan(&id)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan plugin: %w", err)
+			return nil, fmt.Errorf("failed to scan: %w", err)
 		}
-		if len(imagesJSON) > 0 {
-			err = json.Unmarshal(imagesJSON, &p.Images)
-			if err != nil {
-				p.Images = nil
-			}
-		}
-		result = append(result, p)
+		result[id] = true
 	}
-
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("error iterating plugins: %w", err)
-	}
-
-	return result, nil
+	return result, rows.Err()
 }
 
 func hasActiveImage(ctx context.Context, pool *pgxpool.Pool, pluginID types.PluginID, imageType itypes.PluginImageType) (bool, error) {
@@ -202,22 +279,22 @@ func hasActiveImage(ctx context.Context, pool *pgxpool.Pool, pluginID types.Plug
 	return exists, nil
 }
 
-func migrateImage(ctx context.Context, logger *logrus.Logger, client *http.Client, pool *pgxpool.Pool, assetStorage storage.PluginAssetStorage, pluginID types.PluginID, sourceURL string, imageType itypes.PluginImageType, imageOrder int) error {
+func migrateImage(ctx context.Context, logger *logrus.Logger, client *http.Client, pool *pgxpool.Pool, assetStorage storage.PluginAssetStorage, pluginID types.PluginID, source string, imageType itypes.PluginImageType, imageOrder int) error {
 	if *dryRun {
-		logger.Infof("[DRY-RUN] would migrate %s for plugin %s from %s", imageType, pluginID, sourceURL)
+		logger.Infof("[DRY-RUN] would migrate %s for plugin %s from %s", imageType, pluginID, source)
 		return nil
 	}
 
-	logger.Infof("migrating %s for plugin %s from %s", imageType, pluginID, sourceURL)
+	logger.Infof("migrating %s for plugin %s from %s", imageType, pluginID, source)
 
-	data, contentType, err := downloadImage(ctx, client, sourceURL)
+	data, contentType, err := downloadImage(ctx, client, source)
 	if err != nil {
 		return fmt.Errorf("failed to download image: %w", err)
 	}
 
 	ext := extensionFromContentType(contentType)
 	if ext == "" {
-		ext = extensionFromURL(sourceURL)
+		ext = extensionFromPath(source)
 	}
 
 	s3Key := fmt.Sprintf("plugins/%s/%s/%s%s", pluginID, imageType, uuid.New().String(), ext)
@@ -227,14 +304,14 @@ func migrateImage(ctx context.Context, logger *logrus.Logger, client *http.Clien
 		return fmt.Errorf("failed to upload to S3: %w", err)
 	}
 
-	filename := path.Base(sourceURL)
+	filename := filepath.Base(source)
 	filename = strings.TrimSuffix(filename, ext)
 
 	insertQuery := `
 		INSERT INTO plugin_images (plugin_id, image_type, s3_path, image_order, uploaded_by_public_key, content_type, filename)
-		VALUES ($1, $2, $3, $4, $5, 'image/jpeg', $6)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
-	_, err = pool.Exec(ctx, insertQuery, pluginID, string(imageType), s3Key, imageOrder, *uploadedBy, filename)
+	_, err = pool.Exec(ctx, insertQuery, pluginID, string(imageType), s3Key, imageOrder, *uploadedBy, contentType, filename)
 	if err != nil {
 		delErr := assetStorage.Delete(ctx, s3Key)
 		if delErr != nil {
@@ -306,8 +383,8 @@ func extensionFromContentType(contentType string) string {
 	}
 }
 
-func extensionFromURL(url string) string {
-	ext := path.Ext(url)
+func extensionFromPath(p string) string {
+	ext := path.Ext(p)
 	if ext == "" {
 		return ".png"
 	}

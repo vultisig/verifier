@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -29,18 +28,10 @@ const (
 )
 
 var (
-	uploadedBy  = flag.String("uploaded-by", "", "Public key to use as uploader (required)")
-	mappingFile = flag.String("mapping", "", "JSON file with plugin image mapping (optional, uses defaults if not provided)")
-	dryRun      = flag.Bool("dry-run", false, "Print what would be migrated without actually migrating")
-	verbose     = flag.Bool("verbose", false, "Enable verbose logging")
+	uploadedBy = flag.String("uploaded-by", "", "Public key to use as uploader (required)")
+	dryRun     = flag.Bool("dry-run", false, "Print what would be migrated without actually migrating")
+	verbose    = flag.Bool("verbose", false, "Enable verbose logging")
 )
-
-type pluginImageMapping struct {
-	PluginID string   `json:"plugin_id"`
-	Logo     string   `json:"logo,omitempty"`
-	Banner   string   `json:"banner,omitempty"`
-	Media    []string `json:"media,omitempty"`
-}
 
 type pluginData struct {
 	ID        types.PluginID
@@ -92,15 +83,7 @@ func main() {
 		logger.Fatalf("failed to create S3 storage: %v", err)
 	}
 
-	var plugins []pluginData
-	if *mappingFile != "" {
-		plugins, err = loadFromMappingFile(*mappingFile)
-		if err != nil {
-			logger.Fatalf("failed to load mapping file: %v", err)
-		}
-	} else {
-		plugins = getDefaultMapping()
-	}
+	plugins := getDefaultMapping()
 
 	existingPlugins, err := getExistingPluginIDs(ctx, pool)
 	if err != nil {
@@ -224,30 +207,6 @@ func getDefaultMapping() []pluginData {
 			BannerURL: verifierAssetsBase + "/payment/banner.jpg",
 		},
 	}
-}
-
-func loadFromMappingFile(filePath string) ([]pluginData, error) {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %w", err)
-	}
-
-	var mappings []pluginImageMapping
-	err = json.Unmarshal(data, &mappings)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse JSON: %w", err)
-	}
-
-	var result []pluginData
-	for _, m := range mappings {
-		p := pluginData{ID: types.PluginID(m.PluginID)}
-		p.LogoURL = m.Logo
-		p.BannerURL = m.Banner
-		p.MediaURLs = m.Media
-		result = append(result, p)
-	}
-
-	return result, nil
 }
 
 func getExistingPluginIDs(ctx context.Context, pool *pgxpool.Pool) (map[string]bool, error) {

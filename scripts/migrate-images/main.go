@@ -112,9 +112,8 @@ func main() {
 			hasLogo, err := hasActiveImage(ctx, pool, p.ID, itypes.PluginImageTypeLogo)
 			if err != nil {
 				logger.Errorf("failed to check logo for plugin %s: %v", p.ID, err)
-				continue
-			}
-			if hasLogo {
+				failedLogo++
+			} else if hasLogo {
 				logger.Debugf("plugin %s already has logo, skipping", p.ID)
 				skippedLogo++
 			} else {
@@ -132,9 +131,8 @@ func main() {
 			hasBanner, err := hasActiveImage(ctx, pool, p.ID, itypes.PluginImageTypeBanner)
 			if err != nil {
 				logger.Errorf("failed to check banner for plugin %s: %v", p.ID, err)
-				continue
-			}
-			if hasBanner {
+				failedBanner++
+			} else if hasBanner {
 				logger.Debugf("plugin %s already has banner, skipping", p.ID)
 				skippedBanner++
 			} else {
@@ -152,9 +150,8 @@ func main() {
 			hasMedia, err := hasActiveImage(ctx, pool, p.ID, itypes.PluginImageTypeMedia)
 			if err != nil {
 				logger.Errorf("failed to check media for plugin %s: %v", p.ID, err)
-				continue
-			}
-			if hasMedia {
+				failedMedia += len(p.MediaURLs)
+			} else if hasMedia {
 				logger.Debugf("plugin %s already has media, skipping", p.ID)
 				skippedMedia += len(p.MediaURLs)
 			} else {

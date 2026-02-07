@@ -68,19 +68,17 @@ func (s *Seeder) SeedDatabase(ctx context.Context) error {
 		log.Printf("  Inserting plugin: %s...\n", plugin.ID)
 
 		_, err := tx.Exec(ctx, `
-			INSERT INTO plugins (id, title, description, server_endpoint, category, logo_url, thumbnail_url, audited)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			INSERT INTO plugins (id, title, description, server_endpoint, category, audited)
+			VALUES ($1, $2, $3, $4, $5, $6)
 			ON CONFLICT (id) DO UPDATE SET
 				title = EXCLUDED.title,
 				description = EXCLUDED.description,
 				server_endpoint = EXCLUDED.server_endpoint,
 				category = EXCLUDED.category,
-				logo_url = EXCLUDED.logo_url,
-				thumbnail_url = EXCLUDED.thumbnail_url,
 				audited = EXCLUDED.audited,
 				updated_at = NOW()
 		`, plugin.ID, plugin.Title, plugin.Description, plugin.ServerEndpoint,
-			plugin.Category, plugin.LogoURL, plugin.ThumbnailURL, plugin.Audited)
+			plugin.Category, plugin.Audited)
 		if err != nil {
 			tx.Rollback(ctx)
 			return fmt.Errorf("failed to insert plugin %s: %w", plugin.ID, err)

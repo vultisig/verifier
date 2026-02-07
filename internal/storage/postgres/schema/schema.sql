@@ -319,9 +319,6 @@ CREATE TABLE "plugins" (
     "category" "plugin_category" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "logo_url" "text" DEFAULT ''::"text" NOT NULL,
-    "thumbnail_url" "text" DEFAULT ''::"text" NOT NULL,
-    "images" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
     "faqs" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
     "features" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
     "audited" boolean DEFAULT false NOT NULL

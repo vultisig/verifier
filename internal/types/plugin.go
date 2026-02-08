@@ -9,7 +9,7 @@ import (
 )
 
 type Plugin struct {
-	ID             types.PluginID  `json:"id" validate:"required"`
+	ID             string          `json:"id" validate:"required"`
 	Title          string          `json:"title" validate:"required"`
 	Description    string          `json:"description" validate:"required"`
 	ServerEndpoint string          `json:"server_endpoint" validate:"required"`
@@ -84,8 +84,8 @@ type PluginPolicyPaginatedList struct {
 }
 
 type PluginTotalCount struct {
-	ID         types.PluginID `json:"id" validate:"required"`
-	TotalCount int            `json:"total_count" validate:"required"`
+	ID         string `json:"id" validate:"required"`
+	TotalCount int    `json:"total_count" validate:"required"`
 }
 
 type RecipeFunctions struct {

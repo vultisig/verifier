@@ -68,7 +68,7 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id uuid.UUID) (*t
 	return &policy, nil
 }
 
-func (p *PostgresBackend) GetPluginPolicies(ctx context.Context, publicKey string, pluginIds []types.PluginID, includeInactive bool) ([]types.PluginPolicy, error) {
+func (p *PostgresBackend) GetPluginPolicies(ctx context.Context, publicKey string, pluginIds []string, includeInactive bool) ([]types.PluginPolicy, error) {
 	var rows pgx.Rows
 	var err error
 
@@ -85,20 +85,16 @@ FROM plugin_policies
 WHERE public_key = $1 AND deleted = false`, publicKey)
 		}
 	} else {
-		pids := []string{}
-		for _, pid := range pluginIds {
-			pids = append(pids, pid.String())
-		}
 		if !includeInactive {
 			rows, err = p.pool.Query(ctx, `
 SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe, deactivation_reason
 FROM plugin_policies
-WHERE public_key = $1 AND plugin_id = ANY($2) AND active = true AND deleted = false`, publicKey, pids)
+WHERE public_key = $1 AND plugin_id = ANY($2) AND active = true AND deleted = false`, publicKey, pluginIds)
 		} else {
 			rows, err = p.pool.Query(ctx, `
 SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe, deactivation_reason
 FROM plugin_policies
-WHERE public_key = $1 AND plugin_id = ANY($2) AND deleted = false`, publicKey, pids)
+WHERE public_key = $1 AND plugin_id = ANY($2) AND deleted = false`, publicKey, pluginIds)
 		}
 	}
 
@@ -134,7 +130,7 @@ WHERE public_key = $1 AND plugin_id = ANY($2) AND deleted = false`, publicKey, p
 	return policies, nil
 }
 
-func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int, activeFilter *bool) (*itypes.PluginPolicyPaginatedList, error) {
+func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID string, take int, skip int, activeFilter *bool) (*itypes.PluginPolicyPaginatedList, error) {
 	if p.pool == nil {
 		return nil, fmt.Errorf("database pool is nil")
 	}
@@ -446,7 +442,7 @@ func (p *PostgresBackend) UpdatePluginPolicySync(ctx context.Context, dbTx pgx.T
 	return nil
 }
 
-func (p *PostgresBackend) DeleteAllPolicies(ctx context.Context, dbTx pgx.Tx, pluginID types.PluginID, publicKey string) error {
+func (p *PostgresBackend) DeleteAllPolicies(ctx context.Context, dbTx pgx.Tx, pluginID string, publicKey string) error {
 	query := `UPDATE plugin_policies SET deleted = true, active = false WHERE plugin_id = $1 AND public_key = $2 AND deleted = false`
 	_, err := dbTx.Exec(ctx, query, pluginID, publicKey)
 	if err != nil {

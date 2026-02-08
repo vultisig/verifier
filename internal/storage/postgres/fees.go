@@ -475,7 +475,7 @@ func (p *PostgresBackend) IsTrialActive(
 
 func (p *PostgresBackend) GetFeesByPluginID(
 	ctx context.Context,
-	pluginID types.PluginID,
+	pluginID string,
 	publicKey string,
 	skip, take uint32,
 ) ([]itypes.FeeWithStatus, uint32, error) {

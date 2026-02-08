@@ -44,7 +44,7 @@ func (s *FeeManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.T
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
 	}
 
-	if err := s.RegisterInstallation(ctx, vtypes.PluginID(req.PluginID), req.PublicKey); err != nil {
+	if err := s.RegisterInstallation(ctx, req.PluginID, req.PublicKey); err != nil {
 		s.logger.WithError(err).Error("s.RegisterInstallation failed")
 		return fmt.Errorf("s.RegisterInstallation failed: %v: %w", err, asynq.SkipRetry)
 	}
@@ -52,7 +52,7 @@ func (s *FeeManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.T
 	return nil
 }
 
-func (s *FeeManagementService) RegisterInstallation(ctx context.Context, pluginID vtypes.PluginID, publicKey string) error {
+func (s *FeeManagementService) RegisterInstallation(ctx context.Context, pluginID string, publicKey string) error {
 	return s.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
 		pluginInfo, err := s.db.FindPluginById(ctx, tx, pluginID)
 		if err != nil {
@@ -79,13 +79,13 @@ func (s *FeeManagementService) RegisterInstallation(ctx context.Context, pluginI
 		}
 
 		_, err = s.db.InsertFee(ctx, tx, &vtypes.Fee{
-			PluginID:       pluginID.String(),
+			PluginID:       pluginID,
 			PublicKey:      publicKey,
 			TxType:         vtypes.TxTypeDebit,
 			Amount:         installationFee,
 			FeeType:        vtypes.FeeTypeInstallationFee,
 			UnderlyingType: "plugin",
-			UnderlyingID:   pluginID.String(),
+			UnderlyingID:   pluginID,
 		})
 		if err != nil {
 			return err

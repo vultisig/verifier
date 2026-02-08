@@ -97,7 +97,7 @@ func NewPluginKeysignRequestEvm(policy PluginPolicy, txToTrack string, chain vgc
 				},
 			},
 			PolicyID: policy.ID,
-			PluginID: policy.PluginID.String(),
+			PluginID: policy.PluginID,
 		},
 		Transaction: base64.StdEncoding.EncodeToString(tx),
 	}, nil

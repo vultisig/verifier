@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
-	"github.com/vultisig/verifier/types"
 )
 
 const maxErrorMessageLength = 2048
@@ -322,7 +321,7 @@ func (p *PostgresTxIndexStore) CountByPolicyID(c context.Context, policyID uuid.
 
 func (p *PostgresTxIndexStore) GetByPluginIDAndPublicKey(
 	c context.Context,
-	pluginID types.PluginID,
+	pluginID string,
 	publicKey string,
 	skip, take uint32,
 ) <-chan RowsStream[Tx] {
@@ -338,7 +337,7 @@ func (p *PostgresTxIndexStore) GetByPluginIDAndPublicKey(
 	)
 }
 
-func (p *PostgresTxIndexStore) CountByPluginIDAndPublicKey(c context.Context, pluginID types.PluginID, publicKey string) (uint32, error) {
+func (p *PostgresTxIndexStore) CountByPluginIDAndPublicKey(c context.Context, pluginID string, publicKey string) (uint32, error) {
 	ctx, cancel := context.WithTimeout(c, defaultTimeout)
 	defer cancel()
 

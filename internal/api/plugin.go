@@ -51,11 +51,11 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 
 	// Verify authenticated plugin ID matches the requested plugin ID
 	// This prevents a malicious plugin from impersonating another plugin
-	authenticatedPluginID, ok := c.Get("plugin_id").(vtypes.PluginID)
+	authenticatedPluginID, ok := c.Get("plugin_id").(string)
 	if !ok {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
 	}
-	if authenticatedPluginID.String() != req.PluginID {
+	if authenticatedPluginID != req.PluginID {
 		s.logger.Warnf("Plugin ID mismatch: authenticated=%s, requested=%s", authenticatedPluginID, req.PluginID)
 		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgPluginIDMismatch))
 	}
@@ -70,7 +70,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	}
 
 	// Get policy from database
-	if req.PluginID == vtypes.PluginVultisigFees_feee.String() {
+	if req.PluginID == types.PluginVultisigFees {
 		s.logger.Debug("SIGN FEE PLUGIN MESSAGES")
 		return s.validateAndSign(c, &req, types.FeeDefaultPolicy, uuid.New())
 	} else {
@@ -88,7 +88,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		}
 
 		if !isTrialActive {
-			filePathName := common.GetVaultBackupFilename(req.PublicKey, vtypes.PluginVultisigFees_feee.String())
+			filePathName := common.GetVaultBackupFilename(req.PublicKey, types.PluginVultisigFees)
 			exist, err := s.vaultStorage.Exist(filePathName)
 			if err != nil {
 				errMsg := "failed to check vault existence"
@@ -111,7 +111,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		}
 
 		// Validate policy matches plugin
-		if policy.PluginID != vtypes.PluginID(req.PluginID) {
+		if policy.PluginID != req.PluginID {
 			return fmt.Errorf("policy plugin ID mismatch")
 		}
 
@@ -243,7 +243,7 @@ func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignReques
 
 	var matchedRule *rtypes.Rule
 	//TODO: fee plugin priority for testing purposes
-	if req.PluginID == vtypes.PluginVultisigFees_feee.String() {
+	if req.PluginID == types.PluginVultisigFees {
 		matchedRule, err = ngn.Evaluate(types.FeeDefaultPolicy, firstKeysignMessage.Chain, txBytesEvaluate)
 		if err != nil {
 			return s.forbidden(c, msgTxNotAllowed, err)
@@ -261,7 +261,7 @@ func (s *Server) validateAndSign(c echo.Context, req *vtypes.PluginKeysignReques
 	toAddress := extractToAddressFromRule(matchedRule)
 
 	txToTrack, err := s.txIndexerService.CreateTx(c.Request().Context(), storage.CreateTxDto{
-		PluginID:      vtypes.PluginID(req.PluginID),
+		PluginID:      req.PluginID,
 		ChainID:       firstKeysignMessage.Chain,
 		PolicyID:      policyID,
 		TokenID:       tokenID,
@@ -373,7 +373,7 @@ func (s *Server) applyImageToPlugin(plugin *types.Plugin, img types.PluginImageR
 }
 
 func (s *Server) enrichPluginWithImages(ctx context.Context, plugin *types.Plugin) {
-	images, err := s.db.GetPluginImagesByPluginIDs(ctx, []vtypes.PluginID{plugin.ID})
+	images, err := s.db.GetPluginImagesByPluginIDs(ctx, []string{plugin.ID})
 	if err != nil {
 		s.logger.WithError(err).Warn("failed to fetch plugin images for enrichment")
 		return
@@ -388,7 +388,7 @@ func (s *Server) enrichPluginsWithImages(ctx context.Context, plugins []types.Pl
 		return
 	}
 
-	pluginIDs := make([]vtypes.PluginID, len(plugins))
+	pluginIDs := make([]string, len(plugins))
 	for i, p := range plugins {
 		pluginIDs[i] = p.ID
 	}
@@ -402,9 +402,9 @@ func (s *Server) enrichPluginsWithImages(ctx context.Context, plugins []types.Pl
 		return
 	}
 
-	imagesByPlugin := make(map[vtypes.PluginID][]types.PluginImageRecord)
+	imagesByPlugin := make(map[string][]types.PluginImageRecord)
 	for _, img := range images {
-		imagesByPlugin[vtypes.PluginID(img.PluginID)] = append(imagesByPlugin[vtypes.PluginID(img.PluginID)], img)
+		imagesByPlugin[img.PluginID] = append(imagesByPlugin[img.PluginID], img)
 	}
 
 	for i := range plugins {
@@ -444,7 +444,7 @@ func (s *Server) GetInstalledPlugins(c echo.Context) error {
 	installed.Plugins = make([]types.Plugin, 0, len(pluginList.Plugins))
 
 	for _, plugin := range pluginList.Plugins {
-		fileName := common.GetVaultBackupFilename(publicKey, string(plugin.ID))
+		fileName := common.GetVaultBackupFilename(publicKey, plugin.ID)
 
 		exist, err := s.vaultStorage.Exist(fileName)
 		if err != nil {
@@ -560,7 +560,7 @@ func (s *Server) GetPluginTransactionHistory(c echo.Context) error {
 		// Filter by specific plugin
 		txs, totalCount, err = s.txIndexerService.GetByPluginIDAndPublicKey(
 			c.Request().Context(),
-			vtypes.PluginID(pluginID),
+			pluginID,
 			publicKey,
 			skip,
 			take,
@@ -600,7 +600,7 @@ func (s *Server) buildPluginTitleMap(ctx context.Context, txs []storage.Tx) (map
 	// Get unique plugin IDs
 	pluginIDSet := make(map[string]struct{})
 	for _, tx := range txs {
-		pluginIDSet[string(tx.PluginID)] = struct{}{}
+		pluginIDSet[tx.PluginID] = struct{}{}
 	}
 
 	if len(pluginIDSet) == 0 {
@@ -763,7 +763,7 @@ func (s *Server) GetPluginInstallationsCountByID(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
 	}
 
-	count, err := s.policyService.GetPluginInstallationsCount(c.Request().Context(), vtypes.PluginID(pluginID))
+	count, err := s.policyService.GetPluginInstallationsCount(c.Request().Context(), pluginID)
 	if err != nil {
 		s.logger.WithError(err).Errorf("Failed to get installation count for pluginId: %s", pluginID)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgPluginInstallationCountFailed))
@@ -952,7 +952,7 @@ func (s *Server) ReportPlugin(c echo.Context) error {
 	reason := p.Sanitize(req.Reason)
 	details := p.Sanitize(req.Details)
 
-	result, err := s.reportService.SubmitReport(c.Request().Context(), vtypes.PluginID(pluginID), publicKey, reason, details)
+	result, err := s.reportService.SubmitReport(c.Request().Context(), pluginID, publicKey, reason, details)
 	if err != nil {
 		if errors.Is(err, service.ErrNotEligible) {
 			return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgReportNotEligible))
@@ -1006,7 +1006,7 @@ func (s *Server) GetAvailablePlugins(c echo.Context) error {
 		go func(idx int, p types.Plugin) {
 			defer func() { <-sem }() // release
 
-			skills, err := s.pluginService.GetPluginSkills(ctx, string(p.ID))
+			skills, err := s.pluginService.GetPluginSkills(ctx, p.ID)
 			if err != nil {
 				s.logger.WithError(err).Warnf("Plugin %s unavailable, excluding from available list", p.ID)
 				results <- result{index: idx, success: false}
@@ -1015,7 +1015,7 @@ func (s *Server) GetAvailablePlugins(c echo.Context) error {
 			results <- result{
 				index: idx,
 				plugin: AvailablePlugin{
-					ID:       string(p.ID),
+					ID:       p.ID,
 					Name:     p.Title,
 					SkillsMD: skills.SkillsMD,
 				},

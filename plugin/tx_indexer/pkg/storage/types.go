@@ -9,7 +9,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/conv"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
-	"github.com/vultisig/verifier/types"
 	"github.com/vultisig/vultisig-go/common"
 )
 
@@ -24,8 +23,8 @@ type TxIndexerRepo interface {
 	GetTxsInTimeRange(ctx context.Context, policyID uuid.UUID, from, to time.Time) <-chan RowsStream[Tx]
 	GetByPolicyID(ctx context.Context, policyID uuid.UUID, skip, take uint32) <-chan RowsStream[Tx]
 	CountByPolicyID(ctx context.Context, policyID uuid.UUID) (uint32, error)
-	GetByPluginIDAndPublicKey(ctx context.Context, pluginID types.PluginID, publicKey string, skip, take uint32) <-chan RowsStream[Tx]
-	CountByPluginIDAndPublicKey(ctx context.Context, pluginID types.PluginID, publicKey string) (uint32, error)
+	GetByPluginIDAndPublicKey(ctx context.Context, pluginID string, publicKey string, skip, take uint32) <-chan RowsStream[Tx]
+	CountByPluginIDAndPublicKey(ctx context.Context, pluginID string, publicKey string) (uint32, error)
 	GetByPublicKey(ctx context.Context, publicKey string, skip, take uint32) <-chan RowsStream[Tx]
 	CountByPublicKey(ctx context.Context, publicKey string) (uint32, error)
 }
@@ -42,7 +41,7 @@ var ErrNoTx = errors.New("transaction not found")
 
 type Tx struct {
 	ID            uuid.UUID            `json:"id" validate:"required"`
-	PluginID      types.PluginID       `json:"plugin_id" validate:"required"`
+	PluginID      string               `json:"plugin_id" validate:"required"`
 	TxHash        *string              `json:"tx_hash"`
 	ChainID       int                  `json:"chain_id" validate:"required"`
 	PolicyID      uuid.UUID            `json:"policy_id" validate:"required"`
@@ -80,7 +79,7 @@ func (t *Tx) Fields() logrus.Fields {
 }
 
 type CreateTxDto struct {
-	PluginID      types.PluginID
+	PluginID      string
 	ChainID       common.Chain
 	PolicyID      uuid.UUID
 	TokenID       string

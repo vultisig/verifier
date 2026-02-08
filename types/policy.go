@@ -40,7 +40,7 @@ const (
 type PluginPolicy struct {
 	ID                 uuid.UUID       `json:"id" validate:"required"`
 	PublicKey          string          `json:"public_key" validate:"required"`
-	PluginID           PluginID        `json:"plugin_id" validate:"required"`
+	PluginID           string          `json:"plugin_id" validate:"required"`
 	PluginVersion      string          `json:"plugin_version" validate:"required"`
 	PolicyVersion      int             `json:"policy_version" validate:"required"`
 	Signature          string          `json:"signature" validate:"required"`

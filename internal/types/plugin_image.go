@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/vultisig/verifier/types"
 )
 
 type PluginImageType string
@@ -18,7 +17,7 @@ const (
 
 type PluginImageRecord struct {
 	ID                  uuid.UUID       `json:"id"`
-	PluginID            types.PluginID  `json:"plugin_id"`
+	PluginID            string          `json:"plugin_id"`
 	ImageType           PluginImageType `json:"image_type"`
 	S3Path              string          `json:"s3_path"`
 	ImageOrder          int             `json:"image_order"`
@@ -33,7 +32,7 @@ type PluginImageRecord struct {
 
 type PluginImageCreateParams struct {
 	ID                  uuid.UUID
-	PluginID            types.PluginID
+	PluginID            string
 	ImageType           PluginImageType
 	S3Path              string
 	ImageOrder          int

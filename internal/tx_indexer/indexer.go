@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	vstorage "github.com/vultisig/verifier/internal/storage"
+	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/plugin/tx_indexer"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/graceful"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
@@ -73,7 +74,7 @@ func (fi *FeeIndexer) updateTxStatus(ctx context.Context, tx storage.Tx) error {
 		return fmt.Errorf("w.UpdateTxStatus: %w", err)
 	}
 
-	if tx.PluginID != types.PluginVultisigFees_feee && newStatus != nil && *newStatus == rpc.TxOnChainSuccess {
+	if tx.PluginID != itypes.PluginVultisigFees && newStatus != nil && *newStatus == rpc.TxOnChainSuccess {
 		err = fi.db.WithTransaction(ctx, func(ctx context.Context, dbTx pgx.Tx) error {
 			var err error
 
@@ -115,7 +116,7 @@ func (fi *FeeIndexer) updateTxStatus(ctx context.Context, tx storage.Tx) error {
 			return fmt.Errorf("failed to insert fee: %w", err)
 		}
 	}
-	if tx.PluginID == types.PluginVultisigFees_feee {
+	if tx.PluginID == itypes.PluginVultisigFees {
 		if tx.TxHash == nil {
 			return fmt.Errorf("nil tx hash")
 		}

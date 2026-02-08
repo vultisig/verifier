@@ -9,12 +9,11 @@ import (
 	"net/http"
 
 	"github.com/vultisig/verifier/plugin/safety"
-	"github.com/vultisig/verifier/types"
 )
 
 const safetyEndpoint = "/plugin/safety"
 
-func (s *Syncer) SyncSafetyToPlugin(ctx context.Context, pluginID types.PluginID, flags []safety.ControlFlag) error {
+func (s *Syncer) SyncSafetyToPlugin(ctx context.Context, pluginID string, flags []safety.ControlFlag) error {
 	flagBytes, err := json.Marshal(flags)
 	if err != nil {
 		return fmt.Errorf("failed to marshal flags: %w", err)

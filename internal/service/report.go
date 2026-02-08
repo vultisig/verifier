@@ -11,7 +11,6 @@ import (
 	"github.com/vultisig/verifier/internal/safety"
 	itypes "github.com/vultisig/verifier/internal/types"
 	psafety "github.com/vultisig/verifier/plugin/safety"
-	"github.com/vultisig/verifier/types"
 )
 
 var (
@@ -20,17 +19,17 @@ var (
 )
 
 type ReportServiceStorage interface {
-	UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason, details string, cooldown time.Duration) error
-	GetReport(ctx context.Context, pluginID types.PluginID, publicKey string) (*itypes.PluginReport, error)
-	CountReportsInWindow(ctx context.Context, pluginID types.PluginID, window time.Duration) (int, error)
-	HasInstallation(ctx context.Context, pluginID types.PluginID, publicKey string) (bool, error)
-	CountInstallations(ctx context.Context, pluginID types.PluginID) (int, error)
-	IsPluginPaused(ctx context.Context, pluginID types.PluginID) (bool, error)
-	PausePlugin(ctx context.Context, pluginID types.PluginID, record itypes.PauseHistoryRecord) error
+	UpsertReport(ctx context.Context, pluginID string, publicKey, reason, details string, cooldown time.Duration) error
+	GetReport(ctx context.Context, pluginID string, publicKey string) (*itypes.PluginReport, error)
+	CountReportsInWindow(ctx context.Context, pluginID string, window time.Duration) (int, error)
+	HasInstallation(ctx context.Context, pluginID string, publicKey string) (bool, error)
+	CountInstallations(ctx context.Context, pluginID string) (int, error)
+	IsPluginPaused(ctx context.Context, pluginID string) (bool, error)
+	PausePlugin(ctx context.Context, pluginID string, record itypes.PauseHistoryRecord) error
 }
 
 type SafetySyncer interface {
-	SyncSafetyToPlugin(ctx context.Context, pluginID types.PluginID, flags []psafety.ControlFlag) error
+	SyncSafetyToPlugin(ctx context.Context, pluginID string, flags []psafety.ControlFlag) error
 }
 
 type ReportService struct {
@@ -53,7 +52,7 @@ func NewReportService(db ReportServiceStorage, syncer SafetySyncer, logger *logr
 	}, nil
 }
 
-func (s *ReportService) SubmitReport(ctx context.Context, pluginID types.PluginID, publicKey, reason, details string) (*itypes.ReportSubmitResult, error) {
+func (s *ReportService) SubmitReport(ctx context.Context, pluginID string, publicKey, reason, details string) (*itypes.ReportSubmitResult, error) {
 	hasInstallation, err := s.db.HasInstallation(ctx, pluginID, publicKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check installation: %w", err)
@@ -110,7 +109,7 @@ func (s *ReportService) SubmitReport(ctx context.Context, pluginID types.PluginI
 	}, nil
 }
 
-func (s *ReportService) evaluateAndPause(ctx context.Context, pluginID types.PluginID) error {
+func (s *ReportService) evaluateAndPause(ctx context.Context, pluginID string) error {
 	isPaused, err := s.db.IsPluginPaused(ctx, pluginID)
 	if err != nil {
 		return fmt.Errorf("failed to check pause status: %w", err)

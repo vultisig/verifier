@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	itypes "github.com/vultisig/verifier/internal/types"
-	ptypes "github.com/vultisig/verifier/types"
+	"github.com/vultisig/verifier/types"
 )
 
 func TestAddPluginPolicySync(t *testing.T) {
@@ -19,9 +19,9 @@ func TestAddPluginPolicySync(t *testing.T) {
 	tx, err := db.Pool().Begin(ctx)
 	assert.NoError(t, err)
 	syncID := uuid.New()
-	policy, err := db.InsertPluginPolicyTx(ctx, tx, ptypes.PluginPolicy{
+	policy, err := db.InsertPluginPolicyTx(ctx, tx, types.PluginPolicy{
 		ID:            uuid.New(),
-		PluginID:      ptypes.PluginVultisigPayroll_0000,
+		PluginID:      itypes.PluginVultisigRecurringSends,
 		PublicKey:     "publicKey",
 		Signature:     "signature",
 		Recipe:        "recipe",
@@ -37,7 +37,7 @@ func TestAddPluginPolicySync(t *testing.T) {
 	err = db.AddPluginPolicySync(ctx, tx, itypes.PluginPolicySync{
 		ID:         syncID,
 		PolicyID:   policy.ID,
-		PluginID:   ptypes.PluginVultisigPayroll_0000,
+		PluginID:   itypes.PluginVultisigRecurringSends,
 		SyncType:   itypes.AddPolicy,
 		Signature:  "signature",
 		Status:     itypes.NotSynced,

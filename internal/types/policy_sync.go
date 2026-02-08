@@ -2,7 +2,6 @@ package types
 
 import (
 	"github.com/google/uuid"
-	ptypes "github.com/vultisig/verifier/types"
 )
 
 type PolicySyncStatus int
@@ -23,7 +22,7 @@ const (
 type PluginPolicySync struct {
 	ID         uuid.UUID        `json:"id" validate:"required"`
 	PolicyID   uuid.UUID        `json:"policy_id" validate:"required"`
-	PluginID   ptypes.PluginID  `json:"plugin_id" validate:"required"`
+	PluginID   string           `json:"plugin_id" validate:"required"`
 	Signature  string           `json:"signature" validate:"required"`
 	SyncType   PolicySyncType   `json:"sync_type" validate:"required"`
 	Status     PolicySyncStatus `json:"status" validate:"required"`

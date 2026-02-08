@@ -43,23 +43,23 @@ type DatabaseStorage interface {
 
 type PolicyRepository interface {
 	GetPluginPolicy(ctx context.Context, id uuid.UUID) (*types.PluginPolicy, error)
-	GetPluginPolicies(ctx context.Context, publicKey string, pluginIds []types.PluginID, includeInactive bool) ([]types.PluginPolicy, error)
-	GetPluginInstallationsCount(ctx context.Context, pluginID types.PluginID) (itypes.PluginTotalCount, error)
-	GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int, activeFilter *bool) (*itypes.PluginPolicyPaginatedList, error)
+	GetPluginPolicies(ctx context.Context, publicKey string, pluginIds []string, includeInactive bool) ([]types.PluginPolicy, error)
+	GetPluginInstallationsCount(ctx context.Context, pluginID string) (itypes.PluginTotalCount, error)
+	GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID string, take int, skip int, activeFilter *bool) (*itypes.PluginPolicyPaginatedList, error)
 	DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id uuid.UUID) error
 	InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error)
 	UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error)
-	DeleteAllPolicies(ctx context.Context, dbTx pgx.Tx, pluginID types.PluginID, publicKey string) error
+	DeleteAllPolicies(ctx context.Context, dbTx pgx.Tx, pluginID string, publicKey string) error
 }
 
 type FeeRepository interface {
 	GetFeeById(ctx context.Context, id uint64) (*types.Fee, error)
 	GetFeesByPublicKey(ctx context.Context, publicKey string) ([]*types.Fee, error)
-	GetFeesByPluginID(ctx context.Context, pluginID types.PluginID, publicKey string, skip, take uint32) ([]itypes.FeeWithStatus, uint32, error)
+	GetFeesByPluginID(ctx context.Context, pluginID string, publicKey string, skip, take uint32) ([]itypes.FeeWithStatus, uint32, error)
 	GetPluginBillingSummary(ctx context.Context, publicKey string) ([]itypes.PluginBillingSummaryRow, error)
 	GetPricingsByPluginIDs(ctx context.Context, pluginIDs []string) (map[string][]itypes.PricingInfo, error)
 	InsertFee(ctx context.Context, dbTx pgx.Tx, fee *types.Fee) (uint64, error)
-	InsertPluginInstallation(ctx context.Context, dbTx pgx.Tx, pluginID types.PluginID, publicKey string) error
+	InsertPluginInstallation(ctx context.Context, dbTx pgx.Tx, pluginID string, publicKey string) error
 	MarkFeesCollected(ctx context.Context, dbTx pgx.Tx, feeIDs []uint64, txHash string, totalAmount uint64) error
 	GetUserFees(ctx context.Context, publicKey string) (*types.UserFeeStatus, error)
 	UpdateBatchStatus(ctx context.Context, dbTx pgx.Tx, txHash string, status *rpc.TxOnChainStatus) error
@@ -75,7 +75,7 @@ type PluginPolicySyncRepository interface {
 }
 
 type PricingRepository interface {
-	GetPricingByPluginId(ctx context.Context, pluginId types.PluginID) ([]types.Pricing, error)
+	GetPricingByPluginId(ctx context.Context, pluginId string) ([]types.Pricing, error)
 	FindPricingById(ctx context.Context, id uuid.UUID) (*types.Pricing, error)
 	CreatePricing(ctx context.Context, pricingDto types.PricingCreateDto) (*types.Pricing, error)
 	DeletePricingById(ctx context.Context, id uuid.UUID) error
@@ -83,23 +83,23 @@ type PricingRepository interface {
 
 type PluginRepository interface {
 	FindPlugins(ctx context.Context, filters itypes.PluginFilters, take int, skip int, sort string) (*itypes.PluginsPaginatedList, error)
-	FindPluginById(ctx context.Context, dbTx pgx.Tx, id types.PluginID) (*itypes.Plugin, error)
+	FindPluginById(ctx context.Context, dbTx pgx.Tx, id string) (*itypes.Plugin, error)
 	GetPluginTitlesByIDs(ctx context.Context, ids []string) (map[string]string, error)
 
 	Pool() *pgxpool.Pool
 }
 
 type PluginOwnerRepository interface {
-	IsOwner(ctx context.Context, pluginID types.PluginID, publicKey string) (bool, error)
-	GetPluginsByOwner(ctx context.Context, publicKey string) ([]types.PluginID, error)
-	AddOwner(ctx context.Context, pluginID types.PluginID, publicKey string, addedVia itypes.PluginOwnerAddedVia, addedBy string) error
-	DeactivateOwner(ctx context.Context, pluginID types.PluginID, publicKey string) error
+	IsOwner(ctx context.Context, pluginID string, publicKey string) (bool, error)
+	GetPluginsByOwner(ctx context.Context, publicKey string) ([]string, error)
+	AddOwner(ctx context.Context, pluginID string, publicKey string, addedVia itypes.PluginOwnerAddedVia, addedBy string) error
+	DeactivateOwner(ctx context.Context, pluginID string, publicKey string) error
 }
 
 type PluginImageRepository interface {
-	GetPluginImagesByPluginIDs(ctx context.Context, pluginIDs []types.PluginID) ([]itypes.PluginImageRecord, error)
-	GetPluginImageByType(ctx context.Context, pluginID types.PluginID, imageType itypes.PluginImageType) (*itypes.PluginImageRecord, error)
-	GetNextMediaOrder(ctx context.Context, pluginID types.PluginID) (int, error)
+	GetPluginImagesByPluginIDs(ctx context.Context, pluginIDs []string) ([]itypes.PluginImageRecord, error)
+	GetPluginImageByType(ctx context.Context, pluginID string, imageType itypes.PluginImageType) (*itypes.PluginImageRecord, error)
+	GetNextMediaOrder(ctx context.Context, pluginID string) (int, error)
 }
 
 type VaultTokenRepository interface {
@@ -140,11 +140,11 @@ type ControlFlagsRepository interface {
 }
 
 type ReportRepository interface {
-	UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason, details string, cooldown time.Duration) error
-	GetReport(ctx context.Context, pluginID types.PluginID, publicKey string) (*itypes.PluginReport, error)
-	CountReportsInWindow(ctx context.Context, pluginID types.PluginID, window time.Duration) (int, error)
-	HasInstallation(ctx context.Context, pluginID types.PluginID, publicKey string) (bool, error)
-	CountInstallations(ctx context.Context, pluginID types.PluginID) (int, error)
-	IsPluginPaused(ctx context.Context, pluginID types.PluginID) (bool, error)
-	PausePlugin(ctx context.Context, pluginID types.PluginID, record itypes.PauseHistoryRecord) error
+	UpsertReport(ctx context.Context, pluginID string, publicKey, reason, details string, cooldown time.Duration) error
+	GetReport(ctx context.Context, pluginID string, publicKey string) (*itypes.PluginReport, error)
+	CountReportsInWindow(ctx context.Context, pluginID string, window time.Duration) (int, error)
+	HasInstallation(ctx context.Context, pluginID string, publicKey string) (bool, error)
+	CountInstallations(ctx context.Context, pluginID string) (int, error)
+	IsPluginPaused(ctx context.Context, pluginID string) (bool, error)
+	PausePlugin(ctx context.Context, pluginID string, record itypes.PauseHistoryRecord) error
 }

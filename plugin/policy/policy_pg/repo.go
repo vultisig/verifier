@@ -53,7 +53,7 @@ func (r *Repo) GetPluginPolicy(ctx context.Context, id uuid.UUID) (*types.Plugin
 	return &policy, nil
 }
 
-func (r *Repo) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, onlyActive bool) ([]types.PluginPolicy, error) {
+func (r *Repo) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID string, onlyActive bool) ([]types.PluginPolicy, error) {
 	query := `
   	SELECT id, public_key, plugin_id, plugin_version, policy_version, signature, active, recipe, deactivation_reason
 		FROM plugin_policies

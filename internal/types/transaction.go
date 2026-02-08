@@ -130,12 +130,12 @@ type PricingInfo struct {
 
 // PluginBillingSummary is the response DTO for plugin billing info
 type PluginBillingSummary struct {
-	PluginID    string          `json:"plugin_id"`
-	AppName     string          `json:"app_name"`
-	Pricing     string          `json:"pricing"` // Formatted: "0.50 USDC one-time + 0.01 USDC per transaction"
-	StartDate   time.Time       `json:"start_date"`
-	NextPayment *time.Time      `json:"next_payment"` // nil for non-recurring
-	TotalFees   string          `json:"total_fees"`
+	PluginID    string     `json:"plugin_id"`
+	AppName     string     `json:"app_name"`
+	Pricing     string     `json:"pricing"` // Formatted: "0.50 USDC one-time + 0.01 USDC per transaction"
+	StartDate   time.Time  `json:"start_date"`
+	NextPayment *time.Time `json:"next_payment"` // nil for non-recurring
+	TotalFees   string     `json:"total_fees"`
 }
 
 // PluginBillingSummaryList is the response for the billing summary endpoint

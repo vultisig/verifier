@@ -41,7 +41,7 @@ var ErrNoTx = errors.New("transaction not found")
 
 type Tx struct {
 	ID            uuid.UUID            `json:"id" validate:"required"`
-	PluginID      string       `json:"plugin_id" validate:"required"`
+	PluginID      string               `json:"plugin_id" validate:"required"`
 	TxHash        *string              `json:"tx_hash"`
 	ChainID       int                  `json:"chain_id" validate:"required"`
 	PolicyID      uuid.UUID            `json:"policy_id" validate:"required"`

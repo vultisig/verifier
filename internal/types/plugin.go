@@ -84,8 +84,8 @@ type PluginPolicyPaginatedList struct {
 }
 
 type PluginTotalCount struct {
-	ID         string         `json:"id" validate:"required"`
-	TotalCount int            `json:"total_count" validate:"required"`
+	ID         string `json:"id" validate:"required"`
+	TotalCount int    `json:"total_count" validate:"required"`
 }
 
 type RecipeFunctions struct {

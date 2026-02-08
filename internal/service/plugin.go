@@ -18,7 +18,6 @@ import (
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/internal/util"
-	ptypes "github.com/vultisig/verifier/types"
 )
 
 // PluginSkills represents the skills returned from a plugin's /skills endpoint.
@@ -56,7 +55,7 @@ type PluginServiceStorage interface {
 	FindReviewById(ctx context.Context, db pgx.Tx, id string) (*types.ReviewDto, error)
 	FindReviewByUserAndPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, userAddress string) (*types.ReviewDto, error)
 
-	FindPluginById(ctx context.Context, dbTx pgx.Tx, id ptypes.PluginID) (*types.Plugin, error)
+	FindPluginById(ctx context.Context, dbTx pgx.Tx, id string) (*types.Plugin, error)
 	GetAPIKeyByPluginId(ctx context.Context, pluginId string) (*types.APIKey, error)
 	GetPluginTitlesByIDs(ctx context.Context, ids []string) (map[string]string, error)
 }
@@ -84,7 +83,7 @@ func (s *PluginService) GetPluginWithRating(ctx context.Context, pluginId string
 		var err error
 
 		// Find plugin
-		plugin, err := s.db.FindPluginById(ctx, tx, ptypes.PluginID(pluginId))
+		plugin, err := s.db.FindPluginById(ctx, tx, pluginId)
 		if err != nil {
 			return fmt.Errorf("failed to get plugin: %w", err)
 		}
@@ -207,7 +206,7 @@ func (s *PluginService) GetPluginRecipeSpecification(ctx context.Context, plugin
 	}
 
 	// Get plugin from database to get server endpoint
-	plugin, err := s.db.FindPluginById(ctx, nil, ptypes.PluginID(pluginID))
+	plugin, err := s.db.FindPluginById(ctx, nil, pluginID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find plugin: %w", err)
 	}
@@ -246,7 +245,7 @@ func (s *PluginService) GetPluginRecipeSpecificationSuggest(
 	pluginID string,
 	configuration map[string]any,
 ) (*rtypes.PolicySuggest, error) {
-	plugin, err := s.db.FindPluginById(ctx, nil, ptypes.PluginID(pluginID))
+	plugin, err := s.db.FindPluginById(ctx, nil, pluginID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find plugin: %w", err)
 	}
@@ -317,7 +316,7 @@ func (s *PluginService) GetPluginRecipeFunctions(ctx context.Context, pluginID s
 		funcs = append(funcs, f)
 	}
 	sort.Strings(funcs)
-	plugin, err := s.db.FindPluginById(ctx, nil, ptypes.PluginID(pluginID))
+	plugin, err := s.db.FindPluginById(ctx, nil, pluginID)
 	if err != nil {
 		return types.RecipeFunctions{}, fmt.Errorf("failed to find plugin: %w", err)
 	}
@@ -401,7 +400,7 @@ func (s *PluginService) GetPluginSkills(ctx context.Context, pluginID string) (*
 	}
 
 	// Get plugin from database to get server endpoint
-	plugin, err := s.db.FindPluginById(ctx, nil, ptypes.PluginID(pluginID))
+	plugin, err := s.db.FindPluginById(ctx, nil, pluginID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find plugin: %w", err)
 	}

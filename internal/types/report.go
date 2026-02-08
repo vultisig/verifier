@@ -5,8 +5,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
-	"github.com/vultisig/verifier/types"
 )
 
 var (
@@ -14,8 +12,8 @@ var (
 )
 
 type PluginReport struct {
-	PluginID       types.PluginID `json:"plugin_id"`
-	ReporterPubKey string         `json:"reporter_public_key"`
+	PluginID       string `json:"plugin_id"`
+	ReporterPubKey string `json:"reporter_public_key"`
 	Reason         string         `json:"reason"`
 	Details        string         `json:"details"`
 	CreatedAt      time.Time      `json:"created_at"`
@@ -25,7 +23,7 @@ type PluginReport struct {
 
 type PauseHistoryRecord struct {
 	ID                uuid.UUID      `json:"id"`
-	PluginID          types.PluginID `json:"plugin_id"`
+	PluginID          string         `json:"plugin_id"`
 	Action            string         `json:"action"`
 	ReportCountWindow *int           `json:"report_count_window,omitempty"`
 	ActiveUsers       *int           `json:"active_users,omitempty"`

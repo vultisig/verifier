@@ -31,7 +31,7 @@ type MockDatabaseStorage struct {
 	mock.Mock
 }
 
-func (m *MockDatabaseStorage) DeleteAllPolicies(ctx context.Context, dbTx pgx.Tx, pluginID types.PluginID, publicKey string) error {
+func (m *MockDatabaseStorage) DeleteAllPolicies(ctx context.Context, dbTx pgx.Tx, pluginID string, publicKey string) error {
 	args := m.Called(ctx, dbTx, pluginID, publicKey)
 	return args.Error(0)
 }
@@ -99,7 +99,7 @@ func (m *MockDatabaseStorage) CreatePricing(ctx context.Context, pricingDto type
 	return args.Get(0).(*types.Pricing), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetPricingByPluginId(ctx context.Context, pluginID types.PluginID) ([]types.Pricing, error) {
+func (m *MockDatabaseStorage) GetPricingByPluginId(ctx context.Context, pluginID string) ([]types.Pricing, error) {
 	args := m.Called(ctx, pluginID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -107,7 +107,7 @@ func (m *MockDatabaseStorage) GetPricingByPluginId(ctx context.Context, pluginID
 	return args.Get(0).([]types.Pricing), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) FindPluginById(ctx context.Context, tx pgx.Tx, pluginID types.PluginID) (*itypes.Plugin, error) {
+func (m *MockDatabaseStorage) FindPluginById(ctx context.Context, tx pgx.Tx, pluginID string) (*itypes.Plugin, error) {
 	args := m.Called(ctx, tx, pluginID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -131,7 +131,7 @@ func (m *MockDatabaseStorage) GetPluginPolicy(ctx context.Context, id uuid.UUID)
 	return args.Get(0).(*types.PluginPolicy), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetPluginInstallationsCount(ctx context.Context, pluginID types.PluginID) (itypes.PluginTotalCount, error) {
+func (m *MockDatabaseStorage) GetPluginInstallationsCount(ctx context.Context, pluginID string) (itypes.PluginTotalCount, error) {
 	args := m.Called(ctx, pluginID)
 	if args.Get(0) == nil {
 		return itypes.PluginTotalCount{}, args.Error(1)
@@ -139,7 +139,7 @@ func (m *MockDatabaseStorage) GetPluginInstallationsCount(ctx context.Context, p
 	return args.Get(0).(itypes.PluginTotalCount), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetPluginPolicies(ctx context.Context, publicKey string, pluginIds []types.PluginID, includeInactive bool) ([]types.PluginPolicy, error) {
+func (m *MockDatabaseStorage) GetPluginPolicies(ctx context.Context, publicKey string, pluginIds []string, includeInactive bool) ([]types.PluginPolicy, error) {
 	args := m.Called(ctx, publicKey, pluginIds, includeInactive)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -147,7 +147,7 @@ func (m *MockDatabaseStorage) GetPluginPolicies(ctx context.Context, publicKey s
 	return args.Get(0).([]types.PluginPolicy), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int, activeFilter *bool) (*itypes.PluginPolicyPaginatedList, error) {
+func (m *MockDatabaseStorage) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginID string, take int, skip int, activeFilter *bool) (*itypes.PluginPolicyPaginatedList, error) {
 	args := m.Called(ctx, publicKey, pluginID, take, skip, activeFilter)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -197,7 +197,7 @@ func (m *MockDatabaseStorage) GetFeesByPublicKey(ctx context.Context, publicKey 
 	return args.Get(0).([]*types.Fee), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetFeesByPluginID(ctx context.Context, pluginID types.PluginID, publicKey string, skip, take uint32) ([]itypes.FeeWithStatus, uint32, error) {
+func (m *MockDatabaseStorage) GetFeesByPluginID(ctx context.Context, pluginID string, publicKey string, skip, take uint32) ([]itypes.FeeWithStatus, uint32, error) {
 	args := m.Called(ctx, pluginID, publicKey, skip, take)
 	if args.Get(0) == nil {
 		return nil, 0, args.Error(2)
@@ -218,7 +218,7 @@ func (m *MockDatabaseStorage) InsertFee(ctx context.Context, dbTx pgx.Tx, fee *t
 	return args.Get(0).(uint64), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) InsertPluginInstallation(ctx context.Context, dbTx pgx.Tx, pluginID types.PluginID, publicKey string) error {
+func (m *MockDatabaseStorage) InsertPluginInstallation(ctx context.Context, dbTx pgx.Tx, pluginID string, publicKey string) error {
 	args := m.Called(ctx, dbTx, pluginID, publicKey)
 	return args.Error(0)
 }
@@ -277,7 +277,7 @@ func (m *MockDatabaseStorage) UpdatePluginPolicySync(ctx context.Context, dbTx p
 	return args.Error(0)
 }
 
-func (m *MockDatabaseStorage) AttachTagToPlugin(ctx context.Context, pluginID types.PluginID, tagID string) (*itypes.Plugin, error) {
+func (m *MockDatabaseStorage) AttachTagToPlugin(ctx context.Context, pluginID string, tagID string) (*itypes.Plugin, error) {
 	args := m.Called(ctx, pluginID, tagID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -395,12 +395,12 @@ func (m *MockDatabaseStorage) GetPricingsByPluginIDs(ctx context.Context, plugin
 	return args.Get(0).(map[string][]itypes.PricingInfo), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason, details string, cooldown time.Duration) error {
+func (m *MockDatabaseStorage) UpsertReport(ctx context.Context, pluginID string, publicKey, reason, details string, cooldown time.Duration) error {
 	args := m.Called(ctx, pluginID, publicKey, reason, details, cooldown)
 	return args.Error(0)
 }
 
-func (m *MockDatabaseStorage) GetReport(ctx context.Context, pluginID types.PluginID, publicKey string) (*itypes.PluginReport, error) {
+func (m *MockDatabaseStorage) GetReport(ctx context.Context, pluginID string, publicKey string) (*itypes.PluginReport, error) {
 	args := m.Called(ctx, pluginID, publicKey)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -408,27 +408,27 @@ func (m *MockDatabaseStorage) GetReport(ctx context.Context, pluginID types.Plug
 	return args.Get(0).(*itypes.PluginReport), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) CountReportsInWindow(ctx context.Context, pluginID types.PluginID, window time.Duration) (int, error) {
+func (m *MockDatabaseStorage) CountReportsInWindow(ctx context.Context, pluginID string, window time.Duration) (int, error) {
 	args := m.Called(ctx, pluginID, window)
 	return args.Int(0), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) HasInstallation(ctx context.Context, pluginID types.PluginID, publicKey string) (bool, error) {
+func (m *MockDatabaseStorage) HasInstallation(ctx context.Context, pluginID string, publicKey string) (bool, error) {
 	args := m.Called(ctx, pluginID, publicKey)
 	return args.Bool(0), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) CountInstallations(ctx context.Context, pluginID types.PluginID) (int, error) {
+func (m *MockDatabaseStorage) CountInstallations(ctx context.Context, pluginID string) (int, error) {
 	args := m.Called(ctx, pluginID)
 	return args.Int(0), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) IsPluginPaused(ctx context.Context, pluginID types.PluginID) (bool, error) {
+func (m *MockDatabaseStorage) IsPluginPaused(ctx context.Context, pluginID string) (bool, error) {
 	args := m.Called(ctx, pluginID)
 	return args.Bool(0), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) PausePlugin(ctx context.Context, pluginID types.PluginID, record itypes.PauseHistoryRecord) error {
+func (m *MockDatabaseStorage) PausePlugin(ctx context.Context, pluginID string, record itypes.PauseHistoryRecord) error {
 	args := m.Called(ctx, pluginID, record)
 	return args.Error(0)
 }
@@ -441,30 +441,30 @@ func (m *MockDatabaseStorage) GetControlFlags(ctx context.Context, k1, k2 string
 	return args.Get(0).(map[string]bool), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) IsOwner(ctx context.Context, pluginID types.PluginID, publicKey string) (bool, error) {
+func (m *MockDatabaseStorage) IsOwner(ctx context.Context, pluginID string, publicKey string) (bool, error) {
 	args := m.Called(ctx, pluginID, publicKey)
 	return args.Bool(0), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetPluginsByOwner(ctx context.Context, publicKey string) ([]types.PluginID, error) {
+func (m *MockDatabaseStorage) GetPluginsByOwner(ctx context.Context, publicKey string) ([]string, error) {
 	args := m.Called(ctx, publicKey)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]types.PluginID), args.Error(1)
+	return args.Get(0).([]string), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) AddOwner(ctx context.Context, pluginID types.PluginID, publicKey string, addedVia itypes.PluginOwnerAddedVia, addedBy string) error {
+func (m *MockDatabaseStorage) AddOwner(ctx context.Context, pluginID string, publicKey string, addedVia itypes.PluginOwnerAddedVia, addedBy string) error {
 	args := m.Called(ctx, pluginID, publicKey, addedVia, addedBy)
 	return args.Error(0)
 }
 
-func (m *MockDatabaseStorage) DeactivateOwner(ctx context.Context, pluginID types.PluginID, publicKey string) error {
+func (m *MockDatabaseStorage) DeactivateOwner(ctx context.Context, pluginID string, publicKey string) error {
 	args := m.Called(ctx, pluginID, publicKey)
 	return args.Error(0)
 }
 
-func (m *MockDatabaseStorage) GetPluginImagesByPluginIDs(ctx context.Context, pluginIDs []types.PluginID) ([]itypes.PluginImageRecord, error) {
+func (m *MockDatabaseStorage) GetPluginImagesByPluginIDs(ctx context.Context, pluginIDs []string) ([]itypes.PluginImageRecord, error) {
 	args := m.Called(ctx, pluginIDs)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -472,7 +472,7 @@ func (m *MockDatabaseStorage) GetPluginImagesByPluginIDs(ctx context.Context, pl
 	return args.Get(0).([]itypes.PluginImageRecord), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetPluginImageByType(ctx context.Context, pluginID types.PluginID, imageType itypes.PluginImageType) (*itypes.PluginImageRecord, error) {
+func (m *MockDatabaseStorage) GetPluginImageByType(ctx context.Context, pluginID string, imageType itypes.PluginImageType) (*itypes.PluginImageRecord, error) {
 	args := m.Called(ctx, pluginID, imageType)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -480,7 +480,7 @@ func (m *MockDatabaseStorage) GetPluginImageByType(ctx context.Context, pluginID
 	return args.Get(0).(*itypes.PluginImageRecord), args.Error(1)
 }
 
-func (m *MockDatabaseStorage) GetNextMediaOrder(ctx context.Context, pluginID types.PluginID) (int, error) {
+func (m *MockDatabaseStorage) GetNextMediaOrder(ctx context.Context, pluginID string) (int, error) {
 	args := m.Called(ctx, pluginID)
 	return args.Int(0), args.Error(1)
 }

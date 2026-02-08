@@ -5,10 +5,9 @@ import (
 	"fmt"
 
 	itypes "github.com/vultisig/verifier/internal/types"
-	"github.com/vultisig/verifier/types"
 )
 
-func (p *PostgresBackend) IsOwner(ctx context.Context, pluginID types.PluginID, publicKey string) (bool, error) {
+func (p *PostgresBackend) IsOwner(ctx context.Context, pluginID string, publicKey string) (bool, error) {
 	query := `SELECT EXISTS(SELECT 1 FROM plugin_owners WHERE plugin_id = $1 AND public_key = $2 AND active = TRUE)`
 	var exists bool
 	err := p.pool.QueryRow(ctx, query, pluginID, publicKey).Scan(&exists)
@@ -18,7 +17,7 @@ func (p *PostgresBackend) IsOwner(ctx context.Context, pluginID types.PluginID, 
 	return exists, nil
 }
 
-func (p *PostgresBackend) GetPluginsByOwner(ctx context.Context, publicKey string) ([]types.PluginID, error) {
+func (p *PostgresBackend) GetPluginsByOwner(ctx context.Context, publicKey string) ([]string, error) {
 	query := `SELECT plugin_id FROM plugin_owners WHERE public_key = $1 AND active = TRUE`
 	rows, err := p.pool.Query(ctx, query, publicKey)
 	if err != nil {
@@ -26,9 +25,9 @@ func (p *PostgresBackend) GetPluginsByOwner(ctx context.Context, publicKey strin
 	}
 	defer rows.Close()
 
-	var pluginIDs []types.PluginID
+	var pluginIDs []string
 	for rows.Next() {
-		var id types.PluginID
+		var id string
 		err := rows.Scan(&id)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan plugin id: %w", err)
@@ -43,7 +42,7 @@ func (p *PostgresBackend) GetPluginsByOwner(ctx context.Context, publicKey strin
 	return pluginIDs, nil
 }
 
-func (p *PostgresBackend) AddOwner(ctx context.Context, pluginID types.PluginID, publicKey string, addedVia itypes.PluginOwnerAddedVia, addedBy string) error {
+func (p *PostgresBackend) AddOwner(ctx context.Context, pluginID string, publicKey string, addedVia itypes.PluginOwnerAddedVia, addedBy string) error {
 	query := `
 		INSERT INTO plugin_owners (plugin_id, public_key, active, added_via, added_by_public_key)
 		VALUES ($1, $2, TRUE, $3, $4)
@@ -57,7 +56,7 @@ func (p *PostgresBackend) AddOwner(ctx context.Context, pluginID types.PluginID,
 	return nil
 }
 
-func (p *PostgresBackend) DeactivateOwner(ctx context.Context, pluginID types.PluginID, publicKey string) error {
+func (p *PostgresBackend) DeactivateOwner(ctx context.Context, pluginID string, publicKey string) error {
 	query := `UPDATE plugin_owners SET active = FALSE, updated_at = NOW() WHERE plugin_id = $1 AND public_key = $2`
 	_, err := p.pool.Exec(ctx, query, pluginID, publicKey)
 	if err != nil {

@@ -20,8 +20,8 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/vultisig/verifier/internal/sigutil"
+	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/types"
-	vtypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/vultisig-go/address"
 	"github.com/vultisig/vultisig-go/common"
 )
@@ -42,7 +42,7 @@ func (s *Server) validatePluginPolicy(ctx context.Context, policy types.PluginPo
 		return fmt.Errorf("fail to unmarshal recipe: %w", err)
 	}
 
-	spec, err := s.pluginService.GetPluginRecipeSpecification(ctx, policy.PluginID.String())
+	spec, err := s.pluginService.GetPluginRecipeSpecification(ctx, policy.PluginID)
 	if err != nil {
 		return fmt.Errorf("failed to get plugin recipe specification: %w", err)
 	}
@@ -92,7 +92,7 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 	}
 
 	if !isTrialActive {
-		filePathName := common.GetVaultBackupFilename(publicKey, vtypes.PluginVultisigFees_feee.String())
+		filePathName := common.GetVaultBackupFilename(publicKey, itypes.PluginVultisigFees)
 		exist, err := s.vaultStorage.Exist(filePathName)
 		if err != nil {
 			s.logger.WithError(err).Error("failed to check vault existence")
@@ -151,7 +151,7 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy) bool {
 		s.logger.WithError(err).Error("failed to decode signature bytes")
 		return false
 	}
-	vault, err := s.getVault(policy.PublicKey, policy.PluginID.String())
+	vault, err := s.getVault(policy.PublicKey, policy.PluginID)
 	if err != nil {
 		s.logger.WithError(err).Error("fail to get vault")
 		return false
@@ -227,7 +227,7 @@ func (s *Server) UpdatePluginPolicyById(c echo.Context) error {
 		}
 
 		if *r == types.DeactivationReasonPluginPause {
-			err := s.safetyMgm.EnforceKeysign(c.Request().Context(), string(oldPolicy.PluginID))
+			err := s.safetyMgm.EnforceKeysign(c.Request().Context(), oldPolicy.PluginID)
 			if err != nil {
 				return c.JSON(http.StatusLocked, NewErrorResponseWithMessage(msgPluginPaused))
 			}
@@ -362,7 +362,7 @@ func (s *Server) GetAllPluginPolicies(c echo.Context) error {
 		take = 100
 	}
 
-	policies, err := s.policyService.GetPluginPolicies(c.Request().Context(), publicKey, vtypes.PluginID(pluginID), take, skip, activeFilter)
+	policies, err := s.policyService.GetPluginPolicies(c.Request().Context(), publicKey, pluginID, take, skip, activeFilter)
 	if err != nil {
 		s.logger.WithError(err).Errorf("Failed to get policies for public_key: %s", publicKey)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgPoliciesGetFailed))

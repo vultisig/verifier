@@ -8,7 +8,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	itypes "github.com/vultisig/verifier/internal/types"
-	"github.com/vultisig/verifier/types"
 )
 
 func (p *PostgresBackend) CreatePluginImage(ctx context.Context, params itypes.PluginImageCreateParams) (*itypes.PluginImageRecord, error) {
@@ -49,14 +48,9 @@ func (p *PostgresBackend) CreatePluginImage(ctx context.Context, params itypes.P
 	return &record, nil
 }
 
-func (p *PostgresBackend) GetPluginImagesByPluginIDs(ctx context.Context, pluginIDs []types.PluginID) ([]itypes.PluginImageRecord, error) {
+func (p *PostgresBackend) GetPluginImagesByPluginIDs(ctx context.Context, pluginIDs []string) ([]itypes.PluginImageRecord, error) {
 	if len(pluginIDs) == 0 {
 		return []itypes.PluginImageRecord{}, nil
-	}
-
-	ids := make([]string, 0, len(pluginIDs))
-	for _, id := range pluginIDs {
-		ids = append(ids, string(id))
 	}
 
 	query := `
@@ -66,7 +60,7 @@ func (p *PostgresBackend) GetPluginImagesByPluginIDs(ctx context.Context, plugin
 		ORDER BY plugin_id, image_type, image_order ASC
 	`
 
-	rows, err := p.pool.Query(ctx, query, ids)
+	rows, err := p.pool.Query(ctx, query, pluginIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query plugin images: %w", err)
 	}
@@ -103,7 +97,7 @@ func (p *PostgresBackend) GetPluginImagesByPluginIDs(ctx context.Context, plugin
 	return records, nil
 }
 
-func (p *PostgresBackend) GetPluginImageByType(ctx context.Context, pluginID types.PluginID, imageType itypes.PluginImageType) (*itypes.PluginImageRecord, error) {
+func (p *PostgresBackend) GetPluginImageByType(ctx context.Context, pluginID string, imageType itypes.PluginImageType) (*itypes.PluginImageRecord, error) {
 	query := `
 		SELECT id, plugin_id, image_type, s3_path, image_order, uploaded_by_public_key, visible, deleted, content_type, filename, created_at, updated_at
 		FROM plugin_images
@@ -137,7 +131,7 @@ func (p *PostgresBackend) GetPluginImageByType(ctx context.Context, pluginID typ
 	return &r, nil
 }
 
-func (p *PostgresBackend) SoftDeletePluginImage(ctx context.Context, pluginID types.PluginID, imageID uuid.UUID) (string, error) {
+func (p *PostgresBackend) SoftDeletePluginImage(ctx context.Context, pluginID string, imageID uuid.UUID) (string, error) {
 	query := `UPDATE plugin_images SET deleted = true, visible = false, updated_at = NOW() WHERE plugin_id = $1 AND id = $2 AND deleted = false RETURNING s3_path`
 	var s3Path string
 	err := p.pool.QueryRow(ctx, query, pluginID, imageID).Scan(&s3Path)
@@ -150,7 +144,7 @@ func (p *PostgresBackend) SoftDeletePluginImage(ctx context.Context, pluginID ty
 	return s3Path, nil
 }
 
-func (p *PostgresBackend) SoftDeletePluginImageTx(ctx context.Context, tx pgx.Tx, pluginID types.PluginID, imageID uuid.UUID) (string, error) {
+func (p *PostgresBackend) SoftDeletePluginImageTx(ctx context.Context, tx pgx.Tx, pluginID string, imageID uuid.UUID) (string, error) {
 	query := `UPDATE plugin_images SET deleted = true, visible = false, updated_at = NOW() WHERE plugin_id = $1 AND id = $2 AND deleted = false RETURNING s3_path`
 	var s3Path string
 	err := tx.QueryRow(ctx, query, pluginID, imageID).Scan(&s3Path)
@@ -163,7 +157,7 @@ func (p *PostgresBackend) SoftDeletePluginImageTx(ctx context.Context, tx pgx.Tx
 	return s3Path, nil
 }
 
-func (p *PostgresBackend) ReplacePluginImage(ctx context.Context, pluginID types.PluginID, imageType itypes.PluginImageType, s3Path, contentType, filename, uploadedBy string) (*itypes.PluginImageRecord, error) {
+func (p *PostgresBackend) ReplacePluginImage(ctx context.Context, pluginID string, imageType itypes.PluginImageType, s3Path, contentType, filename, uploadedBy string) (*itypes.PluginImageRecord, error) {
 	if imageType == itypes.PluginImageTypeMedia {
 		return nil, fmt.Errorf("ReplacePluginImage not valid for media type, use CreatePluginImage instead")
 	}
@@ -216,7 +210,7 @@ func (p *PostgresBackend) ReplacePluginImage(ctx context.Context, pluginID types
 	return result, nil
 }
 
-func (p *PostgresBackend) GetNextMediaOrder(ctx context.Context, pluginID types.PluginID) (int, error) {
+func (p *PostgresBackend) GetNextMediaOrder(ctx context.Context, pluginID string) (int, error) {
 	query := `
 		SELECT COALESCE(MAX(image_order) + 1, 0)
 		FROM plugin_images
@@ -232,7 +226,7 @@ func (p *PostgresBackend) GetNextMediaOrder(ctx context.Context, pluginID types.
 	return nextOrder, nil
 }
 
-func (p *PostgresBackend) GetNextMediaOrderTx(ctx context.Context, tx pgx.Tx, pluginID types.PluginID) (int, error) {
+func (p *PostgresBackend) GetNextMediaOrderTx(ctx context.Context, tx pgx.Tx, pluginID string) (int, error) {
 	query := `
 		SELECT COALESCE(MAX(image_order) + 1, 0)
 		FROM plugin_images
@@ -248,7 +242,7 @@ func (p *PostgresBackend) GetNextMediaOrderTx(ctx context.Context, tx pgx.Tx, pl
 	return nextOrder, nil
 }
 
-func (p *PostgresBackend) LockPluginForUpdate(ctx context.Context, tx pgx.Tx, pluginID types.PluginID) error {
+func (p *PostgresBackend) LockPluginForUpdate(ctx context.Context, tx pgx.Tx, pluginID string) error {
 	_, err := tx.Exec(ctx, `SELECT 1 FROM plugins WHERE id = $1 FOR UPDATE`, pluginID)
 	if err != nil {
 		return fmt.Errorf("failed to lock plugin: %w", err)
@@ -256,7 +250,7 @@ func (p *PostgresBackend) LockPluginForUpdate(ctx context.Context, tx pgx.Tx, pl
 	return nil
 }
 
-func (p *PostgresBackend) CountVisibleMediaImages(ctx context.Context, tx pgx.Tx, pluginID types.PluginID) (int, error) {
+func (p *PostgresBackend) CountVisibleMediaImages(ctx context.Context, tx pgx.Tx, pluginID string) (int, error) {
 	query := `SELECT COUNT(*) FROM plugin_images WHERE plugin_id = $1 AND image_type = 'media' AND visible = true AND deleted = false`
 	var count int
 	err := tx.QueryRow(ctx, query, pluginID).Scan(&count)
@@ -304,7 +298,7 @@ func (p *PostgresBackend) CreatePendingPluginImage(ctx context.Context, tx pgx.T
 	return &record, nil
 }
 
-func (p *PostgresBackend) GetPluginImageByID(ctx context.Context, pluginID types.PluginID, imageID uuid.UUID) (*itypes.PluginImageRecord, error) {
+func (p *PostgresBackend) GetPluginImageByID(ctx context.Context, pluginID string, imageID uuid.UUID) (*itypes.PluginImageRecord, error) {
 	query := `
 		SELECT id, plugin_id, image_type, s3_path, image_order, uploaded_by_public_key, visible, deleted, content_type, filename, created_at, updated_at
 		FROM plugin_images
@@ -337,7 +331,7 @@ func (p *PostgresBackend) GetPluginImageByID(ctx context.Context, pluginID types
 }
 
 type ListPluginImagesParams struct {
-	PluginID       types.PluginID
+	PluginID       string
 	ImageType      *itypes.PluginImageType
 	IncludeHidden  bool
 	IncludeDeleted bool
@@ -401,7 +395,7 @@ func (p *PostgresBackend) ListPluginImages(ctx context.Context, params ListPlugi
 	return records, nil
 }
 
-func (p *PostgresBackend) ConfirmPluginImage(ctx context.Context, tx pgx.Tx, pluginID types.PluginID, imageID uuid.UUID) (*itypes.PluginImageRecord, error) {
+func (p *PostgresBackend) ConfirmPluginImage(ctx context.Context, tx pgx.Tx, pluginID string, imageID uuid.UUID) (*itypes.PluginImageRecord, error) {
 	var imageType string
 	err := tx.QueryRow(ctx, `SELECT image_type FROM plugin_images WHERE id = $1 AND plugin_id = $2 AND visible = false AND deleted = false`, imageID, pluginID).Scan(&imageType)
 	if err != nil {
@@ -452,7 +446,7 @@ func (p *PostgresBackend) ConfirmPluginImage(ctx context.Context, tx pgx.Tx, plu
 	return &r, nil
 }
 
-func (p *PostgresBackend) UpdatePluginImage(ctx context.Context, pluginID types.PluginID, imageID uuid.UUID, visible *bool, imageOrder *int) (*itypes.PluginImageRecord, error) {
+func (p *PostgresBackend) UpdatePluginImage(ctx context.Context, pluginID string, imageID uuid.UUID, visible *bool, imageOrder *int) (*itypes.PluginImageRecord, error) {
 	query := `
 		UPDATE plugin_images
 		SET visible = COALESCE($3, visible),
@@ -487,7 +481,7 @@ func (p *PostgresBackend) UpdatePluginImage(ctx context.Context, pluginID types.
 	return &r, nil
 }
 
-func (p *PostgresBackend) ReorderMediaImages(ctx context.Context, tx pgx.Tx, pluginID types.PluginID, imageIDs []uuid.UUID) error {
+func (p *PostgresBackend) ReorderMediaImages(ctx context.Context, tx pgx.Tx, pluginID string, imageIDs []uuid.UUID) error {
 	if len(imageIDs) == 0 {
 		return nil
 	}

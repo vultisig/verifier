@@ -15,7 +15,6 @@ import (
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/internal/storage/postgres/queries"
 	itypes "github.com/vultisig/verifier/internal/types"
-	"github.com/vultisig/verifier/types"
 )
 
 const (
@@ -98,7 +97,7 @@ func (s *Server) ListPluginImages(c echo.Context) error {
 	}
 
 	images, err := s.db.ListPluginImages(ctx, postgres.ListPluginImagesParams{
-		PluginID:       types.PluginID(pluginID),
+		PluginID:       string(pluginID),
 		ImageType:      imageTypeFilter,
 		IncludeHidden:  includeHidden,
 		IncludeDeleted: includeDeleted,
@@ -169,7 +168,7 @@ func (s *Server) GetImageUploadURL(c echo.Context) error {
 	}
 	defer tx.Rollback(ctx)
 
-	err = s.db.LockPluginForUpdate(ctx, tx, types.PluginID(pluginID))
+	err = s.db.LockPluginForUpdate(ctx, tx, string(pluginID))
 	if err != nil {
 		s.logger.Errorf("failed to lock plugin: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
@@ -180,7 +179,7 @@ func (s *Server) GetImageUploadURL(c echo.Context) error {
 		if maxMedia == 0 {
 			maxMedia = defaultMaxMediaImages
 		}
-		count, err := s.db.CountVisibleMediaImages(ctx, tx, types.PluginID(pluginID))
+		count, err := s.db.CountVisibleMediaImages(ctx, tx, string(pluginID))
 		if err != nil {
 			s.logger.Errorf("failed to count media images: %v", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
@@ -192,7 +191,7 @@ func (s *Server) GetImageUploadURL(c echo.Context) error {
 
 	nextOrder := 0
 	if imageType == itypes.PluginImageTypeMedia {
-		nextOrder, err = s.db.GetNextMediaOrderTx(ctx, tx, types.PluginID(pluginID))
+		nextOrder, err = s.db.GetNextMediaOrderTx(ctx, tx, string(pluginID))
 		if err != nil {
 			s.logger.Errorf("failed to get next media order: %v", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
@@ -212,7 +211,7 @@ func (s *Server) GetImageUploadURL(c echo.Context) error {
 
 	_, err = s.db.CreatePendingPluginImage(ctx, tx, itypes.PluginImageCreateParams{
 		ID:                  imageID,
-		PluginID:            types.PluginID(pluginID),
+		PluginID:            string(pluginID),
 		ImageType:           imageType,
 		S3Path:              s3Key,
 		ImageOrder:          nextOrder,
@@ -268,12 +267,12 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 	}
 
 	markPendingDeleted := func() {
-		if _, delErr := s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID); delErr != nil {
+		if _, delErr := s.db.SoftDeletePluginImage(ctx, string(pluginID), imageID); delErr != nil {
 			s.logger.Warnf("failed to soft-delete pending image %s: %v", imageID, delErr)
 		}
 	}
 
-	img, err := s.db.GetPluginImageByID(ctx, types.PluginID(pluginID), imageID)
+	img, err := s.db.GetPluginImageByID(ctx, string(pluginID), imageID)
 	if err != nil {
 		s.logger.Errorf("failed to get plugin image: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
@@ -355,7 +354,7 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 	}
 	defer tx.Rollback(ctx)
 
-	err = s.db.LockPluginForUpdate(ctx, tx, types.PluginID(pluginID))
+	err = s.db.LockPluginForUpdate(ctx, tx, string(pluginID))
 	if err != nil {
 		s.logger.Errorf("failed to lock plugin: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
@@ -366,20 +365,20 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 		if maxMedia == 0 {
 			maxMedia = defaultMaxMediaImages
 		}
-		count, err := s.db.CountVisibleMediaImages(ctx, tx, types.PluginID(pluginID))
+		count, err := s.db.CountVisibleMediaImages(ctx, tx, string(pluginID))
 		if err != nil {
 			s.logger.Errorf("failed to count media images: %v", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		}
 		if count >= maxMedia {
-			if _, err := s.db.SoftDeletePluginImageTx(ctx, tx, types.PluginID(pluginID), imageID); err != nil {
+			if _, err := s.db.SoftDeletePluginImageTx(ctx, tx, string(pluginID), imageID); err != nil {
 				s.logger.Warnf("failed to soft-delete pending image %s: %v", imageID, err)
 			}
 			return c.JSON(http.StatusConflict, map[string]string{"error": "maximum media images limit exceeded"})
 		}
 	}
 
-	confirmedImg, err := s.db.ConfirmPluginImage(ctx, tx, types.PluginID(pluginID), imageID)
+	confirmedImg, err := s.db.ConfirmPluginImage(ctx, tx, string(pluginID), imageID)
 	if err != nil {
 		s.logger.Errorf("failed to confirm plugin image: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
@@ -429,7 +428,7 @@ func (s *Server) UpdatePluginImage(c echo.Context) error {
 	}
 
 	if req.ImageOrder != nil {
-		img, err := s.db.GetPluginImageByID(ctx, types.PluginID(pluginID), imageID)
+		img, err := s.db.GetPluginImageByID(ctx, string(pluginID), imageID)
 		if err != nil {
 			s.logger.Errorf("failed to get plugin image: %v", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
@@ -445,7 +444,7 @@ func (s *Server) UpdatePluginImage(c echo.Context) error {
 		}
 	}
 
-	updated, err := s.db.UpdatePluginImage(ctx, types.PluginID(pluginID), imageID, req.Visible, req.ImageOrder)
+	updated, err := s.db.UpdatePluginImage(ctx, string(pluginID), imageID, req.Visible, req.ImageOrder)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "image not found"})
@@ -482,7 +481,7 @@ func (s *Server) DeletePluginImage(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid image id"})
 	}
 
-	_, err = s.db.SoftDeletePluginImage(ctx, types.PluginID(pluginID), imageID)
+	_, err = s.db.SoftDeletePluginImage(ctx, string(pluginID), imageID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "image not found"})
@@ -538,13 +537,13 @@ func (s *Server) ReorderPluginImages(c echo.Context) error {
 	}
 	defer tx.Rollback(ctx)
 
-	err = s.db.LockPluginForUpdate(ctx, tx, types.PluginID(pluginID))
+	err = s.db.LockPluginForUpdate(ctx, tx, string(pluginID))
 	if err != nil {
 		s.logger.Errorf("failed to lock plugin: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
 
-	err = s.db.ReorderMediaImages(ctx, tx, types.PluginID(pluginID), imageIDs)
+	err = s.db.ReorderMediaImages(ctx, tx, string(pluginID), imageIDs)
 	if err != nil {
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "duplicate") || strings.Contains(errMsg, "not found") || strings.Contains(errMsg, "not media") {

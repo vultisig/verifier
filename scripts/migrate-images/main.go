@@ -19,7 +19,6 @@ import (
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/storage"
 	itypes "github.com/vultisig/verifier/internal/types"
-	"github.com/vultisig/verifier/types"
 )
 
 const (
@@ -34,7 +33,7 @@ var (
 )
 
 type pluginData struct {
-	ID        types.PluginID
+	ID        string
 	LogoURL   string
 	BannerURL string
 	MediaURLs []string
@@ -225,7 +224,7 @@ func getExistingPluginIDs(ctx context.Context, pool *pgxpool.Pool) (map[string]b
 	return result, rows.Err()
 }
 
-func hasActiveImage(ctx context.Context, pool *pgxpool.Pool, pluginID types.PluginID, imageType itypes.PluginImageType) (bool, error) {
+func hasActiveImage(ctx context.Context, pool *pgxpool.Pool, pluginID string, imageType itypes.PluginImageType) (bool, error) {
 	query := `SELECT EXISTS(SELECT 1 FROM plugin_images WHERE plugin_id = $1 AND image_type = $2 AND deleted = false AND visible = true)`
 	var exists bool
 	err := pool.QueryRow(ctx, query, pluginID, string(imageType)).Scan(&exists)
@@ -235,7 +234,7 @@ func hasActiveImage(ctx context.Context, pool *pgxpool.Pool, pluginID types.Plug
 	return exists, nil
 }
 
-func migrateImage(ctx context.Context, logger *logrus.Logger, client *http.Client, pool *pgxpool.Pool, assetStorage storage.PluginAssetStorage, pluginID types.PluginID, source string, imageType itypes.PluginImageType, imageOrder int) error {
+func migrateImage(ctx context.Context, logger *logrus.Logger, client *http.Client, pool *pgxpool.Pool, assetStorage storage.PluginAssetStorage, pluginID string, source string, imageType itypes.PluginImageType, imageOrder int) error {
 	if *dryRun {
 		logger.Infof("[DRY-RUN] would migrate %s for plugin %s from %s", imageType, pluginID, source)
 		return nil

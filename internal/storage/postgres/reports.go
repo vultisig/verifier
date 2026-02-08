@@ -10,7 +10,6 @@ import (
 
 	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/plugin/safety"
-	"github.com/vultisig/verifier/types"
 )
 
 const (
@@ -18,7 +17,7 @@ const (
 	PLUGIN_PAUSE_HISTORY_TABLE = "plugin_pause_history"
 )
 
-func (p *PostgresBackend) UpsertReport(ctx context.Context, pluginID types.PluginID, publicKey, reason, details string, cooldown time.Duration) error {
+func (p *PostgresBackend) UpsertReport(ctx context.Context, pluginID string, publicKey, reason, details string, cooldown time.Duration) error {
 	if p.pool == nil {
 		return fmt.Errorf("database pool is nil")
 	}
@@ -48,7 +47,7 @@ func (p *PostgresBackend) UpsertReport(ctx context.Context, pluginID types.Plugi
 	return nil
 }
 
-func (p *PostgresBackend) GetReport(ctx context.Context, pluginID types.PluginID, publicKey string) (*itypes.PluginReport, error) {
+func (p *PostgresBackend) GetReport(ctx context.Context, pluginID string, publicKey string) (*itypes.PluginReport, error) {
 	if p.pool == nil {
 		return nil, fmt.Errorf("database pool is nil")
 	}
@@ -79,7 +78,7 @@ func (p *PostgresBackend) GetReport(ctx context.Context, pluginID types.PluginID
 	return &report, nil
 }
 
-func (p *PostgresBackend) CountReportsInWindow(ctx context.Context, pluginID types.PluginID, window time.Duration) (int, error) {
+func (p *PostgresBackend) CountReportsInWindow(ctx context.Context, pluginID string, window time.Duration) (int, error) {
 	if p.pool == nil {
 		return 0, fmt.Errorf("database pool is nil")
 	}
@@ -101,7 +100,7 @@ func (p *PostgresBackend) CountReportsInWindow(ctx context.Context, pluginID typ
 	return count, nil
 }
 
-func (p *PostgresBackend) HasInstallation(ctx context.Context, pluginID types.PluginID, publicKey string) (bool, error) {
+func (p *PostgresBackend) HasInstallation(ctx context.Context, pluginID string, publicKey string) (bool, error) {
 	if p.pool == nil {
 		return false, fmt.Errorf("database pool is nil")
 	}
@@ -121,7 +120,7 @@ func (p *PostgresBackend) HasInstallation(ctx context.Context, pluginID types.Pl
 	return exists, nil
 }
 
-func (p *PostgresBackend) CountInstallations(ctx context.Context, pluginID types.PluginID) (int, error) {
+func (p *PostgresBackend) CountInstallations(ctx context.Context, pluginID string) (int, error) {
 	if p.pool == nil {
 		return 0, fmt.Errorf("database pool is nil")
 	}
@@ -140,13 +139,13 @@ func (p *PostgresBackend) CountInstallations(ctx context.Context, pluginID types
 	return count, nil
 }
 
-func (p *PostgresBackend) IsPluginPaused(ctx context.Context, pluginID types.PluginID) (bool, error) {
+func (p *PostgresBackend) IsPluginPaused(ctx context.Context, pluginID string) (bool, error) {
 	if p.pool == nil {
 		return false, fmt.Errorf("database pool is nil")
 	}
 
-	keysignKey := safety.KeysignFlagKey(string(pluginID))
-	keygenKey := safety.KeygenFlagKey(string(pluginID))
+	keysignKey := safety.KeysignFlagKey(pluginID)
+	keygenKey := safety.KeygenFlagKey(pluginID)
 	keys := []string{keysignKey, keygenKey}
 
 	query := `
@@ -222,10 +221,10 @@ func (p *PostgresBackend) recordPauseHistoryTx(ctx context.Context, tx pgx.Tx, r
 	return nil
 }
 
-func (p *PostgresBackend) PausePlugin(ctx context.Context, pluginID types.PluginID, record itypes.PauseHistoryRecord) error {
+func (p *PostgresBackend) PausePlugin(ctx context.Context, pluginID string, record itypes.PauseHistoryRecord) error {
 	return p.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
-		keysignKey := safety.KeysignFlagKey(string(pluginID))
-		keygenKey := safety.KeygenFlagKey(string(pluginID))
+		keysignKey := safety.KeysignFlagKey(pluginID)
+		keygenKey := safety.KeygenFlagKey(pluginID)
 
 		err := p.setControlFlagTx(ctx, tx, keysignKey, false)
 		if err != nil {

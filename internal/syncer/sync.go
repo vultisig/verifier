@@ -18,7 +18,6 @@ import (
 	"github.com/vultisig/verifier/internal/storage"
 	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/types"
-	ptypes "github.com/vultisig/verifier/types"
 )
 
 const (
@@ -42,7 +41,7 @@ type Syncer struct {
 	storage storage.DatabaseStorage
 
 	cacheLocker           sync.Locker
-	pluginServerInfoCache map[ptypes.PluginID]*ServerInfo
+	pluginServerInfoCache map[string]*ServerInfo
 }
 
 type ServerInfo struct {
@@ -60,12 +59,12 @@ func NewPolicySyncer(storage storage.DatabaseStorage) *Syncer {
 		logger:                logger,
 		client:                retryClient,
 		storage:               storage,
-		pluginServerInfoCache: make(map[ptypes.PluginID]*ServerInfo),
+		pluginServerInfoCache: make(map[string]*ServerInfo),
 		cacheLocker:           &sync.Mutex{},
 	}
 }
 
-func (s *Syncer) getServerInfo(ctx context.Context, pluginID ptypes.PluginID) (*ServerInfo, error) {
+func (s *Syncer) getServerInfo(ctx context.Context, pluginID string) (*ServerInfo, error) {
 	s.cacheLocker.Lock()
 	defer s.cacheLocker.Unlock()
 
@@ -81,16 +80,16 @@ func (s *Syncer) getServerInfo(ctx context.Context, pluginID ptypes.PluginID) (*
 	return addr, nil
 }
 
-func (s *Syncer) getServerInfoFromStorage(ctx context.Context, pluginID ptypes.PluginID) (*ServerInfo, error) {
+func (s *Syncer) getServerInfoFromStorage(ctx context.Context, pluginID string) (*ServerInfo, error) {
 	if err := contexthelper.CheckCancellation(ctx); err != nil {
 		return nil, err
 	}
-	s.logger.Infof("pluginid: %s", pluginID.String())
+	s.logger.Infof("pluginid: %s", pluginID)
 	plugin, err := s.storage.FindPluginById(ctx, nil, pluginID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find plugin by id: %w", err)
 	}
-	apiKey, err := s.storage.GetAPIKeyByPluginId(ctx, pluginID.String())
+	apiKey, err := s.storage.GetAPIKeyByPluginId(ctx, pluginID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get api key by id: %w", err)
 	}

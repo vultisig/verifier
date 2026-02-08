@@ -55,7 +55,7 @@ func convertNullablePricing(np *nullablePricing) *types.Pricing {
 		Amount:    *np.Amount,
 		Asset:     types.PricingAsset(*np.Asset),
 		Metric:    types.PricingMetric(*np.Metric),
-		PluginID:  types.PluginID(*np.PluginID),
+		PluginID:  *np.PluginID,
 		CreatedAt: *np.CreatedAt,
 		UpdatedAt: *np.UpdatedAt,
 	}
@@ -65,8 +65,8 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 	defer rows.Close()
 
 	// Use a map to group plugins by ID and collect their pricing records
-	pluginMap := make(map[types.PluginID]*itypes.Plugin)
-	pluginIDs := []types.PluginID{}
+	pluginMap := make(map[string]*itypes.Plugin)
+	pluginIDs := []string{}
 
 	for rows.Next() {
 		var plugin itypes.Plugin
@@ -181,7 +181,7 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 	return plugins, nil
 }
 
-func (p *PostgresBackend) FindPluginById(ctx context.Context, dbTx pgx.Tx, id types.PluginID) (*itypes.Plugin, error) {
+func (p *PostgresBackend) FindPluginById(ctx context.Context, dbTx pgx.Tx, id string) (*itypes.Plugin, error) {
 	query := fmt.Sprintf(`
 	SELECT
 		p.*,
@@ -588,7 +588,7 @@ func (p *PostgresBackend) CreateReview(ctx context.Context, dbTx pgx.Tx, reviewD
 	return createdId, nil
 }
 
-func (p *PostgresBackend) InsertPluginInstallation(ctx context.Context, dbTx pgx.Tx, pluginID types.PluginID, publicKey string) error {
+func (p *PostgresBackend) InsertPluginInstallation(ctx context.Context, dbTx pgx.Tx, pluginID string, publicKey string) error {
 	if p.pool == nil {
 		return fmt.Errorf("database pool is nil")
 	}
@@ -610,7 +610,7 @@ func (p *PostgresBackend) InsertPluginInstallation(ctx context.Context, dbTx pgx
 	return nil
 }
 
-func (p *PostgresBackend) GetPluginInstallationsCount(ctx context.Context, pluginID types.PluginID) (itypes.PluginTotalCount, error) {
+func (p *PostgresBackend) GetPluginInstallationsCount(ctx context.Context, pluginID string) (itypes.PluginTotalCount, error) {
 	if p.pool == nil {
 		return itypes.PluginTotalCount{}, fmt.Errorf("database pool is nil")
 	}
@@ -666,7 +666,7 @@ func (p *PostgresBackend) GetControlFlags(ctx context.Context, k1, k2 string) (m
 }
 
 func EnrichPluginsWithImages(plugins []itypes.Plugin, imageRecords []itypes.PluginImageRecord, assetBaseURL string) {
-	imagesByPlugin := make(map[types.PluginID][]itypes.PluginImageRecord)
+	imagesByPlugin := make(map[string][]itypes.PluginImageRecord)
 	for _, rec := range imageRecords {
 		imagesByPlugin[rec.PluginID] = append(imagesByPlugin[rec.PluginID], rec)
 	}

@@ -18,7 +18,7 @@ type Service interface {
 	DeletePolicy(ctx context.Context, policyID uuid.UUID, signature string) error
 	GetPluginPolicies(
 		ctx context.Context,
-		pluginID types.PluginID,
+		pluginID string,
 		publicKey string,
 		onlyActive bool,
 	) ([]types.PluginPolicy, error)
@@ -130,7 +130,7 @@ func (p *Policy) DeletePolicy(c context.Context, policyID uuid.UUID, signature s
 
 func (p *Policy) GetPluginPolicies(
 	ctx context.Context,
-	pluginID types.PluginID,
+	pluginID string,
 	publicKey string,
 	onlyActive bool,
 ) ([]types.PluginPolicy, error) {

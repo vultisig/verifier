@@ -18,11 +18,11 @@ import (
 type Policy interface {
 	CreatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
 	UpdatePolicy(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
-	DeletePolicy(ctx context.Context, policyID uuid.UUID, pluginID types.PluginID, signature string) error
-	GetPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int, activeFilter *bool) (*itypes.PluginPolicyPaginatedList, error)
+	DeletePolicy(ctx context.Context, policyID uuid.UUID, pluginID string, signature string) error
+	GetPluginPolicies(ctx context.Context, publicKey string, pluginID string, take int, skip int, activeFilter *bool) (*itypes.PluginPolicyPaginatedList, error)
 	GetPluginPolicy(ctx context.Context, policyID uuid.UUID) (*types.PluginPolicy, error)
-	GetPluginInstallationsCount(ctx context.Context, pluginID types.PluginID) (itypes.PluginTotalCount, error)
-	DeleteAllPolicies(ctx context.Context, pluginID types.PluginID, publicKey string) error
+	GetPluginInstallationsCount(ctx context.Context, pluginID string) (itypes.PluginTotalCount, error)
+	DeleteAllPolicies(ctx context.Context, pluginID string, publicKey string) error
 }
 
 var _ Policy = (*PolicyService)(nil)
@@ -101,7 +101,7 @@ func (s *PolicyService) validateBillingInformation(ctx context.Context, tx pgx.T
 }
 
 func (s *PolicyService) isFeePolicyInstalled(ctx context.Context, publicKey string) (bool, error) {
-	pluginData, err := s.db.GetPluginPolicies(ctx, publicKey, []types.PluginID{types.PluginVultisigFees_feee}, false)
+	pluginData, err := s.db.GetPluginPolicies(ctx, publicKey, []string{itypes.PluginVultisigFees}, false)
 	if err != nil {
 		return false, fmt.Errorf("failed to get plugin policy: %w", err)
 	}
@@ -197,7 +197,7 @@ func (s *PolicyService) handleRollback(tx pgx.Tx) {
 	}
 }
 
-func (s *PolicyService) DeletePolicy(ctx context.Context, policyID uuid.UUID, pluginID types.PluginID, signature string) error {
+func (s *PolicyService) DeletePolicy(ctx context.Context, policyID uuid.UUID, pluginID string, signature string) error {
 	tx, err := s.db.Pool().Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -232,7 +232,7 @@ func (s *PolicyService) DeletePolicy(ctx context.Context, policyID uuid.UUID, pl
 	return nil
 }
 
-func (s *PolicyService) GetPluginPolicies(ctx context.Context, publicKey string, pluginID types.PluginID, take int, skip int, activeFilter *bool) (*itypes.PluginPolicyPaginatedList, error) {
+func (s *PolicyService) GetPluginPolicies(ctx context.Context, publicKey string, pluginID string, take int, skip int, activeFilter *bool) (*itypes.PluginPolicyPaginatedList, error) {
 	policies, err := s.db.GetAllPluginPolicies(ctx, publicKey, pluginID, take, skip, activeFilter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get policies: %w", err)
@@ -248,7 +248,7 @@ func (s *PolicyService) GetPluginPolicy(ctx context.Context, policyID uuid.UUID)
 	return policy, nil
 }
 
-func (s *PolicyService) GetPluginInstallationsCount(ctx context.Context, pluginID types.PluginID) (itypes.PluginTotalCount, error) {
+func (s *PolicyService) GetPluginInstallationsCount(ctx context.Context, pluginID string) (itypes.PluginTotalCount, error) {
 	count, err := s.db.GetPluginInstallationsCount(ctx, pluginID)
 	if err != nil {
 		return itypes.PluginTotalCount{}, fmt.Errorf("failed to get plugin installations count: %w", err)
@@ -256,7 +256,7 @@ func (s *PolicyService) GetPluginInstallationsCount(ctx context.Context, pluginI
 	return count, nil
 }
 
-func (s *PolicyService) DeleteAllPolicies(ctx context.Context, pluginID types.PluginID, publicKey string) error {
+func (s *PolicyService) DeleteAllPolicies(ctx context.Context, pluginID string, publicKey string) error {
 	tx, err := s.db.Pool().Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)

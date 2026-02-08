@@ -15,7 +15,7 @@ import (
 // It matches the Fee format as closely as possible for frontend consistency.
 type PluginTransactionResponse struct {
 	ID            uuid.UUID            `json:"id"`
-	PluginID      vtypes.PluginID      `json:"plugin_id"`
+	PluginID      string               `json:"plugin_id"`
 	AppName       string               `json:"app_name"` // Plugin title for display
 	PolicyID      uuid.UUID            `json:"policy_id"`
 	PublicKey     string               `json:"public_key"` // Matches Fee format (was from_public_key)
@@ -37,7 +37,7 @@ type PluginTransactionResponse struct {
 func FromStorageTxs(txs []storage.Tx, titleMap map[string]string) []PluginTransactionResponse {
 	result := make([]PluginTransactionResponse, len(txs))
 	for i, tx := range txs {
-		appName := titleMap[string(tx.PluginID)]
+		appName := titleMap[tx.PluginID]
 		result[i] = PluginTransactionResponse{
 			ID:            tx.ID,
 			PluginID:      tx.PluginID,
@@ -69,7 +69,7 @@ type TransactionHistoryPaginatedList struct {
 // It matches the transaction history format for frontend consistency.
 type PluginFeeResponse struct {
 	ID              uint64           `json:"id"`
-	PluginID        vtypes.PluginID  `json:"plugin_id"`
+	PluginID        string           `json:"plugin_id"`
 	AppName         string           `json:"app_name"` // Plugin title for display
 	PolicyID        uuid.UUID        `json:"policy_id"`
 	PublicKey       string           `json:"public_key"`
@@ -94,7 +94,7 @@ func FromFeesWithStatus(fees []FeeWithStatus, titleMap map[string]string) []Plug
 		appName := titleMap[fee.PluginID]
 		result[i] = PluginFeeResponse{
 			ID:              fee.ID,
-			PluginID:        vtypes.PluginID(fee.PluginID),
+			PluginID:        fee.PluginID,
 			AppName:         appName,
 			PolicyID:        fee.PolicyID,
 			PublicKey:       fee.PublicKey,
@@ -130,7 +130,7 @@ type PricingInfo struct {
 
 // PluginBillingSummary is the response DTO for plugin billing info
 type PluginBillingSummary struct {
-	PluginID    vtypes.PluginID `json:"plugin_id"`
+	PluginID    string          `json:"plugin_id"`
 	AppName     string          `json:"app_name"`
 	Pricing     string          `json:"pricing"` // Formatted: "0.50 USDC one-time + 0.01 USDC per transaction"
 	StartDate   time.Time       `json:"start_date"`

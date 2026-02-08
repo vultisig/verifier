@@ -72,7 +72,7 @@ func (s *Server) ListPluginImages(c echo.Context) error {
 	}
 
 	owner, err := s.queries.GetPluginOwnerWithRole(ctx, &queries.GetPluginOwnerWithRoleParams{
-		PluginID:  queries.PluginID(pluginID),
+		PluginID:  pluginID,
 		PublicKey: address,
 	})
 	if err != nil {
@@ -125,7 +125,7 @@ func (s *Server) GetImageUploadURL(c echo.Context) error {
 	}
 
 	owner, err := s.queries.GetPluginOwnerWithRole(ctx, &queries.GetPluginOwnerWithRoleParams{
-		PluginID:  queries.PluginID(pluginID),
+		PluginID:  pluginID,
 		PublicKey: address,
 	})
 	if err != nil {
@@ -252,7 +252,7 @@ func (s *Server) ConfirmImageUpload(c echo.Context) error {
 	}
 
 	owner, err := s.queries.GetPluginOwnerWithRole(ctx, &queries.GetPluginOwnerWithRoleParams{
-		PluginID:  queries.PluginID(pluginID),
+		PluginID:  pluginID,
 		PublicKey: address,
 	})
 	if err != nil {
@@ -404,7 +404,7 @@ func (s *Server) UpdatePluginImage(c echo.Context) error {
 	}
 
 	owner, err := s.queries.GetPluginOwnerWithRole(ctx, &queries.GetPluginOwnerWithRoleParams{
-		PluginID:  queries.PluginID(pluginID),
+		PluginID:  pluginID,
 		PublicKey: address,
 	})
 	if err != nil {
@@ -467,7 +467,7 @@ func (s *Server) DeletePluginImage(c echo.Context) error {
 	}
 
 	owner, err := s.queries.GetPluginOwnerWithRole(ctx, &queries.GetPluginOwnerWithRoleParams{
-		PluginID:  queries.PluginID(pluginID),
+		PluginID:  pluginID,
 		PublicKey: address,
 	})
 	if err != nil {
@@ -503,7 +503,7 @@ func (s *Server) ReorderPluginImages(c echo.Context) error {
 	}
 
 	owner, err := s.queries.GetPluginOwnerWithRole(ctx, &queries.GetPluginOwnerWithRoleParams{
-		PluginID:  queries.PluginID(pluginID),
+		PluginID:  pluginID,
 		PublicKey: address,
 	})
 	if err != nil {

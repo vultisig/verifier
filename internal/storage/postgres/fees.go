@@ -621,13 +621,13 @@ func (p *PostgresBackend) GetPricingsByPluginIDs(
 
 	query := `
 		SELECT
-			plugin_id::text,
+			plugin_id,
 			type::text,
 			amount,
 			asset::text,
 			frequency::text
 		FROM pricings
-		WHERE plugin_id::text = ANY($1)
+		WHERE plugin_id = ANY($1)
 	`
 
 	rows, err := p.pool.Query(ctx, query, pluginIDs)

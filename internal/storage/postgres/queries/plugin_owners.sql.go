@@ -18,7 +18,7 @@ RETURNING plugin_id, public_key, active, role, added_via, added_by_public_key, c
 `
 
 type AddPluginTeamMemberParams struct {
-	PluginID         PluginID        `json:"plugin_id"`
+	PluginID         string          `json:"plugin_id"`
 	PublicKey        string          `json:"public_key"`
 	Role             PluginOwnerRole `json:"role"`
 	AddedByPublicKey pgtype.Text     `json:"added_by_public_key"`
@@ -68,8 +68,8 @@ WHERE plugin_id = $1 AND public_key = $2 AND active = true
 `
 
 type GetPluginOwnerParams struct {
-	PluginID  PluginID `json:"plugin_id"`
-	PublicKey string   `json:"public_key"`
+	PluginID  string `json:"plugin_id"`
+	PublicKey string `json:"public_key"`
 }
 
 // Plugin Owners table queries (team management)
@@ -96,8 +96,8 @@ WHERE plugin_id = $1 AND public_key = $2 AND active = true
 `
 
 type GetPluginOwnerWithRoleParams struct {
-	PluginID  PluginID `json:"plugin_id"`
-	PublicKey string   `json:"public_key"`
+	PluginID  string `json:"plugin_id"`
+	PublicKey string `json:"public_key"`
 }
 
 // Get a specific owner with their role for permission checks
@@ -124,7 +124,7 @@ WHERE plugin_id = $1 AND active = true
 ORDER BY created_at ASC
 `
 
-func (q *Queries) ListPluginOwners(ctx context.Context, pluginID PluginID) ([]*PluginOwner, error) {
+func (q *Queries) ListPluginOwners(ctx context.Context, pluginID string) ([]*PluginOwner, error) {
 	rows, err := q.db.Query(ctx, listPluginOwners, pluginID)
 	if err != nil {
 		return nil, err
@@ -168,7 +168,7 @@ ORDER BY
 
 // Team Management Queries
 // List team members for a plugin, excluding staff role (admins can't see staff)
-func (q *Queries) ListPluginTeamMembers(ctx context.Context, pluginID PluginID) ([]*PluginOwner, error) {
+func (q *Queries) ListPluginTeamMembers(ctx context.Context, pluginID string) ([]*PluginOwner, error) {
 	rows, err := q.db.Query(ctx, listPluginTeamMembers, pluginID)
 	if err != nil {
 		return nil, err
@@ -205,8 +205,8 @@ WHERE plugin_id = $1 AND public_key = $2 AND role != 'staff'
 `
 
 type RemovePluginTeamMemberParams struct {
-	PluginID  PluginID `json:"plugin_id"`
-	PublicKey string   `json:"public_key"`
+	PluginID  string `json:"plugin_id"`
+	PublicKey string `json:"public_key"`
 }
 
 // Deactivate a team member (soft delete)

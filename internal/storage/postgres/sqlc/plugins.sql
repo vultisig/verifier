@@ -10,13 +10,13 @@ ORDER BY updated_at DESC;
 
 -- name: ListPluginsByOwner :many
 SELECT p.* FROM plugins p
-JOIN plugin_owners po ON p.id::text = po.plugin_id::text
+JOIN plugin_owners po ON p.id = po.plugin_id
 WHERE po.public_key = $1 AND po.active = true
 ORDER BY p.updated_at DESC;
 
 -- name: GetPluginByIDAndOwner :one
 SELECT p.* FROM plugins p
-JOIN plugin_owners po ON p.id::text = po.plugin_id::text
+JOIN plugin_owners po ON p.id = po.plugin_id
 WHERE p.id = $1 AND po.public_key = $2 AND po.active = true;
 
 -- name: UpdatePlugin :one

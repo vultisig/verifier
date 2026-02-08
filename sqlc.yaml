@@ -15,3 +15,11 @@ sql:
         emit_empty_slices: true
         emit_result_struct_pointers: true
         emit_params_struct_pointers: true
+        overrides:
+          - db_type: "plugin_id"
+            go_type: "string"
+          - db_type: "plugin_id"
+            nullable: true
+            go_type:
+              import: "github.com/jackc/pgx/v5/pgtype"
+              type: "Text"

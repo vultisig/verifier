@@ -17,7 +17,7 @@ SELECT
         ELSE 'pending'
     END as status
 FROM fees f
-JOIN plugins p ON f.plugin_id::plugin_id = p.id
+JOIN plugins p ON f.plugin_id = p.id::text
 LEFT JOIN plugin_policies pp ON f.policy_id = pp.id
 LEFT JOIN plugin_policy_billing ppb ON pp.id = ppb.plugin_policy_id
 LEFT JOIN tx_indexer ti ON f.policy_id = ti.policy_id
@@ -44,7 +44,7 @@ SELECT
         ELSE 'pending'
     END as status
 FROM fees f
-JOIN plugins p ON f.plugin_id::plugin_id = p.id
+JOIN plugins p ON f.plugin_id = p.id::text
 LEFT JOIN plugin_policies pp ON f.policy_id = pp.id
 LEFT JOIN plugin_policy_billing ppb ON pp.id = ppb.plugin_policy_id
 LEFT JOIN tx_indexer ti ON f.policy_id = ti.policy_id
@@ -61,7 +61,7 @@ LIMIT $5 OFFSET $6;
 -- name: CountEarningsByPluginOwnerFiltered :one
 SELECT COUNT(DISTINCT f.id)::bigint as total
 FROM fees f
-JOIN plugins p ON f.plugin_id::plugin_id = p.id
+JOIN plugins p ON f.plugin_id = p.id::text
 LEFT JOIN plugin_policies pp ON f.policy_id = pp.id
 LEFT JOIN plugin_policy_billing ppb ON pp.id = ppb.plugin_policy_id
 LEFT JOIN tx_indexer ti ON f.policy_id = ti.policy_id

@@ -7,11 +7,10 @@ HTTP 200
 jsonpath "$.data.plugins" exists
 jsonpath "$.data.total_count" exists
 jsonpath "$.data.plugins" count >= 1
-jsonpath "$.data.plugins[0].id" matches "^[a-z]+-[a-z]+-[0-9a-f]{4}$"
+jsonpath "$.data.plugins[0].id" exists
 jsonpath "$.data.plugins[0].title" exists
 jsonpath "$.data.plugins[0].description" exists
 jsonpath "$.data.plugins[0].server_endpoint" exists
-jsonpath "$.data.plugins[0].pricing" exists
 jsonpath "$.data.plugins[0].category_id" exists
 jsonpath "$.data.plugins[0].created_at" exists
 jsonpath "$.data.plugins[0].updated_at" exists

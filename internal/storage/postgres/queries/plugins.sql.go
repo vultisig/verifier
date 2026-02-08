@@ -16,7 +16,7 @@ WHERE id = $1
 `
 
 // Plugins table queries
-func (q *Queries) GetPluginByID(ctx context.Context, id PluginID) (*Plugin, error) {
+func (q *Queries) GetPluginByID(ctx context.Context, id string) (*Plugin, error) {
 	row := q.db.QueryRow(ctx, getPluginByID, id)
 	var i Plugin
 	err := row.Scan(
@@ -36,13 +36,13 @@ func (q *Queries) GetPluginByID(ctx context.Context, id PluginID) (*Plugin, erro
 
 const getPluginByIDAndOwner = `-- name: GetPluginByIDAndOwner :one
 SELECT p.id, p.title, p.description, p.server_endpoint, p.category, p.created_at, p.updated_at, p.faqs, p.features, p.audited FROM plugins p
-JOIN plugin_owners po ON p.id::text = po.plugin_id::text
+JOIN plugin_owners po ON p.id = po.plugin_id
 WHERE p.id = $1 AND po.public_key = $2 AND po.active = true
 `
 
 type GetPluginByIDAndOwnerParams struct {
-	ID        PluginID `json:"id"`
-	PublicKey string   `json:"public_key"`
+	ID        string `json:"id"`
+	PublicKey string `json:"public_key"`
 }
 
 func (q *Queries) GetPluginByIDAndOwner(ctx context.Context, arg *GetPluginByIDAndOwnerParams) (*Plugin, error) {
@@ -69,7 +69,7 @@ WHERE plugin_id = $1
 ORDER BY created_at DESC
 `
 
-func (q *Queries) GetPluginPricings(ctx context.Context, pluginID PluginID) ([]*Pricing, error) {
+func (q *Queries) GetPluginPricings(ctx context.Context, pluginID string) ([]*Pricing, error) {
 	rows, err := q.db.Query(ctx, getPluginPricings, pluginID)
 	if err != nil {
 		return nil, err
@@ -137,7 +137,7 @@ func (q *Queries) ListPlugins(ctx context.Context) ([]*Plugin, error) {
 
 const listPluginsByOwner = `-- name: ListPluginsByOwner :many
 SELECT p.id, p.title, p.description, p.server_endpoint, p.category, p.created_at, p.updated_at, p.faqs, p.features, p.audited FROM plugins p
-JOIN plugin_owners po ON p.id::text = po.plugin_id::text
+JOIN plugin_owners po ON p.id = po.plugin_id
 WHERE po.public_key = $1 AND po.active = true
 ORDER BY p.updated_at DESC
 `
@@ -185,10 +185,10 @@ RETURNING id, title, description, server_endpoint, category, created_at, updated
 `
 
 type UpdatePluginParams struct {
-	ID             PluginID `json:"id"`
-	Title          string   `json:"title"`
-	Description    string   `json:"description"`
-	ServerEndpoint string   `json:"server_endpoint"`
+	ID             string `json:"id"`
+	Title          string `json:"title"`
+	Description    string `json:"description"`
+	ServerEndpoint string `json:"server_endpoint"`
 }
 
 func (q *Queries) UpdatePlugin(ctx context.Context, arg *UpdatePluginParams) (*Plugin, error) {

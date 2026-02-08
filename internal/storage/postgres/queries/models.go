@@ -139,52 +139,6 @@ func (ns NullPluginCategory) Value() (driver.Value, error) {
 	return string(ns.PluginCategory), nil
 }
 
-type PluginID string
-
-const (
-	PluginIDVultisigDca0000            PluginID = "vultisig-dca-0000"
-	PluginIDVultisigPayroll0000        PluginID = "vultisig-payroll-0000"
-	PluginIDVultisigFeesFeee           PluginID = "vultisig-fees-feee"
-	PluginIDVultisigCopytrader0000     PluginID = "vultisig-copytrader-0000"
-	PluginIDNbitsLabsMerkleE93d        PluginID = "nbits-labs-merkle-e93d"
-	PluginIDVultisigRecurringSends0000 PluginID = "vultisig-recurring-sends-0000"
-)
-
-func (e *PluginID) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = PluginID(s)
-	case string:
-		*e = PluginID(s)
-	default:
-		return fmt.Errorf("unsupported scan type for PluginID: %T", src)
-	}
-	return nil
-}
-
-type NullPluginID struct {
-	PluginID PluginID `json:"plugin_id"`
-	Valid    bool     `json:"valid"` // Valid is true if PluginID is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullPluginID) Scan(value interface{}) error {
-	if value == nil {
-		ns.PluginID, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.PluginID.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullPluginID) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.PluginID), nil
-}
-
 type PluginOwnerAddedVia string
 
 const (
@@ -605,7 +559,7 @@ type FeeBatchMember struct {
 }
 
 type Plugin struct {
-	ID             PluginID           `json:"id"`
+	ID             string             `json:"id"`
 	Title          string             `json:"title"`
 	Description    string             `json:"description"`
 	ServerEndpoint string             `json:"server_endpoint"`
@@ -619,7 +573,7 @@ type Plugin struct {
 
 type PluginApikey struct {
 	ID        pgtype.UUID        `json:"id"`
-	PluginID  PluginID           `json:"plugin_id"`
+	PluginID  string             `json:"plugin_id"`
 	Apikey    string             `json:"apikey"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
@@ -628,7 +582,7 @@ type PluginApikey struct {
 
 type PluginImage struct {
 	ID                  pgtype.UUID        `json:"id"`
-	PluginID            PluginID           `json:"plugin_id"`
+	PluginID            string             `json:"plugin_id"`
 	ImageType           string             `json:"image_type"`
 	S3Path              string             `json:"s3_path"`
 	ImageOrder          int32              `json:"image_order"`
@@ -642,13 +596,13 @@ type PluginImage struct {
 }
 
 type PluginInstallation struct {
-	PluginID    PluginID           `json:"plugin_id"`
+	PluginID    string             `json:"plugin_id"`
 	PublicKey   string             `json:"public_key"`
 	InstalledAt pgtype.Timestamptz `json:"installed_at"`
 }
 
 type PluginOwner struct {
-	PluginID         PluginID            `json:"plugin_id"`
+	PluginID         string              `json:"plugin_id"`
 	PublicKey        string              `json:"public_key"`
 	Active           bool                `json:"active"`
 	Role             PluginOwnerRole     `json:"role"`
@@ -661,7 +615,7 @@ type PluginOwner struct {
 
 type PluginPauseHistory struct {
 	ID                pgtype.UUID        `json:"id"`
-	PluginID          PluginID           `json:"plugin_id"`
+	PluginID          string             `json:"plugin_id"`
 	Action            string             `json:"action"`
 	ReportCountWindow pgtype.Int4        `json:"report_count_window"`
 	ActiveUsers       pgtype.Int4        `json:"active_users"`
@@ -674,7 +628,7 @@ type PluginPauseHistory struct {
 type PluginPolicy struct {
 	ID                 pgtype.UUID        `json:"id"`
 	PublicKey          string             `json:"public_key"`
-	PluginID           PluginID           `json:"plugin_id"`
+	PluginID           string             `json:"plugin_id"`
 	PluginVersion      string             `json:"plugin_version"`
 	PolicyVersion      int32              `json:"policy_version"`
 	Signature          string             `json:"signature"`
@@ -699,7 +653,7 @@ type PluginPolicyBilling struct {
 type PluginPolicySync struct {
 	ID        pgtype.UUID        `json:"id"`
 	PolicyID  pgtype.UUID        `json:"policy_id"`
-	PluginID  PluginID           `json:"plugin_id"`
+	PluginID  string             `json:"plugin_id"`
 	SyncType  int32              `json:"sync_type"`
 	Signature pgtype.Text        `json:"signature"`
 	Status    int32              `json:"status"`
@@ -709,7 +663,7 @@ type PluginPolicySync struct {
 }
 
 type PluginRating struct {
-	PluginID     PluginID           `json:"plugin_id"`
+	PluginID     string             `json:"plugin_id"`
 	AvgRating    pgtype.Numeric     `json:"avg_rating"`
 	TotalRatings int32              `json:"total_ratings"`
 	Rating1Count int32              `json:"rating_1_count"`
@@ -721,7 +675,7 @@ type PluginRating struct {
 }
 
 type PluginReport struct {
-	PluginID          PluginID           `json:"plugin_id"`
+	PluginID          string             `json:"plugin_id"`
 	ReporterPublicKey string             `json:"reporter_public_key"`
 	Reason            string             `json:"reason"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
@@ -731,7 +685,7 @@ type PluginReport struct {
 }
 
 type PluginTag struct {
-	PluginID PluginID    `json:"plugin_id"`
+	PluginID string      `json:"plugin_id"`
 	TagID    pgtype.UUID `json:"tag_id"`
 }
 
@@ -742,14 +696,14 @@ type Pricing struct {
 	Amount    int64                `json:"amount"`
 	Asset     PricingAsset         `json:"asset"`
 	Metric    PricingMetric        `json:"metric"`
-	PluginID  PluginID             `json:"plugin_id"`
+	PluginID  string               `json:"plugin_id"`
 	CreatedAt pgtype.Timestamptz   `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz   `json:"updated_at"`
 }
 
 type Review struct {
 	ID        pgtype.UUID        `json:"id"`
-	PluginID  NullPluginID       `json:"plugin_id"`
+	PluginID  pgtype.Text        `json:"plugin_id"`
 	PublicKey string             `json:"public_key"`
 	Rating    int32              `json:"rating"`
 	Comment   pgtype.Text        `json:"comment"`

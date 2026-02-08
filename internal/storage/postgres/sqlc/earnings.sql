@@ -17,12 +17,12 @@ SELECT
         ELSE 'pending'
     END as status
 FROM fees f
-JOIN plugins p ON f.plugin_id = p.id::text
+JOIN plugins p ON f.plugin_id = p.id
 LEFT JOIN plugin_policies pp ON f.policy_id = pp.id
 LEFT JOIN plugin_policy_billing ppb ON pp.id = ppb.plugin_policy_id
 LEFT JOIN tx_indexer ti ON f.policy_id = ti.policy_id
 WHERE f.plugin_id IN (
-    SELECT po.plugin_id::text FROM plugin_owners po WHERE po.public_key = $1 AND po.active = true
+    SELECT po.plugin_id FROM plugin_owners po WHERE po.public_key = $1 AND po.active = true
 )
 AND f.transaction_type = 'debit'
 ORDER BY f.created_at DESC;
@@ -44,12 +44,12 @@ SELECT
         ELSE 'pending'
     END as status
 FROM fees f
-JOIN plugins p ON f.plugin_id = p.id::text
+JOIN plugins p ON f.plugin_id = p.id
 LEFT JOIN plugin_policies pp ON f.policy_id = pp.id
 LEFT JOIN plugin_policy_billing ppb ON pp.id = ppb.plugin_policy_id
 LEFT JOIN tx_indexer ti ON f.policy_id = ti.policy_id
 WHERE f.plugin_id IN (
-    SELECT po.plugin_id::text FROM plugin_owners po WHERE po.public_key = $1 AND po.active = true
+    SELECT po.plugin_id FROM plugin_owners po WHERE po.public_key = $1 AND po.active = true
 )
 AND f.transaction_type = 'debit'
 AND (NULLIF($2, '')::text IS NULL OR f.plugin_id = $2)
@@ -61,12 +61,12 @@ LIMIT $5 OFFSET $6;
 -- name: CountEarningsByPluginOwnerFiltered :one
 SELECT COUNT(DISTINCT f.id)::bigint as total
 FROM fees f
-JOIN plugins p ON f.plugin_id = p.id::text
+JOIN plugins p ON f.plugin_id = p.id
 LEFT JOIN plugin_policies pp ON f.policy_id = pp.id
 LEFT JOIN plugin_policy_billing ppb ON pp.id = ppb.plugin_policy_id
 LEFT JOIN tx_indexer ti ON f.policy_id = ti.policy_id
 WHERE f.plugin_id IN (
-    SELECT po.plugin_id::text FROM plugin_owners po WHERE po.public_key = $1 AND po.active = true
+    SELECT po.plugin_id FROM plugin_owners po WHERE po.public_key = $1 AND po.active = true
 )
 AND f.transaction_type = 'debit'
 AND (NULLIF($2, '')::text IS NULL OR f.plugin_id = $2)
@@ -79,7 +79,7 @@ SELECT
     COUNT(f.id)::bigint as total_transactions
 FROM fees f
 WHERE f.plugin_id IN (
-    SELECT po.plugin_id::text FROM plugin_owners po WHERE po.public_key = $1 AND po.active = true
+    SELECT po.plugin_id FROM plugin_owners po WHERE po.public_key = $1 AND po.active = true
 )
 AND f.transaction_type = 'debit';
 
@@ -89,7 +89,7 @@ SELECT
     COALESCE(SUM(f.amount), 0)::bigint as total
 FROM fees f
 WHERE f.plugin_id IN (
-    SELECT po.plugin_id::text FROM plugin_owners po WHERE po.public_key = $1 AND po.active = true
+    SELECT po.plugin_id FROM plugin_owners po WHERE po.public_key = $1 AND po.active = true
 )
 AND f.transaction_type = 'debit'
 GROUP BY f.plugin_id;

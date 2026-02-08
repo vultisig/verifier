@@ -62,7 +62,7 @@ func (p *PostgresBackend) GetPluginImagesByPluginIDs(ctx context.Context, plugin
 	query := `
 		SELECT id, plugin_id, image_type, s3_path, image_order, uploaded_by_public_key, visible, deleted, content_type, filename, created_at, updated_at
 		FROM plugin_images
-		WHERE plugin_id::text = ANY($1::text[]) AND deleted = false AND visible = true
+		WHERE plugin_id = ANY($1::text[]) AND deleted = false AND visible = true
 		ORDER BY plugin_id, image_type, image_order ASC
 	`
 

@@ -16,14 +16,7 @@ CREATE TYPE "plugin_category" AS ENUM (
     'app'
 );
 
-CREATE TYPE "plugin_id" AS ENUM (
-    'vultisig-dca-0000',
-    'vultisig-payroll-0000',
-    'vultisig-fees-feee',
-    'vultisig-copytrader-0000',
-    'nbits-labs-merkle-e93d',
-    'vultisig-recurring-sends-0000'
-);
+CREATE DOMAIN "plugin_id" AS "text";
 
 CREATE TYPE "plugin_owner_added_via" AS ENUM (
     'bootstrap_plugin_key',
@@ -249,7 +242,7 @@ CREATE TABLE "plugin_pause_history" (
 CREATE TABLE "plugin_policies" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "public_key" "text" NOT NULL,
-    "plugin_id" "plugin_id" NOT NULL,
+    "plugin_id" "text" NOT NULL,
     "plugin_version" "text" NOT NULL,
     "policy_version" integer NOT NULL,
     "signature" "text" NOT NULL,
@@ -536,7 +529,7 @@ CREATE INDEX "idx_vault_tokens_public_key" ON "vault_tokens" USING "btree" ("pub
 
 CREATE INDEX "idx_vault_tokens_token_id" ON "vault_tokens" USING "btree" ("token_id");
 
-CREATE UNIQUE INDEX "unique_fees_policy_per_public_key" ON "plugin_policies" USING "btree" ("plugin_id", "public_key") WHERE (("plugin_id" = 'vultisig-fees-feee'::"public"."plugin_id") AND ("active" = true));
+CREATE UNIQUE INDEX "unique_fees_policy_per_public_key" ON "plugin_policies" USING "btree" ("plugin_id", "public_key") WHERE (("plugin_id" = 'vultisig-fees-feee'::"text") AND ("active" = true));
 
 CREATE TRIGGER "trg_prevent_billing_update_if_policy_deleted" BEFORE INSERT OR DELETE OR UPDATE ON "plugin_policy_billing" FOR EACH ROW EXECUTE FUNCTION "public"."prevent_billing_update_if_policy_deleted"();
 

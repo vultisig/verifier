@@ -706,7 +706,15 @@ func (s *Server) DeletePlugin(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
 	if pluginID == vtypes.PluginVultisigFees_feee.String() {
-		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("Unable to uninstall due to outstanding fees"))
+		// Check unpaid fees
+		status, err := s.feeService.GetUserFees(c.Request().Context(), publicKey)
+		if err != nil {
+			s.logger.WithError(err).Error("Failed to get user fees")
+			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetUserFeesFailed))
+		}
+		if status.UnpaidAmount > 0 {
+			return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("Unable to uninstall due to outstanding fees"))
+		}
 	}
 
 	if err := s.notifyPluginServerDeletePlugin(c.Request().Context(), vtypes.PluginID(pluginID), publicKey); err != nil {

@@ -22,7 +22,28 @@ CREATE TYPE "plugin_owner_added_via" AS ENUM (
     'bootstrap_plugin_key',
     'owner_api',
     'admin_cli',
-    'magic_link'
+    'magic_link',
+    'portal_create'
+);
+
+CREATE TYPE "plugin_status" AS ENUM (
+    'draft',
+    'staging_approved',
+    'submitted',
+    'approved',
+    'listed'
+);
+
+CREATE TYPE "portal_approver_role" AS ENUM (
+    'staging_approver',
+    'listing_approver',
+    'admin'
+);
+
+CREATE TYPE "portal_approver_added_via" AS ENUM (
+    'bootstrap',
+    'admin_portal',
+    'cli'
 );
 
 CREATE TYPE "plugin_owner_role" AS ENUM (
@@ -310,11 +331,22 @@ CREATE TABLE "plugins" (
     "description" "text" DEFAULT ''::"text" NOT NULL,
     "server_endpoint" "text" NOT NULL,
     "category" "plugin_category" NOT NULL,
+    "status" "plugin_status" DEFAULT 'draft'::"plugin_status" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "faqs" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
     "features" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
     "audited" boolean DEFAULT false NOT NULL
+);
+
+CREATE TABLE "portal_approvers" (
+    "public_key" "text" NOT NULL,
+    "role" "portal_approver_role" DEFAULT 'staging_approver'::"portal_approver_role" NOT NULL,
+    "active" boolean DEFAULT true NOT NULL,
+    "added_via" "portal_approver_added_via" NOT NULL DEFAULT 'bootstrap'::"portal_approver_added_via",
+    "added_by_public_key" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 
 CREATE TABLE "pricings" (
@@ -435,6 +467,9 @@ ALTER TABLE ONLY "plugin_tags"
 
 ALTER TABLE ONLY "plugins"
     ADD CONSTRAINT "plugins_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "portal_approvers"
+    ADD CONSTRAINT "portal_approvers_pkey" PRIMARY KEY ("public_key");
 
 ALTER TABLE ONLY "pricings"
     ADD CONSTRAINT "pricings_pkey" PRIMARY KEY ("id");

@@ -61,6 +61,34 @@ func (q *Queries) CheckLinkIdUsed(ctx context.Context, linkID pgtype.UUID) (bool
 	return used, err
 }
 
+const createPluginOwnerFromPortal = `-- name: CreatePluginOwnerFromPortal :one
+INSERT INTO plugin_owners (plugin_id, public_key, role, added_via)
+VALUES ($1, $2, 'admin', 'portal_create')
+RETURNING plugin_id, public_key, active, role, added_via, added_by_public_key, created_at, updated_at, link_id
+`
+
+type CreatePluginOwnerFromPortalParams struct {
+	PluginID  string `json:"plugin_id"`
+	PublicKey string `json:"public_key"`
+}
+
+func (q *Queries) CreatePluginOwnerFromPortal(ctx context.Context, arg *CreatePluginOwnerFromPortalParams) (*PluginOwner, error) {
+	row := q.db.QueryRow(ctx, createPluginOwnerFromPortal, arg.PluginID, arg.PublicKey)
+	var i PluginOwner
+	err := row.Scan(
+		&i.PluginID,
+		&i.PublicKey,
+		&i.Active,
+		&i.Role,
+		&i.AddedVia,
+		&i.AddedByPublicKey,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LinkID,
+	)
+	return &i, err
+}
+
 const getPluginOwner = `-- name: GetPluginOwner :one
 
 SELECT plugin_id, public_key, active, role, added_via, added_by_public_key, created_at, updated_at, link_id FROM plugin_owners

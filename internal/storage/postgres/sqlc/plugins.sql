@@ -29,6 +29,19 @@ SET
 WHERE id = $1
 RETURNING *;
 
+-- name: CreateDraftPlugin :one
+INSERT INTO plugins (id, title, description, server_endpoint, category, status)
+VALUES ($1, $2, '', $3, $4, 'draft')
+RETURNING *;
+
+-- name: UpdatePluginStatus :one
+UPDATE plugins SET status = $2, updated_at = NOW()
+WHERE id = $1
+RETURNING *;
+
+-- name: GetPluginStatus :one
+SELECT status FROM plugins WHERE id = $1;
+
 -- name: GetPluginPricings :many
 SELECT * FROM pricings
 WHERE plugin_id = $1

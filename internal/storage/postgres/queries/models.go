@@ -146,6 +146,7 @@ const (
 	PluginOwnerAddedViaOwnerApi           PluginOwnerAddedVia = "owner_api"
 	PluginOwnerAddedViaAdminCli           PluginOwnerAddedVia = "admin_cli"
 	PluginOwnerAddedViaMagicLink          PluginOwnerAddedVia = "magic_link"
+	PluginOwnerAddedViaPortalCreate       PluginOwnerAddedVia = "portal_create"
 )
 
 func (e *PluginOwnerAddedVia) Scan(src interface{}) error {
@@ -225,6 +226,137 @@ func (ns NullPluginOwnerRole) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.PluginOwnerRole), nil
+}
+
+type PluginStatus string
+
+const (
+	PluginStatusDraft           PluginStatus = "draft"
+	PluginStatusStagingApproved PluginStatus = "staging_approved"
+	PluginStatusSubmitted       PluginStatus = "submitted"
+	PluginStatusApproved        PluginStatus = "approved"
+	PluginStatusListed          PluginStatus = "listed"
+)
+
+func (e *PluginStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PluginStatus(s)
+	case string:
+		*e = PluginStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PluginStatus: %T", src)
+	}
+	return nil
+}
+
+type NullPluginStatus struct {
+	PluginStatus PluginStatus `json:"plugin_status"`
+	Valid        bool         `json:"valid"` // Valid is true if PluginStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPluginStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.PluginStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PluginStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPluginStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PluginStatus), nil
+}
+
+type PortalApproverAddedVia string
+
+const (
+	PortalApproverAddedViaBootstrap   PortalApproverAddedVia = "bootstrap"
+	PortalApproverAddedViaAdminPortal PortalApproverAddedVia = "admin_portal"
+	PortalApproverAddedViaCli         PortalApproverAddedVia = "cli"
+)
+
+func (e *PortalApproverAddedVia) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PortalApproverAddedVia(s)
+	case string:
+		*e = PortalApproverAddedVia(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PortalApproverAddedVia: %T", src)
+	}
+	return nil
+}
+
+type NullPortalApproverAddedVia struct {
+	PortalApproverAddedVia PortalApproverAddedVia `json:"portal_approver_added_via"`
+	Valid                  bool                   `json:"valid"` // Valid is true if PortalApproverAddedVia is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPortalApproverAddedVia) Scan(value interface{}) error {
+	if value == nil {
+		ns.PortalApproverAddedVia, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PortalApproverAddedVia.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPortalApproverAddedVia) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PortalApproverAddedVia), nil
+}
+
+type PortalApproverRole string
+
+const (
+	PortalApproverRoleStagingApprover PortalApproverRole = "staging_approver"
+	PortalApproverRoleListingApprover PortalApproverRole = "listing_approver"
+	PortalApproverRoleAdmin           PortalApproverRole = "admin"
+)
+
+func (e *PortalApproverRole) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PortalApproverRole(s)
+	case string:
+		*e = PortalApproverRole(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PortalApproverRole: %T", src)
+	}
+	return nil
+}
+
+type NullPortalApproverRole struct {
+	PortalApproverRole PortalApproverRole `json:"portal_approver_role"`
+	Valid              bool               `json:"valid"` // Valid is true if PortalApproverRole is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPortalApproverRole) Scan(value interface{}) error {
+	if value == nil {
+		ns.PortalApproverRole, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PortalApproverRole.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPortalApproverRole) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PortalApproverRole), nil
 }
 
 type PricingAsset string
@@ -564,6 +696,7 @@ type Plugin struct {
 	Description    string             `json:"description"`
 	ServerEndpoint string             `json:"server_endpoint"`
 	Category       PluginCategory     `json:"category"`
+	Status         PluginStatus       `json:"status"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	Faqs           []byte             `json:"faqs"`
@@ -687,6 +820,16 @@ type PluginReport struct {
 type PluginTag struct {
 	PluginID string      `json:"plugin_id"`
 	TagID    pgtype.UUID `json:"tag_id"`
+}
+
+type PortalApprover struct {
+	PublicKey        string                 `json:"public_key"`
+	Role             PortalApproverRole     `json:"role"`
+	Active           bool                   `json:"active"`
+	AddedVia         PortalApproverAddedVia `json:"added_via"`
+	AddedByPublicKey pgtype.Text            `json:"added_by_public_key"`
+	CreatedAt        pgtype.Timestamptz     `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz     `json:"updated_at"`
 }
 
 type Pricing struct {

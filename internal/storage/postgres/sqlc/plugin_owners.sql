@@ -42,3 +42,8 @@ RETURNING *;
 UPDATE plugin_owners
 SET active = false, updated_at = NOW()
 WHERE plugin_id = $1 AND public_key = $2 AND role != 'staff';
+
+-- name: CreatePluginOwnerFromPortal :one
+INSERT INTO plugin_owners (plugin_id, public_key, role, added_via)
+VALUES ($1, $2, 'admin', 'portal_create')
+RETURNING *;

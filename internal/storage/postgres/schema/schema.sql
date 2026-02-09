@@ -26,6 +26,13 @@ CREATE TYPE "plugin_owner_added_via" AS ENUM (
     'portal_create'
 );
 
+CREATE TYPE "plugin_owner_role" AS ENUM (
+    'admin',
+    'staff',
+    'editor',
+    'viewer'
+);
+
 CREATE TYPE "plugin_status" AS ENUM (
     'draft',
     'staging_approved',
@@ -34,23 +41,16 @@ CREATE TYPE "plugin_status" AS ENUM (
     'listed'
 );
 
-CREATE TYPE "portal_approver_role" AS ENUM (
-    'staging_approver',
-    'listing_approver',
-    'admin'
-);
-
 CREATE TYPE "portal_approver_added_via" AS ENUM (
     'bootstrap',
     'admin_portal',
     'cli'
 );
 
-CREATE TYPE "plugin_owner_role" AS ENUM (
-    'admin',
-    'staff',
-    'editor',
-    'viewer'
+CREATE TYPE "portal_approver_role" AS ENUM (
+    'staging_approver',
+    'listing_approver',
+    'admin'
 );
 
 CREATE TYPE "pricing_asset" AS ENUM (
@@ -331,19 +331,19 @@ CREATE TABLE "plugins" (
     "description" "text" DEFAULT ''::"text" NOT NULL,
     "server_endpoint" "text" NOT NULL,
     "category" "plugin_category" NOT NULL,
-    "status" "plugin_status" DEFAULT 'draft'::"plugin_status" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "faqs" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
     "features" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
-    "audited" boolean DEFAULT false NOT NULL
+    "audited" boolean DEFAULT false NOT NULL,
+    "status" "plugin_status" DEFAULT 'draft'::"public"."plugin_status" NOT NULL
 );
 
 CREATE TABLE "portal_approvers" (
     "public_key" "text" NOT NULL,
-    "role" "portal_approver_role" DEFAULT 'staging_approver'::"portal_approver_role" NOT NULL,
+    "role" "portal_approver_role" DEFAULT 'staging_approver'::"public"."portal_approver_role" NOT NULL,
     "active" boolean DEFAULT true NOT NULL,
-    "added_via" "portal_approver_added_via" NOT NULL DEFAULT 'bootstrap'::"portal_approver_added_via",
+    "added_via" "portal_approver_added_via" DEFAULT 'bootstrap'::"public"."portal_approver_added_via" NOT NULL,
     "added_by_public_key" "text",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL

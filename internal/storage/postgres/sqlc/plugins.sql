@@ -43,6 +43,7 @@ RETURNING *;
 SELECT status FROM plugins WHERE id = $1;
 
 -- name: GetPluginPricings :many
-SELECT * FROM pricings
-WHERE plugin_id = $1
-ORDER BY created_at DESC;
+SELECT pr.* FROM pricings pr
+JOIN plugins p ON pr.plugin_id = p.id
+WHERE pr.plugin_id = $1 AND p.status = 'listed'
+ORDER BY pr.created_at DESC;

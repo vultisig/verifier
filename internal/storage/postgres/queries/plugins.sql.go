@@ -103,9 +103,10 @@ func (q *Queries) GetPluginByIDAndOwner(ctx context.Context, arg *GetPluginByIDA
 }
 
 const getPluginPricings = `-- name: GetPluginPricings :many
-SELECT id, type, frequency, amount, asset, metric, plugin_id, created_at, updated_at FROM pricings
-WHERE plugin_id = $1
-ORDER BY created_at DESC
+SELECT pr.id, pr.type, pr.frequency, pr.amount, pr.asset, pr.metric, pr.plugin_id, pr.created_at, pr.updated_at FROM pricings pr
+JOIN plugins p ON pr.plugin_id = p.id
+WHERE pr.plugin_id = $1 AND p.status = 'listed'
+ORDER BY pr.created_at DESC
 `
 
 func (q *Queries) GetPluginPricings(ctx context.Context, pluginID string) ([]*Pricing, error) {

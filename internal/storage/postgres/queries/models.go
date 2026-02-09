@@ -696,12 +696,12 @@ type Plugin struct {
 	Description    string             `json:"description"`
 	ServerEndpoint string             `json:"server_endpoint"`
 	Category       PluginCategory     `json:"category"`
-	Status         PluginStatus       `json:"status"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	Faqs           []byte             `json:"faqs"`
 	Features       []byte             `json:"features"`
 	Audited        bool               `json:"audited"`
+	Status         PluginStatus       `json:"status"`
 }
 
 type PluginApikey struct {

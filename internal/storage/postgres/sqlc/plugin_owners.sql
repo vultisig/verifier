@@ -31,10 +31,16 @@ WHERE plugin_id = $1 AND public_key = $2 AND active = true;
 -- name: CheckLinkIdUsed :one
 SELECT EXISTS(SELECT 1 FROM plugin_owners WHERE link_id = $1) as used;
 
--- Add a new team member via magic link invite
 -- name: AddPluginTeamMember :one
 INSERT INTO plugin_owners (plugin_id, public_key, role, added_via, added_by_public_key, link_id)
 VALUES ($1, $2, $3, 'magic_link', $4, $5)
+ON CONFLICT (plugin_id, public_key) DO UPDATE SET
+    active = true,
+    role = EXCLUDED.role,
+    added_via = EXCLUDED.added_via,
+    added_by_public_key = EXCLUDED.added_by_public_key,
+    link_id = EXCLUDED.link_id,
+    updated_at = NOW()
 RETURNING *;
 
 -- Deactivate a team member (soft delete)
@@ -46,4 +52,9 @@ WHERE plugin_id = $1 AND public_key = $2 AND role != 'staff';
 -- name: CreatePluginOwnerFromPortal :one
 INSERT INTO plugin_owners (plugin_id, public_key, role, added_via)
 VALUES ($1, $2, 'admin', 'portal_create')
+ON CONFLICT (plugin_id, public_key) DO UPDATE SET
+    active = true,
+    role = 'admin',
+    added_via = 'portal_create',
+    updated_at = NOW()
 RETURNING *;

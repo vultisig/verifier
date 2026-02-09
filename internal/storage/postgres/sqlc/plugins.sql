@@ -35,12 +35,9 @@ VALUES ($1, $2, '', $3, $4, 'draft')
 RETURNING *;
 
 -- name: UpdatePluginStatus :one
-UPDATE plugins SET status = $2, updated_at = NOW()
-WHERE id = $1
+UPDATE plugins SET status = sqlc.arg(new_status), updated_at = NOW()
+WHERE id = sqlc.arg(id) AND status = sqlc.arg(current_status)
 RETURNING *;
-
--- name: GetPluginStatus :one
-SELECT status FROM plugins WHERE id = $1;
 
 -- name: GetPluginPricings :many
 SELECT pr.* FROM pricings pr

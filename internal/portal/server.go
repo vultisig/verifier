@@ -1954,23 +1954,15 @@ func (s *Server) ApproveStaging(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "not authorized to approve staging"})
 	}
 
-	status, err := s.queries.GetPluginStatus(ctx, id)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "plugin not found"})
-		}
-		s.logger.WithError(err).Error("failed to get plugin status")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
-	}
-	if status != queries.PluginStatusDraft {
-		return c.JSON(http.StatusConflict, map[string]string{"error": "plugin must be in draft status"})
-	}
-
 	plugin, err := s.queries.UpdatePluginStatus(ctx, &queries.UpdatePluginStatusParams{
-		ID:     id,
-		Status: queries.PluginStatusStagingApproved,
+		ID:            id,
+		NewStatus:     queries.PluginStatusStagingApproved,
+		CurrentStatus: queries.PluginStatusDraft,
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusConflict, map[string]string{"error": "plugin not found or not in draft status"})
+		}
 		s.logger.WithError(err).Error("failed to update plugin status")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update plugin status"})
 	}
@@ -2013,23 +2005,15 @@ func (s *Server) SubmitPlugin(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "only plugin admins can submit"})
 	}
 
-	status, err := s.queries.GetPluginStatus(ctx, id)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "plugin not found"})
-		}
-		s.logger.WithError(err).Error("failed to get plugin status")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
-	}
-	if status != queries.PluginStatusStagingApproved {
-		return c.JSON(http.StatusConflict, map[string]string{"error": "plugin must be in staging_approved status"})
-	}
-
 	plugin, err := s.queries.UpdatePluginStatus(ctx, &queries.UpdatePluginStatusParams{
-		ID:     id,
-		Status: queries.PluginStatusSubmitted,
+		ID:            id,
+		NewStatus:     queries.PluginStatusSubmitted,
+		CurrentStatus: queries.PluginStatusStagingApproved,
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusConflict, map[string]string{"error": "plugin not found or not in staging_approved status"})
+		}
 		s.logger.WithError(err).Error("failed to update plugin status")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update plugin status"})
 	}
@@ -2066,23 +2050,15 @@ func (s *Server) ApprovePlugin(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "not authorized to approve listing"})
 	}
 
-	status, err := s.queries.GetPluginStatus(ctx, id)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "plugin not found"})
-		}
-		s.logger.WithError(err).Error("failed to get plugin status")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
-	}
-	if status != queries.PluginStatusSubmitted {
-		return c.JSON(http.StatusConflict, map[string]string{"error": "plugin must be in submitted status"})
-	}
-
 	plugin, err := s.queries.UpdatePluginStatus(ctx, &queries.UpdatePluginStatusParams{
-		ID:     id,
-		Status: queries.PluginStatusApproved,
+		ID:            id,
+		NewStatus:     queries.PluginStatusApproved,
+		CurrentStatus: queries.PluginStatusSubmitted,
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusConflict, map[string]string{"error": "plugin not found or not in submitted status"})
+		}
 		s.logger.WithError(err).Error("failed to update plugin status")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update plugin status"})
 	}
@@ -2125,17 +2101,25 @@ func (s *Server) PublishPlugin(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "only plugin admins can publish"})
 	}
 
-	status, err := s.queries.GetPluginStatus(ctx, id)
+	plugin, err := s.queries.UpdatePluginStatus(ctx, &queries.UpdatePluginStatusParams{
+		ID:            id,
+		NewStatus:     queries.PluginStatusListed,
+		CurrentStatus: queries.PluginStatusApproved,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "plugin not found"})
+			return c.JSON(http.StatusConflict, map[string]string{"error": "plugin not found or not in approved status"})
 		}
-		s.logger.WithError(err).Error("failed to get plugin status")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
-	}
-	if status != queries.PluginStatusApproved {
-		return c.JSON(http.StatusConflict, map[string]string{"error": "plugin must be in approved status"})
+		s.logger.WithError(err).Error("failed to update plugin status")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update plugin status"})
 	}
 
-	return c.JSON(http.StatusNotImplemented, map[string]string{"error": "burn verification not implemented"})
+	s.logger.WithFields(logrus.Fields{
+		"plugin_id":    id,
+		"old_status":   string(queries.PluginStatusApproved),
+		"new_status":   string(queries.PluginStatusListed),
+		"published_by": address,
+	}).Info("plugin published")
+
+	return c.JSON(http.StatusOK, plugin)
 }

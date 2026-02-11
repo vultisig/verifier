@@ -9,46 +9,9 @@ import (
 	"context"
 )
 
-const createDraftPlugin = `-- name: CreateDraftPlugin :one
-INSERT INTO plugins (id, title, description, server_endpoint, category, status)
-VALUES ($1, $2, '', $3, $4, 'draft')
-RETURNING id, title, description, server_endpoint, category, created_at, updated_at, faqs, features, audited, status
-`
-
-type CreateDraftPluginParams struct {
-	ID             string         `json:"id"`
-	Title          string         `json:"title"`
-	ServerEndpoint string         `json:"server_endpoint"`
-	Category       PluginCategory `json:"category"`
-}
-
-func (q *Queries) CreateDraftPlugin(ctx context.Context, arg *CreateDraftPluginParams) (*Plugin, error) {
-	row := q.db.QueryRow(ctx, createDraftPlugin,
-		arg.ID,
-		arg.Title,
-		arg.ServerEndpoint,
-		arg.Category,
-	)
-	var i Plugin
-	err := row.Scan(
-		&i.ID,
-		&i.Title,
-		&i.Description,
-		&i.ServerEndpoint,
-		&i.Category,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.Faqs,
-		&i.Features,
-		&i.Audited,
-		&i.Status,
-	)
-	return &i, err
-}
-
 const getPluginByID = `-- name: GetPluginByID :one
 
-SELECT id, title, description, server_endpoint, category, created_at, updated_at, faqs, features, audited, status FROM plugins
+SELECT id, title, description, server_endpoint, category, created_at, updated_at, faqs, features, audited FROM plugins
 WHERE id = $1
 `
 
@@ -67,13 +30,12 @@ func (q *Queries) GetPluginByID(ctx context.Context, id string) (*Plugin, error)
 		&i.Faqs,
 		&i.Features,
 		&i.Audited,
-		&i.Status,
 	)
 	return &i, err
 }
 
 const getPluginByIDAndOwner = `-- name: GetPluginByIDAndOwner :one
-SELECT p.id, p.title, p.description, p.server_endpoint, p.category, p.created_at, p.updated_at, p.faqs, p.features, p.audited, p.status FROM plugins p
+SELECT p.id, p.title, p.description, p.server_endpoint, p.category, p.created_at, p.updated_at, p.faqs, p.features, p.audited FROM plugins p
 JOIN plugin_owners po ON p.id = po.plugin_id
 WHERE p.id = $1 AND po.public_key = $2 AND po.active = true
 `
@@ -97,16 +59,14 @@ func (q *Queries) GetPluginByIDAndOwner(ctx context.Context, arg *GetPluginByIDA
 		&i.Faqs,
 		&i.Features,
 		&i.Audited,
-		&i.Status,
 	)
 	return &i, err
 }
 
 const getPluginPricings = `-- name: GetPluginPricings :many
-SELECT pr.id, pr.type, pr.frequency, pr.amount, pr.asset, pr.metric, pr.plugin_id, pr.created_at, pr.updated_at FROM pricings pr
-JOIN plugins p ON pr.plugin_id = p.id
-WHERE pr.plugin_id = $1 AND p.status = 'listed'
-ORDER BY pr.created_at DESC
+SELECT id, type, frequency, amount, asset, metric, plugin_id, created_at, updated_at FROM pricings
+WHERE plugin_id = $1
+ORDER BY created_at DESC
 `
 
 func (q *Queries) GetPluginPricings(ctx context.Context, pluginID string) ([]*Pricing, error) {
@@ -140,7 +100,7 @@ func (q *Queries) GetPluginPricings(ctx context.Context, pluginID string) ([]*Pr
 }
 
 const listPlugins = `-- name: ListPlugins :many
-SELECT id, title, description, server_endpoint, category, created_at, updated_at, faqs, features, audited, status FROM plugins
+SELECT id, title, description, server_endpoint, category, created_at, updated_at, faqs, features, audited FROM plugins
 ORDER BY updated_at DESC
 `
 
@@ -164,7 +124,6 @@ func (q *Queries) ListPlugins(ctx context.Context) ([]*Plugin, error) {
 			&i.Faqs,
 			&i.Features,
 			&i.Audited,
-			&i.Status,
 		); err != nil {
 			return nil, err
 		}
@@ -177,7 +136,7 @@ func (q *Queries) ListPlugins(ctx context.Context) ([]*Plugin, error) {
 }
 
 const listPluginsByOwner = `-- name: ListPluginsByOwner :many
-SELECT p.id, p.title, p.description, p.server_endpoint, p.category, p.created_at, p.updated_at, p.faqs, p.features, p.audited, p.status FROM plugins p
+SELECT p.id, p.title, p.description, p.server_endpoint, p.category, p.created_at, p.updated_at, p.faqs, p.features, p.audited FROM plugins p
 JOIN plugin_owners po ON p.id = po.plugin_id
 WHERE po.public_key = $1 AND po.active = true
 ORDER BY p.updated_at DESC
@@ -203,7 +162,6 @@ func (q *Queries) ListPluginsByOwner(ctx context.Context, publicKey string) ([]*
 			&i.Faqs,
 			&i.Features,
 			&i.Audited,
-			&i.Status,
 		); err != nil {
 			return nil, err
 		}
@@ -215,6 +173,37 @@ func (q *Queries) ListPluginsByOwner(ctx context.Context, publicKey string) ([]*
 	return items, nil
 }
 
+const publishPlugin = `-- name: PublishPlugin :one
+INSERT INTO plugins (id, title, description, server_endpoint, category)
+SELECT plugin_id, title, description, server_endpoint, category
+FROM proposed_plugins
+WHERE public_key = $1 AND plugin_id = $2 AND status = 'paid'
+RETURNING id, title, description, server_endpoint, category, created_at, updated_at, faqs, features, audited
+`
+
+type PublishPluginParams struct {
+	PublicKey string `json:"public_key"`
+	PluginID  string `json:"plugin_id"`
+}
+
+func (q *Queries) PublishPlugin(ctx context.Context, arg *PublishPluginParams) (*Plugin, error) {
+	row := q.db.QueryRow(ctx, publishPlugin, arg.PublicKey, arg.PluginID)
+	var i Plugin
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Description,
+		&i.ServerEndpoint,
+		&i.Category,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Faqs,
+		&i.Features,
+		&i.Audited,
+	)
+	return &i, err
+}
+
 const updatePlugin = `-- name: UpdatePlugin :one
 UPDATE plugins
 SET
@@ -223,7 +212,7 @@ SET
     server_endpoint = $4,
     updated_at = now()
 WHERE id = $1
-RETURNING id, title, description, server_endpoint, category, created_at, updated_at, faqs, features, audited, status
+RETURNING id, title, description, server_endpoint, category, created_at, updated_at, faqs, features, audited
 `
 
 type UpdatePluginParams struct {
@@ -252,38 +241,6 @@ func (q *Queries) UpdatePlugin(ctx context.Context, arg *UpdatePluginParams) (*P
 		&i.Faqs,
 		&i.Features,
 		&i.Audited,
-		&i.Status,
-	)
-	return &i, err
-}
-
-const updatePluginStatus = `-- name: UpdatePluginStatus :one
-UPDATE plugins SET status = $1, updated_at = NOW()
-WHERE id = $2 AND status = $3
-RETURNING id, title, description, server_endpoint, category, created_at, updated_at, faqs, features, audited, status
-`
-
-type UpdatePluginStatusParams struct {
-	NewStatus     PluginStatus `json:"new_status"`
-	ID            string       `json:"id"`
-	CurrentStatus PluginStatus `json:"current_status"`
-}
-
-func (q *Queries) UpdatePluginStatus(ctx context.Context, arg *UpdatePluginStatusParams) (*Plugin, error) {
-	row := q.db.QueryRow(ctx, updatePluginStatus, arg.NewStatus, arg.ID, arg.CurrentStatus)
-	var i Plugin
-	err := row.Scan(
-		&i.ID,
-		&i.Title,
-		&i.Description,
-		&i.ServerEndpoint,
-		&i.Category,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.Faqs,
-		&i.Features,
-		&i.Audited,
-		&i.Status,
 	)
 	return &i, err
 }

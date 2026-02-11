@@ -228,51 +228,6 @@ func (ns NullPluginOwnerRole) Value() (driver.Value, error) {
 	return string(ns.PluginOwnerRole), nil
 }
 
-type PluginStatus string
-
-const (
-	PluginStatusDraft           PluginStatus = "draft"
-	PluginStatusStagingApproved PluginStatus = "staging_approved"
-	PluginStatusSubmitted       PluginStatus = "submitted"
-	PluginStatusApproved        PluginStatus = "approved"
-	PluginStatusListed          PluginStatus = "listed"
-)
-
-func (e *PluginStatus) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = PluginStatus(s)
-	case string:
-		*e = PluginStatus(s)
-	default:
-		return fmt.Errorf("unsupported scan type for PluginStatus: %T", src)
-	}
-	return nil
-}
-
-type NullPluginStatus struct {
-	PluginStatus PluginStatus `json:"plugin_status"`
-	Valid        bool         `json:"valid"` // Valid is true if PluginStatus is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullPluginStatus) Scan(value interface{}) error {
-	if value == nil {
-		ns.PluginStatus, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.PluginStatus.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullPluginStatus) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.PluginStatus), nil
-}
-
 type PortalApproverAddedVia string
 
 const (
@@ -528,6 +483,49 @@ func (ns NullPricingType) Value() (driver.Value, error) {
 	return string(ns.PricingType), nil
 }
 
+type ProposedPluginStatus string
+
+const (
+	ProposedPluginStatusSubmitted ProposedPluginStatus = "submitted"
+	ProposedPluginStatusApproved  ProposedPluginStatus = "approved"
+	ProposedPluginStatusPaid      ProposedPluginStatus = "paid"
+)
+
+func (e *ProposedPluginStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ProposedPluginStatus(s)
+	case string:
+		*e = ProposedPluginStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ProposedPluginStatus: %T", src)
+	}
+	return nil
+}
+
+type NullProposedPluginStatus struct {
+	ProposedPluginStatus ProposedPluginStatus `json:"proposed_plugin_status"`
+	Valid                bool                 `json:"valid"` // Valid is true if ProposedPluginStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullProposedPluginStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ProposedPluginStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ProposedPluginStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullProposedPluginStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ProposedPluginStatus), nil
+}
+
 type TransactionType string
 
 const (
@@ -701,7 +699,6 @@ type Plugin struct {
 	Faqs           []byte             `json:"faqs"`
 	Features       []byte             `json:"features"`
 	Audited        bool               `json:"audited"`
-	Status         PluginStatus       `json:"status"`
 }
 
 type PluginApikey struct {
@@ -842,6 +839,18 @@ type Pricing struct {
 	PluginID  string               `json:"plugin_id"`
 	CreatedAt pgtype.Timestamptz   `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz   `json:"updated_at"`
+}
+
+type ProposedPlugin struct {
+	PublicKey      string               `json:"public_key"`
+	PluginID       string               `json:"plugin_id"`
+	Title          string               `json:"title"`
+	Description    string               `json:"description"`
+	ServerEndpoint string               `json:"server_endpoint"`
+	Category       PluginCategory       `json:"category"`
+	Status         ProposedPluginStatus `json:"status"`
+	CreatedAt      pgtype.Timestamptz   `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz   `json:"updated_at"`
 }
 
 type Review struct {

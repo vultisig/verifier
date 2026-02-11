@@ -33,12 +33,10 @@ CREATE TYPE "plugin_owner_role" AS ENUM (
     'viewer'
 );
 
-CREATE TYPE "plugin_status" AS ENUM (
-    'draft',
-    'staging_approved',
+CREATE TYPE "proposed_plugin_status" AS ENUM (
     'submitted',
     'approved',
-    'listed'
+    'paid'
 );
 
 CREATE TYPE "portal_approver_added_via" AS ENUM (
@@ -335,8 +333,19 @@ CREATE TABLE "plugins" (
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "faqs" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
     "features" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
-    "audited" boolean DEFAULT false NOT NULL,
-    "status" "plugin_status" DEFAULT 'draft'::"public"."plugin_status" NOT NULL
+    "audited" boolean DEFAULT false NOT NULL
+);
+
+CREATE TABLE "proposed_plugins" (
+    "public_key" "text" NOT NULL,
+    "plugin_id" "text" NOT NULL,
+    "title" character varying(255) NOT NULL,
+    "description" "text" DEFAULT ''::"text" NOT NULL,
+    "server_endpoint" "text" DEFAULT ''::"text" NOT NULL,
+    "category" "plugin_category" DEFAULT 'app'::"public"."plugin_category" NOT NULL,
+    "status" "proposed_plugin_status" DEFAULT 'submitted'::"public"."proposed_plugin_status" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 
 CREATE TABLE "portal_approvers" (
@@ -470,6 +479,9 @@ ALTER TABLE ONLY "plugins"
 
 ALTER TABLE ONLY "portal_approvers"
     ADD CONSTRAINT "portal_approvers_pkey" PRIMARY KEY ("public_key");
+
+ALTER TABLE ONLY "proposed_plugins"
+    ADD CONSTRAINT "proposed_plugins_pkey" PRIMARY KEY ("public_key", "plugin_id");
 
 ALTER TABLE ONLY "pricings"
     ADD CONSTRAINT "pricings_pkey" PRIMARY KEY ("id");

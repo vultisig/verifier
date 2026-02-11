@@ -184,8 +184,7 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 func (p *PostgresBackend) FindPluginById(ctx context.Context, dbTx pgx.Tx, id types.PluginID) (*itypes.Plugin, error) {
 	query := fmt.Sprintf(`
 	SELECT
-		p.id, p.title, p.description, p.server_endpoint, p.category,
-		p.created_at, p.updated_at, p.faqs, p.features, p.audited,
+		p.*,
 		t.*,
 		pr.*,
 		COALESCE(inst.installations, 0) AS installations,
@@ -210,7 +209,7 @@ func (p *PostgresBackend) FindPluginById(ctx context.Context, dbTx pgx.Tx, id ty
 		FROM reviews
 		GROUP BY plugin_id
 	) rv ON rv.plugin_id = p.id
-	WHERE p.id = $1 AND p.status = 'listed';
+	WHERE p.id = $1;
 	`, PLUGINS_TABLE)
 
 	var rows pgx.Rows
@@ -297,8 +296,7 @@ func (p *PostgresBackend) FindPlugins(
 
 	query := `
 		SELECT
-			p.id, p.title, p.description, p.server_endpoint, p.category,
-			p.created_at, p.updated_at, p.faqs, p.features, p.audited,
+			p.*,
 			t.*,
 			pr.*,
 			COALESCE(inst.installations, 0) AS installations,
@@ -311,11 +309,7 @@ func (p *PostgresBackend) FindPlugins(
 	var argsTotal []any
 	currentArgNumber := 1
 
-	statusFilter := ` WHERE p.status = 'listed'`
-	query += statusFilter
-	queryTotal += statusFilter
-
-	filterClause := "AND"
+	filterClause := "WHERE"
 	if filters.Term != nil {
 		queryFilter := fmt.Sprintf(
 			` %s (p.title ILIKE $%d OR p.description ILIKE $%d)`,

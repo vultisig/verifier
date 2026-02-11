@@ -29,18 +29,14 @@ SET
 WHERE id = $1
 RETURNING *;
 
--- name: CreateDraftPlugin :one
-INSERT INTO plugins (id, title, description, server_endpoint, category, status)
-VALUES ($1, $2, '', $3, $4, 'draft')
-RETURNING *;
-
--- name: UpdatePluginStatus :one
-UPDATE plugins SET status = sqlc.arg(new_status), updated_at = NOW()
-WHERE id = sqlc.arg(id) AND status = sqlc.arg(current_status)
+-- name: PublishPlugin :one
+INSERT INTO plugins (id, title, description, server_endpoint, category)
+SELECT plugin_id, title, description, server_endpoint, category
+FROM proposed_plugins
+WHERE public_key = $1 AND plugin_id = $2 AND status = 'paid'
 RETURNING *;
 
 -- name: GetPluginPricings :many
-SELECT pr.* FROM pricings pr
-JOIN plugins p ON pr.plugin_id = p.id
-WHERE pr.plugin_id = $1 AND p.status = 'listed'
-ORDER BY pr.created_at DESC;
+SELECT * FROM pricings
+WHERE plugin_id = $1
+ORDER BY created_at DESC;

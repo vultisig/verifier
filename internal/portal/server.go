@@ -1,7 +1,6 @@
 package portal
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -95,10 +94,10 @@ func (s *Server) registerRoutes(e *echo.Echo) {
 	protected.PUT("/plugins/:id", s.UpdatePlugin)
 	// Plugin lifecycle
 	protected.POST("/plugins", s.CreatePlugin)
-	protected.POST("/plugins/:id/approve-staging", s.ApproveStaging)
-	protected.POST("/plugins/:id/submit", s.SubmitPlugin)
 	protected.POST("/plugins/:id/approve", s.ApprovePlugin)
 	protected.POST("/plugins/:id/publish", s.PublishPlugin)
+	protected.GET("/plugins/proposed", s.ListProposedPlugins)
+	protected.GET("/plugins/proposed/:pluginId", s.GetProposedPlugin)
 	// API key management
 	protected.GET("/plugins/:id/api-keys", s.GetPluginApiKeys)
 	protected.POST("/plugins/:id/api-keys", s.CreatePluginApiKey)
@@ -1777,16 +1776,16 @@ func (s *Server) SetKillSwitch(c echo.Context) error {
 }
 
 const (
-	pgUniqueViolation  = "23505" // PostgreSQL unique_violation
-	pluginIDConstraint = "plugins_pkey"
+	pgUniqueViolation          = "23505" // PostgreSQL unique_violation
+	proposedPluginPKConstraint = "proposed_plugins_pkey"
 )
 
-func isPluginIDCollision(err error) bool {
+func isProposedPluginCollision(err error) bool {
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) {
 		return false
 	}
-	return pgErr.Code == pgUniqueViolation && pgErr.ConstraintName == pluginIDConstraint
+	return pgErr.Code == pgUniqueViolation && pgErr.ConstraintName == proposedPluginPKConstraint
 }
 
 var allowedCategories = map[string]queries.PluginCategory{
@@ -1828,44 +1827,6 @@ type CreatePluginRequest struct {
 	Title          string `json:"title"`
 	ServerEndpoint string `json:"server_endpoint"`
 	Category       string `json:"category"`
-}
-
-func (s *Server) createPluginInTx(ctx context.Context, pluginID, title, serverEndpoint, address string, cat queries.PluginCategory) (*queries.Plugin, bool, error) {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return nil, false, fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	q := queries.New(tx)
-
-	plugin, err := q.CreateDraftPlugin(ctx, &queries.CreateDraftPluginParams{
-		ID:             pluginID,
-		Title:          title,
-		ServerEndpoint: serverEndpoint,
-		Category:       cat,
-	})
-	if err != nil {
-		if isPluginIDCollision(err) {
-			return nil, true, nil
-		}
-		return nil, false, fmt.Errorf("create plugin: %w", err)
-	}
-
-	_, err = q.CreatePluginOwnerFromPortal(ctx, &queries.CreatePluginOwnerFromPortalParams{
-		PluginID:  pluginID,
-		PublicKey: address,
-	})
-	if err != nil {
-		return nil, false, fmt.Errorf("create owner: %w", err)
-	}
-
-	err = tx.Commit(ctx)
-	if err != nil {
-		return nil, false, fmt.Errorf("commit: %w", err)
-	}
-
-	return plugin, false, nil
 }
 
 func (s *Server) CreatePlugin(c echo.Context) error {
@@ -1916,116 +1877,30 @@ func (s *Server) CreatePlugin(c echo.Context) error {
 		}
 		pluginID := slug + "-" + hex.EncodeToString(suffix)
 
-		plugin, retry, txErr := s.createPluginInTx(ctx, pluginID, req.Title, req.ServerEndpoint, address, cat)
-		if retry {
-			continue
-		}
-		if txErr != nil {
-			s.logger.WithError(txErr).Error("failed to create plugin")
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create plugin"})
+		proposal, createErr := s.queries.CreateProposedPlugin(ctx, &queries.CreateProposedPluginParams{
+			PublicKey:      address,
+			PluginID:       pluginID,
+			Title:          req.Title,
+			ServerEndpoint: req.ServerEndpoint,
+			Category:       cat,
+		})
+		if createErr != nil {
+			if isProposedPluginCollision(createErr) {
+				continue
+			}
+			s.logger.WithError(createErr).Error("failed to create proposed plugin")
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create proposed plugin"})
 		}
 
-		s.logger.WithFields(logrus.Fields{"plugin_id": pluginID, "owner": address}).Info("draft plugin created")
-		return c.JSON(http.StatusCreated, plugin)
+		s.logger.WithFields(logrus.Fields{"plugin_id": pluginID, "owner": address}).Info("proposed plugin created")
+		return c.JSON(http.StatusCreated, proposal)
 	}
 
 	return c.JSON(http.StatusConflict, map[string]string{"error": "failed to generate unique plugin id"})
 }
 
-func (s *Server) ApproveStaging(c echo.Context) error {
-	id := c.Param("id")
-	if id == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
-	}
-
-	address, ok := c.Get("address").(string)
-	if !ok || address == "" {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
-	}
-
-	ctx := c.Request().Context()
-
-	canApprove, err := s.queries.IsStagingApprover(ctx, address)
-	if err != nil {
-		s.logger.WithError(err).Error("failed to check staging approver")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
-	}
-	if !canApprove {
-		return c.JSON(http.StatusForbidden, map[string]string{"error": "not authorized to approve staging"})
-	}
-
-	plugin, err := s.queries.UpdatePluginStatus(ctx, &queries.UpdatePluginStatusParams{
-		ID:            id,
-		NewStatus:     queries.PluginStatusStagingApproved,
-		CurrentStatus: queries.PluginStatusDraft,
-	})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return c.JSON(http.StatusConflict, map[string]string{"error": "plugin not found or not in draft status"})
-		}
-		s.logger.WithError(err).Error("failed to update plugin status")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update plugin status"})
-	}
-
-	s.logger.WithFields(logrus.Fields{
-		"plugin_id":  id,
-		"old_status": string(queries.PluginStatusDraft),
-		"new_status": string(queries.PluginStatusStagingApproved),
-		"approver":   address,
-	}).Info("plugin staging approved")
-
-	return c.JSON(http.StatusOK, plugin)
-}
-
-func (s *Server) SubmitPlugin(c echo.Context) error {
-	id := c.Param("id")
-	if id == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
-	}
-
-	address, ok := c.Get("address").(string)
-	if !ok || address == "" {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
-	}
-
-	ctx := c.Request().Context()
-
-	owner, err := s.queries.GetPluginOwnerWithRole(ctx, &queries.GetPluginOwnerWithRoleParams{
-		PluginID:  id,
-		PublicKey: address,
-	})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return c.JSON(http.StatusForbidden, map[string]string{"error": "not authorized"})
-		}
-		s.logger.WithError(err).Error("failed to check plugin ownership")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
-	}
-	if owner.Role != queries.PluginOwnerRoleAdmin {
-		return c.JSON(http.StatusForbidden, map[string]string{"error": "only plugin admins can submit"})
-	}
-
-	plugin, err := s.queries.UpdatePluginStatus(ctx, &queries.UpdatePluginStatusParams{
-		ID:            id,
-		NewStatus:     queries.PluginStatusSubmitted,
-		CurrentStatus: queries.PluginStatusStagingApproved,
-	})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return c.JSON(http.StatusConflict, map[string]string{"error": "plugin not found or not in staging_approved status"})
-		}
-		s.logger.WithError(err).Error("failed to update plugin status")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update plugin status"})
-	}
-
-	s.logger.WithFields(logrus.Fields{
-		"plugin_id":    id,
-		"old_status":   string(queries.PluginStatusStagingApproved),
-		"new_status":   string(queries.PluginStatusSubmitted),
-		"submitted_by": address,
-	}).Info("plugin submitted for review")
-
-	return c.JSON(http.StatusOK, plugin)
+type ApprovePluginRequest struct {
+	PublicKey string `json:"publicKey"`
 }
 
 func (s *Server) ApprovePlugin(c echo.Context) error {
@@ -2039,6 +1914,15 @@ func (s *Server) ApprovePlugin(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
 	}
 
+	var req ApprovePluginRequest
+	err := c.Bind(&req)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	}
+	if req.PublicKey == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "publicKey is required"})
+	}
+
 	ctx := c.Request().Context()
 
 	canApprove, err := s.queries.IsListingApprover(ctx, address)
@@ -2047,30 +1931,29 @@ func (s *Server) ApprovePlugin(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
 	if !canApprove {
-		return c.JSON(http.StatusForbidden, map[string]string{"error": "not authorized to approve listing"})
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "not authorized to approve"})
 	}
 
-	plugin, err := s.queries.UpdatePluginStatus(ctx, &queries.UpdatePluginStatusParams{
-		ID:            id,
-		NewStatus:     queries.PluginStatusApproved,
-		CurrentStatus: queries.PluginStatusSubmitted,
+	proposal, err := s.queries.UpdateProposedPluginStatus(ctx, &queries.UpdateProposedPluginStatusParams{
+		PublicKey:     req.PublicKey,
+		PluginID:      id,
+		NewStatus:     queries.ProposedPluginStatusApproved,
+		CurrentStatus: queries.ProposedPluginStatusSubmitted,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return c.JSON(http.StatusConflict, map[string]string{"error": "plugin not found or not in submitted status"})
+			return c.JSON(http.StatusConflict, map[string]string{"error": "proposed plugin not found or not in submitted status"})
 		}
-		s.logger.WithError(err).Error("failed to update plugin status")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update plugin status"})
+		s.logger.WithError(err).Error("failed to approve proposed plugin")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to approve proposed plugin"})
 	}
 
 	s.logger.WithFields(logrus.Fields{
-		"plugin_id":  id,
-		"old_status": string(queries.PluginStatusSubmitted),
-		"new_status": string(queries.PluginStatusApproved),
-		"approver":   address,
-	}).Info("plugin listing approved")
+		"plugin_id": id,
+		"approver":  address,
+	}).Info("proposed plugin approved")
 
-	return c.JSON(http.StatusOK, plugin)
+	return c.JSON(http.StatusOK, proposal)
 }
 
 func (s *Server) PublishPlugin(c echo.Context) error {
@@ -2086,40 +1969,87 @@ func (s *Server) PublishPlugin(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	owner, err := s.queries.GetPluginOwnerWithRole(ctx, &queries.GetPluginOwnerWithRoleParams{
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to begin transaction")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+	defer tx.Rollback(ctx)
+
+	q := queries.New(tx)
+
+	plugin, err := q.PublishPlugin(ctx, &queries.PublishPluginParams{
+		PublicKey: address,
+		PluginID:  id,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusConflict, map[string]string{"error": "proposed plugin not found or not in paid status"})
+		}
+		s.logger.WithError(err).Error("failed to publish plugin")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to publish plugin"})
+	}
+
+	_, err = q.CreatePluginOwnerFromPortal(ctx, &queries.CreatePluginOwnerFromPortalParams{
 		PluginID:  id,
 		PublicKey: address,
 	})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return c.JSON(http.StatusForbidden, map[string]string{"error": "not authorized"})
-		}
-		s.logger.WithError(err).Error("failed to check plugin ownership")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
-	}
-	if owner.Role != queries.PluginOwnerRoleAdmin {
-		return c.JSON(http.StatusForbidden, map[string]string{"error": "only plugin admins can publish"})
+		s.logger.WithError(err).Error("failed to create plugin owner")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create plugin owner"})
 	}
 
-	plugin, err := s.queries.UpdatePluginStatus(ctx, &queries.UpdatePluginStatusParams{
-		ID:            id,
-		NewStatus:     queries.PluginStatusListed,
-		CurrentStatus: queries.PluginStatusApproved,
-	})
+	err = tx.Commit(ctx)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return c.JSON(http.StatusConflict, map[string]string{"error": "plugin not found or not in approved status"})
-		}
-		s.logger.WithError(err).Error("failed to update plugin status")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update plugin status"})
+		s.logger.WithError(err).Error("failed to commit transaction")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
 
 	s.logger.WithFields(logrus.Fields{
 		"plugin_id":    id,
-		"old_status":   string(queries.PluginStatusApproved),
-		"new_status":   string(queries.PluginStatusListed),
 		"published_by": address,
 	}).Info("plugin published")
 
 	return c.JSON(http.StatusOK, plugin)
+}
+
+func (s *Server) ListProposedPlugins(c echo.Context) error {
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
+
+	proposals, err := s.queries.GetProposedPluginsByPublicKey(c.Request().Context(), address)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to list proposed plugins")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to list proposed plugins"})
+	}
+
+	return c.JSON(http.StatusOK, proposals)
+}
+
+func (s *Server) GetProposedPlugin(c echo.Context) error {
+	pluginID := c.Param("pluginId")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+	}
+
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
+
+	proposal, err := s.queries.GetProposedPlugin(c.Request().Context(), &queries.GetProposedPluginParams{
+		PublicKey: address,
+		PluginID:  pluginID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "proposed plugin not found"})
+		}
+		s.logger.WithError(err).Error("failed to get proposed plugin")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to get proposed plugin"})
+	}
+
+	return c.JSON(http.StatusOK, proposal)
 }

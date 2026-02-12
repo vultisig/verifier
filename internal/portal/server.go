@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -64,6 +63,7 @@ func (s *Server) Start() error {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
+	e.Use(middleware.BodyLimit("35M"))
 
 	s.registerRoutes(e)
 
@@ -92,12 +92,13 @@ func (s *Server) registerRoutes(e *echo.Echo) {
 	protected.GET("/plugins/:id", s.GetPlugin)
 	protected.GET("/plugins/:id/my-role", s.GetMyPluginRole)
 	protected.PUT("/plugins/:id", s.UpdatePlugin)
-	// Plugin lifecycle
-	protected.POST("/plugins", s.CreatePlugin)
+	// Plugin lifecycle (proposed plugins with images)
+	protected.GET("/plugins/proposed/validate-id", s.ValidatePluginID)
+	protected.POST("/plugins/proposed", s.CreateProposedPlugin)
+	protected.GET("/plugins/proposed", s.GetMyProposedPlugins)
+	protected.GET("/plugins/proposed/:pluginId", s.GetMyProposedPlugin)
 	protected.POST("/plugins/:id/approve", s.ApprovePlugin)
 	protected.POST("/plugins/:id/publish", s.PublishPlugin)
-	protected.GET("/plugins/proposed", s.ListProposedPlugins)
-	protected.GET("/plugins/proposed/:pluginId", s.GetProposedPlugin)
 	// API key management
 	protected.GET("/plugins/:id/api-keys", s.GetPluginApiKeys)
 	protected.POST("/plugins/:id/api-keys", s.CreatePluginApiKey)
@@ -1823,82 +1824,6 @@ func generatePluginSlug(title string) string {
 	return result
 }
 
-type CreatePluginRequest struct {
-	Title          string `json:"title"`
-	ServerEndpoint string `json:"server_endpoint"`
-	Category       string `json:"category"`
-}
-
-func (s *Server) CreatePlugin(c echo.Context) error {
-	address, ok := c.Get("address").(string)
-	if !ok || address == "" {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
-	}
-
-	var req CreatePluginRequest
-	err := c.Bind(&req)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
-	}
-
-	req.Title = strings.TrimSpace(req.Title)
-	req.ServerEndpoint = strings.TrimSpace(req.ServerEndpoint)
-	req.ServerEndpoint = strings.TrimRight(req.ServerEndpoint, "/")
-	req.Category = strings.TrimSpace(req.Category)
-
-	if req.Title == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "title is required"})
-	}
-	if req.ServerEndpoint == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "server_endpoint is required"})
-	}
-
-	u, urlErr := url.ParseRequestURI(req.ServerEndpoint)
-	if urlErr != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "server_endpoint must be a valid http(s) URL"})
-	}
-
-	if req.Category == "" {
-		req.Category = "app"
-	}
-	cat, ok := parseCategory(req.Category)
-	if !ok {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "category must be one of: ai-agent, plugin, app"})
-	}
-
-	ctx := c.Request().Context()
-	slug := generatePluginSlug(req.Title)
-
-	for attempt := 0; attempt < 5; attempt++ {
-		suffix := make([]byte, 2)
-		_, err = rand.Read(suffix)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to generate plugin id"})
-		}
-		pluginID := slug + "-" + hex.EncodeToString(suffix)
-
-		proposal, createErr := s.queries.CreateProposedPlugin(ctx, &queries.CreateProposedPluginParams{
-			PublicKey:      address,
-			PluginID:       pluginID,
-			Title:          req.Title,
-			ServerEndpoint: req.ServerEndpoint,
-			Category:       cat,
-		})
-		if createErr != nil {
-			if isProposedPluginCollision(createErr) {
-				continue
-			}
-			s.logger.WithError(createErr).Error("failed to create proposed plugin")
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create proposed plugin"})
-		}
-
-		s.logger.WithFields(logrus.Fields{"plugin_id": pluginID, "owner": address}).Info("proposed plugin created")
-		return c.JSON(http.StatusCreated, proposal)
-	}
-
-	return c.JSON(http.StatusConflict, map[string]string{"error": "failed to generate unique plugin id"})
-}
-
 type ApprovePluginRequest struct {
 	PublicKey string `json:"publicKey"`
 }
@@ -2011,45 +1936,4 @@ func (s *Server) PublishPlugin(c echo.Context) error {
 	}).Info("plugin published")
 
 	return c.JSON(http.StatusOK, plugin)
-}
-
-func (s *Server) ListProposedPlugins(c echo.Context) error {
-	address, ok := c.Get("address").(string)
-	if !ok || address == "" {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
-	}
-
-	proposals, err := s.queries.GetProposedPluginsByPublicKey(c.Request().Context(), address)
-	if err != nil {
-		s.logger.WithError(err).Error("failed to list proposed plugins")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to list proposed plugins"})
-	}
-
-	return c.JSON(http.StatusOK, proposals)
-}
-
-func (s *Server) GetProposedPlugin(c echo.Context) error {
-	pluginID := c.Param("pluginId")
-	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
-	}
-
-	address, ok := c.Get("address").(string)
-	if !ok || address == "" {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
-	}
-
-	proposal, err := s.queries.GetProposedPlugin(c.Request().Context(), &queries.GetProposedPluginParams{
-		PublicKey: address,
-		PluginID:  pluginID,
-	})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "proposed plugin not found"})
-		}
-		s.logger.WithError(err).Error("failed to get proposed plugin")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to get proposed plugin"})
-	}
-
-	return c.JSON(http.StatusOK, proposal)
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
+	"github.com/vultisig/verifier/internal/types"
 
 	ecommon "github.com/ethereum/go-ethereum/common"
 
@@ -146,7 +147,7 @@ func (s *Server) StartServer() error {
 
 	e.GET("/healthz", s.Ping)
 
-	// Auth endpoints - not requiring authentication
+	// Auth endpoints
 	e.POST("/auth", s.Auth)
 	e.POST("/auth/refresh", s.RefreshToken)
 
@@ -258,6 +259,9 @@ func (s *Server) ReshareVault(c echo.Context) error {
 	defer cancel()
 
 	if err := s.notifyPluginServerReshare(ctx, req); err != nil {
+		if errors.Is(err, types.ErrBillingNotInstalled) {
+			return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgAccessDeniedBilling))
+		}
 		s.logger.WithError(err).Error("ReshareVault: Plugin server notification failed")
 		return c.JSON(http.StatusServiceUnavailable, NewErrorResponseWithMessage(msgPluginServerUnavailable))
 	}
@@ -296,6 +300,34 @@ func (s *Server) notifyPluginServerReshare(ctx context.Context, req vtypes.Resha
 	if err != nil {
 		return fmt.Errorf("failed to find plugin: %w", err)
 	}
+
+	var isTrialActive bool
+	err = s.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
+		isTrialActive, _, err = s.db.IsTrialActive(ctx, tx, req.PublicKey)
+		return err
+	})
+	if err != nil {
+		s.logger.WithError(err).Warnf("Failed to check trial info")
+	}
+
+	if !isTrialActive {
+		filePathName := common.GetVaultBackupFilename(req.PublicKey, vtypes.PluginVultisigFees_feee.String())
+		exist, err := s.vaultStorage.Exist(filePathName)
+		if err != nil {
+			s.logger.WithError(err).Error("failed to check vault existence")
+			return fmt.Errorf("failed to check vault existence: %w", err)
+		}
+		if !exist {
+			for _, pricing := range plugin.Pricing {
+				if pricing.Type == vtypes.PricingTypeOnce {
+					if pricing.Amount > 0 {
+						return types.ErrBillingNotInstalled
+					}
+				}
+			}
+		}
+	}
+
 	keyInfo, err := s.db.GetAPIKeyByPluginId(ctx, req.PluginID)
 	if err != nil {
 		return fmt.Errorf("failed to get api key by id: %w", err)
@@ -706,7 +738,15 @@ func (s *Server) DeletePlugin(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
 	if pluginID == vtypes.PluginVultisigFees_feee.String() {
-		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("Unable to uninstall due to outstanding fees"))
+		// Check unpaid fees
+		status, err := s.feeService.GetUserFees(c.Request().Context(), publicKey)
+		if err != nil {
+			s.logger.WithError(err).Error("Failed to get user fees")
+			return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetUserFeesFailed))
+		}
+		if status.UnpaidAmount > 0 {
+			return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("Unable to uninstall due to outstanding fees"))
+		}
 	}
 
 	if err := s.notifyPluginServerDeletePlugin(c.Request().Context(), vtypes.PluginID(pluginID), publicKey); err != nil {

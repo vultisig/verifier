@@ -75,7 +75,9 @@ Each service uses its corresponding example file as the default config.json in b
 
 ## API Endpoints
 
-**Authentication:** `/auth` (POST), `/auth/refresh` (POST)
+**Authentication:** 
+- Auth: `/auth` (POST),
+- Refresh: `/auth/refresh` (POST)
 
 **Vault Management:**
 - Reshare: `/vault/reshare` (POST)

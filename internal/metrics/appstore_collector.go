@@ -69,6 +69,7 @@ func (c *AppStoreCollector) collect() {
 		c.logger.Errorf("Failed to collect installations: %v", err)
 	} else {
 		c.metrics.UpdateInstallations(installations)
+		c.metrics.UpdateTimestamp()
 	}
 
 	policies, err := c.db.GetPoliciesByPlugin(ctx)
@@ -76,6 +77,7 @@ func (c *AppStoreCollector) collect() {
 		c.logger.Errorf("Failed to collect policies: %v", err)
 	} else {
 		c.metrics.UpdatePolicies(policies)
+		c.metrics.UpdateTimestamp()
 	}
 
 	fees, err := c.db.GetFeesByPlugin(ctx)
@@ -83,7 +85,6 @@ func (c *AppStoreCollector) collect() {
 		c.logger.Errorf("Failed to collect fees: %v", err)
 	} else {
 		c.metrics.UpdateFees(fees)
+		c.metrics.UpdateTimestamp()
 	}
-
-	c.metrics.UpdateTimestamp()
 }

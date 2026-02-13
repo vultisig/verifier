@@ -271,49 +271,6 @@ func (ns NullPortalApproverAddedVia) Value() (driver.Value, error) {
 	return string(ns.PortalApproverAddedVia), nil
 }
 
-type PortalApproverRole string
-
-const (
-	PortalApproverRoleStagingApprover PortalApproverRole = "staging_approver"
-	PortalApproverRoleListingApprover PortalApproverRole = "listing_approver"
-	PortalApproverRoleAdmin           PortalApproverRole = "admin"
-)
-
-func (e *PortalApproverRole) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = PortalApproverRole(s)
-	case string:
-		*e = PortalApproverRole(s)
-	default:
-		return fmt.Errorf("unsupported scan type for PortalApproverRole: %T", src)
-	}
-	return nil
-}
-
-type NullPortalApproverRole struct {
-	PortalApproverRole PortalApproverRole `json:"portal_approver_role"`
-	Valid              bool               `json:"valid"` // Valid is true if PortalApproverRole is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullPortalApproverRole) Scan(value interface{}) error {
-	if value == nil {
-		ns.PortalApproverRole, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.PortalApproverRole.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullPortalApproverRole) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.PortalApproverRole), nil
-}
-
 type PricingAsset string
 
 const (
@@ -483,12 +440,56 @@ func (ns NullPricingType) Value() (driver.Value, error) {
 	return string(ns.PricingType), nil
 }
 
+type ProposedPluginPricing string
+
+const (
+	ProposedPluginPricingFree       ProposedPluginPricing = "free"
+	ProposedPluginPricingPerTx      ProposedPluginPricing = "per-tx"
+	ProposedPluginPricingPerInstall ProposedPluginPricing = "per-install"
+)
+
+func (e *ProposedPluginPricing) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ProposedPluginPricing(s)
+	case string:
+		*e = ProposedPluginPricing(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ProposedPluginPricing: %T", src)
+	}
+	return nil
+}
+
+type NullProposedPluginPricing struct {
+	ProposedPluginPricing ProposedPluginPricing `json:"proposed_plugin_pricing"`
+	Valid                 bool                  `json:"valid"` // Valid is true if ProposedPluginPricing is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullProposedPluginPricing) Scan(value interface{}) error {
+	if value == nil {
+		ns.ProposedPluginPricing, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ProposedPluginPricing.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullProposedPluginPricing) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ProposedPluginPricing), nil
+}
+
 type ProposedPluginStatus string
 
 const (
 	ProposedPluginStatusSubmitted ProposedPluginStatus = "submitted"
 	ProposedPluginStatusApproved  ProposedPluginStatus = "approved"
-	ProposedPluginStatusPaid      ProposedPluginStatus = "paid"
+	ProposedPluginStatusListed    ProposedPluginStatus = "listed"
+	ProposedPluginStatusArchived  ProposedPluginStatus = "archived"
 )
 
 func (e *ProposedPluginStatus) Scan(src interface{}) error {
@@ -821,7 +822,6 @@ type PluginTag struct {
 
 type PortalApprover struct {
 	PublicKey        string                 `json:"public_key"`
-	Role             PortalApproverRole     `json:"role"`
 	Active           bool                   `json:"active"`
 	AddedVia         PortalApproverAddedVia `json:"added_via"`
 	AddedByPublicKey pgtype.Text            `json:"added_by_public_key"`
@@ -842,15 +842,34 @@ type Pricing struct {
 }
 
 type ProposedPlugin struct {
-	PublicKey      string               `json:"public_key"`
-	PluginID       string               `json:"plugin_id"`
-	Title          string               `json:"title"`
-	Description    string               `json:"description"`
-	ServerEndpoint string               `json:"server_endpoint"`
-	Category       PluginCategory       `json:"category"`
-	Status         ProposedPluginStatus `json:"status"`
-	CreatedAt      pgtype.Timestamptz   `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz   `json:"updated_at"`
+	PluginID        string                    `json:"plugin_id"`
+	PublicKey       string                    `json:"public_key"`
+	Title           string                    `json:"title"`
+	Description     string                    `json:"description"`
+	ServerEndpoint  string                    `json:"server_endpoint"`
+	Category        PluginCategory            `json:"category"`
+	SupportedChains []string                  `json:"supported_chains"`
+	PricingModel    NullProposedPluginPricing `json:"pricing_model"`
+	ContactEmail    string                    `json:"contact_email"`
+	Notes           string                    `json:"notes"`
+	Status          ProposedPluginStatus      `json:"status"`
+	CreatedAt       pgtype.Timestamptz        `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz        `json:"updated_at"`
+}
+
+type ProposedPluginImage struct {
+	ID                  pgtype.UUID        `json:"id"`
+	PluginID            string             `json:"plugin_id"`
+	ImageType           string             `json:"image_type"`
+	S3Path              string             `json:"s3_path"`
+	ImageOrder          int32              `json:"image_order"`
+	UploadedByPublicKey string             `json:"uploaded_by_public_key"`
+	Visible             bool               `json:"visible"`
+	Deleted             bool               `json:"deleted"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	ContentType         string             `json:"content_type"`
+	Filename            string             `json:"filename"`
 }
 
 type Review struct {

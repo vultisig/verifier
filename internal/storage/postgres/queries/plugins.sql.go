@@ -177,17 +177,12 @@ const publishPlugin = `-- name: PublishPlugin :one
 INSERT INTO plugins (id, title, description, server_endpoint, category)
 SELECT plugin_id, title, description, server_endpoint, category
 FROM proposed_plugins
-WHERE public_key = $1 AND plugin_id = $2 AND status = 'paid'
+WHERE plugin_id = $1 AND status = 'approved'
 RETURNING id, title, description, server_endpoint, category, created_at, updated_at, faqs, features, audited
 `
 
-type PublishPluginParams struct {
-	PublicKey string `json:"public_key"`
-	PluginID  string `json:"plugin_id"`
-}
-
-func (q *Queries) PublishPlugin(ctx context.Context, arg *PublishPluginParams) (*Plugin, error) {
-	row := q.db.QueryRow(ctx, publishPlugin, arg.PublicKey, arg.PluginID)
+func (q *Queries) PublishPlugin(ctx context.Context, pluginID string) (*Plugin, error) {
+	row := q.db.QueryRow(ctx, publishPlugin, pluginID)
 	var i Plugin
 	err := row.Scan(
 		&i.ID,

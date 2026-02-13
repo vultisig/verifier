@@ -33,7 +33,7 @@ RETURNING *;
 INSERT INTO plugins (id, title, description, server_endpoint, category)
 SELECT plugin_id, title, description, server_endpoint, category
 FROM proposed_plugins
-WHERE public_key = $1 AND plugin_id = $2 AND status = 'paid'
+WHERE plugin_id = $1 AND status = 'approved'
 RETURNING *;
 
 -- name: GetPluginPricings :many

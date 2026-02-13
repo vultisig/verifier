@@ -14,6 +14,7 @@ type CreateProposedPluginRequest struct {
 	Title            string      `json:"title" validate:"required,max=255"`
 	ShortDescription string      `json:"short_description" validate:"omitempty,max=500"`
 	ServerEndpoint   string      `json:"server_endpoint" validate:"required"`
+	Category         string      `json:"category" validate:"required,oneof=ai-agent app"`
 	SupportedChains  []string    `json:"supported_chains" validate:"omitempty,dive,max=32"`
 	PricingModel     string      `json:"pricing_model" validate:"omitempty,oneof=free per-tx per-install"`
 	ContactEmail     string      `json:"contact_email" validate:"required,email,max=255"`
@@ -35,6 +36,7 @@ type ProposedPluginResponse struct {
 	Title            string                        `json:"title"`
 	ShortDescription string                        `json:"short_description"`
 	ServerEndpoint   string                        `json:"server_endpoint"`
+	Category         string                        `json:"category"`
 	SupportedChains  []string                      `json:"supported_chains"`
 	PricingModel     *string                       `json:"pricing_model,omitempty"`
 	ContactEmail     string                        `json:"contact_email"`

@@ -36,19 +36,20 @@ CREATE TYPE "plugin_owner_role" AS ENUM (
 CREATE TYPE "proposed_plugin_status" AS ENUM (
     'submitted',
     'approved',
-    'paid'
+    'listed',
+    'archived'
+);
+
+CREATE TYPE "proposed_plugin_pricing" AS ENUM (
+    'free',
+    'per-tx',
+    'per-install'
 );
 
 CREATE TYPE "portal_approver_added_via" AS ENUM (
     'bootstrap',
     'admin_portal',
     'cli'
-);
-
-CREATE TYPE "portal_approver_role" AS ENUM (
-    'staging_approver',
-    'listing_approver',
-    'admin'
 );
 
 CREATE TYPE "pricing_asset" AS ENUM (
@@ -337,20 +338,40 @@ CREATE TABLE "plugins" (
 );
 
 CREATE TABLE "proposed_plugins" (
-    "public_key" "text" NOT NULL,
     "plugin_id" "text" NOT NULL,
+    "public_key" "text" NOT NULL,
     "title" character varying(255) NOT NULL,
     "description" "text" DEFAULT ''::"text" NOT NULL,
-    "server_endpoint" "text" DEFAULT ''::"text" NOT NULL,
+    "server_endpoint" "text" NOT NULL,
     "category" "plugin_category" DEFAULT 'app'::"public"."plugin_category" NOT NULL,
+    "supported_chains" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
+    "pricing_model" "proposed_plugin_pricing",
+    "contact_email" "text" NOT NULL,
+    "notes" "text" DEFAULT ''::"text" NOT NULL,
     "status" "proposed_plugin_status" DEFAULT 'submitted'::"public"."proposed_plugin_status" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 
+CREATE TABLE "proposed_plugin_images" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "plugin_id" "text" NOT NULL,
+    "image_type" "text" NOT NULL,
+    "s3_path" "text" NOT NULL,
+    "image_order" integer DEFAULT 0 NOT NULL,
+    "uploaded_by_public_key" "text" NOT NULL,
+    "visible" boolean DEFAULT true NOT NULL,
+    "deleted" boolean DEFAULT false NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "content_type" "text" NOT NULL,
+    "filename" "text" DEFAULT ''::"text" NOT NULL,
+    CONSTRAINT "proposed_plugin_images_content_type_check" CHECK (("content_type" = ANY (ARRAY['image/jpeg'::"text", 'image/png'::"text", 'image/webp'::"text"]))),
+    CONSTRAINT "proposed_plugin_images_image_type_check" CHECK (("image_type" = ANY (ARRAY['logo'::"text", 'banner'::"text", 'thumbnail'::"text", 'media'::"text"])))
+);
+
 CREATE TABLE "portal_approvers" (
     "public_key" "text" NOT NULL,
-    "role" "portal_approver_role" DEFAULT 'staging_approver'::"public"."portal_approver_role" NOT NULL,
     "active" boolean DEFAULT true NOT NULL,
     "added_via" "portal_approver_added_via" DEFAULT 'bootstrap'::"public"."portal_approver_added_via" NOT NULL,
     "added_by_public_key" "text",
@@ -481,7 +502,13 @@ ALTER TABLE ONLY "portal_approvers"
     ADD CONSTRAINT "portal_approvers_pkey" PRIMARY KEY ("public_key");
 
 ALTER TABLE ONLY "proposed_plugins"
-    ADD CONSTRAINT "proposed_plugins_pkey" PRIMARY KEY ("public_key", "plugin_id");
+    ADD CONSTRAINT "proposed_plugins_pkey" PRIMARY KEY ("plugin_id");
+
+ALTER TABLE ONLY "proposed_plugin_images"
+    ADD CONSTRAINT "proposed_plugin_images_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "proposed_plugin_images"
+    ADD CONSTRAINT "proposed_plugin_images_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "proposed_plugins"("plugin_id") ON DELETE CASCADE;
 
 ALTER TABLE ONLY "pricings"
     ADD CONSTRAINT "pricings_pkey" PRIMARY KEY ("id");

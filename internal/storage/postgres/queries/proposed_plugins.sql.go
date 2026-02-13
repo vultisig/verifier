@@ -7,51 +7,12 @@ package queries
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const createProposedPlugin = `-- name: CreateProposedPlugin :one
-
-INSERT INTO proposed_plugins (public_key, plugin_id, title, description, server_endpoint, category)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING public_key, plugin_id, title, description, server_endpoint, category, status, created_at, updated_at
-`
-
-type CreateProposedPluginParams struct {
-	PublicKey      string         `json:"public_key"`
-	PluginID       string         `json:"plugin_id"`
-	Title          string         `json:"title"`
-	Description    string         `json:"description"`
-	ServerEndpoint string         `json:"server_endpoint"`
-	Category       PluginCategory `json:"category"`
-}
-
-// Proposed plugins table queries
-func (q *Queries) CreateProposedPlugin(ctx context.Context, arg *CreateProposedPluginParams) (*ProposedPlugin, error) {
-	row := q.db.QueryRow(ctx, createProposedPlugin,
-		arg.PublicKey,
-		arg.PluginID,
-		arg.Title,
-		arg.Description,
-		arg.ServerEndpoint,
-		arg.Category,
-	)
-	var i ProposedPlugin
-	err := row.Scan(
-		&i.PublicKey,
-		&i.PluginID,
-		&i.Title,
-		&i.Description,
-		&i.ServerEndpoint,
-		&i.Category,
-		&i.Status,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return &i, err
-}
-
 const getProposedPlugin = `-- name: GetProposedPlugin :one
-SELECT public_key, plugin_id, title, description, server_endpoint, category, status, created_at, updated_at FROM proposed_plugins
+SELECT plugin_id, public_key, title, description, server_endpoint, category, supported_chains, pricing_model, contact_email, notes, status, created_at, updated_at FROM proposed_plugins
 WHERE public_key = $1 AND plugin_id = $2
 `
 
@@ -64,12 +25,42 @@ func (q *Queries) GetProposedPlugin(ctx context.Context, arg *GetProposedPluginP
 	row := q.db.QueryRow(ctx, getProposedPlugin, arg.PublicKey, arg.PluginID)
 	var i ProposedPlugin
 	err := row.Scan(
-		&i.PublicKey,
 		&i.PluginID,
+		&i.PublicKey,
 		&i.Title,
 		&i.Description,
 		&i.ServerEndpoint,
 		&i.Category,
+		&i.SupportedChains,
+		&i.PricingModel,
+		&i.ContactEmail,
+		&i.Notes,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const getProposedPluginByID = `-- name: GetProposedPluginByID :one
+SELECT plugin_id, public_key, title, description, server_endpoint, category, supported_chains, pricing_model, contact_email, notes, status, created_at, updated_at FROM proposed_plugins
+WHERE plugin_id = $1
+`
+
+func (q *Queries) GetProposedPluginByID(ctx context.Context, pluginID string) (*ProposedPlugin, error) {
+	row := q.db.QueryRow(ctx, getProposedPluginByID, pluginID)
+	var i ProposedPlugin
+	err := row.Scan(
+		&i.PluginID,
+		&i.PublicKey,
+		&i.Title,
+		&i.Description,
+		&i.ServerEndpoint,
+		&i.Category,
+		&i.SupportedChains,
+		&i.PricingModel,
+		&i.ContactEmail,
+		&i.Notes,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -78,11 +69,13 @@ func (q *Queries) GetProposedPlugin(ctx context.Context, arg *GetProposedPluginP
 }
 
 const getProposedPluginsByPublicKey = `-- name: GetProposedPluginsByPublicKey :many
-SELECT public_key, plugin_id, title, description, server_endpoint, category, status, created_at, updated_at FROM proposed_plugins
+
+SELECT plugin_id, public_key, title, description, server_endpoint, category, supported_chains, pricing_model, contact_email, notes, status, created_at, updated_at FROM proposed_plugins
 WHERE public_key = $1
 ORDER BY created_at DESC
 `
 
+// Proposed plugins table queries
 func (q *Queries) GetProposedPluginsByPublicKey(ctx context.Context, publicKey string) ([]*ProposedPlugin, error) {
 	rows, err := q.db.Query(ctx, getProposedPluginsByPublicKey, publicKey)
 	if err != nil {
@@ -93,12 +86,16 @@ func (q *Queries) GetProposedPluginsByPublicKey(ctx context.Context, publicKey s
 	for rows.Next() {
 		var i ProposedPlugin
 		if err := rows.Scan(
-			&i.PublicKey,
 			&i.PluginID,
+			&i.PublicKey,
 			&i.Title,
 			&i.Description,
 			&i.ServerEndpoint,
 			&i.Category,
+			&i.SupportedChains,
+			&i.PricingModel,
+			&i.ContactEmail,
+			&i.Notes,
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -113,11 +110,100 @@ func (q *Queries) GetProposedPluginsByPublicKey(ctx context.Context, publicKey s
 	return items, nil
 }
 
+const insertPluginImage = `-- name: InsertPluginImage :exec
+INSERT INTO plugin_images (id, plugin_id, image_type, s3_path, image_order, uploaded_by_public_key, visible, deleted, content_type, filename, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+`
+
+type InsertPluginImageParams struct {
+	ID                  pgtype.UUID        `json:"id"`
+	PluginID            string             `json:"plugin_id"`
+	ImageType           string             `json:"image_type"`
+	S3Path              string             `json:"s3_path"`
+	ImageOrder          int32              `json:"image_order"`
+	UploadedByPublicKey string             `json:"uploaded_by_public_key"`
+	Visible             bool               `json:"visible"`
+	Deleted             bool               `json:"deleted"`
+	ContentType         string             `json:"content_type"`
+	Filename            string             `json:"filename"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) InsertPluginImage(ctx context.Context, arg *InsertPluginImageParams) error {
+	_, err := q.db.Exec(ctx, insertPluginImage,
+		arg.ID,
+		arg.PluginID,
+		arg.ImageType,
+		arg.S3Path,
+		arg.ImageOrder,
+		arg.UploadedByPublicKey,
+		arg.Visible,
+		arg.Deleted,
+		arg.ContentType,
+		arg.Filename,
+		arg.CreatedAt,
+	)
+	return err
+}
+
+const listProposedPluginImages = `-- name: ListProposedPluginImages :many
+SELECT id, plugin_id, image_type, s3_path, image_order, uploaded_by_public_key, visible, deleted, created_at, updated_at, content_type, filename FROM proposed_plugin_images
+WHERE plugin_id = $1 AND deleted = false AND visible = true
+ORDER BY image_type, image_order ASC
+`
+
+func (q *Queries) ListProposedPluginImages(ctx context.Context, pluginID string) ([]*ProposedPluginImage, error) {
+	rows, err := q.db.Query(ctx, listProposedPluginImages, pluginID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*ProposedPluginImage{}
+	for rows.Next() {
+		var i ProposedPluginImage
+		if err := rows.Scan(
+			&i.ID,
+			&i.PluginID,
+			&i.ImageType,
+			&i.S3Path,
+			&i.ImageOrder,
+			&i.UploadedByPublicKey,
+			&i.Visible,
+			&i.Deleted,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ContentType,
+			&i.Filename,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markProposedPluginListed = `-- name: MarkProposedPluginListed :execrows
+UPDATE proposed_plugins
+SET status = 'listed', updated_at = NOW()
+WHERE plugin_id = $1 AND status = 'approved'
+`
+
+func (q *Queries) MarkProposedPluginListed(ctx context.Context, pluginID string) (int64, error) {
+	result, err := q.db.Exec(ctx, markProposedPluginListed, pluginID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updateProposedPluginStatus = `-- name: UpdateProposedPluginStatus :one
 UPDATE proposed_plugins
 SET status = $1, updated_at = NOW()
 WHERE public_key = $2 AND plugin_id = $3 AND status = $4
-RETURNING public_key, plugin_id, title, description, server_endpoint, category, status, created_at, updated_at
+RETURNING plugin_id, public_key, title, description, server_endpoint, category, supported_chains, pricing_model, contact_email, notes, status, created_at, updated_at
 `
 
 type UpdateProposedPluginStatusParams struct {
@@ -136,12 +222,16 @@ func (q *Queries) UpdateProposedPluginStatus(ctx context.Context, arg *UpdatePro
 	)
 	var i ProposedPlugin
 	err := row.Scan(
-		&i.PublicKey,
 		&i.PluginID,
+		&i.PublicKey,
 		&i.Title,
 		&i.Description,
 		&i.ServerEndpoint,
 		&i.Category,
+		&i.SupportedChains,
+		&i.PricingModel,
+		&i.ContactEmail,
+		&i.Notes,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,

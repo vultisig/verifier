@@ -1,6 +1,7 @@
 package portal
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
@@ -31,6 +33,32 @@ var (
 	proposalValidate = validator.New()
 	pluginIDRegex    = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 )
+
+func sanitizeValidationError(err error) string {
+	var ve validator.ValidationErrors
+	if !errors.As(err, &ve) {
+		return "validation failed"
+	}
+	var msgs []string
+	for _, fe := range ve {
+		field := strings.ToLower(fe.Field())
+		switch fe.Tag() {
+		case "required":
+			msgs = append(msgs, fmt.Sprintf("%s is required", field))
+		case "email":
+			msgs = append(msgs, fmt.Sprintf("%s must be a valid email", field))
+		case "max":
+			msgs = append(msgs, fmt.Sprintf("%s exceeds maximum length", field))
+		case "min":
+			msgs = append(msgs, fmt.Sprintf("%s is too short", field))
+		case "oneof":
+			msgs = append(msgs, fmt.Sprintf("%s has invalid value", field))
+		default:
+			msgs = append(msgs, fmt.Sprintf("%s is invalid", field))
+		}
+	}
+	return strings.Join(msgs, "; ")
+}
 
 const (
 	constraintProposedPluginPK       = "proposed_plugins_pkey"
@@ -71,10 +99,82 @@ func classifyProposalConstraintViolation(err error) dbConstraintViolation {
 	}
 }
 
+func (s *Server) buildImageResponses(images []itypes.ProposedPluginImage) []ProposedPluginImageResponse {
+	responses := make([]ProposedPluginImageResponse, len(images))
+	for i, img := range images {
+		responses[i] = ProposedPluginImageResponse{
+			ID:          img.ID.String(),
+			Type:        string(img.ImageType),
+			URL:         s.assetStorage.GetPublicURL(img.S3Path),
+			ContentType: img.ContentType,
+			Filename:    img.Filename,
+			ImageOrder:  img.ImageOrder,
+		}
+	}
+	return responses
+}
+
+func buildProposedPluginResponse(p itypes.ProposedPlugin, images []ProposedPluginImageResponse) ProposedPluginResponse {
+	var pricingModelStr *string
+	if p.PricingModel != nil {
+		pm := string(*p.PricingModel)
+		pricingModelStr = &pm
+	}
+	return ProposedPluginResponse{
+		PluginID:         p.PluginID,
+		Title:            p.Title,
+		ShortDescription: p.ShortDescription,
+		ServerEndpoint:   p.ServerEndpoint,
+		Category:         string(p.Category),
+		SupportedChains:  p.SupportedChains,
+		PricingModel:     pricingModelStr,
+		ContactEmail:     p.ContactEmail,
+		Notes:            p.Notes,
+		Status:           string(p.Status),
+		Images:           images,
+		CreatedAt:        p.CreatedAt,
+		UpdatedAt:        p.UpdatedAt,
+	}
+}
+
+func (s *Server) requireApprover(c echo.Context) (address string, err error) {
+	address, ok := c.Get("address").(string)
+	if !ok || address == "" {
+		return "", c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	}
+
+	ctx := c.Request().Context()
+	isApprover, dbErr := s.queries.IsListingApprover(ctx, address)
+	if dbErr != nil {
+		s.logger.WithError(dbErr).Error("failed to check approver status")
+		return "", c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+	if !isApprover {
+		return "", c.JSON(http.StatusForbidden, map[string]string{"error": "admin access required"})
+	}
+	return address, nil
+}
+
+func (s *Server) isPluginIDAvailable(ctx context.Context, pluginID string) (bool, error) {
+	existsInPlugins, err := s.db.PluginIDExistsInPlugins(ctx, pluginID)
+	if err != nil {
+		return false, fmt.Errorf("check plugins: %w", err)
+	}
+	if existsInPlugins {
+		return false, nil
+	}
+
+	existsInProposals, err := s.db.PluginIDExistsInProposals(ctx, pluginID)
+	if err != nil {
+		return false, fmt.Errorf("check proposals: %w", err)
+	}
+	return !existsInProposals, nil
+}
+
 func (s *Server) ValidatePluginID(c echo.Context) error {
-	pluginID := strings.TrimSpace(strings.ToLower(c.QueryParam("plugin_id")))
+	pluginID := strings.TrimSpace(strings.ToLower(c.Param("id")))
 	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin_id is required"})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id is required"})
 	}
 
 	if !pluginIDRegex.MatchString(pluginID) {
@@ -83,25 +183,16 @@ func (s *Server) ValidatePluginID(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	existsInPlugins, err := s.db.PluginIDExistsInPlugins(ctx, pluginID)
+	available, err := s.isPluginIDAvailable(ctx, pluginID)
 	if err != nil {
-		s.logger.WithError(err).Error("failed to check plugin_id in plugins")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
-	}
-	if existsInPlugins {
-		return c.JSON(http.StatusOK, ValidatePluginIDResponse{Available: false})
-	}
-
-	existsInProposals, err := s.db.PluginIDExistsInProposals(ctx, pluginID)
-	if err != nil {
-		s.logger.WithError(err).Error("failed to check plugin_id in proposals")
+		s.logger.WithError(err).Error("failed to check plugin_id availability")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
 
-	return c.JSON(http.StatusOK, ValidatePluginIDResponse{Available: !existsInProposals})
+	return c.JSON(http.StatusOK, ValidatePluginIDResponse{Available: available})
 }
 
-func (s *Server) CreateProposedPlugin(c echo.Context) error {
+func (s *Server) CreatePluginProposal(c echo.Context) error {
 	address, ok := c.Get("address").(string)
 	if !ok || address == "" {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
@@ -134,7 +225,7 @@ func (s *Server) CreateProposedPlugin(c echo.Context) error {
 
 	err = proposalValidate.Struct(req)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": sanitizeValidationError(err)})
 	}
 
 	if !pluginIDRegex.MatchString(req.PluginID) {
@@ -146,21 +237,12 @@ func (s *Server) CreateProposedPlugin(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "server_endpoint must be a valid http(s) URL"})
 	}
 
-	existsInPlugins, err := s.db.PluginIDExistsInPlugins(ctx, req.PluginID)
+	available, err := s.isPluginIDAvailable(ctx, req.PluginID)
 	if err != nil {
-		s.logger.WithError(err).Error("failed to check plugin_id in plugins")
+		s.logger.WithError(err).Error("failed to check plugin_id availability")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
-	if existsInPlugins {
-		return c.JSON(http.StatusConflict, map[string]string{"error": errPluginIDTaken})
-	}
-
-	existsInProposals, err := s.db.PluginIDExistsInProposals(ctx, req.PluginID)
-	if err != nil {
-		s.logger.WithError(err).Error("failed to check plugin_id in proposals")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
-	}
-	if existsInProposals {
+	if !available {
 		return c.JSON(http.StatusConflict, map[string]string{"error": errPluginIDTaken})
 	}
 
@@ -263,8 +345,10 @@ func (s *Server) CreateProposedPlugin(c echo.Context) error {
 	mediaOrder := 0
 
 	cleanup := func() {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
 		for _, uploaded := range uploadedImages {
-			if err := s.assetStorage.Delete(ctx, uploaded.S3Path); err != nil {
+			if err := s.assetStorage.Delete(cleanupCtx, uploaded.S3Path); err != nil {
 				s.logger.WithError(err).Warnf("failed to delete S3 object %s during cleanup", uploaded.S3Path)
 			}
 		}
@@ -318,6 +402,7 @@ func (s *Server) CreateProposedPlugin(c echo.Context) error {
 		Title:            req.Title,
 		ShortDescription: req.ShortDescription,
 		ServerEndpoint:   req.ServerEndpoint,
+		Category:         itypes.PluginCategory(req.Category),
 		SupportedChains:  req.SupportedChains,
 		PricingModel:     pricingModel,
 		ContactEmail:     req.ContactEmail,
@@ -331,7 +416,7 @@ func (s *Server) CreateProposedPlugin(c echo.Context) error {
 			return c.JSON(http.StatusConflict, map[string]string{"error": errPluginIDTaken})
 		}
 		s.logger.WithError(err).Error("failed to create proposed plugin")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create proposal"})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
 
 	imageResponses := make([]ProposedPluginImageResponse, 0, len(uploadedImages))
@@ -385,32 +470,16 @@ func (s *Server) CreateProposedPlugin(c echo.Context) error {
 		"images":    len(uploadedImages),
 	}).Info("proposed plugin created with images")
 
-	var pricingModelStr *string
-	if proposal.PricingModel != nil {
-		pm := string(*proposal.PricingModel)
-		pricingModelStr = &pm
-	}
+	// TODO: migrate to Redis/Asynq queue for reliability
+	s.emailService.SendProposalNotificationAsync(req.PluginID, req.Title, req.ContactEmail)
 
-	return c.JSON(http.StatusCreated, ProposedPluginResponse{
-		PluginID:         proposal.PluginID,
-		Title:            proposal.Title,
-		ShortDescription: proposal.ShortDescription,
-		ServerEndpoint:   proposal.ServerEndpoint,
-		SupportedChains:  proposal.SupportedChains,
-		PricingModel:     pricingModelStr,
-		ContactEmail:     proposal.ContactEmail,
-		Notes:            proposal.Notes,
-		Status:           string(proposal.Status),
-		Images:           imageResponses,
-		CreatedAt:        proposal.CreatedAt,
-		UpdatedAt:        proposal.UpdatedAt,
-	})
+	return c.JSON(http.StatusCreated, buildProposedPluginResponse(*proposal, imageResponses))
 }
 
-func (s *Server) GetMyProposedPlugin(c echo.Context) error {
-	pluginID := strings.TrimSpace(strings.ToLower(c.Param("plugin_id")))
+func (s *Server) GetMyPluginProposal(c echo.Context) error {
+	pluginID := strings.TrimSpace(strings.ToLower(c.Param("id")))
 	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin_id is required"})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id is required"})
 	}
 
 	address, ok := c.Get("address").(string)
@@ -435,41 +504,10 @@ func (s *Server) GetMyProposedPlugin(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
 
-	imageResponses := make([]ProposedPluginImageResponse, len(images))
-	for i, img := range images {
-		imageResponses[i] = ProposedPluginImageResponse{
-			ID:          img.ID.String(),
-			Type:        string(img.ImageType),
-			URL:         s.assetStorage.GetPublicURL(img.S3Path),
-			ContentType: img.ContentType,
-			Filename:    img.Filename,
-			ImageOrder:  img.ImageOrder,
-		}
-	}
-
-	var pricingModelStr *string
-	if proposal.PricingModel != nil {
-		pm := string(*proposal.PricingModel)
-		pricingModelStr = &pm
-	}
-
-	return c.JSON(http.StatusOK, ProposedPluginResponse{
-		PluginID:         proposal.PluginID,
-		Title:            proposal.Title,
-		ShortDescription: proposal.ShortDescription,
-		ServerEndpoint:   proposal.ServerEndpoint,
-		SupportedChains:  proposal.SupportedChains,
-		PricingModel:     pricingModelStr,
-		ContactEmail:     proposal.ContactEmail,
-		Notes:            proposal.Notes,
-		Status:           string(proposal.Status),
-		Images:           imageResponses,
-		CreatedAt:        proposal.CreatedAt,
-		UpdatedAt:        proposal.UpdatedAt,
-	})
+	return c.JSON(http.StatusOK, buildProposedPluginResponse(*proposal, s.buildImageResponses(images)))
 }
 
-func (s *Server) GetMyProposedPlugins(c echo.Context) error {
+func (s *Server) GetMyPluginProposals(c echo.Context) error {
 	address, ok := c.Get("address").(string)
 	if !ok || address == "" {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
@@ -490,40 +528,66 @@ func (s *Server) GetMyProposedPlugins(c echo.Context) error {
 			s.logger.WithError(err).Warnf("failed to list images for proposal %s", proposal.PluginID)
 			images = []itypes.ProposedPluginImage{}
 		}
-
-		imageResponses := make([]ProposedPluginImageResponse, len(images))
-		for j, img := range images {
-			imageResponses[j] = ProposedPluginImageResponse{
-				ID:          img.ID.String(),
-				Type:        string(img.ImageType),
-				URL:         s.assetStorage.GetPublicURL(img.S3Path),
-				ContentType: img.ContentType,
-				Filename:    img.Filename,
-				ImageOrder:  img.ImageOrder,
-			}
-		}
-
-		var pricingModelStr *string
-		if proposal.PricingModel != nil {
-			pm := string(*proposal.PricingModel)
-			pricingModelStr = &pm
-		}
-
-		responses[i] = ProposedPluginResponse{
-			PluginID:         proposal.PluginID,
-			Title:            proposal.Title,
-			ShortDescription: proposal.ShortDescription,
-			ServerEndpoint:   proposal.ServerEndpoint,
-			SupportedChains:  proposal.SupportedChains,
-			PricingModel:     pricingModelStr,
-			ContactEmail:     proposal.ContactEmail,
-			Notes:            proposal.Notes,
-			Status:           string(proposal.Status),
-			Images:           imageResponses,
-			CreatedAt:        proposal.CreatedAt,
-			UpdatedAt:        proposal.UpdatedAt,
-		}
+		responses[i] = buildProposedPluginResponse(proposal, s.buildImageResponses(images))
 	}
 
 	return c.JSON(http.StatusOK, responses)
+}
+
+func (s *Server) GetAllPluginProposals(c echo.Context) error {
+	_, err := s.requireApprover(c)
+	if err != nil {
+		return err
+	}
+
+	ctx := c.Request().Context()
+
+	proposals, err := s.db.ListAllProposedPlugins(ctx)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to list all proposed plugins")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	responses := make([]ProposedPluginResponse, len(proposals))
+	for i, proposal := range proposals {
+		images, err := s.db.ListProposedPluginImages(ctx, proposal.PluginID)
+		if err != nil {
+			s.logger.WithError(err).Warnf("failed to list images for proposal %s", proposal.PluginID)
+			images = []itypes.ProposedPluginImage{}
+		}
+		responses[i] = buildProposedPluginResponse(proposal, s.buildImageResponses(images))
+	}
+
+	return c.JSON(http.StatusOK, responses)
+}
+
+func (s *Server) GetPluginProposal(c echo.Context) error {
+	pluginID := strings.TrimSpace(strings.ToLower(c.Param("id")))
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id is required"})
+	}
+
+	_, err := s.requireApprover(c)
+	if err != nil {
+		return err
+	}
+
+	ctx := c.Request().Context()
+
+	proposal, err := s.db.GetProposedPlugin(ctx, pluginID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "proposed plugin not found"})
+		}
+		s.logger.WithError(err).Error("failed to get proposed plugin")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	images, err := s.db.ListProposedPluginImages(ctx, pluginID)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to list proposed plugin images")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	return c.JSON(http.StatusOK, buildProposedPluginResponse(*proposal, s.buildImageResponses(images)))
 }

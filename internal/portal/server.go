@@ -1,6 +1,7 @@
 package portal
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -32,27 +33,35 @@ import (
 )
 
 type Server struct {
-	cfg           config.PortalConfig
-	pool          *pgxpool.Pool
-	queries       *queries.Queries
-	logger        *logrus.Logger
-	authService   *PortalAuthService
-	inviteService *InviteService
-	db            *postgres.PostgresBackend
-	assetStorage  storage.PluginAssetStorage
+	cfg              config.PortalConfig
+	pool             *pgxpool.Pool
+	queries          *queries.Queries
+	logger           *logrus.Logger
+	authService      *PortalAuthService
+	inviteService    *InviteService
+	db               *postgres.PostgresBackend
+	assetStorage     storage.PluginAssetStorage
+	emailService     EmailSender
+	listingFeeClient *ListingFeeClient
 }
 
 func NewServer(cfg config.PortalConfig, pool *pgxpool.Pool, db *postgres.PostgresBackend, assetStorage storage.PluginAssetStorage) *Server {
 	logger := logrus.WithField("service", "portal").Logger
+	var listingFeeClient *ListingFeeClient
+	if cfg.DeveloperServiceURL != "" {
+		listingFeeClient = NewListingFeeClient(cfg.DeveloperServiceURL)
+	}
 	return &Server{
-		cfg:           cfg,
-		pool:          pool,
-		queries:       queries.New(pool),
-		logger:        logger,
-		authService:   NewPortalAuthService(cfg.Server.JWTSecret, logger),
-		inviteService: NewInviteService(cfg.Server.HMACSecret, cfg.Server.BaseURL),
-		db:            db,
-		assetStorage:  assetStorage,
+		cfg:              cfg,
+		pool:             pool,
+		queries:          queries.New(pool),
+		logger:           logger,
+		authService:      NewPortalAuthService(cfg.Server.JWTSecret, logger),
+		inviteService:    NewInviteService(cfg.Server.HMACSecret, cfg.Server.BaseURL),
+		db:               db,
+		assetStorage:     assetStorage,
+		emailService:     NewEmailService(cfg.Email, cfg.Server.BaseURL, logger),
+		listingFeeClient: listingFeeClient,
 	}
 }
 
@@ -92,13 +101,16 @@ func (s *Server) registerRoutes(e *echo.Echo) {
 	protected.GET("/plugins/:id", s.GetPlugin)
 	protected.GET("/plugins/:id/my-role", s.GetMyPluginRole)
 	protected.PUT("/plugins/:id", s.UpdatePlugin)
-	// Plugin lifecycle (proposed plugins with images)
-	protected.GET("/plugins/proposed/validate-id", s.ValidatePluginID)
-	protected.POST("/plugins/proposed", s.CreateProposedPlugin)
-	protected.GET("/plugins/proposed", s.GetMyProposedPlugins)
-	protected.GET("/plugins/proposed/:pluginId", s.GetMyProposedPlugin)
-	protected.POST("/plugins/:id/approve", s.ApprovePlugin)
-	protected.POST("/plugins/:id/publish", s.PublishPlugin)
+	// Plugin proposals (developer)
+	protected.GET("/plugin-proposals/validate/:id", s.ValidatePluginID)
+	protected.POST("/plugin-proposals", s.CreatePluginProposal)
+	protected.GET("/plugin-proposals", s.GetMyPluginProposals)
+	protected.GET("/plugin-proposals/:id", s.GetMyPluginProposal)
+	// Plugin proposals (admin)
+	protected.GET("/admin/plugin-proposals", s.GetAllPluginProposals)
+	protected.GET("/admin/plugin-proposals/:id", s.GetPluginProposal)
+	protected.POST("/admin/plugin-proposals/:id/approve", s.ApprovePluginProposal)
+	protected.POST("/admin/plugin-proposals/:id/publish", s.PublishPluginProposal)
 	// API key management
 	protected.GET("/plugins/:id/api-keys", s.GetPluginApiKeys)
 	protected.POST("/plugins/:id/api-keys", s.CreatePluginApiKey)
@@ -247,7 +259,7 @@ func (s *Server) Auth(c echo.Context) error {
 func (s *Server) GetPlugin(c echo.Context) error {
 	id := c.Param("id")
 	if id == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id is required"})
 	}
 
 	// Get address from JWT context (set by JWTAuthMiddleware)
@@ -282,7 +294,7 @@ type MyRoleResponse struct {
 func (s *Server) GetMyPluginRole(c echo.Context) error {
 	id := c.Param("id")
 	if id == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id is required"})
 	}
 
 	// Get address from JWT context
@@ -344,7 +356,7 @@ type PluginPricingResponse struct {
 func (s *Server) GetPluginPricings(c echo.Context) error {
 	id := c.Param("id")
 	if id == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id is required"})
 	}
 
 	pricings, err := s.queries.GetPluginPricings(c.Request().Context(), id)
@@ -388,7 +400,7 @@ type PluginApiKeyResponse struct {
 func (s *Server) GetPluginApiKeys(c echo.Context) error {
 	id := c.Param("id")
 	if id == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id is required"})
 	}
 
 	// Get address from JWT context (set by JWTAuthMiddleware)
@@ -488,7 +500,7 @@ type CreateApiKeyResponse struct {
 func (s *Server) CreatePluginApiKey(c echo.Context) error {
 	id := c.Param("id")
 	if id == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id is required"})
 	}
 
 	// Get address from JWT context
@@ -1046,7 +1058,7 @@ type UpdatePluginSignedMessage struct {
 func (s *Server) UpdatePlugin(c echo.Context) error {
 	id := c.Param("id")
 	if id == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id is required"})
 	}
 
 	var req UpdatePluginRequest
@@ -1215,7 +1227,7 @@ type TeamMemberResponse struct {
 func (s *Server) ListTeamMembers(c echo.Context) error {
 	pluginID := c.Param("id")
 	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id is required"})
 	}
 
 	// Get address from JWT context
@@ -1285,7 +1297,7 @@ type CreateInviteResponse struct {
 func (s *Server) CreateInvite(c echo.Context) error {
 	pluginID := c.Param("id")
 	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id is required"})
 	}
 
 	// Get address from JWT context
@@ -1421,7 +1433,7 @@ type AcceptInviteRequest struct {
 func (s *Server) AcceptInvite(c echo.Context) error {
 	pluginID := c.Param("id")
 	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id is required"})
 	}
 
 	// Get address from JWT context (user must be authenticated)
@@ -1606,7 +1618,7 @@ type KillSwitchResponse struct {
 func (s *Server) GetKillSwitch(c echo.Context) error {
 	pluginID := c.Param("id")
 	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id is required"})
 	}
 
 	// Get address from JWT context
@@ -1677,7 +1689,7 @@ type SetKillSwitchRequest struct {
 func (s *Server) SetKillSwitch(c echo.Context) error {
 	pluginID := c.Param("id")
 	if pluginID == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id is required"})
 	}
 
 	// Get address from JWT context
@@ -1824,23 +1836,23 @@ func generatePluginSlug(title string) string {
 	return result
 }
 
-type ApprovePluginRequest struct {
+type ApprovePluginProposalRequest struct {
 	PublicKey string `json:"publicKey"`
 }
 
-func (s *Server) ApprovePlugin(c echo.Context) error {
+func (s *Server) ApprovePluginProposal(c echo.Context) error {
 	id := c.Param("id")
 	if id == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id is required"})
 	}
 
-	address, ok := c.Get("address").(string)
-	if !ok || address == "" {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	address, err := s.requireApprover(c)
+	if err != nil {
+		return err
 	}
 
-	var req ApprovePluginRequest
-	err := c.Bind(&req)
+	var req ApprovePluginProposalRequest
+	err = c.Bind(&req)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
 	}
@@ -1849,15 +1861,6 @@ func (s *Server) ApprovePlugin(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-
-	canApprove, err := s.queries.IsListingApprover(ctx, address)
-	if err != nil {
-		s.logger.WithError(err).Error("failed to check listing approver")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
-	}
-	if !canApprove {
-		return c.JSON(http.StatusForbidden, map[string]string{"error": "not authorized to approve"})
-	}
 
 	proposal, err := s.queries.UpdateProposedPluginStatus(ctx, &queries.UpdateProposedPluginStatusParams{
 		PublicKey:     req.PublicKey,
@@ -1878,62 +1881,163 @@ func (s *Server) ApprovePlugin(c echo.Context) error {
 		"approver":  address,
 	}).Info("proposed plugin approved")
 
+	s.emailService.SendApprovalNotificationAsync(proposal.PluginID, proposal.Title, proposal.ContactEmail)
+
 	return c.JSON(http.StatusOK, proposal)
 }
 
-func (s *Server) PublishPlugin(c echo.Context) error {
-	id := c.Param("id")
-	if id == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin id is required"})
+func (s *Server) PublishPluginProposal(c echo.Context) error {
+	pluginID := c.Param("id")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id is required"})
 	}
 
-	address, ok := c.Get("address").(string)
-	if !ok || address == "" {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	address, err := s.requireApprover(c)
+	if err != nil {
+		return err
 	}
 
 	ctx := c.Request().Context()
 
+	proposal, err := s.queries.GetProposedPluginByID(ctx, pluginID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "proposed plugin not found"})
+		}
+		s.logger.WithError(err).Error("failed to get proposed plugin")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	if proposal.Status != queries.ProposedPluginStatusApproved {
+		return c.JSON(http.StatusConflict, map[string]string{"error": "proposed plugin is not in approved status"})
+	}
+
+	if s.listingFeeClient != nil {
+		paid, err := s.listingFeeClient.IsListingFeePaid(ctx, pluginID)
+		if err != nil {
+			s.logger.WithError(err).Error("failed to check listing fee")
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to verify listing fee payment"})
+		}
+		if !paid {
+			return c.JSON(http.StatusPaymentRequired, map[string]string{"error": "listing fee not paid"})
+		}
+	}
+
+	proposedImages, err := s.queries.ListProposedPluginImages(ctx, pluginID)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to list proposed plugin images")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	type copiedImage struct {
+		OldPath string
+		NewPath string
+		Image   *queries.ProposedPluginImage
+	}
+	copiedImages := make([]copiedImage, 0, len(proposedImages))
+
+	rollbackS3 := func() {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		for _, img := range copiedImages {
+			if err := s.assetStorage.Delete(cleanupCtx, img.NewPath); err != nil {
+				s.logger.WithError(err).Warnf("failed to delete S3 object %s during rollback", img.NewPath)
+			}
+		}
+	}
+
+	for _, img := range proposedImages {
+		newPath := strings.Replace(img.S3Path, "proposals/", "plugins/", 1)
+		err = s.assetStorage.Copy(ctx, img.S3Path, newPath)
+		if err != nil {
+			s.logger.WithError(err).Errorf("failed to copy S3 image %s -> %s", img.S3Path, newPath)
+			rollbackS3()
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to migrate images"})
+		}
+		copiedImages = append(copiedImages, copiedImage{
+			OldPath: img.S3Path,
+			NewPath: newPath,
+			Image:   img,
+		})
+	}
+
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		s.logger.WithError(err).Error("failed to begin transaction")
+		rollbackS3()
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
 	defer tx.Rollback(ctx)
 
 	q := queries.New(tx)
 
-	plugin, err := q.PublishPlugin(ctx, &queries.PublishPluginParams{
-		PublicKey: address,
-		PluginID:  id,
-	})
+	plugin, err := q.PublishPlugin(ctx, pluginID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return c.JSON(http.StatusConflict, map[string]string{"error": "proposed plugin not found or not in paid status"})
+			rollbackS3()
+			return c.JSON(http.StatusConflict, map[string]string{"error": "proposed plugin not found or not in approved status"})
 		}
 		s.logger.WithError(err).Error("failed to publish plugin")
+		rollbackS3()
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to publish plugin"})
 	}
 
+	for _, ci := range copiedImages {
+		err = q.InsertPluginImage(ctx, &queries.InsertPluginImageParams{
+			ID:                  ci.Image.ID,
+			PluginID:            pluginID,
+			ImageType:           ci.Image.ImageType,
+			S3Path:              ci.NewPath,
+			ImageOrder:          ci.Image.ImageOrder,
+			UploadedByPublicKey: ci.Image.UploadedByPublicKey,
+			Visible:             ci.Image.Visible,
+			Deleted:             ci.Image.Deleted,
+			ContentType:         ci.Image.ContentType,
+			Filename:            ci.Image.Filename,
+			CreatedAt:           ci.Image.CreatedAt,
+		})
+		if err != nil {
+			s.logger.WithError(err).Errorf("failed to insert plugin image %s", ci.Image.ID)
+			rollbackS3()
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to migrate images"})
+		}
+	}
+
 	_, err = q.CreatePluginOwnerFromPortal(ctx, &queries.CreatePluginOwnerFromPortalParams{
-		PluginID:  id,
-		PublicKey: address,
+		PluginID:  pluginID,
+		PublicKey: proposal.PublicKey,
 	})
 	if err != nil {
 		s.logger.WithError(err).Error("failed to create plugin owner")
+		rollbackS3()
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create plugin owner"})
+	}
+
+	rowsAffected, err := q.MarkProposedPluginListed(ctx, pluginID)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to mark proposal as listed")
+		rollbackS3()
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update proposal status"})
+	}
+	if rowsAffected == 0 {
+		rollbackS3()
+		return c.JSON(http.StatusConflict, map[string]string{"error": "proposal not in approved status"})
 	}
 
 	err = tx.Commit(ctx)
 	if err != nil {
 		s.logger.WithError(err).Error("failed to commit transaction")
+		rollbackS3()
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
 
 	s.logger.WithFields(logrus.Fields{
-		"plugin_id":    id,
+		"plugin_id":    pluginID,
 		"published_by": address,
-	}).Info("plugin published")
+		"images":       len(copiedImages),
+	}).Info("plugin published with images")
+
+	s.emailService.SendPublishNotificationAsync(proposal.PluginID, proposal.Title, proposal.ContactEmail)
 
 	return c.JSON(http.StatusOK, plugin)
 }

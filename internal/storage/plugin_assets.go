@@ -32,6 +32,7 @@ type PluginAssetStorage interface {
 	HeadObject(ctx context.Context, key string) (*ObjectMetadata, error)
 	GetObjectRange(ctx context.Context, key string, rangeStart, rangeEnd int64) ([]byte, error)
 	GetObject(ctx context.Context, key string) (io.ReadCloser, error)
+	Copy(ctx context.Context, srcKey, dstKey string) error
 }
 
 type S3PluginAssetStorage struct {
@@ -179,4 +180,23 @@ func (s *S3PluginAssetStorage) GetObject(ctx context.Context, key string) (io.Re
 		return nil, fmt.Errorf("failed to get object: %w", err)
 	}
 	return out.Body, nil
+}
+
+func (s *S3PluginAssetStorage) Copy(ctx context.Context, srcKey, dstKey string) error {
+	s.logger.Infof("copying plugin asset: %s -> %s, bucket: %s", srcKey, dstKey, s.cfg.Bucket)
+
+	copySource := fmt.Sprintf("%s/%s", s.cfg.Bucket, srcKey)
+	_, err := s.s3Client.CopyObjectWithContext(ctx, &s3.CopyObjectInput{
+		Bucket:     aws.String(s.cfg.Bucket),
+		CopySource: aws.String(copySource),
+		Key:        aws.String(dstKey),
+		ACL:        aws.String("public-read"),
+	})
+	if err != nil {
+		s.logger.Errorf("failed to copy plugin asset %s -> %s: %v", srcKey, dstKey, err)
+		return fmt.Errorf("failed to copy plugin asset: %w", err)
+	}
+
+	s.logger.Infof("plugin asset copied: %s -> %s", srcKey, dstKey)
+	return nil
 }

@@ -29,6 +29,7 @@ type ProposedPlugin struct {
 	Title            string                 `json:"title"`
 	ShortDescription string                 `json:"short_description"`
 	ServerEndpoint   string                 `json:"server_endpoint"`
+	Category         PluginCategory         `json:"category"`
 	SupportedChains  []string               `json:"supported_chains"`
 	PricingModel     *ProposedPluginPricing `json:"pricing_model"`
 	ContactEmail     string                 `json:"contact_email"`
@@ -44,6 +45,7 @@ type ProposedPluginCreateParams struct {
 	Title            string
 	ShortDescription string
 	ServerEndpoint   string
+	Category         PluginCategory
 	SupportedChains  []string
 	PricingModel     *ProposedPluginPricing
 	ContactEmail     string

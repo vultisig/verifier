@@ -30,8 +30,9 @@ const (
 )
 
 var (
-	proposalValidate = validator.New()
-	pluginIDRegex    = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+	proposalValidate     = validator.New()
+	pluginIDRegex        = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+	errResponseCommitted = errors.New("response already committed")
 )
 
 func sanitizeValidationError(err error) string {
@@ -137,20 +138,29 @@ func buildProposedPluginResponse(p itypes.ProposedPlugin, images []ProposedPlugi
 	}
 }
 
-func (s *Server) requireApprover(c echo.Context) (address string, err error) {
+func (s *Server) requireApprover(c echo.Context) (string, error) {
 	address, ok := c.Get("address").(string)
 	if !ok || address == "" {
-		return "", c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+		if err := c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"}); err != nil {
+			return "", err
+		}
+		return "", errResponseCommitted
 	}
 
 	ctx := c.Request().Context()
 	isApprover, dbErr := s.queries.IsListingApprover(ctx, address)
 	if dbErr != nil {
 		s.logger.WithError(dbErr).Error("failed to check approver status")
-		return "", c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		if err := c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"}); err != nil {
+			return "", err
+		}
+		return "", errResponseCommitted
 	}
 	if !isApprover {
-		return "", c.JSON(http.StatusForbidden, map[string]string{"error": "admin access required"})
+		if err := c.JSON(http.StatusForbidden, map[string]string{"error": "admin access required"}); err != nil {
+			return "", err
+		}
+		return "", errResponseCommitted
 	}
 	return address, nil
 }

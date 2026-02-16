@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -185,7 +186,7 @@ func (s *S3PluginAssetStorage) GetObject(ctx context.Context, key string) (io.Re
 func (s *S3PluginAssetStorage) Copy(ctx context.Context, srcKey, dstKey string) error {
 	s.logger.Infof("copying plugin asset: %s -> %s, bucket: %s", srcKey, dstKey, s.cfg.Bucket)
 
-	copySource := fmt.Sprintf("%s/%s", s.cfg.Bucket, srcKey)
+	copySource := fmt.Sprintf("%s/%s", s.cfg.Bucket, url.PathEscape(srcKey))
 	_, err := s.s3Client.CopyObjectWithContext(ctx, &s3.CopyObjectInput{
 		Bucket:     aws.String(s.cfg.Bucket),
 		CopySource: aws.String(copySource),

@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -238,16 +237,6 @@ func (p *PostgresBackend) CountActiveProposalsByPublicKey(ctx context.Context, p
 	return count, nil
 }
 
-func (p *PostgresBackend) IsProposedPluginApprovedByOwner(ctx context.Context, publicKey, pluginID string) (bool, error) {
-	query := `SELECT EXISTS(SELECT 1 FROM proposed_plugins WHERE plugin_id = $1 AND public_key = $2 AND status = 'approved')`
-	var exists bool
-	err := p.pool.QueryRow(ctx, query, pluginID, publicKey).Scan(&exists)
-	if err != nil {
-		return false, fmt.Errorf("check proposed plugin approved: %w", err)
-	}
-	return exists, nil
-}
-
 func (p *PostgresBackend) IsProposedPluginApproved(ctx context.Context, pluginID string) (bool, error) {
 	query := `SELECT EXISTS(SELECT 1 FROM proposed_plugins WHERE plugin_id = $1 AND status = 'approved')`
 	var exists bool
@@ -257,8 +246,6 @@ func (p *PostgresBackend) IsProposedPluginApproved(ctx context.Context, pluginID
 	}
 	return exists, nil
 }
-
-var ErrProposedPluginNotFound = errors.New("proposed plugin not found")
 
 func (p *PostgresBackend) GetProposedPlugin(ctx context.Context, pluginID string) (*itypes.ProposedPlugin, error) {
 	query := `

@@ -1,6 +1,8 @@
 -- +goose Up
 -- +goose StatementBegin
 
+ALTER TYPE plugin_owner_added_via ADD VALUE IF NOT EXISTS 'portal_create';
+
 CREATE TYPE portal_approver_added_via AS ENUM ('bootstrap', 'admin_portal', 'cli');
 
 CREATE TABLE portal_approvers (

@@ -8,6 +8,7 @@ import (
 	"html"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -17,6 +18,14 @@ import (
 )
 
 const mandrillSendURL = "https://mandrillapp.com/api/1.0/messages/send.json"
+
+func maskEmail(email string) string {
+	at := strings.Index(email, "@")
+	if at <= 1 {
+		return "***"
+	}
+	return email[:1] + strings.Repeat("*", at-1) + email[at:]
+}
 
 type EmailSender interface {
 	IsConfigured() bool
@@ -97,7 +106,7 @@ func (s *EmailService) sendProposalNotification(ctx context.Context, pluginID, t
 	t := html.EscapeString(title)
 	ce := html.EscapeString(contactEmail)
 
-	proposalURL := fmt.Sprintf("%s/admin/plugin-proposals/%s", s.portalURL, pluginID)
+	proposalURL := fmt.Sprintf("%s/admin/plugin-proposals/%s", s.portalURL, url.PathEscape(pluginID))
 
 	subject := fmt.Sprintf("New Plugin Proposal: %s", t)
 	htmlBody := fmt.Sprintf(`
@@ -118,7 +127,7 @@ func (s *EmailService) sendProposalNotification(ctx context.Context, pluginID, t
   </tr>
 </table>
 <p><a href="%s">View proposal in admin portal</a></p>
-`, pid, t, ce, proposalURL)
+`, pid, t, ce, html.EscapeString(proposalURL))
 
 	text := fmt.Sprintf(`New Plugin Proposal Submitted
 
@@ -146,7 +155,7 @@ func (s *EmailService) SendApprovalNotificationAsync(pluginID, title, contactEma
 		if err != nil {
 			s.logger.WithError(err).WithFields(logrus.Fields{
 				"plugin_id": pluginID,
-				"email":     contactEmail,
+				"email":     maskEmail(contactEmail),
 			}).Error("failed to send approval notification email")
 		}
 	}()
@@ -194,7 +203,7 @@ func (s *EmailService) SendPublishNotificationAsync(pluginID, title, contactEmai
 		if err != nil {
 			s.logger.WithError(err).WithFields(logrus.Fields{
 				"plugin_id": pluginID,
-				"email":     contactEmail,
+				"email":     maskEmail(contactEmail),
 			}).Error("failed to send publish notification email")
 		}
 	}()
@@ -203,7 +212,7 @@ func (s *EmailService) SendPublishNotificationAsync(pluginID, title, contactEmai
 func (s *EmailService) sendPublishNotification(ctx context.Context, pluginID, title, contactEmail string) error {
 	t := html.EscapeString(title)
 	pid := html.EscapeString(pluginID)
-	pluginURL := fmt.Sprintf("%s/plugins/%s", s.portalURL, pluginID)
+	pluginURL := fmt.Sprintf("%s/plugins/%s", s.portalURL, url.PathEscape(pluginID))
 
 	subject := fmt.Sprintf("Your Plugin Is Now Live: %s", t)
 	htmlBody := fmt.Sprintf(`
@@ -212,7 +221,7 @@ func (s *EmailService) sendPublishNotification(ctx context.Context, pluginID, ti
 <p><a href="%s">View your plugin</a></p>
 <p>Plugin ID: %s</p>
 <p>Thank you for contributing to Vultisig!</p>
-`, t, pluginURL, pid)
+`, t, html.EscapeString(pluginURL), pid)
 
 	text := fmt.Sprintf(`Plugin Published!
 
@@ -288,7 +297,7 @@ func (s *EmailService) sendEmail(ctx context.Context, recipients []mandrillRecip
 
 	for _, r := range results {
 		if r.Status != "sent" && r.Status != "queued" {
-			return fmt.Errorf("email to %s failed: %s (%s)", r.Email, r.Status, r.RejectReason)
+			return fmt.Errorf("email to %s failed: %s (%s)", maskEmail(r.Email), r.Status, r.RejectReason)
 		}
 	}
 

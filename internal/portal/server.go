@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
@@ -1786,54 +1785,6 @@ func (s *Server) SetKillSwitch(c echo.Context) error {
 		KeygenEnabled:  keygenEnabled,
 		KeysignEnabled: keysignEnabled,
 	})
-}
-
-const (
-	pgUniqueViolation          = "23505" // PostgreSQL unique_violation
-	proposedPluginPKConstraint = "proposed_plugins_pkey"
-)
-
-func isProposedPluginCollision(err error) bool {
-	var pgErr *pgconn.PgError
-	if !errors.As(err, &pgErr) {
-		return false
-	}
-	return pgErr.Code == pgUniqueViolation && pgErr.ConstraintName == proposedPluginPKConstraint
-}
-
-var allowedCategories = map[string]queries.PluginCategory{
-	"ai-agent": queries.PluginCategoryAiAgent,
-	"plugin":   queries.PluginCategoryPlugin,
-	"app":      queries.PluginCategoryApp,
-}
-
-func parseCategory(s string) (queries.PluginCategory, bool) {
-	cat, ok := allowedCategories[s]
-	return cat, ok
-}
-
-func generatePluginSlug(title string) string {
-	slug := strings.ToLower(title)
-	var b strings.Builder
-	prevHyphen := false
-	for _, r := range slug {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
-			prevHyphen = false
-		} else if !prevHyphen {
-			b.WriteRune('-')
-			prevHyphen = true
-		}
-	}
-	result := strings.Trim(b.String(), "-")
-	if len(result) > 30 {
-		result = result[:30]
-		result = strings.TrimRight(result, "-")
-	}
-	if result == "" {
-		result = "plugin"
-	}
-	return result
 }
 
 type ApprovePluginProposalRequest struct {

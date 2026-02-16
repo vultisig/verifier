@@ -33,19 +33,6 @@ CREATE TYPE "plugin_owner_role" AS ENUM (
     'viewer'
 );
 
-CREATE TYPE "proposed_plugin_status" AS ENUM (
-    'submitted',
-    'approved',
-    'listed',
-    'archived'
-);
-
-CREATE TYPE "proposed_plugin_pricing" AS ENUM (
-    'free',
-    'per-tx',
-    'per-install'
-);
-
 CREATE TYPE "portal_approver_added_via" AS ENUM (
     'bootstrap',
     'admin_portal',
@@ -71,6 +58,19 @@ CREATE TYPE "pricing_type" AS ENUM (
     'once',
     'recurring',
     'per-tx'
+);
+
+CREATE TYPE "proposed_plugin_pricing" AS ENUM (
+    'free',
+    'per-tx',
+    'per-install'
+);
+
+CREATE TYPE "proposed_plugin_status" AS ENUM (
+    'submitted',
+    'approved',
+    'listed',
+    'archived'
 );
 
 CREATE TYPE "transaction_type" AS ENUM (
@@ -337,39 +337,6 @@ CREATE TABLE "plugins" (
     "audited" boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE "proposed_plugins" (
-    "plugin_id" "text" NOT NULL,
-    "public_key" "text" NOT NULL,
-    "title" character varying(255) NOT NULL,
-    "description" "text" DEFAULT ''::"text" NOT NULL,
-    "server_endpoint" "text" NOT NULL,
-    "category" "plugin_category" DEFAULT 'app'::"public"."plugin_category" NOT NULL,
-    "supported_chains" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
-    "pricing_model" "proposed_plugin_pricing",
-    "contact_email" "text" NOT NULL,
-    "notes" "text" DEFAULT ''::"text" NOT NULL,
-    "status" "proposed_plugin_status" DEFAULT 'submitted'::"public"."proposed_plugin_status" NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
-);
-
-CREATE TABLE "proposed_plugin_images" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "plugin_id" "text" NOT NULL,
-    "image_type" "text" NOT NULL,
-    "s3_path" "text" NOT NULL,
-    "image_order" integer DEFAULT 0 NOT NULL,
-    "uploaded_by_public_key" "text" NOT NULL,
-    "visible" boolean DEFAULT true NOT NULL,
-    "deleted" boolean DEFAULT false NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "content_type" "text" NOT NULL,
-    "filename" "text" DEFAULT ''::"text" NOT NULL,
-    CONSTRAINT "proposed_plugin_images_content_type_check" CHECK (("content_type" = ANY (ARRAY['image/jpeg'::"text", 'image/png'::"text", 'image/webp'::"text"]))),
-    CONSTRAINT "proposed_plugin_images_image_type_check" CHECK (("image_type" = ANY (ARRAY['logo'::"text", 'banner'::"text", 'thumbnail'::"text", 'media'::"text"])))
-);
-
 CREATE TABLE "portal_approvers" (
     "public_key" "text" NOT NULL,
     "active" boolean DEFAULT true NOT NULL,
@@ -390,6 +357,39 @@ CREATE TABLE "pricings" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     CONSTRAINT "frequency_check" CHECK (((("type" = 'recurring'::"pricing_type") AND ("frequency" IS NOT NULL)) OR (("type" = ANY (ARRAY['per-tx'::"public"."pricing_type", 'once'::"public"."pricing_type"])) AND ("frequency" IS NULL))))
+);
+
+CREATE TABLE "proposed_plugin_images" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "plugin_id" "text" NOT NULL,
+    "image_type" "text" NOT NULL,
+    "s3_path" "text" NOT NULL,
+    "image_order" integer DEFAULT 0 NOT NULL,
+    "uploaded_by_public_key" "text" NOT NULL,
+    "visible" boolean DEFAULT true NOT NULL,
+    "deleted" boolean DEFAULT false NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "content_type" "text" NOT NULL,
+    "filename" "text" DEFAULT ''::"text" NOT NULL,
+    CONSTRAINT "proposed_plugin_images_content_type_check" CHECK (("content_type" = ANY (ARRAY['image/jpeg'::"text", 'image/png'::"text", 'image/webp'::"text"]))),
+    CONSTRAINT "proposed_plugin_images_image_type_check" CHECK (("image_type" = ANY (ARRAY['logo'::"text", 'banner'::"text", 'thumbnail'::"text", 'media'::"text"])))
+);
+
+CREATE TABLE "proposed_plugins" (
+    "plugin_id" "text" NOT NULL,
+    "public_key" "text" NOT NULL,
+    "title" character varying(255) NOT NULL,
+    "description" "text" DEFAULT ''::"text" NOT NULL,
+    "server_endpoint" "text" NOT NULL,
+    "category" "plugin_category" DEFAULT 'app'::"public"."plugin_category" NOT NULL,
+    "supported_chains" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
+    "pricing_model" "proposed_plugin_pricing",
+    "contact_email" "text" NOT NULL,
+    "notes" "text" DEFAULT ''::"text" NOT NULL,
+    "status" "proposed_plugin_status" DEFAULT 'submitted'::"public"."proposed_plugin_status" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 
 CREATE TABLE "reviews" (
@@ -501,17 +501,14 @@ ALTER TABLE ONLY "plugins"
 ALTER TABLE ONLY "portal_approvers"
     ADD CONSTRAINT "portal_approvers_pkey" PRIMARY KEY ("public_key");
 
-ALTER TABLE ONLY "proposed_plugins"
-    ADD CONSTRAINT "proposed_plugins_pkey" PRIMARY KEY ("plugin_id");
+ALTER TABLE ONLY "pricings"
+    ADD CONSTRAINT "pricings_pkey" PRIMARY KEY ("id");
 
 ALTER TABLE ONLY "proposed_plugin_images"
     ADD CONSTRAINT "proposed_plugin_images_pkey" PRIMARY KEY ("id");
 
-ALTER TABLE ONLY "proposed_plugin_images"
-    ADD CONSTRAINT "proposed_plugin_images_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "proposed_plugins"("plugin_id") ON DELETE CASCADE;
-
-ALTER TABLE ONLY "pricings"
-    ADD CONSTRAINT "pricings_pkey" PRIMARY KEY ("id");
+ALTER TABLE ONLY "proposed_plugins"
+    ADD CONSTRAINT "proposed_plugins_pkey" PRIMARY KEY ("plugin_id");
 
 ALTER TABLE ONLY "reviews"
     ADD CONSTRAINT "reviews_pkey" PRIMARY KEY ("id");
@@ -585,6 +582,12 @@ CREATE INDEX "idx_plugin_policy_sync_policy_id" ON "plugin_policy_sync" USING "b
 
 CREATE INDEX "idx_plugin_reports_window" ON "plugin_reports" USING "btree" ("plugin_id", "last_reported_at" DESC);
 
+CREATE INDEX "idx_proposed_plugins_public_key" ON "proposed_plugins" USING "btree" ("public_key");
+
+CREATE INDEX "idx_proposed_plugins_public_key_status" ON "proposed_plugins" USING "btree" ("public_key", "status");
+
+CREATE INDEX "idx_proposed_plugins_status" ON "proposed_plugins" USING "btree" ("status");
+
 CREATE INDEX "idx_reviews_plugin_id" ON "reviews" USING "btree" ("plugin_id");
 
 CREATE INDEX "idx_reviews_public_key" ON "reviews" USING "btree" ("public_key");
@@ -602,6 +605,16 @@ CREATE UNIQUE INDEX "idx_unique_trial_fee" ON "fees" USING "btree" ("public_key"
 CREATE INDEX "idx_vault_tokens_public_key" ON "vault_tokens" USING "btree" ("public_key");
 
 CREATE INDEX "idx_vault_tokens_token_id" ON "vault_tokens" USING "btree" ("token_id");
+
+CREATE UNIQUE INDEX "proposed_plugin_images_one_banner" ON "proposed_plugin_images" USING "btree" ("plugin_id") WHERE (("image_type" = 'banner'::"text") AND ("deleted" = false));
+
+CREATE UNIQUE INDEX "proposed_plugin_images_one_logo" ON "proposed_plugin_images" USING "btree" ("plugin_id") WHERE (("image_type" = 'logo'::"text") AND ("deleted" = false));
+
+CREATE UNIQUE INDEX "proposed_plugin_images_one_thumbnail" ON "proposed_plugin_images" USING "btree" ("plugin_id") WHERE (("image_type" = 'thumbnail'::"text") AND ("deleted" = false));
+
+CREATE INDEX "proposed_plugin_images_plugin_id_idx" ON "proposed_plugin_images" USING "btree" ("plugin_id");
+
+CREATE INDEX "proposed_plugin_images_plugin_id_type_idx" ON "proposed_plugin_images" USING "btree" ("plugin_id", "image_type");
 
 CREATE UNIQUE INDEX "unique_fees_policy_per_public_key" ON "plugin_policies" USING "btree" ("plugin_id", "public_key") WHERE (("plugin_id" = 'vultisig-fees-feee'::"text") AND ("active" = true));
 
@@ -656,6 +669,9 @@ ALTER TABLE ONLY "plugin_tags"
 
 ALTER TABLE ONLY "pricings"
     ADD CONSTRAINT "pricings_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugins"("id") ON DELETE CASCADE;
+
+ALTER TABLE ONLY "proposed_plugin_images"
+    ADD CONSTRAINT "proposed_plugin_images_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "proposed_plugins"("plugin_id") ON DELETE CASCADE;
 
 ALTER TABLE ONLY "reviews"
     ADD CONSTRAINT "reviews_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugins"("id") ON DELETE CASCADE;

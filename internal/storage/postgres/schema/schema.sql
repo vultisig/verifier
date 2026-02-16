@@ -512,6 +512,8 @@ CREATE INDEX "idx_plugin_policy_sync_policy_id" ON "plugin_policy_sync" USING "b
 
 CREATE INDEX "idx_plugin_reports_window" ON "plugin_reports" USING "btree" ("plugin_id", "last_reported_at" DESC);
 
+CREATE INDEX "idx_plugins_payout_address" ON "plugins" USING "btree" ("payout_address") WHERE ("payout_address" IS NOT NULL);
+
 CREATE INDEX "idx_reviews_plugin_id" ON "reviews" USING "btree" ("plugin_id");
 
 CREATE INDEX "idx_reviews_public_key" ON "reviews" USING "btree" ("public_key");

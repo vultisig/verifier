@@ -150,6 +150,9 @@ func (s *Server) StartServer() error {
 	e.POST("/auth", s.Auth)
 	e.POST("/auth/refresh", s.RefreshToken)
 
+	// Token introspection endpoint
+	e.GET("/auth/me", s.GetMe, s.VaultAuthMiddleware)
+
 	// Token management endpoints
 	tokenGroup := e.Group("/auth/tokens", s.VaultAuthMiddleware)
 	tokenGroup.DELETE("/:tokenId", s.RevokeToken)
@@ -652,6 +655,16 @@ func (s *Server) GetActiveTokens(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, tokens))
+}
+
+func (s *Server) GetMe(c echo.Context) error {
+	publicKey, ok := c.Get("vault_public_key").(string)
+	if !ok || publicKey == "" {
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
+	}
+
+	resp := map[string]string{"public_key": publicKey}
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, resp))
 }
 
 // notifyPluginServerDeletePlugin user would like to delete a plugin, we need to notify the plugin server

@@ -184,7 +184,7 @@ ALTER SEQUENCE "fees_id_seq" OWNED BY "public"."fees"."id";
 
 CREATE TABLE "plugin_apikey" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "plugin_id" "plugin_id" NOT NULL,
+    "plugin_id" "text" NOT NULL,
     "apikey" "text" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "expires_at" timestamp with time zone,
@@ -194,7 +194,7 @@ CREATE TABLE "plugin_apikey" (
 
 CREATE TABLE "plugin_images" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "plugin_id" "plugin_id" NOT NULL,
+    "plugin_id" "text" NOT NULL,
     "image_type" "text" NOT NULL,
     "s3_path" "text" NOT NULL,
     "image_order" integer DEFAULT 0 NOT NULL,
@@ -210,13 +210,13 @@ CREATE TABLE "plugin_images" (
 );
 
 CREATE TABLE "plugin_installations" (
-    "plugin_id" "plugin_id" NOT NULL,
+    "plugin_id" "text" NOT NULL,
     "public_key" "text" NOT NULL,
     "installed_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 
 CREATE TABLE "plugin_owners" (
-    "plugin_id" "plugin_id" NOT NULL,
+    "plugin_id" "text" NOT NULL,
     "public_key" "text" NOT NULL,
     "active" boolean DEFAULT true NOT NULL,
     "role" "plugin_owner_role" DEFAULT 'admin'::"public"."plugin_owner_role" NOT NULL,
@@ -229,7 +229,7 @@ CREATE TABLE "plugin_owners" (
 
 CREATE TABLE "plugin_pause_history" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "plugin_id" "plugin_id" NOT NULL,
+    "plugin_id" "text" NOT NULL,
     "action" "text" NOT NULL,
     "report_count_window" integer,
     "active_users" integer,
@@ -268,7 +268,7 @@ CREATE TABLE "plugin_policy_billing" (
 CREATE TABLE "plugin_policy_sync" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "policy_id" "uuid" NOT NULL,
-    "plugin_id" "plugin_id" NOT NULL,
+    "plugin_id" "text" NOT NULL,
     "sync_type" integer NOT NULL,
     "signature" "text",
     "status" integer DEFAULT 0 NOT NULL,
@@ -278,7 +278,7 @@ CREATE TABLE "plugin_policy_sync" (
 );
 
 CREATE TABLE "plugin_ratings" (
-    "plugin_id" "plugin_id" NOT NULL,
+    "plugin_id" "text" NOT NULL,
     "avg_rating" numeric(3,2) DEFAULT 0 NOT NULL,
     "total_ratings" integer DEFAULT 0 NOT NULL,
     "rating_1_count" integer DEFAULT 0 NOT NULL,
@@ -290,7 +290,7 @@ CREATE TABLE "plugin_ratings" (
 );
 
 CREATE TABLE "plugin_reports" (
-    "plugin_id" "plugin_id" NOT NULL,
+    "plugin_id" "text" NOT NULL,
     "reporter_public_key" "text" NOT NULL,
     "reason" "text" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
@@ -300,12 +300,12 @@ CREATE TABLE "plugin_reports" (
 );
 
 CREATE TABLE "plugin_tags" (
-    "plugin_id" "plugin_id" NOT NULL,
+    "plugin_id" "text" NOT NULL,
     "tag_id" "uuid" NOT NULL
 );
 
 CREATE TABLE "plugins" (
-    "id" "plugin_id" NOT NULL,
+    "id" "text" NOT NULL,
     "title" character varying(255) NOT NULL,
     "description" "text" DEFAULT ''::"text" NOT NULL,
     "server_endpoint" "text" NOT NULL,
@@ -325,7 +325,7 @@ CREATE TABLE "pricings" (
     "amount" bigint NOT NULL,
     "asset" "pricing_asset" NOT NULL,
     "metric" "pricing_metric" NOT NULL,
-    "plugin_id" "plugin_id" NOT NULL,
+    "plugin_id" "text" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     CONSTRAINT "frequency_check" CHECK (((("type" = 'recurring'::"pricing_type") AND ("frequency" IS NOT NULL)) OR (("type" = ANY (ARRAY['per-tx'::"public"."pricing_type", 'once'::"public"."pricing_type"])) AND ("frequency" IS NULL))))
@@ -333,7 +333,7 @@ CREATE TABLE "pricings" (
 
 CREATE TABLE "reviews" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "plugin_id" "plugin_id",
+    "plugin_id" "text",
     "public_key" "text" NOT NULL,
     "rating" integer NOT NULL,
     "comment" "text",

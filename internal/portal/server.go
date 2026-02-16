@@ -354,7 +354,7 @@ func (s *Server) GetPluginPricings(c echo.Context) error {
 		}
 		response[i] = PluginPricingResponse{
 			ID:        p.ID.String(),
-			PluginID:  string(p.PluginID),
+			PluginID:  p.PluginID,
 			Type:      string(p.Type),
 			Frequency: freq,
 			Amount:    strconv.FormatInt(p.Amount, 10),
@@ -422,7 +422,7 @@ func (s *Server) GetPluginApiKeys(c echo.Context) error {
 		}
 		response[i] = PluginApiKeyResponse{
 			ID:        k.ID.String(),
-			PluginID:  string(k.PluginID),
+			PluginID:  k.PluginID,
 			ApiKey:    maskApiKey(k.Apikey),
 			CreatedAt: k.CreatedAt.Time.Format(time.RFC3339),
 			ExpiresAt: expiresAt,
@@ -585,7 +585,7 @@ func (s *Server) CreatePluginApiKey(c echo.Context) error {
 	// Return the full API key (only shown once)
 	return c.JSON(http.StatusCreated, CreateApiKeyResponse{
 		ID:        created.ID.String(),
-		PluginID:  string(created.PluginID),
+		PluginID:  created.PluginID,
 		ApiKey:    apiKey, // Full key returned only on creation
 		CreatedAt: created.CreatedAt.Time.Format(time.RFC3339),
 		ExpiresAt: expiresAtStr,
@@ -655,7 +655,7 @@ func (s *Server) UpdatePluginApiKey(c echo.Context) error {
 		s.logger.WithError(err).Error("failed to get API key")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
-	if string(existingKey.PluginID) != pluginID {
+	if existingKey.PluginID != pluginID {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "API key does not belong to this plugin"})
 	}
 
@@ -783,7 +783,7 @@ func (s *Server) DeletePluginApiKey(c echo.Context) error {
 		s.logger.WithError(err).Error("failed to get API key")
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
-	if string(existingKey.PluginID) != pluginID {
+	if existingKey.PluginID != pluginID {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "API key does not belong to this plugin"})
 	}
 
@@ -807,7 +807,7 @@ func (s *Server) DeletePluginApiKey(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, PluginApiKeyResponse{
 		ID:        expired.ID.String(),
-		PluginID:  string(expired.PluginID),
+		PluginID:  expired.PluginID,
 		ApiKey:    maskApiKey(expired.Apikey),
 		CreatedAt: expired.CreatedAt.Time.Format(time.RFC3339),
 		ExpiresAt: expiresAt,

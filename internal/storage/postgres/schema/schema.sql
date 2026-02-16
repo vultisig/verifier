@@ -314,7 +314,8 @@ CREATE TABLE "plugins" (
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "faqs" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
     "features" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
-    "audited" boolean DEFAULT false NOT NULL
+    "audited" boolean DEFAULT false NOT NULL,
+    "payout_address" "text"
 );
 
 CREATE TABLE "pricings" (

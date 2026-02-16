@@ -569,6 +569,7 @@ type Plugin struct {
 	Faqs           []byte             `json:"faqs"`
 	Features       []byte             `json:"features"`
 	Audited        bool               `json:"audited"`
+	PayoutAddress  pgtype.Text        `json:"payout_address"`
 }
 
 type PluginApikey struct {

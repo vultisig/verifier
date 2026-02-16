@@ -7,11 +7,13 @@ package queries
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getPluginByID = `-- name: GetPluginByID :one
 
-SELECT id, title, description, server_endpoint, category, created_at, updated_at, faqs, features, audited FROM plugins
+SELECT id, title, description, server_endpoint, category, created_at, updated_at, faqs, features, audited, payout_address FROM plugins
 WHERE id = $1
 `
 
@@ -30,12 +32,13 @@ func (q *Queries) GetPluginByID(ctx context.Context, id string) (*Plugin, error)
 		&i.Faqs,
 		&i.Features,
 		&i.Audited,
+		&i.PayoutAddress,
 	)
 	return &i, err
 }
 
 const getPluginByIDAndOwner = `-- name: GetPluginByIDAndOwner :one
-SELECT p.id, p.title, p.description, p.server_endpoint, p.category, p.created_at, p.updated_at, p.faqs, p.features, p.audited FROM plugins p
+SELECT p.id, p.title, p.description, p.server_endpoint, p.category, p.created_at, p.updated_at, p.faqs, p.features, p.audited, p.payout_address FROM plugins p
 JOIN plugin_owners po ON p.id = po.plugin_id
 WHERE p.id = $1 AND po.public_key = $2 AND po.active = true
 `
@@ -59,6 +62,7 @@ func (q *Queries) GetPluginByIDAndOwner(ctx context.Context, arg *GetPluginByIDA
 		&i.Faqs,
 		&i.Features,
 		&i.Audited,
+		&i.PayoutAddress,
 	)
 	return &i, err
 }
@@ -100,7 +104,7 @@ func (q *Queries) GetPluginPricings(ctx context.Context, pluginID string) ([]*Pr
 }
 
 const listPlugins = `-- name: ListPlugins :many
-SELECT id, title, description, server_endpoint, category, created_at, updated_at, faqs, features, audited FROM plugins
+SELECT id, title, description, server_endpoint, category, created_at, updated_at, faqs, features, audited, payout_address FROM plugins
 ORDER BY updated_at DESC
 `
 
@@ -124,6 +128,7 @@ func (q *Queries) ListPlugins(ctx context.Context) ([]*Plugin, error) {
 			&i.Faqs,
 			&i.Features,
 			&i.Audited,
+			&i.PayoutAddress,
 		); err != nil {
 			return nil, err
 		}
@@ -136,7 +141,7 @@ func (q *Queries) ListPlugins(ctx context.Context) ([]*Plugin, error) {
 }
 
 const listPluginsByOwner = `-- name: ListPluginsByOwner :many
-SELECT p.id, p.title, p.description, p.server_endpoint, p.category, p.created_at, p.updated_at, p.faqs, p.features, p.audited FROM plugins p
+SELECT p.id, p.title, p.description, p.server_endpoint, p.category, p.created_at, p.updated_at, p.faqs, p.features, p.audited, p.payout_address FROM plugins p
 JOIN plugin_owners po ON p.id = po.plugin_id
 WHERE po.public_key = $1 AND po.active = true
 ORDER BY p.updated_at DESC
@@ -162,6 +167,7 @@ func (q *Queries) ListPluginsByOwner(ctx context.Context, publicKey string) ([]*
 			&i.Faqs,
 			&i.Features,
 			&i.Audited,
+			&i.PayoutAddress,
 		); err != nil {
 			return nil, err
 		}
@@ -179,16 +185,18 @@ SET
     title = $2,
     description = $3,
     server_endpoint = $4,
+    payout_address = $5,
     updated_at = now()
 WHERE id = $1
-RETURNING id, title, description, server_endpoint, category, created_at, updated_at, faqs, features, audited
+RETURNING id, title, description, server_endpoint, category, created_at, updated_at, faqs, features, audited, payout_address
 `
 
 type UpdatePluginParams struct {
-	ID             string `json:"id"`
-	Title          string `json:"title"`
-	Description    string `json:"description"`
-	ServerEndpoint string `json:"server_endpoint"`
+	ID             string      `json:"id"`
+	Title          string      `json:"title"`
+	Description    string      `json:"description"`
+	ServerEndpoint string      `json:"server_endpoint"`
+	PayoutAddress  pgtype.Text `json:"payout_address"`
 }
 
 func (q *Queries) UpdatePlugin(ctx context.Context, arg *UpdatePluginParams) (*Plugin, error) {
@@ -197,6 +205,7 @@ func (q *Queries) UpdatePlugin(ctx context.Context, arg *UpdatePluginParams) (*P
 		arg.Title,
 		arg.Description,
 		arg.ServerEndpoint,
+		arg.PayoutAddress,
 	)
 	var i Plugin
 	err := row.Scan(
@@ -210,6 +219,7 @@ func (q *Queries) UpdatePlugin(ctx context.Context, arg *UpdatePluginParams) (*P
 		&i.Faqs,
 		&i.Features,
 		&i.Audited,
+		&i.PayoutAddress,
 	)
 	return &i, err
 }

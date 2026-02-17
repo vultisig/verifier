@@ -173,6 +173,32 @@ func (q *Queries) ListPluginsByOwner(ctx context.Context, publicKey string) ([]*
 	return items, nil
 }
 
+const publishPlugin = `-- name: PublishPlugin :one
+INSERT INTO plugins (id, title, description, server_endpoint, category)
+SELECT plugin_id, title, description, server_endpoint, category
+FROM proposed_plugins
+WHERE plugin_id = $1 AND status = 'approved'
+RETURNING id, title, description, server_endpoint, category, created_at, updated_at, faqs, features, audited
+`
+
+func (q *Queries) PublishPlugin(ctx context.Context, pluginID string) (*Plugin, error) {
+	row := q.db.QueryRow(ctx, publishPlugin, pluginID)
+	var i Plugin
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Description,
+		&i.ServerEndpoint,
+		&i.Category,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Faqs,
+		&i.Features,
+		&i.Audited,
+	)
+	return &i, err
+}
+
 const updatePlugin = `-- name: UpdatePlugin :one
 UPDATE plugins
 SET

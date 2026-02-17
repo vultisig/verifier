@@ -309,7 +309,6 @@ func (p *PostgresBackend) FindPlugins(
 	var argsTotal []any
 	currentArgNumber := 1
 
-	// filters
 	filterClause := "WHERE"
 	if filters.Term != nil {
 		queryFilter := fmt.Sprintf(

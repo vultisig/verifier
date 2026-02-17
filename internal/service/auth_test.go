@@ -485,6 +485,11 @@ func (m *MockDatabaseStorage) GetNextMediaOrder(ctx context.Context, pluginID ty
 	return args.Int(0), args.Error(1)
 }
 
+func (m *MockDatabaseStorage) IsProposedPluginApproved(ctx context.Context, pluginID string) (bool, error) {
+	args := m.Called(ctx, pluginID)
+	return args.Bool(0), args.Error(1)
+}
+
 func TestGenerateTokenPair(t *testing.T) {
 	testCases := []struct {
 		name          string

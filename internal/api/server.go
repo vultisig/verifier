@@ -205,6 +205,7 @@ func (s *Server) StartServer() error {
 	pluginsGroup.GET("/:pluginId/skills", s.GetPluginSkills)
 	pluginsGroup.GET("/:pluginId/average-rating", s.GetPluginAvgRating)
 	pluginsGroup.POST("/:pluginId/report", s.ReportPlugin, s.VaultAuthMiddleware)
+	pluginsGroup.GET("/proposed/validate/:pluginId", s.ValidateProposedPlugin, s.VaultAuthMiddleware)
 
 	categoriesGroup := e.Group("/categories")
 	categoriesGroup.GET("", s.GetCategories)

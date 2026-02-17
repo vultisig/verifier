@@ -1182,56 +1182,44 @@ func (s *Server) UpdatePlugin(c echo.Context) error {
 	}
 
 	// Validate payout address field
+	normalizedReqPayout := ""
+	if req.PayoutAddress != "" {
+		if !common.IsHexAddress(req.PayoutAddress) {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid payout address format"})
+		}
+		normalizedReqPayout = common.HexToAddress(req.PayoutAddress).Hex()
+	}
+	normalizedExistingPayout := ""
+	if existingPlugin.PayoutAddress.Valid && existingPlugin.PayoutAddress.String != "" {
+		normalizedExistingPayout = common.HexToAddress(existingPlugin.PayoutAddress.String).Hex()
+	}
+
 	if fieldUpdate, ok := updateMap["payoutAddress"]; ok {
 		// Only admins can modify payout address
 		if owner.Role != queries.PluginOwnerRoleAdmin {
 			return c.JSON(http.StatusForbidden, map[string]string{"error": "only admins can modify payout address"})
 		}
-
-		// Validate and normalize new address
-		normalizedNew := ""
-		if req.PayoutAddress != "" {
-			if !common.IsHexAddress(req.PayoutAddress) {
-				return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid payout address format"})
-			}
-			normalizedNew = common.HexToAddress(req.PayoutAddress).Hex()
-		}
-
-		// Normalize old address for comparison
-		normalizedOld := ""
-		if existingPlugin.PayoutAddress.Valid && existingPlugin.PayoutAddress.String != "" {
-			normalizedOld = common.HexToAddress(existingPlugin.PayoutAddress.String).Hex()
-		}
-
 		// Verify signed values match
-		if fieldUpdate.NewValue != normalizedNew {
+		if fieldUpdate.NewValue != normalizedReqPayout {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "payout address does not match signed value"})
 		}
-		if fieldUpdate.OldValue != normalizedOld {
+		if fieldUpdate.OldValue != normalizedExistingPayout {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "payout address old value does not match current value"})
 		}
-	} else if req.PayoutAddress != "" {
-		// If not being updated, unsigned changes not allowed
-		if !common.IsHexAddress(req.PayoutAddress) {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid payout address format"})
-		}
-		normalizedReq := common.HexToAddress(req.PayoutAddress).Hex()
-
-		normalizedExisting := ""
-		if existingPlugin.PayoutAddress.Valid && existingPlugin.PayoutAddress.String != "" {
-			normalizedExisting = common.HexToAddress(existingPlugin.PayoutAddress.String).Hex()
-		}
-
-		if normalizedReq != normalizedExisting {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "payout address change must be signed"})
-		}
+	} else if normalizedReqPayout != "" && normalizedReqPayout != normalizedExistingPayout {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "payout address change must be signed"})
 	}
 
 	// Normalize payout address before storing
-	var normalizedPayoutAddress pgtype.Text
-	if req.PayoutAddress != "" {
-		normalizedPayoutAddress = pgtype.Text{
-			String: common.HexToAddress(req.PayoutAddress).Hex(),
+	var payoutAddress pgtype.Text
+	if normalizedReqPayout != "" {
+		payoutAddress = pgtype.Text{
+			String: normalizedReqPayout,
+			Valid:  true,
+		}
+	} else {
+		payoutAddress = pgtype.Text{
+			String: normalizedExistingPayout,
 			Valid:  true,
 		}
 	}
@@ -1242,7 +1230,7 @@ func (s *Server) UpdatePlugin(c echo.Context) error {
 		Title:          req.Title,
 		Description:    req.Description,
 		ServerEndpoint: req.ServerEndpoint,
-		PayoutAddress:  normalizedPayoutAddress,
+		PayoutAddress:  payoutAddress,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

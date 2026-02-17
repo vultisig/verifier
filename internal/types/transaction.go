@@ -78,9 +78,8 @@ func getProgress(status storage.TxStatus, statusOnchain *rpc.TxOnChainStatus, br
 		case rpc.TxOnChainPending:
 			if broadcastedAt != nil {
 				return 80
-			} else {
-				return 60
 			}
+			return 60
 		default:
 			return 60
 		}

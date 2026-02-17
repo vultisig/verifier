@@ -1217,11 +1217,10 @@ func (s *Server) UpdatePlugin(c echo.Context) error {
 			String: normalizedReqPayout,
 			Valid:  true,
 		}
+	} else if _, isUpdating := updateMap["payoutAddress"]; isUpdating {
+		payoutAddress = pgtype.Text{Valid: false}
 	} else {
-		payoutAddress = pgtype.Text{
-			String: normalizedExistingPayout,
-			Valid:  true,
-		}
+		payoutAddress = existingPlugin.PayoutAddress
 	}
 
 	// Update the plugin with validated request values

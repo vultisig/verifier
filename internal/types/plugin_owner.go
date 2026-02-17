@@ -15,9 +15,11 @@ const (
 type PluginOwnerAddedVia string
 
 const (
-	PluginOwnerAddedViaBootstrap PluginOwnerAddedVia = "bootstrap_plugin_key"
-	PluginOwnerAddedViaOwnerAPI  PluginOwnerAddedVia = "owner_api"
-	PluginOwnerAddedViaAdminCLI  PluginOwnerAddedVia = "admin_cli"
+	PluginOwnerAddedViaBootstrap    PluginOwnerAddedVia = "bootstrap_plugin_key"
+	PluginOwnerAddedViaOwnerAPI     PluginOwnerAddedVia = "owner_api"
+	PluginOwnerAddedViaAdminCLI     PluginOwnerAddedVia = "admin_cli"
+	PluginOwnerAddedViaMagicLink    PluginOwnerAddedVia = "magic_link"
+	PluginOwnerAddedViaPortalCreate PluginOwnerAddedVia = "portal_create"
 )
 
 type PluginOwner struct {

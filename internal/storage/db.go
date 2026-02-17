@@ -29,6 +29,7 @@ type DatabaseStorage interface {
 	VaultTokenRepository
 	PricingRepository
 	PluginRepository
+	ProposedPluginRepository
 	PluginOwnerRepository
 	PluginImageRepository
 	FeeRepository
@@ -87,6 +88,10 @@ type PluginRepository interface {
 	GetPluginTitlesByIDs(ctx context.Context, ids []string) (map[string]string, error)
 
 	Pool() *pgxpool.Pool
+}
+
+type ProposedPluginRepository interface {
+	IsProposedPluginApproved(ctx context.Context, pluginID string) (bool, error)
 }
 
 type PluginOwnerRepository interface {

@@ -14,7 +14,7 @@ type Storage interface {
 	GetAllPluginPolicies(
 		ctx context.Context,
 		publicKey string,
-		pluginID types.PluginID,
+		pluginID string,
 		onlyActive bool,
 	) ([]types.PluginPolicy, error)
 	DeletePluginPolicy(ctx context.Context, id uuid.UUID) error

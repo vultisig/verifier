@@ -13,7 +13,6 @@ import (
 	"github.com/vultisig/mobile-tss-lib/tss"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/rpc"
 	"github.com/vultisig/verifier/plugin/tx_indexer/pkg/storage"
-	"github.com/vultisig/verifier/types"
 	"github.com/vultisig/vultisig-go/common"
 	"golang.org/x/sync/errgroup"
 )
@@ -160,7 +159,7 @@ func (t *Service) GetByPolicyID(
 
 func (t *Service) GetByPluginIDAndPublicKey(
 	c context.Context,
-	pluginID types.PluginID,
+	pluginID string,
 	publicKey string,
 	skip, take uint32,
 ) ([]storage.Tx, uint32, error) {

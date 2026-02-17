@@ -112,7 +112,7 @@ func TestWorker_positive(t *testing.T) {
 		require.Nil(t, err)
 
 		txBefore, err := db.CreateTx(ctx, storage.CreateTxDto{
-			PluginID:      "vultisig-payroll-0000",
+			PluginID:      "vultisig-recurring-sends-0000",
 			ChainID:       testcase.chain,
 			PolicyID:      policyID,
 			FromPublicKey: testcase.fromPublicKey,

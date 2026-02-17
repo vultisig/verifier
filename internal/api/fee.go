@@ -17,11 +17,11 @@ import (
 )
 
 func (s *Server) GetPublicKeyFees(c echo.Context) error {
-	pluginID, ok := c.Get("plugin_id").(types.PluginID)
+	pluginID, ok := c.Get("plugin_id").(string)
 	if !ok || pluginID == "" {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredPluginID))
 	}
-	if pluginID != types.PluginVultisigFees_feee {
+	if pluginID != itypes.PluginVultisigFees {
 		return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage("unauthorized"))
 	}
 
@@ -137,7 +137,7 @@ func (s *Server) GetPluginFeeHistory(c echo.Context) error {
 
 	fees, totalCount, err := s.db.GetFeesByPluginID(
 		c.Request().Context(),
-		types.PluginID(pluginID),
+		pluginID,
 		publicKey,
 		skip,
 		take,
@@ -204,7 +204,7 @@ func (s *Server) GetPluginBillingSummary(c echo.Context) error {
 	for i, row := range rows {
 		pricings := pricingsMap[row.PluginID]
 		summaries[i] = itypes.PluginBillingSummary{
-			PluginID:    types.PluginID(row.PluginID),
+			PluginID:    row.PluginID,
 			AppName:     titleMap[row.PluginID],
 			Pricing:     formatPricings(pricings),
 			StartDate:   row.StartDate.UTC(),

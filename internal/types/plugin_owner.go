@@ -2,8 +2,6 @@ package types
 
 import (
 	"time"
-
-	vtypes "github.com/vultisig/verifier/types"
 )
 
 type PluginOwnerRole string
@@ -23,7 +21,7 @@ const (
 )
 
 type PluginOwner struct {
-	PluginID         vtypes.PluginID     `json:"plugin_id"`
+	PluginID         string              `json:"plugin_id"`
 	PublicKey        string              `json:"public_key"`
 	Active           bool                `json:"active"`
 	Role             PluginOwnerRole     `json:"role"`

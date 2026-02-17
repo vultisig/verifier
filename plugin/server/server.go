@@ -477,7 +477,7 @@ func (s *Server) verifyPolicySignature(policy vtypes.PluginPolicy) bool {
 		s.logger.WithError(err).Error("Failed to decode signature bytes")
 		return false
 	}
-	vault, err := s.getVault(policy.PublicKey, policy.PluginID.String())
+	vault, err := s.getVault(policy.PublicKey, policy.PluginID)
 	if err != nil {
 		s.logger.WithError(err).Error("fail to get vault")
 		return false

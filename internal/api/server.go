@@ -32,6 +32,7 @@ import (
 	"github.com/vultisig/verifier/internal/storage"
 	"github.com/vultisig/verifier/internal/storage/postgres"
 	"github.com/vultisig/verifier/internal/syncer"
+	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/plugin/tasks"
 	"github.com/vultisig/verifier/plugin/tx_indexer"
 	vtypes "github.com/vultisig/verifier/types"
@@ -293,7 +294,7 @@ func (s *Server) ReshareVault(c echo.Context) error {
 // notifyPluginServerReshare sends the reshare request to the plugin server
 func (s *Server) notifyPluginServerReshare(ctx context.Context, req vtypes.ReshareRequest) error {
 	// Look up plugin server endpoint
-	plugin, err := s.db.FindPluginById(ctx, nil, vtypes.PluginID(req.PluginID))
+	plugin, err := s.db.FindPluginById(ctx, nil, req.PluginID)
 	if err != nil {
 		return fmt.Errorf("failed to find plugin: %w", err)
 	}
@@ -655,13 +656,13 @@ func (s *Server) GetActiveTokens(c echo.Context) error {
 }
 
 // notifyPluginServerDeletePlugin user would like to delete a plugin, we need to notify the plugin server
-func (s *Server) notifyPluginServerDeletePlugin(ctx context.Context, id vtypes.PluginID, publicKeyEcdsa string) error {
+func (s *Server) notifyPluginServerDeletePlugin(ctx context.Context, id string, publicKeyEcdsa string) error {
 	// Look up plugin server endpoint
 	plugin, err := s.db.FindPluginById(ctx, nil, id)
 	if err != nil {
 		return fmt.Errorf("failed to find plugin: %w", err)
 	}
-	keyInfo, err := s.db.GetAPIKeyByPluginId(ctx, id.String())
+	keyInfo, err := s.db.GetAPIKeyByPluginId(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to get api key by id: %w", err)
 	}
@@ -706,16 +707,16 @@ func (s *Server) DeletePlugin(c echo.Context) error {
 	if !ok || publicKey == "" {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
 	}
-	if pluginID == vtypes.PluginVultisigFees_feee.String() {
+	if pluginID == itypes.PluginVultisigFees {
 		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage("Unable to uninstall due to outstanding fees"))
 	}
 
-	if err := s.notifyPluginServerDeletePlugin(c.Request().Context(), vtypes.PluginID(pluginID), publicKey); err != nil {
+	if err := s.notifyPluginServerDeletePlugin(c.Request().Context(), pluginID, publicKey); err != nil {
 		s.logger.WithError(err).Errorf("Failed to notify plugin server for deletion of plugin %s", pluginID)
 		return c.JSON(http.StatusServiceUnavailable, NewErrorResponseWithMessage(msgPluginServerUnavailable))
 	}
 	// remove plugin policies
-	if err := s.policyService.DeleteAllPolicies(c.Request().Context(), vtypes.PluginID(pluginID), publicKey); err != nil {
+	if err := s.policyService.DeleteAllPolicies(c.Request().Context(), pluginID, publicKey); err != nil {
 		s.logger.Errorf("Failed to delete plugin policies: %v", err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgPoliciesDeleteFailed))
 	}

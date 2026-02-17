@@ -30,6 +30,13 @@ SET
 WHERE id = $1
 RETURNING *;
 
+-- name: PublishPlugin :one
+INSERT INTO plugins (id, title, description, server_endpoint, category)
+SELECT plugin_id, title, description, server_endpoint, category
+FROM proposed_plugins
+WHERE plugin_id = $1 AND status = 'approved'
+RETURNING *;
+
 -- name: GetPluginPricings :many
 SELECT * FROM pricings
 WHERE plugin_id = $1

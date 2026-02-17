@@ -114,6 +114,19 @@ type PortalConfig struct {
 	MaxMediaImagesPerPlugin int                `mapstructure:"max_media_images_per_plugin" json:"max_media_images_per_plugin,omitempty"`
 	MaxImageSizeBytes       int64              `mapstructure:"max_image_size_bytes" json:"max_image_size_bytes,omitempty"`
 	PresignedURLExpiry      time.Duration      `mapstructure:"presigned_url_expiry" json:"presigned_url_expiry,omitempty"`
+	Email                   PortalEmailConfig  `mapstructure:"email" json:"email,omitempty"`
+	DeveloperServiceURL     string             `mapstructure:"developer_service_url" json:"developer_service_url,omitempty"`
+}
+
+type PortalEmailConfig struct {
+	MandrillAPIKey     string   `mapstructure:"mandrill_api_key" json:"mandrill_api_key,omitempty"`
+	FromEmail          string   `mapstructure:"from_email" json:"from_email,omitempty"`
+	FromName           string   `mapstructure:"from_name" json:"from_name,omitempty"`
+	NotificationEmails []string `mapstructure:"notification_emails" json:"notification_emails,omitempty"`
+}
+
+func (c PortalEmailConfig) IsConfigured() bool {
+	return c.MandrillAPIKey != "" && c.FromEmail != "" && len(c.NotificationEmails) > 0
 }
 
 func GetConfigure() (*WorkerConfig, error) {

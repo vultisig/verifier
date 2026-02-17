@@ -1,8 +1,8 @@
-INSERT INTO plugins (id, title, description, server_endpoint, category) VALUES 
+INSERT INTO plugins (id, title, description, server_endpoint, category) VALUES
 -- DCA Plugin with per-transaction pricing
 (
-    'vultisig-dca-0000', 
-    'Vultisig DCA Plugin', 
+    'vultisig-dca-0000',
+    'Vultisig DCA Plugin',
     'Dollar Cost Averaging automation for cryptocurrency investments. Automatically execute recurring buy orders based on predefined schedules and strategies.',
     'http://dca-server:8080',
     'app'
@@ -11,7 +11,7 @@ INSERT INTO plugins (id, title, description, server_endpoint, category) VALUES
 -- Payroll Plugin with monthly pricing
 (
     'vultisig-payroll-0000',
-    'Vultisig Payroll Plugin', 
+    'Vultisig Payroll Plugin',
     'Automated payroll system for cryptocurrency payments. Handle employee payments, tax calculations, and compliance reporting.',
     'http://payroll-server:8080',
     'app'

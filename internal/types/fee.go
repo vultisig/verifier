@@ -1,7 +1,13 @@
 package types
 
 import (
+	"errors"
+
 	"github.com/vultisig/recipes/types"
+)
+
+var (
+	ErrBillingNotInstalled = errors.New("billing not installed")
 )
 
 type CreditMetadata struct {

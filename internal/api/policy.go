@@ -71,20 +71,13 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 	if policy.ID == uuid.Nil {
 		policy.ID = uuid.New()
 	}
-	publicKey, ok := c.Get("vault_public_key").(string)
-	if !ok || publicKey == "" {
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
-	}
-	if policy.PublicKey != publicKey {
-		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgPublicKeyMismatch))
-	}
 
 	var (
 		isTrialActive bool
 		err           error
 	)
 	err = s.db.WithTransaction(c.Request().Context(), func(ctx context.Context, tx pgx.Tx) error {
-		isTrialActive, _, err = s.db.IsTrialActive(ctx, tx, publicKey)
+		isTrialActive, _, err = s.db.IsTrialActive(ctx, tx, policy.PublicKey)
 		return err
 	})
 	if err != nil {
@@ -92,7 +85,7 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 	}
 
 	if !isTrialActive {
-		filePathName := common.GetVaultBackupFilename(publicKey, vtypes.PluginVultisigFees_feee.String())
+		filePathName := common.GetVaultBackupFilename(policy.PublicKey, vtypes.PluginVultisigFees_feee.String())
 		exist, err := s.vaultStorage.Exist(filePathName)
 		if err != nil {
 			s.logger.WithError(err).Error("failed to check vault existence")

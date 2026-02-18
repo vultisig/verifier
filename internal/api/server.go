@@ -157,27 +157,27 @@ func (s *Server) StartServer() error {
 	tokenGroup.GET("", s.GetActiveTokens)
 
 	// Protected vault endpoints
-	vaultGroup := e.Group("/vault", s.VaultAuthMiddleware)
+	vaultGroup := e.Group("/vault")
 	// Reshare vault endpoint, only user who already log in can request resharing
 	vaultGroup.POST("/reshare", s.ReshareVault)
-	vaultGroup.GET("/get/:pluginId/:publicKeyECDSA", s.GetVault)     // Get Vault Data
-	vaultGroup.GET("/exist/:pluginId/:publicKeyECDSA", s.ExistVault) // Check if Vault exists
+	vaultGroup.GET("/get/:pluginId/:publicKeyECDSA", s.GetVault, s.VaultAuthMiddleware) // Get Vault Data
+	vaultGroup.GET("/exist/:pluginId/:publicKeyECDSA", s.ExistVault)                    // Check if Vault exists
 
 	// Sign endpoint, plugin should authenticate themselves using the API Key issued by the Verifier
 	pluginSigner := e.Group("/plugin-signer", s.PluginAuthMiddleware)
 	pluginSigner.POST("/sign", s.SignPluginMessages)               // Sign messages
 	pluginSigner.GET("/sign/response/:taskId", s.GetKeysignResult) // Get keysign result
 
-	pluginGroup := e.Group("/plugin", s.VaultAuthMiddleware)
-	pluginGroup.DELETE("/:pluginId", s.DeletePlugin) // Delete plugin
-	pluginGroup.POST("/policy", s.CreatePluginPolicy)
+	pluginGroup := e.Group("/plugin")
+	pluginGroup.DELETE("/:pluginId", s.DeletePlugin, s.VaultAuthMiddleware)
+	pluginGroup.POST("/policy", s.CreatePluginPolicy) // Every valid request should be signed
 	pluginGroup.PUT("/policy", s.UpdatePluginPolicyById)
-	pluginGroup.GET("/policies/:pluginId", s.GetAllPluginPolicies)
-	pluginGroup.GET("/policy/:policyId", s.GetPluginPolicyById)
-	pluginGroup.GET("/policy/:pluginId/total-count", s.GetPluginInstallationsCountByID)
-	pluginGroup.DELETE("/policy/:policyId", s.DeletePluginPolicyById)
-	pluginGroup.GET("/policies/:policyId/history", s.GetPluginPolicyTransactionHistory)
-	pluginGroup.GET("/transactions", s.GetPluginTransactionHistory)
+	pluginGroup.GET("/policies/:pluginId", s.GetAllPluginPolicies, s.VaultAuthMiddleware)
+	pluginGroup.GET("/policy/:policyId", s.GetPluginPolicyById, s.VaultAuthMiddleware)
+	pluginGroup.GET("/policy/:pluginId/total-count", s.GetPluginInstallationsCountByID, s.VaultAuthMiddleware)
+	pluginGroup.DELETE("/policy/:policyId", s.DeletePluginPolicyById, s.VaultAuthMiddleware)
+	pluginGroup.GET("/policies/:policyId/history", s.GetPluginPolicyTransactionHistory, s.VaultAuthMiddleware)
+	pluginGroup.GET("/transactions", s.GetPluginTransactionHistory, s.VaultAuthMiddleware)
 
 	// fee group. These should only be accessible by the plugin server
 	feeGroup := e.Group("/fees", s.PluginAuthMiddleware)

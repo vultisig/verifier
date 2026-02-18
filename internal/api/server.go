@@ -150,7 +150,6 @@ func (s *Server) StartServer() error {
 	e.POST("/auth", s.Auth)
 	e.POST("/auth/refresh", s.RefreshToken)
 
-	// Token introspection endpoint
 	e.GET("/auth/me", s.GetMe, s.VaultAuthMiddleware)
 
 	// Token management endpoints

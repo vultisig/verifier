@@ -147,6 +147,10 @@ const (
 	msgInvalidSignatureFormat      = "invalid signature format"
 	msgSignatureVerificationFailed = "signature verification failed"
 
+	// Proposed plugins
+	msgProposedPluginValidateFailed = "failed to validate proposed plugin"
+	msgProposedPluginNotApproved    = "proposed plugin not found or not approved"
+
 	// General
 	msgInvalidRequestFormat    = "invalid request format"
 	msgRequestValidationFailed = "request validation failed"

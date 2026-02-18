@@ -50,6 +50,7 @@ func main() {
 			Enabled: true,
 			Host:    cfg.Metrics.Host,
 			Port:    cfg.Metrics.Port,
+			Token:   cfg.Metrics.Token,
 		}
 		_ = internalMetrics.StartMetricsServer(metricsConfig, []string{internalMetrics.ServiceTxIndexer}, logger)
 

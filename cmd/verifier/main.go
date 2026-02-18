@@ -83,7 +83,6 @@ func main() {
 		supportedChains,
 	)
 
-	// Initialize metrics based on configuration
 	var httpMetrics *internalMetrics.HTTPMetrics
 	var appStoreCollector *internalMetrics.AppStoreCollector
 	if cfg.Metrics.Enabled {
@@ -94,9 +93,9 @@ func main() {
 			Enabled: true,
 			Host:    cfg.Metrics.Host,
 			Port:    cfg.Metrics.Port,
+			Token:   cfg.Metrics.Token,
 		}, services, logger)
 
-		// Create HTTP metrics implementation
 		httpMetrics = internalMetrics.NewHTTPMetrics()
 
 		appStoreMetrics := internalMetrics.NewAppStoreMetrics()

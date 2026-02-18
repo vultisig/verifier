@@ -115,15 +115,15 @@ func (s *Server) GetRouter() *echo.Echo {
 	e.GET("/healthz", s.handleHealthz)
 
 	vlt := e.Group("/vault")
-	vlt.POST("/reshare", s.handleReshareVault, s.VerifierAuthMiddleware)
+	vlt.POST("/reshare", s.handleReshareVault)
 	vlt.GET("/get/:pluginId/:publicKeyECDSA", s.handleGetVault)
 	vlt.GET("/exist/:pluginId/:publicKeyECDSA", s.handleExistVault)
 	vlt.GET("/sign/response/:taskId", s.handleGetKeysignResult)
 	vlt.DELETE("/:pluginId/:publicKeyECDSA", s.handleDeleteVault, s.VerifierAuthMiddleware)
 
 	plg := e.Group("/plugin")
-	plg.POST("/policy", s.handleCreatePluginPolicy, s.VerifierAuthMiddleware)
-	plg.PUT("/policy", s.handleUpdatePluginPolicyById, s.VerifierAuthMiddleware)
+	plg.POST("/policy", s.handleCreatePluginPolicy)
+	plg.PUT("/policy", s.handleUpdatePluginPolicyById)
 	plg.GET("/recipe-specification", s.handleGetRecipeSpecification)
 	plg.POST("/recipe-specification/suggest", s.handleGetRecipeSpecificationSuggest)
 	plg.DELETE("/policy/:policyId", s.handleDeletePluginPolicyById, s.VerifierAuthMiddleware)

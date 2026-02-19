@@ -125,6 +125,7 @@ func (bs *BlockStorageImp) GetFile(fileName string) ([]byte, error) {
 	}()
 	return io.ReadAll(output.Body)
 }
+
 func (bs *BlockStorageImp) DeleteFile(fileName string) error {
 	_, err := bs.s3Client.DeleteObject(&s3.DeleteObjectInput{
 		Bucket: aws.String(bs.cfg.Bucket),

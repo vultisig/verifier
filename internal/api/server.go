@@ -408,14 +408,15 @@ func (s *Server) GetVault(c echo.Context) error {
 func (s *Server) GetKeysignResult(c echo.Context) error {
 	taskID := c.Param("taskId")
 	if taskID == "" {
-		return errors.New(msgRequiredTaskID)
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequiredTaskID))
 	}
 	result, err := tasks.GetTaskResult(s.inspector, taskID)
 	if err != nil {
 		if err.Error() == "task is still in progress" {
 			return c.JSON(http.StatusOK, "Task is still in progress")
 		}
-		return err
+		s.logger.WithError(err).Error("failed to get task result")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage("failed to get task result"))
 	}
 
 	return c.JSON(http.StatusOK, result)

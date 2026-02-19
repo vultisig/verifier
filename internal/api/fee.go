@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
+	"github.com/vultisig/vultisig-go/common"
 
 	"github.com/vultisig/verifier/internal/conv"
 	itypes "github.com/vultisig/verifier/internal/types"
@@ -113,6 +114,18 @@ func (s *Server) GetUserFees(c echo.Context) error {
 	if err != nil {
 		s.logger.WithError(err).Warnf("Failed to check trial info")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgGetUserTrialInfo))
+	}
+
+	if !status.IsTrialActive {
+		filePathName := common.GetVaultBackupFilename(publicKey, types.PluginVultisigFees_feee.String())
+		exist, err := s.vaultStorage.Exist(filePathName)
+		if err != nil {
+			errMsg := "failed to check vault existence"
+			return s.internal(c, errMsg, err)
+		}
+		if !exist {
+			status.Message = msgAccessDeniedBilling
+		}
 	}
 
 	return c.JSON(http.StatusOK, status)

@@ -14,6 +14,13 @@ import (
 const addPluginTeamMember = `-- name: AddPluginTeamMember :one
 INSERT INTO plugin_owners (plugin_id, public_key, role, added_via, added_by_public_key, link_id)
 VALUES ($1, $2, $3, 'magic_link', $4, $5)
+ON CONFLICT (plugin_id, public_key) DO UPDATE SET
+    active = true,
+    role = EXCLUDED.role,
+    added_via = EXCLUDED.added_via,
+    added_by_public_key = EXCLUDED.added_by_public_key,
+    link_id = EXCLUDED.link_id,
+    updated_at = NOW()
 RETURNING plugin_id, public_key, active, role, added_via, added_by_public_key, created_at, updated_at, link_id
 `
 
@@ -25,7 +32,6 @@ type AddPluginTeamMemberParams struct {
 	LinkID           pgtype.UUID     `json:"link_id"`
 }
 
-// Add a new team member via magic link invite
 func (q *Queries) AddPluginTeamMember(ctx context.Context, arg *AddPluginTeamMemberParams) (*PluginOwner, error) {
 	row := q.db.QueryRow(ctx, addPluginTeamMember,
 		arg.PluginID,
@@ -59,6 +65,39 @@ func (q *Queries) CheckLinkIdUsed(ctx context.Context, linkID pgtype.UUID) (bool
 	var used bool
 	err := row.Scan(&used)
 	return used, err
+}
+
+const createPluginOwnerFromPortal = `-- name: CreatePluginOwnerFromPortal :one
+INSERT INTO plugin_owners (plugin_id, public_key, role, added_via)
+VALUES ($1, $2, 'admin', 'portal_create')
+ON CONFLICT (plugin_id, public_key) DO UPDATE SET
+    active = true,
+    role = 'admin',
+    added_via = 'portal_create',
+    updated_at = NOW()
+RETURNING plugin_id, public_key, active, role, added_via, added_by_public_key, created_at, updated_at, link_id
+`
+
+type CreatePluginOwnerFromPortalParams struct {
+	PluginID  string `json:"plugin_id"`
+	PublicKey string `json:"public_key"`
+}
+
+func (q *Queries) CreatePluginOwnerFromPortal(ctx context.Context, arg *CreatePluginOwnerFromPortalParams) (*PluginOwner, error) {
+	row := q.db.QueryRow(ctx, createPluginOwnerFromPortal, arg.PluginID, arg.PublicKey)
+	var i PluginOwner
+	err := row.Scan(
+		&i.PluginID,
+		&i.PublicKey,
+		&i.Active,
+		&i.Role,
+		&i.AddedVia,
+		&i.AddedByPublicKey,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LinkID,
+	)
+	return &i, err
 }
 
 const getPluginOwner = `-- name: GetPluginOwner :one

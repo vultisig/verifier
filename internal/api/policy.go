@@ -190,18 +190,13 @@ func (s *Server) UpdatePluginPolicyById(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgRequestParseFailed))
 	}
 
-	publicKey, ok := c.Get("vault_public_key").(string)
-	if !ok || publicKey == "" {
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgVaultPublicKeyGetFailed))
-	}
-
 	oldPolicy, err := s.policyService.GetPluginPolicy(c.Request().Context(), policy.ID)
 	if err != nil {
 		s.logger.WithError(err).Errorf("failed to get plugin policy, id:%s", policy.ID)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgPolicyGetFailed))
 	}
 
-	if oldPolicy.PublicKey != publicKey || policy.PublicKey != publicKey {
+	if oldPolicy.PublicKey != policy.PublicKey {
 		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgPublicKeyMismatch))
 	}
 

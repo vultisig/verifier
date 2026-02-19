@@ -1799,7 +1799,7 @@ func (s *Server) ApprovePluginProposal(c echo.Context) error {
 
 	address, err := s.requireApprover(c)
 	if err != nil {
-		return err
+		return s.handleApproverError(c, err)
 	}
 
 	var req ApprovePluginProposalRequest
@@ -1845,7 +1845,7 @@ func (s *Server) PublishPluginProposal(c echo.Context) error {
 
 	address, err := s.requireApprover(c)
 	if err != nil {
-		return err
+		return s.handleApproverError(c, err)
 	}
 
 	ctx := c.Request().Context()

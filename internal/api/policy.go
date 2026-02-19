@@ -17,9 +17,11 @@ import (
 	v1 "github.com/vultisig/commondata/go/vultisig/vault/v1"
 	"github.com/vultisig/recipes/engine"
 	rtypes "github.com/vultisig/recipes/types"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/vultisig/verifier/internal/sigutil"
+	itypes "github.com/vultisig/verifier/internal/types"
 	"github.com/vultisig/verifier/types"
 	vtypes "github.com/vultisig/verifier/types"
 	"github.com/vultisig/vultisig-go/address"
@@ -327,7 +329,15 @@ func (s *Server) GetPluginPolicyById(c echo.Context) error {
 	if policy.PublicKey != publicKey {
 		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgPublicKeyMismatch))
 	}
-	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, policy))
+	count, err := s.txIndexerService.CountByPolicyID(c.Request().Context(), policyUUID)
+	if err != nil {
+		s.logger.WithError(err).Warnf("failed to get tx count for policy %s", policyUUID)
+	}
+	resp := itypes.PluginPolicyResponse{
+		PluginPolicy: *policy,
+		Progress:     itypes.Progress{Kind: itypes.ProgressCounter, Value: count},
+	}
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, resp))
 }
 
 func (s *Server) GetAllPluginPolicies(c echo.Context) error {
@@ -368,5 +378,30 @@ func (s *Server) GetAllPluginPolicies(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgPoliciesGetFailed))
 	}
 
-	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, policies))
+	responses := make([]itypes.PluginPolicyResponse, len(policies.Policies))
+	eg, egCtx := errgroup.WithContext(c.Request().Context())
+	for i, p := range policies.Policies {
+		i, p := i, p
+		eg.Go(func() error {
+			count, countErr := s.txIndexerService.CountByPolicyID(egCtx, p.ID)
+			if countErr != nil {
+				s.logger.WithError(countErr).Warnf("failed to get tx count for policy %s", p.ID)
+			}
+			responses[i] = itypes.PluginPolicyResponse{
+				PluginPolicy: p,
+				Progress:     itypes.Progress{Kind: itypes.ProgressCounter, Value: count},
+			}
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		s.logger.WithError(err).Error("failed to get tx counts for policies")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgInternalError))
+	}
+
+	result := itypes.PluginPolicyResponsePaginatedList{
+		Policies:   responses,
+		TotalCount: policies.TotalCount,
+	}
+	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, result))
 }

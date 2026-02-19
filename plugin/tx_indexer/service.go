@@ -195,6 +195,14 @@ func (t *Service) GetByPluginIDAndPublicKey(
 	return txs, totalCount, nil
 }
 
+func (t *Service) CountByPolicyID(ctx context.Context, policyID uuid.UUID) (uint32, error) {
+	count, err := t.repo.CountByPolicyID(ctx, policyID)
+	if err != nil {
+		return 0, fmt.Errorf("t.repo.CountByPolicyID: %w", err)
+	}
+	return count, nil
+}
+
 func (t *Service) GetByPublicKey(
 	c context.Context,
 	publicKey string,

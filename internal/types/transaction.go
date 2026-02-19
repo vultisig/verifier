@@ -30,7 +30,7 @@ type PluginTransactionResponse struct {
 	CreatedAt     time.Time            `json:"created_at"`
 	UpdatedAt     time.Time            `json:"updated_at"`
 	BroadcastedAt *time.Time           `json:"broadcasted_at"`
-	Progress      int                  `json:"progress"`
+	Progress      Progress             `json:"progress"`
 }
 
 // FromStorageTxs converts a slice of storage.Tx to a slice of PluginTransactionResponse
@@ -56,13 +56,16 @@ func FromStorageTxs(txs []storage.Tx, titleMap map[string]string) []PluginTransa
 			CreatedAt:     tx.CreatedAt,
 			UpdatedAt:     tx.UpdatedAt,
 			BroadcastedAt: tx.BroadcastedAt,
-			Progress:      getProgress(tx.Status, tx.StatusOnChain, tx.BroadcastedAt),
+			Progress: Progress{
+				ProgressPercent,
+				getProgress(tx.Status, tx.StatusOnChain, tx.BroadcastedAt),
+			},
 		}
 	}
 	return result
 }
 
-func getProgress(status storage.TxStatus, statusOnchain *rpc.TxOnChainStatus, broadcastedAt *time.Time) int {
+func getProgress(status storage.TxStatus, statusOnchain *rpc.TxOnChainStatus, broadcastedAt *time.Time) uint32 {
 	switch status {
 	case storage.TxProposed:
 		return 20

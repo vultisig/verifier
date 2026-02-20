@@ -334,7 +334,8 @@ CREATE TABLE "plugins" (
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "faqs" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
     "features" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
-    "audited" boolean DEFAULT false NOT NULL
+    "audited" boolean DEFAULT false NOT NULL,
+    "payout_address" "text"
 );
 
 CREATE TABLE "portal_approvers" (
@@ -581,6 +582,8 @@ CREATE INDEX "idx_plugin_policy_billing_id" ON "plugin_policy_billing" USING "bt
 CREATE INDEX "idx_plugin_policy_sync_policy_id" ON "plugin_policy_sync" USING "btree" ("policy_id");
 
 CREATE INDEX "idx_plugin_reports_window" ON "plugin_reports" USING "btree" ("plugin_id", "last_reported_at" DESC);
+
+CREATE INDEX "idx_plugins_payout_address" ON "plugins" USING "btree" ("payout_address") WHERE ("payout_address" IS NOT NULL);
 
 CREATE INDEX "idx_proposed_plugins_public_key" ON "proposed_plugins" USING "btree" ("public_key");
 

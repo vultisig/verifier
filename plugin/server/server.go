@@ -188,14 +188,14 @@ func (s *Server) handleGetSkills(c echo.Context) error {
 func (s *Server) handleReshareVault(c echo.Context) error {
 	var req vtypes.ReshareRequest
 	if err := c.Bind(&req); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request: "+err.Error()))
 	}
 	if err := req.IsValid(); err != nil {
-		return fmt.Errorf("invalid request, err: %w", err)
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid request: "+err.Error()))
 	}
 	buf, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("fail to marshal to json, err: %w", err)
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to marshal request: "+err.Error()))
 	}
 	result, err := s.redis.Get(c.Request().Context(), req.SessionID)
 	if err == nil && result != "" {
@@ -211,7 +211,8 @@ func (s *Server) handleReshareVault(c echo.Context) error {
 		asynq.Retention(10*time.Minute),
 		asynq.Queue(s.taskQueueName()))
 	if err != nil {
-		return fmt.Errorf("fail to enqueue task, err: %w", err)
+		s.logger.WithError(err).Error("failed to enqueue task")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to enqueue task"))
 	}
 	return c.NoContent(http.StatusOK)
 }
@@ -232,9 +233,8 @@ func (s *Server) handleGetVault(c echo.Context) error {
 	filePathName := vcommon.GetVaultBackupFilename(publicKeyECDSA, pluginId)
 	content, err := s.vaultStorage.GetVault(filePathName)
 	if err != nil {
-		wrappedErr := fmt.Errorf("fail to read file in GetVault, err: %w", err)
-		s.logger.Error(wrappedErr)
-		return wrappedErr
+		s.logger.WithError(err).Error("fail to read file in GetVault")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("fail to read file in GetVault"))
 	}
 
 	v, err := vcommon.DecryptVaultFromBackup(s.cfg.EncryptionSecret, content)
@@ -256,14 +256,15 @@ func (s *Server) handleGetVault(c echo.Context) error {
 func (s *Server) handleGetKeysignResult(c echo.Context) error {
 	taskID := c.Param("taskId")
 	if taskID == "" {
-		return fmt.Errorf("task id is required")
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("task id is required"))
 	}
 	result, err := tasks.GetTaskResult(s.inspector, taskID)
 	if err != nil {
 		if err.Error() == "task is still in progress" {
 			return c.JSON(http.StatusOK, "Task is still in progress")
 		}
-		return err
+		s.logger.WithError(err).Error("failed to get task result")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get task result"))
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -290,7 +291,8 @@ func (s *Server) handleDeleteVault(c echo.Context) error {
 			return c.NoContent(http.StatusOK)
 		}
 		// Real error (S3 failure, permissions, etc.)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse(err.Error()))
+		s.logger.WithError(err).Error("failed to delete vault file")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to delete vault"))
 	}
 	return c.NoContent(http.StatusOK)
 }
@@ -327,7 +329,7 @@ func (s *Server) handleExistVault(c echo.Context) error {
 func (s *Server) handleCreatePluginPolicy(c echo.Context) error {
 	var pol vtypes.PluginPolicy
 	if err := c.Bind(&pol); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request: "+err.Error()))
 	}
 
 	if err := s.spec.ValidatePluginPolicy(pol); err != nil {
@@ -356,7 +358,7 @@ func (s *Server) handleCreatePluginPolicy(c echo.Context) error {
 func (s *Server) handleUpdatePluginPolicyById(c echo.Context) error {
 	var pol vtypes.PluginPolicy
 	if err := c.Bind(&pol); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request: "+err.Error()))
 	}
 
 	if err := s.spec.ValidatePluginPolicy(pol); err != nil {

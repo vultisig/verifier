@@ -209,10 +209,11 @@ func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task
 	}
 
 	s.logger.WithFields(logrus.Fields{
-		"name":           req.Name,
-		"session":        req.SessionID,
-		"local_party_id": req.LocalPartyId,
-		"email":          req.Email,
+		"name":               req.Name,
+		"session":            req.SessionID,
+		"request_party_id":   req.LocalPartyId,
+		"local_party_prefix": s.cfg.LocalPartyPrefix,
+		"email":              req.Email,
 	}).Info("reshare request")
 	if err := req.IsValid(); err != nil {
 		return fmt.Errorf("invalid reshare request: %s: %w", err, asynq.SkipRetry)
@@ -226,12 +227,15 @@ func (s *ManagementService) HandleReshareDKLS(ctx context.Context, t *asynq.Task
 	vaultFileName := vcommon.GetVaultBackupFilename(req.PublicKey, req.PluginID)
 	vaultContent, err := s.vaultStorage.GetVault(vaultFileName)
 	if err != nil || vaultContent == nil {
+		// Generate local party ID using the configured prefix, NOT the one from the request
+		// Each plugin/service should have its own party ID based on its LocalPartyPrefix config
+		localPartyID := s.cfg.LocalPartyPrefix + "-" + req.SessionID[:8]
 		vault = &vaultType.Vault{
 			Name:           req.Name,
 			PublicKeyEcdsa: "",
 			PublicKeyEddsa: "",
 			HexChainCode:   req.HexChainCode,
-			LocalPartyId:   vcommon.GenerateLocalPartyId(s.cfg.LocalPartyPrefix),
+			LocalPartyId:   localPartyID,
 			Signers:        req.OldParties,
 			LibType:        keygenType.LibType_LIB_TYPE_DKLS,
 		}

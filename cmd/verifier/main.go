@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/hibiken/asynq"
 
@@ -84,19 +85,29 @@ func main() {
 
 	// Initialize metrics based on configuration
 	var httpMetrics *internalMetrics.HTTPMetrics
+	var appStoreCollector *internalMetrics.AppStoreCollector
 	if cfg.Metrics.Enabled {
 		logger.Info("Metrics enabled, setting up Prometheus metrics")
 
-		// Start metrics HTTP server with HTTP metrics
-		services := []string{internalMetrics.ServiceHTTP}
+		services := []string{internalMetrics.ServiceHTTP, internalMetrics.ServiceAppStore}
 		_ = internalMetrics.StartMetricsServer(internalMetrics.Config{
 			Enabled: true,
 			Host:    cfg.Metrics.Host,
 			Port:    cfg.Metrics.Port,
+			Token:   cfg.Metrics.Token,
 		}, services, logger)
 
-		// Create HTTP metrics implementation
 		httpMetrics = internalMetrics.NewHTTPMetrics()
+
+		appStoreMetrics := internalMetrics.NewAppStoreMetrics()
+		appStoreCollector = internalMetrics.NewAppStoreCollector(db, appStoreMetrics, logger, 30*time.Second)
+		appStoreCollector.Start()
+
+		defer func() {
+			if appStoreCollector != nil {
+				appStoreCollector.Stop()
+			}
+		}()
 	} else {
 		logger.Info("Verifier metrics disabled")
 	}

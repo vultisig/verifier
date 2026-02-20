@@ -8,6 +8,11 @@ import (
 	"github.com/vultisig/verifier/types"
 )
 
+const (
+	ProgressPercent = "percent"
+	ProgressCounter = "counter"
+)
+
 type Plugin struct {
 	ID             types.PluginID  `json:"id" validate:"required"`
 	Title          string          `json:"title" validate:"required"`
@@ -81,6 +86,21 @@ type PluginUpdateDto struct {
 type PluginPolicyPaginatedList struct {
 	Policies   []types.PluginPolicy `json:"policies" validate:"required"`
 	TotalCount int                  `json:"total_count" validate:"required"`
+}
+
+type Progress struct {
+	Kind  string `json:"kind"`
+	Value uint32 `json:"value"`
+}
+
+type PluginPolicyResponse struct {
+	types.PluginPolicy
+	Progress Progress `json:"progress"`
+}
+
+type PluginPolicyResponsePaginatedList struct {
+	Policies   []PluginPolicyResponse `json:"policies"`
+	TotalCount int                    `json:"total_count"`
 }
 
 type PluginTotalCount struct {

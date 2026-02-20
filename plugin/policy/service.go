@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/vultisig/verifier/plugin/progress"
 	"github.com/vultisig/verifier/plugin/scheduler"
 	"github.com/vultisig/verifier/types"
 )
@@ -23,22 +24,27 @@ type Service interface {
 		onlyActive bool,
 	) ([]types.PluginPolicy, error)
 	GetPluginPolicy(ctx context.Context, policyID uuid.UUID) (*types.PluginPolicy, error)
+	GetProgress(ctx context.Context, policyID uuid.UUID) (*progress.Progress, error)
+	GetProgressBatch(ctx context.Context, policyIDs []uuid.UUID) (map[uuid.UUID]*progress.Progress, error)
 }
 
 type Policy struct {
 	repo      Storage
 	scheduler scheduler.Service
+	progress  progress.Service
 	logger    *logrus.Logger
 }
 
 func NewPolicyService(
 	repo Storage,
 	scheduler scheduler.Service,
+	progress progress.Service,
 	logger *logrus.Logger,
 ) (*Policy, error) {
 	return &Policy{
 		repo:      repo,
 		scheduler: scheduler,
+		progress:  progress,
 		logger:    logger.WithField("pkg", "policy").Logger,
 	}, nil
 }
@@ -139,4 +145,12 @@ func (p *Policy) GetPluginPolicies(
 
 func (p *Policy) GetPluginPolicy(ctx context.Context, policyID uuid.UUID) (*types.PluginPolicy, error) {
 	return p.repo.GetPluginPolicy(ctx, policyID)
+}
+
+func (p *Policy) GetProgress(ctx context.Context, policyID uuid.UUID) (*progress.Progress, error) {
+	return p.progress.GetProgress(ctx, policyID)
+}
+
+func (p *Policy) GetProgressBatch(ctx context.Context, policyIDs []uuid.UUID) (map[uuid.UUID]*progress.Progress, error) {
+	return p.progress.GetProgressBatch(ctx, policyIDs)
 }

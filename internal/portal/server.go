@@ -471,6 +471,17 @@ func maskApiKey(key string) string {
 	return key[:4] + "..." + key[len(key)-4:]
 }
 
+// maskPayoutAddress masks a payout address showing first 6 and last 4 chars
+func maskPayoutAddress(address string) string {
+	if address == "" {
+		return ""
+	}
+	if len(address) == 42 && strings.HasPrefix(address, "0x") {
+		return address[:6] + "..." + address[len(address)-4:]
+	}
+	return address
+}
+
 // generateApiKey generates a random API key with vbt_ prefix and 32 bytes hex
 func generateApiKey() (string, error) {
 	bytes := make([]byte, 32)
@@ -1039,6 +1050,7 @@ type UpdatePluginRequest struct {
 	Title          string `json:"title"`
 	Description    string `json:"description"`
 	ServerEndpoint string `json:"server_endpoint"`
+	PayoutAddress  string `json:"payout_address"`
 
 	// EIP-712 signature data
 	Signature     string                    `json:"signature"`
@@ -1189,12 +1201,55 @@ func (s *Server) UpdatePlugin(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "server_endpoint change must be signed"})
 	}
 
+	// Validate payout address field
+	normalizedReqPayout := ""
+	if req.PayoutAddress != "" {
+		if !common.IsHexAddress(req.PayoutAddress) {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid payout address format"})
+		}
+		normalizedReqPayout = common.HexToAddress(req.PayoutAddress).Hex()
+	}
+	normalizedExistingPayout := ""
+	if existingPlugin.PayoutAddress.Valid && existingPlugin.PayoutAddress.String != "" {
+		normalizedExistingPayout = common.HexToAddress(existingPlugin.PayoutAddress.String).Hex()
+	}
+
+	if fieldUpdate, ok := updateMap["payoutAddress"]; ok {
+		// Only admins can modify payout address
+		if owner.Role != queries.PluginOwnerRoleAdmin {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "only admins can modify payout address"})
+		}
+		// Verify signed values match
+		if fieldUpdate.NewValue != normalizedReqPayout {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "payout address does not match signed value"})
+		}
+		if fieldUpdate.OldValue != normalizedExistingPayout {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "payout address old value does not match current value"})
+		}
+	} else if normalizedReqPayout != "" && normalizedReqPayout != normalizedExistingPayout {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "payout address change must be signed"})
+	}
+
+	// Normalize payout address before storing
+	var payoutAddress pgtype.Text
+	if normalizedReqPayout != "" {
+		payoutAddress = pgtype.Text{
+			String: normalizedReqPayout,
+			Valid:  true,
+		}
+	} else if _, isUpdating := updateMap["payoutAddress"]; isUpdating {
+		payoutAddress = pgtype.Text{Valid: false}
+	} else {
+		payoutAddress = existingPlugin.PayoutAddress
+	}
+
 	// Update the plugin with validated request values
 	plugin, err := s.queries.UpdatePlugin(c.Request().Context(), &queries.UpdatePluginParams{
 		ID:             id,
 		Title:          req.Title,
 		Description:    req.Description,
 		ServerEndpoint: req.ServerEndpoint,
+		PayoutAddress:  payoutAddress,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -1204,10 +1259,19 @@ func (s *Server) UpdatePlugin(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
 
-	s.logger.WithFields(logrus.Fields{
+	logFields := logrus.Fields{
 		"plugin_id": id,
 		"signer":    req.SignedMessage.Signer,
-	}).Info("plugin updated successfully")
+	}
+
+	if _, ok := updateMap["payoutAddress"]; ok {
+		logFields["payout_address_changed"] = true
+		if plugin.PayoutAddress.Valid && plugin.PayoutAddress.String != "" {
+			logFields["new_payout_address"] = maskPayoutAddress(plugin.PayoutAddress.String)
+		}
+	}
+
+	s.logger.WithFields(logFields).Info("plugin updated successfully")
 
 	return c.JSON(http.StatusOK, plugin)
 }

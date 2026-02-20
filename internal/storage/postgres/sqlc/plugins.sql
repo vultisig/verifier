@@ -25,6 +25,7 @@ SET
     title = $2,
     description = $3,
     server_endpoint = $4,
+    payout_address = $5,
     updated_at = now()
 WHERE id = $1
 RETURNING *;

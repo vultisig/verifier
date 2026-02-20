@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"net/http"
 	"os"
@@ -128,6 +129,10 @@ func (s *Server) GetRouter() *echo.Echo {
 	plg.POST("/recipe-specification/suggest", s.handleGetRecipeSpecificationSuggest)
 	plg.DELETE("/policy/:policyId", s.handleDeletePluginPolicyById, s.VerifierAuthMiddleware)
 	plg.PUT("/safety", s.handleSyncSafety, s.VerifierAuthMiddleware)
+
+	if handler, ok := s.spec.(plugin.BuildTxHandler); ok {
+		plg.POST("/buildtx", s.handleBuildTx(handler), s.VerifierAuthMiddleware)
+	}
 
 	e.GET("/skills", s.handleGetSkills)
 
@@ -555,6 +560,21 @@ func policyToMessageHex(policy vtypes.PluginPolicy) ([]byte, error) {
 	}
 	result := strings.Join(fields, delimiter)
 	return []byte(result), nil
+}
+
+func (s *Server) handleBuildTx(handler plugin.BuildTxHandler) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		body, err := io.ReadAll(c.Request().Body)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to read request body"))
+		}
+		resp, err := handler.HandleBuildTx(c.Request().Context(), body)
+		if err != nil {
+			s.logger.WithError(err).Error("failed to build tx")
+			return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to build transaction"))
+		}
+		return c.JSON(http.StatusOK, resp)
+	}
 }
 
 func (s *Server) handleSyncSafety(c echo.Context) error {

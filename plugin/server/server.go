@@ -131,7 +131,7 @@ func (s *Server) GetRouter() *echo.Echo {
 	plg.PUT("/safety", s.handleSyncSafety, s.VerifierAuthMiddleware)
 
 	if handler, ok := s.spec.(plugin.BuildTxHandler); ok {
-		plg.POST("/buildtx", s.handleBuildTx(handler))
+		plg.POST("/buildtx", s.handleBuildTx(handler), s.VerifierAuthMiddleware)
 	}
 
 	e.GET("/skills", s.handleGetSkills)
@@ -571,7 +571,7 @@ func (s *Server) handleBuildTx(handler plugin.BuildTxHandler) echo.HandlerFunc {
 		resp, err := handler.HandleBuildTx(c.Request().Context(), body)
 		if err != nil {
 			s.logger.WithError(err).Error("failed to build tx")
-			return c.JSON(http.StatusBadGateway, NewErrorResponse(err.Error()))
+			return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to build transaction"))
 		}
 		return c.JSON(http.StatusOK, resp)
 	}

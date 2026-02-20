@@ -329,13 +329,20 @@ func (s *Server) GetPluginPolicyById(c echo.Context) error {
 	if policy.PublicKey != publicKey {
 		return c.JSON(http.StatusForbidden, NewErrorResponseWithMessage(msgPublicKeyMismatch))
 	}
-	count, err := s.txIndexerService.CountByPolicyID(c.Request().Context(), policyUUID)
+	prog, err := s.pluginService.GetPolicyProgress(c.Request().Context(), policy.PluginID.String(), policyUUID)
 	if err != nil {
-		s.logger.WithError(err).Warnf("failed to get tx count for policy %s", policyUUID)
+		s.logger.WithError(err).Warnf("failed to get progress from plugin for policy %s", policyUUID)
+	}
+	if prog == nil {
+		count, countErr := s.txIndexerService.CountByPolicyID(c.Request().Context(), policyUUID)
+		if countErr != nil {
+			s.logger.WithError(countErr).Warnf("failed to get tx count for policy %s", policyUUID)
+		}
+		prog = &itypes.Progress{Kind: itypes.ProgressCounter, Value: count}
 	}
 	resp := itypes.PluginPolicyResponse{
 		PluginPolicy: *policy,
-		Progress:     itypes.Progress{Kind: itypes.ProgressCounter, Value: count},
+		Progress:     *prog,
 	}
 	return c.JSON(http.StatusOK, NewSuccessResponse(http.StatusOK, resp))
 }
@@ -378,24 +385,43 @@ func (s *Server) GetAllPluginPolicies(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgPoliciesGetFailed))
 	}
 
+	policyIDs := make([]uuid.UUID, len(policies.Policies))
+	for i, p := range policies.Policies {
+		policyIDs[i] = p.ID
+	}
+
+	progressMap, err := s.pluginService.GetPoliciesProgress(c.Request().Context(), pluginID, policyIDs)
+	if err != nil {
+		s.logger.WithError(err).Warnf("failed to get progress from plugin for plugin %s", pluginID)
+	}
+
 	responses := make([]itypes.PluginPolicyResponse, len(policies.Policies))
 	eg, egCtx := errgroup.WithContext(c.Request().Context())
 	for i, p := range policies.Policies {
 		i, p := i, p
 		eg.Go(func() error {
-			count, countErr := s.txIndexerService.CountByPolicyID(egCtx, p.ID)
-			if countErr != nil {
-				s.logger.WithError(countErr).Warnf("failed to get tx count for policy %s", p.ID)
+			var prog *itypes.Progress
+			if progressMap != nil {
+				if pluginProg, ok := progressMap[p.ID]; ok {
+					prog = pluginProg
+				}
+			}
+			if prog == nil {
+				count, countErr := s.txIndexerService.CountByPolicyID(egCtx, p.ID)
+				if countErr != nil {
+					s.logger.WithError(countErr).Warnf("failed to get tx count for policy %s", p.ID)
+				}
+				prog = &itypes.Progress{Kind: itypes.ProgressCounter, Value: count}
 			}
 			responses[i] = itypes.PluginPolicyResponse{
 				PluginPolicy: p,
-				Progress:     itypes.Progress{Kind: itypes.ProgressCounter, Value: count},
+				Progress:     *prog,
 			}
 			return nil
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		s.logger.WithError(err).Error("failed to get tx counts for policies")
+		s.logger.WithError(err).Error("failed to get policy progress")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgInternalError))
 	}
 

@@ -127,6 +127,8 @@ func (s *Server) GetRouter() *echo.Echo {
 	plg.GET("/recipe-specification", s.handleGetRecipeSpecification)
 	plg.POST("/recipe-specification/suggest", s.handleGetRecipeSpecificationSuggest)
 	plg.DELETE("/policy/:policyId", s.handleDeletePluginPolicyById, s.VerifierAuthMiddleware)
+	plg.GET("/policy/:policyId/progress", s.handleGetPluginPolicyProgress, s.VerifierAuthMiddleware)
+	plg.POST("/policies/progress", s.handleGetPluginPoliciesProgress, s.VerifierAuthMiddleware)
 	plg.PUT("/safety", s.handleSyncSafety, s.VerifierAuthMiddleware)
 
 	e.GET("/skills", s.handleGetSkills)
@@ -575,4 +577,47 @@ func (s *Server) handleSyncSafety(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"synced": len(flags),
 	})
+}
+
+func (s *Server) handleGetPluginPolicyProgress(c echo.Context) error {
+	policyID := c.Param("policyId")
+	if policyID == "" {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid policy ID"))
+	}
+	uPolicyID, err := uuid.Parse(policyID)
+	if err != nil {
+		s.logger.WithError(err).WithField("policy_id", policyID).Error("failed to parse policy ID")
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid policy ID"))
+	}
+
+	prog, err := s.policy.GetProgress(c.Request().Context(), uPolicyID)
+	if err != nil {
+		s.logger.WithError(err).WithField("policy_id", policyID).Error("failed to get policy progress")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get policy progress"))
+	}
+	if prog == nil {
+		return c.JSON(http.StatusNotImplemented, NewErrorResponse("progress not available"))
+	}
+
+	return c.JSON(http.StatusOK, prog)
+}
+
+func (s *Server) handleGetPluginPoliciesProgress(c echo.Context) error {
+	var req struct {
+		PolicyIDs []uuid.UUID `json:"policy_ids"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid request"))
+	}
+
+	result, err := s.policy.GetProgressBatch(c.Request().Context(), req.PolicyIDs)
+	if err != nil {
+		s.logger.WithError(err).Error("failed to get policies progress")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get policies progress"))
+	}
+	if result == nil {
+		return c.JSON(http.StatusNotImplemented, NewErrorResponse("progress not available"))
+	}
+
+	return c.JSON(http.StatusOK, result)
 }

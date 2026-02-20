@@ -20,6 +20,10 @@ type Spec interface {
 	GetSkills() string
 }
 
+type BuildTxHandler interface {
+	HandleBuildTx(ctx context.Context, body []byte) (any, error)
+}
+
 // Unimplemented for backward compatibility in the case of new interface methods
 type Unimplemented struct {
 }

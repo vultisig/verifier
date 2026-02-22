@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -16,6 +17,7 @@ type Config struct {
 	Enabled bool   `mapstructure:"enabled" json:"enabled,omitempty"`
 	Host    string `mapstructure:"host" json:"host,omitempty"`
 	Port    int    `mapstructure:"port" json:"port,omitempty"`
+	Token   string `mapstructure:"token" json:"token,omitempty"`
 }
 
 // DefaultConfig returns default metrics configuration
@@ -33,32 +35,51 @@ type Server struct {
 	logger *logrus.Logger
 }
 
+// bearerAuthMiddleware wraps an http.Handler with Bearer token authentication
+func bearerAuthMiddleware(handler http.Handler, token string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		providedToken := strings.TrimPrefix(authHeader, "Bearer ")
+		if providedToken != token {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		handler.ServeHTTP(w, r)
+	})
+}
+
 // NewServer creates a new metrics server with a custom registry
-func NewServer(host string, port int, logger *logrus.Logger, registry *prometheus.Registry) *Server {
+func NewServer(cfg Config, logger *logrus.Logger, registry *prometheus.Registry) *Server {
 	mux := http.NewServeMux()
 
-	// Register the Prometheus metrics handler with custom registry
+	var metricsHandler http.Handler
 	if registry != nil {
-		mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+		metricsHandler = promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 	} else {
-		mux.Handle("/metrics", promhttp.Handler())
+		metricsHandler = promhttp.Handler()
 	}
 
-	// Add a health check endpoint
+	if cfg.Token != "" {
+		metricsHandler = bearerAuthMiddleware(metricsHandler, cfg.Token)
+		logger.Info("Metrics endpoint authentication enabled")
+	}
+
+	mux.Handle("/metrics", metricsHandler)
+
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
 
-	addr := fmt.Sprintf("%s:%d", host, port)
-	if host == "" {
-		addr = fmt.Sprintf(":%d", port)
+	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+	if cfg.Host == "" {
+		addr = fmt.Sprintf(":%d", cfg.Port)
 	}
-	if port <= 0 {
-		if host == "" {
+	if cfg.Port <= 0 {
+		if cfg.Host == "" {
 			addr = ":8088"
 		} else {
-			addr = fmt.Sprintf("%s:8088", host)
+			addr = fmt.Sprintf("%s:8088", cfg.Host)
 		}
 	}
 
@@ -99,23 +120,10 @@ func StartMetricsServer(cfg Config, services []string, logger *logrus.Logger) *S
 		return nil
 	}
 
-	// Create registry and register metrics for specified services
 	registry := prometheus.NewRegistry()
 	RegisterMetrics(services, registry, logger)
 
-	server := NewServer(cfg.Host, cfg.Port, logger, registry)
-	server.Start()
-	return server
-}
-
-// StartMetricsServerWithRegistry starts a metrics server with a pre-configured registry
-func StartMetricsServerWithRegistry(cfg Config, registry *prometheus.Registry, logger *logrus.Logger) *Server {
-	if !cfg.Enabled {
-		logger.Info("Metrics server disabled")
-		return nil
-	}
-
-	server := NewServer(cfg.Host, cfg.Port, logger, registry)
+	server := NewServer(cfg, logger, registry)
 	server.Start()
 	return server
 }

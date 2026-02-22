@@ -70,11 +70,12 @@ func (p *PostgresBackend) GetPoliciesByPlugin(ctx context.Context) (map[string]i
 
 func (p *PostgresBackend) GetFeesByPlugin(ctx context.Context) (map[string]int64, error) {
 	query := `
-		SELECT pp.plugin_id, COALESCE(SUM(f.value), 0) as total
+		SELECT f.plugin_id, COALESCE(SUM(f.amount), 0) as total
 		FROM fees f
-		JOIN plugin_policies pp ON f.policy_id = pp.id
-		WHERE f.is_collected = true
-		GROUP BY pp.plugin_id
+		JOIN fee_batch_members fbm ON f.id = fbm.fee_id
+		JOIN fee_batches fb ON fbm.batch_id = fb.id
+		WHERE fb.status = 'COMPLETED'
+		GROUP BY f.plugin_id
 	`
 
 	rows, err := p.pool.Query(ctx, query)

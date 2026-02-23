@@ -1,0 +1,319 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "App Store Product Metrics",
+    "tags": ["vultisig", "verifier", "product"],
+    "style": "dark",
+    "timezone": "",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Total Installations",
+        "type": "stat",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {
+            "expr": "verifier_appstore_installations_grand_total",
+            "legendFormat": "Installations"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {"steps": [{"color": "green", "value": null}]},
+            "unit": "short"
+          }
+        },
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "textMode": "auto"
+        },
+        "gridPos": {"h": 4, "w": 8, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Total Active Policies",
+        "type": "stat",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {
+            "expr": "verifier_appstore_policies_grand_total",
+            "legendFormat": "Policies"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {"steps": [{"color": "blue", "value": null}]},
+            "unit": "short"
+          }
+        },
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "textMode": "auto"
+        },
+        "gridPos": {"h": 4, "w": 8, "x": 8, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Total Fees Earned (USDC)",
+        "type": "stat",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {
+            "expr": "verifier_appstore_fees_grand_total",
+            "legendFormat": "USDC"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {"steps": [{"color": "orange", "value": null}]},
+            "unit": "currencyUSD",
+            "decimals": 2
+          }
+        },
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "textMode": "auto"
+        },
+        "gridPos": {"h": 4, "w": 8, "x": 16, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "Installations by Plugin",
+        "type": "piechart",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {
+            "expr": "verifier_appstore_installations_total",
+            "legendFormat": "{{plugin_id}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"}
+          }
+        },
+        "options": {
+          "legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"]},
+          "pieType": "pie",
+          "tooltip": {"mode": "single"}
+        },
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 4}
+      },
+      {
+        "id": 5,
+        "title": "Active Policies by Plugin",
+        "type": "piechart",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {
+            "expr": "verifier_appstore_policies_total",
+            "legendFormat": "{{plugin_id}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"}
+          }
+        },
+        "options": {
+          "legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"]},
+          "pieType": "pie",
+          "tooltip": {"mode": "single"}
+        },
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 4}
+      },
+      {
+        "id": 6,
+        "title": "Fees Earned by Plugin (USDC)",
+        "type": "piechart",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {
+            "expr": "verifier_appstore_fees_earned_total",
+            "legendFormat": "{{plugin_id}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "currencyUSD",
+            "decimals": 2
+          }
+        },
+        "options": {
+          "legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"]},
+          "pieType": "pie",
+          "tooltip": {"mode": "single"}
+        },
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 4}
+      },
+      {
+        "id": 7,
+        "title": "Installations by Plugin (Table)",
+        "type": "table",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {
+            "expr": "verifier_appstore_installations_total",
+            "legendFormat": "{{plugin_id}}",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {"steps": [{"color": "green", "value": null}]}
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "plugin_id"},
+              "properties": [{"id": "displayName", "value": "Plugin"}]
+            },
+            {
+              "matcher": {"id": "byName", "options": "Value"},
+              "properties": [{"id": "displayName", "value": "Installations"}]
+            }
+          ]
+        },
+        "options": {
+          "showHeader": true,
+          "sortBy": [{"displayName": "Installations", "desc": true}]
+        },
+        "transformations": [
+          {"id": "organize", "options": {"excludeByName": {"Time": true, "__name__": true, "instance": true, "job": true}}}
+        ],
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 12}
+      },
+      {
+        "id": 8,
+        "title": "Active Policies by Plugin (Table)",
+        "type": "table",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {
+            "expr": "verifier_appstore_policies_total",
+            "legendFormat": "{{plugin_id}}",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {"steps": [{"color": "blue", "value": null}]}
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "plugin_id"},
+              "properties": [{"id": "displayName", "value": "Plugin"}]
+            },
+            {
+              "matcher": {"id": "byName", "options": "Value"},
+              "properties": [{"id": "displayName", "value": "Policies"}]
+            }
+          ]
+        },
+        "options": {
+          "showHeader": true,
+          "sortBy": [{"displayName": "Policies", "desc": true}]
+        },
+        "transformations": [
+          {"id": "organize", "options": {"excludeByName": {"Time": true, "__name__": true, "instance": true, "job": true}}}
+        ],
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 12}
+      },
+      {
+        "id": 9,
+        "title": "Fees by Plugin (Table)",
+        "type": "table",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {
+            "expr": "verifier_appstore_fees_earned_total",
+            "legendFormat": "{{plugin_id}}",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {"steps": [{"color": "orange", "value": null}]},
+            "unit": "currencyUSD",
+            "decimals": 2
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "plugin_id"},
+              "properties": [{"id": "displayName", "value": "Plugin"}]
+            },
+            {
+              "matcher": {"id": "byName", "options": "Value"},
+              "properties": [{"id": "displayName", "value": "Fees (USDC)"}]
+            }
+          ]
+        },
+        "options": {
+          "showHeader": true,
+          "sortBy": [{"displayName": "Fees (USDC)", "desc": true}]
+        },
+        "transformations": [
+          {"id": "organize", "options": {"excludeByName": {"Time": true, "__name__": true, "instance": true, "job": true}}}
+        ],
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 12}
+      },
+      {
+        "id": 10,
+        "title": "Metrics Collector Last Update",
+        "type": "stat",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {
+            "expr": "verifier_appstore_collector_last_update_timestamp * 1000",
+            "legendFormat": "Last Update"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {"steps": [{"color": "green", "value": null}]},
+            "unit": "dateTimeFromNow"
+          }
+        },
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "colorMode": "value",
+          "graphMode": "none",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "textMode": "auto"
+        },
+        "gridPos": {"h": 4, "w": 24, "x": 0, "y": 20}
+      }
+    ],
+    "time": {"from": "now-24h", "to": "now"},
+    "timepicker": {"refresh_intervals": ["30s", "1m", "5m", "15m", "30m", "1h"]},
+    "templating": {"list": []},
+    "annotations": {"list": []},
+    "refresh": "30s",
+    "schemaVersion": 27,
+    "version": 0,
+    "links": []
+  }
+}

@@ -134,12 +134,12 @@ func main() {
 	if cfg.Metrics.Enabled {
 		logger.Info("Metrics enabled, setting up Prometheus metrics")
 
-		// Start metrics HTTP server with worker metrics
 		services := []string{internalMetrics.ServiceWorker}
 		_ = internalMetrics.StartMetricsServer(internalMetrics.Config{
 			Enabled: true,
 			Host:    cfg.Metrics.Host,
 			Port:    cfg.Metrics.Port,
+			Token:   cfg.Metrics.Token,
 		}, services, logger)
 
 		// Create worker metrics instance

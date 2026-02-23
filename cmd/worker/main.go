@@ -10,6 +10,7 @@ import (
 	"github.com/hibiken/asynq"
 
 	"github.com/vultisig/verifier/config"
+	"github.com/vultisig/verifier/internal/email"
 	"github.com/vultisig/verifier/internal/fee_manager"
 	"github.com/vultisig/verifier/internal/health"
 	"github.com/vultisig/verifier/internal/logging"
@@ -92,6 +93,7 @@ func main() {
 			Queues: map[string]int{
 				tasks.QUEUE_NAME:         10,
 				vault.EmailQueueName:     100,
+				email.QueueName:          100,
 				"scheduled_plugin_queue": 10,
 			},
 		},
@@ -151,7 +153,6 @@ func main() {
 
 	mux := asynq.NewServeMux()
 
-	// Wrap handlers with metrics collection
 	mux.HandleFunc(tasks.TypeKeyGenerationDKLS,
 		workerMetrics.Handler("keygen", vaultMgmService.HandleKeyGenerationDKLS))
 	mux.HandleFunc(tasks.TypeKeySignDKLS,
@@ -162,6 +163,24 @@ func main() {
 		workerMetrics.Handler("fees", policyService.HandleScheduledFees))
 	mux.HandleFunc(tasks.TypePolicyDeactivate,
 		workerMetrics.Handler("policy_deactivate", policyService.HandlePolicyDeactivate))
+
+	mandrillClient := email.NewMandrillClient(
+		cfg.Mandrill.APIKey,
+		cfg.Mandrill.SendingDomain,
+		logger,
+	)
+	if mandrillClient.IsConfigured() {
+		emailHandler := email.NewHandler(mandrillClient, logger)
+		mux.HandleFunc(email.TypePortalProposal,
+			workerMetrics.Handler("email_proposal", emailHandler.HandleProposal))
+		mux.HandleFunc(email.TypePortalApproval,
+			workerMetrics.Handler("email_approval", emailHandler.HandleApproval))
+		mux.HandleFunc(email.TypePortalPublish,
+			workerMetrics.Handler("email_publish", emailHandler.HandlePublish))
+		logger.Info("email handlers registered")
+	} else {
+		logger.Warn("mandrill not configured: portal email handlers disabled")
+	}
 
 	if err := srv.Run(mux); err != nil {
 		panic(fmt.Errorf("could not run server: %w", err))

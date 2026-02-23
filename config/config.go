@@ -24,6 +24,7 @@ type WorkerConfig struct {
 	Fees         FeesConfig                `mapstructure:"fees" json:"fees"`
 	Metrics      MetricsConfig             `mapstructure:"metrics" json:"metrics,omitempty"`
 	HealthPort   int                       `mapstructure:"health_port" json:"health_port,omitempty"`
+	Mandrill     MandrillConfig            `mapstructure:"mandrill" json:"mandrill,omitempty"`
 }
 
 type VerifierConfig struct {
@@ -56,6 +57,11 @@ type MetricsConfig struct {
 	Enabled bool   `mapstructure:"enabled" json:"enabled,omitempty"`
 	Host    string `mapstructure:"host" json:"host,omitempty"`
 	Port    int    `mapstructure:"port" json:"port,omitempty"`
+}
+
+type MandrillConfig struct {
+	APIKey        string `mapstructure:"api_key" json:"api_key,omitempty"`
+	SendingDomain string `mapstructure:"sending_domain" json:"sending_domain,omitempty"`
 }
 
 type PluginAssetsConfig struct {
@@ -109,6 +115,7 @@ type PortalConfig struct {
 		BaseURL    string `mapstructure:"base_url" json:"base_url,omitempty"` // Base URL for magic links
 	} `mapstructure:"server" json:"server"`
 	Database                config.Database    `mapstructure:"database" json:"database,omitempty"`
+	Redis                   config.Redis       `mapstructure:"redis" json:"redis,omitempty"`
 	MaxApiKeysPerPlugin     int                `mapstructure:"max_api_keys_per_plugin" json:"max_api_keys_per_plugin,omitempty"`
 	PluginAssets            PluginAssetsConfig `mapstructure:"plugin_assets" json:"plugin_assets,omitempty"`
 	MaxMediaImagesPerPlugin int                `mapstructure:"max_media_images_per_plugin" json:"max_media_images_per_plugin,omitempty"`
@@ -119,14 +126,11 @@ type PortalConfig struct {
 }
 
 type PortalEmailConfig struct {
-	MandrillAPIKey     string   `mapstructure:"mandrill_api_key" json:"mandrill_api_key,omitempty"`
-	FromEmail          string   `mapstructure:"from_email" json:"from_email,omitempty"`
-	FromName           string   `mapstructure:"from_name" json:"from_name,omitempty"`
 	NotificationEmails []string `mapstructure:"notification_emails" json:"notification_emails,omitempty"`
 }
 
 func (c PortalEmailConfig) IsConfigured() bool {
-	return c.MandrillAPIKey != "" && c.FromEmail != "" && len(c.NotificationEmails) > 0
+	return len(c.NotificationEmails) > 0
 }
 
 func GetConfigure() (*WorkerConfig, error) {

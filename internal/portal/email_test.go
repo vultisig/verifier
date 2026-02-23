@@ -1,13 +1,8 @@
 package portal
 
 import (
-	"context"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/verifier/config"
@@ -172,244 +167,52 @@ func TestMockEmailSender_SendPublishNotification(t *testing.T) {
 }
 
 func TestEmailService_IsConfigured(t *testing.T) {
-	tests := []struct {
-		name     string
-		cfg      config.PortalEmailConfig
-		expected bool
-	}{
-		{
-			name:     "not configured - empty config",
-			cfg:      config.PortalEmailConfig{},
-			expected: false,
-		},
-		{
-			name: "not configured - missing api key",
-			cfg: config.PortalEmailConfig{
-				FromEmail:          "noreply@vultisig.com",
-				NotificationEmails: []string{"admin@vultisig.com"},
-			},
-			expected: false,
-		},
-		{
-			name: "not configured - missing from email",
-			cfg: config.PortalEmailConfig{
-				MandrillAPIKey:     "test-api-key",
-				NotificationEmails: []string{"admin@vultisig.com"},
-			},
-			expected: false,
-		},
-		{
-			name: "not configured - missing notification emails",
-			cfg: config.PortalEmailConfig{
-				MandrillAPIKey: "test-api-key",
-				FromEmail:      "noreply@vultisig.com",
-			},
-			expected: false,
-		},
-		{
-			name: "configured",
-			cfg: config.PortalEmailConfig{
-				MandrillAPIKey:     "test-api-key",
-				FromEmail:          "noreply@vultisig.com",
-				FromName:           "Vultisig",
-				NotificationEmails: []string{"admin@vultisig.com"},
-			},
-			expected: true,
-		},
-	}
+	logger := logrus.New()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc := NewEmailService(tt.cfg, "https://portal.vultisig.com", logrus.New())
-			if svc.IsConfigured() != tt.expected {
-				t.Errorf("IsConfigured() = %v, expected %v", svc.IsConfigured(), tt.expected)
-			}
-		})
-	}
+	t.Run("not configured - nil queue client", func(t *testing.T) {
+		cfg := config.PortalEmailConfig{
+			NotificationEmails: []string{"admin@vultisig.com"},
+		}
+		svc := NewEmailService(cfg, "https://portal.vultisig.com", nil, logger)
+		if svc.IsConfigured() {
+			t.Error("expected not configured with nil queue client")
+		}
+	})
+
+	t.Run("not configured - missing notification emails", func(t *testing.T) {
+		cfg := config.PortalEmailConfig{}
+		svc := NewEmailService(cfg, "https://portal.vultisig.com", nil, logger)
+		if svc.IsConfigured() {
+			t.Error("expected not configured without notification emails")
+		}
+	})
 }
 
-func TestEmailService_SendProposalNotification_NotConfigured(t *testing.T) {
-	svc := NewEmailService(config.PortalEmailConfig{}, "https://portal.vultisig.com", logrus.New())
+func TestEmailService_SendNotification_NotConfigured(t *testing.T) {
+	logger := logrus.New()
+	svc := NewEmailService(config.PortalEmailConfig{}, "https://portal.vultisig.com", nil, logger)
 
 	svc.SendProposalNotificationAsync("test-plugin", "Test", "test@example.com")
+	svc.SendApprovalNotificationAsync("test-plugin", "Test", "test@example.com")
+	svc.SendPublishNotificationAsync("test-plugin", "Test", "test@example.com")
 }
 
 func TestEmailService_SendApprovalNotification_EmptyEmail(t *testing.T) {
+	logger := logrus.New()
 	cfg := config.PortalEmailConfig{
-		MandrillAPIKey:     "test-api-key",
-		FromEmail:          "noreply@vultisig.com",
 		NotificationEmails: []string{"admin@vultisig.com"},
 	}
-	svc := NewEmailService(cfg, "https://portal.vultisig.com", logrus.New())
+	svc := NewEmailService(cfg, "https://portal.vultisig.com", nil, logger)
 
 	svc.SendApprovalNotificationAsync("test-plugin", "Test", "")
 }
 
 func TestEmailService_SendPublishNotification_EmptyEmail(t *testing.T) {
+	logger := logrus.New()
 	cfg := config.PortalEmailConfig{
-		MandrillAPIKey:     "test-api-key",
-		FromEmail:          "noreply@vultisig.com",
 		NotificationEmails: []string{"admin@vultisig.com"},
 	}
-	svc := NewEmailService(cfg, "https://portal.vultisig.com", logrus.New())
+	svc := NewEmailService(cfg, "https://portal.vultisig.com", nil, logger)
 
 	svc.SendPublishNotificationAsync("test-plugin", "Test", "")
-}
-
-func TestEmailService_SendEmail_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Errorf("expected POST, got %s", r.Method)
-		}
-		if r.Header.Get("Content-Type") != "application/json" {
-			t.Errorf("expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
-		}
-
-		var msg mandrillMessage
-		err := json.NewDecoder(r.Body).Decode(&msg)
-		if err != nil {
-			t.Errorf("failed to decode request: %v", err)
-		}
-
-		if msg.Key != "test-api-key" {
-			t.Errorf("expected API key 'test-api-key', got '%s'", msg.Key)
-		}
-		if msg.Message.FromEmail != "noreply@vultisig.com" {
-			t.Errorf("expected from email 'noreply@vultisig.com', got '%s'", msg.Message.FromEmail)
-		}
-		if len(msg.Message.To) != 1 {
-			t.Errorf("expected 1 recipient, got %d", len(msg.Message.To))
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]mandrillSendResult{
-			{Email: msg.Message.To[0].Email, Status: "sent"},
-		})
-	}))
-	defer server.Close()
-
-	cfg := config.PortalEmailConfig{
-		MandrillAPIKey:     "test-api-key",
-		FromEmail:          "noreply@vultisig.com",
-		FromName:           "Vultisig",
-		NotificationEmails: []string{"admin@vultisig.com"},
-	}
-	svc := NewEmailService(cfg, "https://portal.vultisig.com", logrus.New())
-	svc.client = server.Client()
-
-	originalURL := mandrillSendURL
-	defer func() {
-		if mandrillSendURL != originalURL {
-			t.Error("mandrillSendURL should not be changed")
-		}
-	}()
-
-	ctx := context.Background()
-	recipients := []mandrillRecipient{{Email: "test@example.com", Type: "to"}}
-
-	err := svc.sendEmailTo(ctx, server.URL, recipients, "Test Subject", "<p>HTML</p>", "Text")
-	if err != nil {
-		t.Errorf("sendEmailTo failed: %v", err)
-	}
-}
-
-func TestEmailService_SendEmail_APIError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"status":"error","message":"Invalid API key"}`))
-	}))
-	defer server.Close()
-
-	cfg := config.PortalEmailConfig{
-		MandrillAPIKey:     "invalid-key",
-		FromEmail:          "noreply@vultisig.com",
-		NotificationEmails: []string{"admin@vultisig.com"},
-	}
-	svc := NewEmailService(cfg, "https://portal.vultisig.com", logrus.New())
-	svc.client = server.Client()
-
-	ctx := context.Background()
-	recipients := []mandrillRecipient{{Email: "test@example.com", Type: "to"}}
-
-	err := svc.sendEmailTo(ctx, server.URL, recipients, "Test", "<p>HTML</p>", "Text")
-	if err == nil {
-		t.Error("expected error for invalid API key")
-	}
-}
-
-func TestEmailService_SendEmail_RejectedEmail(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]mandrillSendResult{
-			{Email: "invalid@example.com", Status: "rejected", RejectReason: "invalid-sender"},
-		})
-	}))
-	defer server.Close()
-
-	cfg := config.PortalEmailConfig{
-		MandrillAPIKey:     "test-api-key",
-		FromEmail:          "noreply@vultisig.com",
-		NotificationEmails: []string{"admin@vultisig.com"},
-	}
-	svc := NewEmailService(cfg, "https://portal.vultisig.com", logrus.New())
-	svc.client = server.Client()
-
-	ctx := context.Background()
-	recipients := []mandrillRecipient{{Email: "invalid@example.com", Type: "to"}}
-
-	err := svc.sendEmailTo(ctx, server.URL, recipients, "Test", "<p>HTML</p>", "Text")
-	if err == nil {
-		t.Error("expected error for rejected email")
-	}
-}
-
-func TestEmailService_SendProposalNotification_Async(t *testing.T) {
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer wg.Done()
-
-		var msg mandrillMessage
-		json.NewDecoder(r.Body).Decode(&msg)
-
-		if msg.Message.Subject == "" {
-			t.Error("expected non-empty subject")
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]mandrillSendResult{
-			{Email: msg.Message.To[0].Email, Status: "queued"},
-		})
-	}))
-	defer server.Close()
-
-	cfg := config.PortalEmailConfig{
-		MandrillAPIKey:     "test-api-key",
-		FromEmail:          "noreply@vultisig.com",
-		FromName:           "Vultisig",
-		NotificationEmails: []string{"admin@vultisig.com"},
-	}
-	svc := NewEmailService(cfg, "https://portal.vultisig.com", logrus.New())
-	svc.client = server.Client()
-	svc.mandrillURL = server.URL
-
-	svc.SendProposalNotificationAsync("test-plugin", "Test Plugin", "dev@example.com")
-
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Error("timeout waiting for async email send")
-	}
-}
-
-func (s *EmailService) sendEmailTo(ctx context.Context, url string, recipients []mandrillRecipient, subject, htmlBody, text string) error {
-	s.mandrillURL = url
-	return s.sendEmail(ctx, recipients, subject, htmlBody, text)
 }

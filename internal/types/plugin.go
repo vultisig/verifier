@@ -27,6 +27,7 @@ type Plugin struct {
 	RatesCount     int             `json:"rates_count"`
 	AvgRating      float64         `json:"avg_rating"`
 	Installations  int             `json:"installations"`
+	PayoutAddress  string          `json:"payout_address,omitempty"`
 }
 
 type FAQItem struct {

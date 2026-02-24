@@ -76,6 +76,7 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 		var faqJSON []byte
 		var featuresJSON []byte
 		var audited sql.NullBool
+		var payoutAddress sql.NullString
 		var installations sql.NullInt64
 		var ratesCount sql.NullInt64
 		var avgRating sql.NullFloat64
@@ -93,6 +94,7 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 			&faqJSON,
 			&featuresJSON,
 			&audited,
+			&payoutAddress,
 			&tagID,
 			&tagName,
 			&tagCreatedAt,
@@ -145,6 +147,9 @@ func (p *PostgresBackend) collectPlugins(rows pgx.Rows) ([]itypes.Plugin, error)
 				plugin.Audited = audited.Bool
 			} else {
 				plugin.Audited = false
+			}
+			if payoutAddress.Valid {
+				plugin.PayoutAddress = payoutAddress.String
 			}
 			if installations.Valid {
 				plugin.Installations = int(installations.Int64)

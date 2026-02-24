@@ -46,6 +46,7 @@ type UserFeeStatus struct {
 	UnpaidAmount   int64         `json:"unpaid_amount"`
 	IsTrialActive  bool          `json:"is_trial_active"`
 	TrialRemaining time.Duration `json:"trial_remaining"`
+	Message        string        `json:"message"`
 	Fees           []*Fee        `json:"fees"`
 }
 

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"net/http"
 	"os"
@@ -129,6 +130,10 @@ func (s *Server) GetRouter() *echo.Echo {
 	plg.DELETE("/policy/:policyId", s.handleDeletePluginPolicyById, s.VerifierAuthMiddleware)
 	plg.PUT("/safety", s.handleSyncSafety, s.VerifierAuthMiddleware)
 
+	if handler, ok := s.spec.(plugin.BuildTxHandler); ok {
+		plg.POST("/buildtx", s.handleBuildTx(handler), s.VerifierAuthMiddleware)
+	}
+
 	e.GET("/skills", s.handleGetSkills)
 
 	return e
@@ -183,14 +188,14 @@ func (s *Server) handleGetSkills(c echo.Context) error {
 func (s *Server) handleReshareVault(c echo.Context) error {
 	var req vtypes.ReshareRequest
 	if err := c.Bind(&req); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request: "+err.Error()))
 	}
 	if err := req.IsValid(); err != nil {
-		return fmt.Errorf("invalid request, err: %w", err)
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("invalid request: "+err.Error()))
 	}
 	buf, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("fail to marshal to json, err: %w", err)
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to marshal request: "+err.Error()))
 	}
 	result, err := s.redis.Get(c.Request().Context(), req.SessionID)
 	if err == nil && result != "" {
@@ -206,7 +211,8 @@ func (s *Server) handleReshareVault(c echo.Context) error {
 		asynq.Retention(10*time.Minute),
 		asynq.Queue(s.taskQueueName()))
 	if err != nil {
-		return fmt.Errorf("fail to enqueue task, err: %w", err)
+		s.logger.WithError(err).Error("failed to enqueue task")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to enqueue task"))
 	}
 	return c.NoContent(http.StatusOK)
 }
@@ -227,9 +233,8 @@ func (s *Server) handleGetVault(c echo.Context) error {
 	filePathName := vcommon.GetVaultBackupFilename(publicKeyECDSA, pluginId)
 	content, err := s.vaultStorage.GetVault(filePathName)
 	if err != nil {
-		wrappedErr := fmt.Errorf("fail to read file in GetVault, err: %w", err)
-		s.logger.Error(wrappedErr)
-		return wrappedErr
+		s.logger.WithError(err).Error("fail to read file in GetVault")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("fail to read file in GetVault"))
 	}
 
 	v, err := vcommon.DecryptVaultFromBackup(s.cfg.EncryptionSecret, content)
@@ -251,14 +256,15 @@ func (s *Server) handleGetVault(c echo.Context) error {
 func (s *Server) handleGetKeysignResult(c echo.Context) error {
 	taskID := c.Param("taskId")
 	if taskID == "" {
-		return fmt.Errorf("task id is required")
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("task id is required"))
 	}
 	result, err := tasks.GetTaskResult(s.inspector, taskID)
 	if err != nil {
 		if err.Error() == "task is still in progress" {
 			return c.JSON(http.StatusOK, "Task is still in progress")
 		}
-		return err
+		s.logger.WithError(err).Error("failed to get task result")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to get task result"))
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -285,7 +291,8 @@ func (s *Server) handleDeleteVault(c echo.Context) error {
 			return c.NoContent(http.StatusOK)
 		}
 		// Real error (S3 failure, permissions, etc.)
-		return c.JSON(http.StatusInternalServerError, NewErrorResponse(err.Error()))
+		s.logger.WithError(err).Error("failed to delete vault file")
+		return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to delete vault"))
 	}
 	return c.NoContent(http.StatusOK)
 }
@@ -322,7 +329,7 @@ func (s *Server) handleExistVault(c echo.Context) error {
 func (s *Server) handleCreatePluginPolicy(c echo.Context) error {
 	var pol vtypes.PluginPolicy
 	if err := c.Bind(&pol); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request: "+err.Error()))
 	}
 
 	if err := s.spec.ValidatePluginPolicy(pol); err != nil {
@@ -351,7 +358,7 @@ func (s *Server) handleCreatePluginPolicy(c echo.Context) error {
 func (s *Server) handleUpdatePluginPolicyById(c echo.Context) error {
 	var pol vtypes.PluginPolicy
 	if err := c.Bind(&pol); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
+		return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to parse request: "+err.Error()))
 	}
 
 	if err := s.spec.ValidatePluginPolicy(pol); err != nil {
@@ -553,6 +560,21 @@ func policyToMessageHex(policy vtypes.PluginPolicy) ([]byte, error) {
 	}
 	result := strings.Join(fields, delimiter)
 	return []byte(result), nil
+}
+
+func (s *Server) handleBuildTx(handler plugin.BuildTxHandler) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		body, err := io.ReadAll(c.Request().Body)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, NewErrorResponse("failed to read request body"))
+		}
+		resp, err := handler.HandleBuildTx(c.Request().Context(), body)
+		if err != nil {
+			s.logger.WithError(err).Error("failed to build tx")
+			return c.JSON(http.StatusInternalServerError, NewErrorResponse("failed to build transaction"))
+		}
+		return c.JSON(http.StatusOK, resp)
+	}
 }
 
 func (s *Server) handleSyncSafety(c echo.Context) error {

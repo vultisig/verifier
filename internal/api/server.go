@@ -161,9 +161,9 @@ func (s *Server) StartServer() error {
 
 	// Protected vault endpoints
 	vaultGroup := e.Group("/vault")
-	// Reshare vault endpoint, only user who already log in can request resharing
+	// Reshare vault endpoint
 	vaultGroup.POST("/reshare", s.ReshareVault)
-	vaultGroup.GET("/get/:pluginId/:publicKeyECDSA", s.GetVault, s.VaultAuthMiddleware) // Get Vault Data
+	vaultGroup.GET("/get/:pluginId/:publicKeyECDSA", s.GetVault, s.VaultAuthMiddleware) // Get Vault Data (secured)
 	vaultGroup.GET("/exist/:pluginId/:publicKeyECDSA", s.ExistVault)                    // Check if Vault exists
 
 	// Sign endpoint, plugin should authenticate themselves using the API Key issued by the Verifier

@@ -66,7 +66,8 @@ func (c *AppStoreCollector) Stop() {
 }
 
 func (c *AppStoreCollector) collect() {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), c.interval*9/10)
+	defer cancel()
 
 	installations, err := c.db.GetInstallationsByPlugin(ctx)
 	if err != nil {

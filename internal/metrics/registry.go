@@ -15,6 +15,7 @@ const (
 	ServiceVault     = "vault"
 	ServiceWorker    = "worker"
 	ServiceHTTP      = "http"
+	ServiceAppStore  = "appstore"
 )
 
 // RegisterMetrics registers metrics for the specified services with a custom registry
@@ -32,6 +33,8 @@ func RegisterMetrics(services []string, registry *prometheus.Registry, logger *l
 			registerWorkerMetrics(registry, logger)
 		case ServiceHTTP:
 			registerHTTPMetrics(registry, logger)
+		case ServiceAppStore:
+			registerAppStoreMetrics(registry, logger)
 		default:
 			logger.Warnf("Unknown service type for metrics registration: %s", service)
 		}
@@ -81,4 +84,15 @@ func registerHTTPMetrics(registry *prometheus.Registry, logger *logrus.Logger) {
 	registerIfNotExists(httpRequestsTotal, "http_requests_total", registry, logger)
 	registerIfNotExists(httpRequestDuration, "http_request_duration", registry, logger)
 	registerIfNotExists(httpActiveRequests, "http_active_requests", registry, logger)
+}
+
+// registerAppStoreMetrics registers App Store business metrics
+func registerAppStoreMetrics(registry *prometheus.Registry, logger *logrus.Logger) {
+	registerIfNotExists(appstoreInstallationsTotal, "appstore_installations_total", registry, logger)
+	registerIfNotExists(appstorePoliciesTotal, "appstore_policies_total", registry, logger)
+	registerIfNotExists(appstoreFeesEarnedTotal, "appstore_fees_earned_total", registry, logger)
+	registerIfNotExists(appstoreInstallationsGrandTotal, "appstore_installations_grand_total", registry, logger)
+	registerIfNotExists(appstorePoliciesGrandTotal, "appstore_policies_grand_total", registry, logger)
+	registerIfNotExists(appstoreFeesGrandTotal, "appstore_fees_grand_total", registry, logger)
+	registerIfNotExists(appstoreCollectorLastUpdateTimestamp, "appstore_collector_last_update_timestamp", registry, logger)
 }

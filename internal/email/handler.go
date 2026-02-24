@@ -28,6 +28,11 @@ func (h *Handler) HandleProposal(ctx context.Context, t *asynq.Task) error {
 		return fmt.Errorf("unmarshal task: %w: %w", err, asynq.SkipRetry)
 	}
 
+	if len(task.NotificationEmails) == 0 {
+		h.logger.WithField("plugin_id", task.PluginID).Warn("no notification emails configured")
+		return nil
+	}
+
 	recipients := make([]MandrillTo, len(task.NotificationEmails))
 	for i, addr := range task.NotificationEmails {
 		recipients[i] = MandrillTo{

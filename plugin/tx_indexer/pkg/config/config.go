@@ -53,4 +53,5 @@ type MetricsConfig struct {
 	Enabled bool   `mapstructure:"enabled" json:"enabled,omitempty"`
 	Host    string `mapstructure:"host" json:"host,omitempty"`
 	Port    int    `mapstructure:"port" json:"port,omitempty"`
+	Token   string `mapstructure:"token" json:"token,omitempty"`
 }

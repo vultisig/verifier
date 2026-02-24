@@ -2,8 +2,10 @@ package metrics
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -16,6 +18,7 @@ type Config struct {
 	Enabled bool   `mapstructure:"enabled" json:"enabled,omitempty"`
 	Host    string `mapstructure:"host" json:"host,omitempty"`
 	Port    int    `mapstructure:"port" json:"port,omitempty"`
+	Token   string `mapstructure:"token" json:"token,omitempty"`
 }
 
 // DefaultConfig returns default metrics configuration
@@ -31,20 +34,33 @@ func DefaultConfig() Config {
 type Server struct {
 	server *http.Server
 	logger *logrus.Logger
+	token  string
 }
 
 // NewServer creates a new metrics server with a custom registry
-func NewServer(host string, port int, logger *logrus.Logger, registry *prometheus.Registry) *Server {
-	mux := http.NewServeMux()
-
-	// Register the Prometheus metrics handler with custom registry
-	if registry != nil {
-		mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
-	} else {
-		mux.Handle("/metrics", promhttp.Handler())
+func NewServer(host string, port int, token string, logger *logrus.Logger, registry *prometheus.Registry) *Server {
+	s := &Server{
+		logger: logger,
+		token:  token,
 	}
 
-	// Add a health check endpoint
+	mux := http.NewServeMux()
+
+	var metricsHandler http.Handler
+	if registry != nil {
+		metricsHandler = promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
+	} else {
+		metricsHandler = promhttp.Handler()
+	}
+
+	if token != "" {
+		logger.Info("Metrics endpoint protected with Bearer token authentication")
+		mux.Handle("/metrics", s.authMiddleware(metricsHandler))
+	} else {
+		logger.Warn("Metrics endpoint is NOT protected - consider setting metrics.token in config")
+		mux.Handle("/metrics", metricsHandler)
+	}
+
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
@@ -70,10 +86,42 @@ func NewServer(host string, port int, logger *logrus.Logger, registry *prometheu
 		IdleTimeout:  15 * time.Second,
 	}
 
-	return &Server{
-		server: server,
-		logger: logger,
-	}
+	s.server = server
+	return s
+}
+
+func (s *Server) authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "missing authorization header", http.StatusUnauthorized)
+			return
+		}
+
+		const prefix = "Bearer "
+		if !strings.HasPrefix(authHeader, prefix) {
+			http.Error(w, "invalid authorization header format", http.StatusUnauthorized)
+			return
+		}
+
+		token := authHeader[len(prefix):]
+		if token == "" {
+			http.Error(w, "missing token", http.StatusUnauthorized)
+			return
+		}
+
+		if !s.validateToken(token) {
+			http.Error(w, "invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) validateToken(token string) bool {
+	tokenBytes := []byte(token)
+	return subtle.ConstantTimeCompare([]byte(s.token), tokenBytes) == 1
 }
 
 // Start starts the metrics server in a goroutine
@@ -99,11 +147,10 @@ func StartMetricsServer(cfg Config, services []string, logger *logrus.Logger) *S
 		return nil
 	}
 
-	// Create registry and register metrics for specified services
 	registry := prometheus.NewRegistry()
 	RegisterMetrics(services, registry, logger)
 
-	server := NewServer(cfg.Host, cfg.Port, logger, registry)
+	server := NewServer(cfg.Host, cfg.Port, cfg.Token, logger, registry)
 	server.Start()
 	return server
 }
@@ -115,7 +162,7 @@ func StartMetricsServerWithRegistry(cfg Config, registry *prometheus.Registry, l
 		return nil
 	}
 
-	server := NewServer(cfg.Host, cfg.Port, logger, registry)
+	server := NewServer(cfg.Host, cfg.Port, cfg.Token, logger, registry)
 	server.Start()
 	return server
 }

@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -20,6 +21,7 @@ type AppStoreCollector struct {
 	interval time.Duration
 	stopCh   chan struct{}
 	doneCh   chan struct{}
+	stopOnce sync.Once
 }
 
 func NewAppStoreCollector(db DatabaseQuerier, metrics *AppStoreMetrics, logger *logrus.Logger, interval time.Duration) *AppStoreCollector {
@@ -57,12 +59,15 @@ func (c *AppStoreCollector) Start() {
 }
 
 func (c *AppStoreCollector) Stop() {
-	close(c.stopCh)
-	<-c.doneCh
+	c.stopOnce.Do(func() {
+		close(c.stopCh)
+		<-c.doneCh
+	})
 }
 
 func (c *AppStoreCollector) collect() {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), c.interval*9/10)
+	defer cancel()
 
 	installations, err := c.db.GetInstallationsByPlugin(ctx)
 	if err != nil {

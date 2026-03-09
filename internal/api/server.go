@@ -209,6 +209,11 @@ func (s *Server) StartServer() error {
 	pluginsGroup.POST("/:pluginId/report", s.ReportPlugin, s.VaultAuthMiddleware)
 	pluginsGroup.GET("/proposed/validate/:pluginId", s.ValidateProposedPlugin, s.VaultAuthMiddleware)
 
+	// Server-to-server endpoints — authenticated via X-Service-Key header
+	serviceGroup := e.Group("/service", s.ServiceKeyMiddleware)
+	serviceGroup.GET("/fee/status", s.GetServiceFeeStatus)
+	serviceGroup.GET("/plugins/installed", s.GetServiceInstalledPlugins)
+
 	categoriesGroup := e.Group("/categories")
 	categoriesGroup.GET("", s.GetCategories)
 

@@ -85,6 +85,20 @@ func (s *Server) VaultAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
+// ServiceKeyMiddleware validates the X-Service-Key header for server-to-server endpoints.
+func (s *Server) ServiceKeyMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		if s.cfg.Service.Key == "" {
+			return c.JSON(http.StatusServiceUnavailable, NewErrorResponseWithMessage("service API not configured"))
+		}
+		key := c.Request().Header.Get("X-Service-Key")
+		if key == "" || key != s.cfg.Service.Key {
+			return c.JSON(http.StatusUnauthorized, NewErrorResponseWithMessage(msgUnauthorized))
+		}
+		return next(c)
+	}
+}
+
 func (s *Server) PluginAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		authHeader := c.Request().Header.Get(echo.HeaderAuthorization)

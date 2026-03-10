@@ -131,6 +131,11 @@ spec:
                 configMapKeyRef:
                   name: plugin-assets
                   key: public-base-url
+            - name: SERVICE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: service
+                  key: key
           resources:
             requests:
               memory: "64Mi"

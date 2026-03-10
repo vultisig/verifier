@@ -46,6 +46,9 @@ type VerifierConfig struct {
 	Fees         FeesConfig         `mapstructure:"fees" json:"fees"`
 	Metrics      MetricsConfig      `mapstructure:"metrics" json:"metrics,omitempty"`
 	PluginAssets PluginAssetsConfig `mapstructure:"plugin_assets" json:"plugin_assets,omitempty"`
+	Service      struct {
+		Key string `mapstructure:"key" json:"key,omitempty"`
+	} `mapstructure:"service" json:"service,omitempty"`
 }
 
 type FeesConfig struct {

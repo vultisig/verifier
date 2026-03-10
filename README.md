@@ -75,20 +75,29 @@ Each service uses its corresponding example file as the default config.json in b
 
 ## API Endpoints
 
-**Authentication:** `/auth` (POST), `/auth/refresh` (POST)
+**Authentication:** `/auth` (POST), `/auth/refresh` (POST), `/auth/me` (GET, vault JWT)
 
 **Vault Management:**
 - Reshare: `/vault/reshare` (POST)
-- Get: `/vault/get/:pubKey` (GET)
-- Check: `/vault/exist/:pubKey` (GET)
+- Get: `/vault/get/:pluginId/:publicKeyECDSA` (GET, vault JWT)
+- Check: `/vault/exist/:pluginId/:publicKeyECDSA` (GET)
+
+**Plugins:**
+- List available: `/plugins` (GET), `/plugins/available` (GET)
+- Installed (for vault): `/plugins/installed` (GET, vault JWT)
+- Recipe schema: `/plugins/:pluginId/recipe-specification` (GET)
+- Policy suggest: `/plugins/:pluginId/recipe-specification/suggest` (POST)
+
+**User Fees:**
+- Status: `/fee/status` (GET, vault JWT)
+
+**Service-to-Service (X-Service-Key header, configured via `service.key`):**
+- Fee status by public key: `/service/fee/status?public_key=` (GET)
+- Installed plugins by public key: `/service/plugins/installed?public_key=` (GET)
 
 **Signing:**
-- Sign: `/vault/sign` (POST)
-- Get results: `/vault/sign/response/:id` (GET)
-
-**Transactions:**
-- Create: `/sync/transaction` (POST)
-- Update: `/sync/transaction` (PUT)
+- Sign: `/plugin-signer/sign` (POST, plugin API key)
+- Get results: `/plugin-signer/sign/response/:taskId` (GET, plugin API key)
 
 ## Development
 

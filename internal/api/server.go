@@ -478,6 +478,18 @@ func (s *Server) Auth(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidRequestFormat))
 	}
 
+	// Validate optional identity fields
+	if req.AccountType != "" && req.AccountType != "guest" && req.AccountType != "vault" {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidRequestFormat))
+	}
+	if req.DeviceID != "" {
+		deviceID := strings.TrimPrefix(req.DeviceID, "0x")
+		if _, err := hex.DecodeString(deviceID); err != nil || len(deviceID) < 32 || len(deviceID) > 128 {
+			return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidRequestFormat))
+		}
+		req.DeviceID = strings.ToLower(deviceID)
+	}
+
 	// Validate required fields
 	if err := clientutil.ValidateAuthRequest(
 		req.Message, req.Signature, req.PublicKey, req.ChainCodeHex,

@@ -530,20 +530,15 @@ func (s *Server) Auth(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgExpiryTooFarInFuture))
 	}
 
-	// Check if nonce has been used in Redis
-	exists, err := s.redis.Exists(c.Request().Context(), nonceKey)
+	// Atomically reserve the nonce via SetNX (compare-and-set).
+	// This eliminates the TOCTOU race between Exists and Set.
+	wasSet, err := s.redis.SetNX(c.Request().Context(), nonceKey, "1", time.Until(expiryTime))
 	if err != nil {
-		s.logger.WithError(err).Errorf("Nonce already used")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgNonceUsed))
-	}
-	if exists {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgNonceUsed))
-	}
-
-	// Store the nonce in Redis with expiry
-	if err := s.redis.Set(c.Request().Context(), nonceKey, "1", time.Until(expiryTime)); err != nil {
-		s.logger.WithError(err).Errorf("Failed to store nonce")
+		s.logger.WithError(err).Error("Failed to reserve nonce atomically")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgNonceStoreFailed))
+	}
+	if !wasSet {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgNonceUsed))
 	}
 
 	tokenPair, err := s.authService.GenerateTokenPair(c.Request().Context(), req.PublicKey)

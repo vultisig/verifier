@@ -470,6 +470,8 @@ func (s *Server) Auth(c echo.Context) error {
 		Signature    string `json:"signature"`      // hex encoded signature
 		ChainCodeHex string `json:"chain_code_hex"` // hex encoded chain code
 		PublicKey    string `json:"public_key"`     // hex encoded public key
+		AccountType  string `json:"account_type"`   // "guest" or "vault" (optional, for identity hardening)
+		DeviceID     string `json:"device_id"`      // hex device fingerprint (optional, for trial dedup)
 	}
 
 	if err := c.Bind(&req); err != nil {
@@ -545,6 +547,23 @@ func (s *Server) Auth(c echo.Context) error {
 	if err != nil {
 		s.logger.Error("failed to generate token pair:", err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgTokenGenerateFailed))
+	}
+
+	// Log identity metadata for future hardening
+	if req.AccountType != "" || req.DeviceID != "" {
+		pkPreview := req.PublicKey
+		if len(pkPreview) > 16 {
+			pkPreview = pkPreview[:16] + "..."
+		}
+		devPreview := req.DeviceID
+		if len(devPreview) > 16 {
+			devPreview = devPreview[:16] + "..."
+		}
+		s.logger.WithFields(logrus.Fields{
+			"public_key":   pkPreview,
+			"account_type": req.AccountType,
+			"device_id":    devPreview,
+		}).Info("auth with identity metadata")
 	}
 
 	// Store logged-in user's public key in cache for quick access

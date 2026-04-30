@@ -19,19 +19,26 @@ import (
 	rtypes "github.com/vultisig/recipes/types"
 )
 
-// These tests guard the verifier's hashing path against recipes regressions for
-// the two staking/distribution messages that mcp-ts PR #72 + the
-// recipes/verifier Phase 1.5 schemas introduced. They sign a fixture
-// MsgBeginRedelegate and MsgWithdrawDelegatorReward via the recipes Cosmos SDK
-// and assert:
-//   1. the SDK's interface registry knows the message types (otherwise Sign
-//      panics inside protobuf-Any unpacking),
-//   2. the resulting hash is deterministic and matches the SHA256 the indexer
-//      promises to upstream callers.
+// These tests guard two distinct invariants the verifier needs after recipes
+// Phase 1.5 lands the staking/distribution schemas:
 //
-// If a future recipes bump removes stakingtypes.RegisterInterfaces /
-// distributiontypes.RegisterInterfaces from sdk/cosmos/sdk.go, these tests
-// fail loudly here rather than at runtime when a real redelegate broadcasts.
+//  1. The recipes Cosmos SDK's InterfaceRegistry knows the new message types.
+//     This is what consumers of `sdk.InterfaceRegistry()` (including downstream
+//     decoders that DO need to UnpackAny the body messages — e.g. anything
+//     that inspects the redelegate amount or validator addresses post-sign)
+//     rely on. We assert this directly via `UnpackAny` in
+//     TestRecipesSDKRegistersStakingDistributionInterfaces.
+//
+//  2. The end-to-end indexer hash path (`Sign + ComputeTxHash`) accepts the
+//     new tx shapes and produces a stable SHA256 of the signed bytes. Note
+//     that Sign() itself only round-trips the outer tx.Tx envelope — it does
+//     not UnpackAny the body messages — so the hash tests don't *require*
+//     the new interface registrations to pass. They guard the broader
+//     contract: an indexer fed an unsigned redelegate/withdraw_rewards tx
+//     should not error, and the hash is shaped like all other cosmos hashes.
+//
+// If a future recipes bump regresses either invariant, the failure surfaces
+// here rather than at runtime when a real redelegate broadcasts.
 
 const (
 	testDelegator    = "cosmos1delegatorxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
@@ -78,6 +85,51 @@ func buildUnsignedCosmosTx(t *testing.T, msg cosmostypes.Msg) []byte {
 	bz, err := unsigned.Marshal()
 	require.NoError(t, err)
 	return bz
+}
+
+// TestRecipesSDKRegistersStakingDistributionInterfaces asserts the actual
+// behavior change recipes Phase 1.5 introduces: a freshly-built recipes
+// Cosmos SDK can decode a /cosmos.staking.v1beta1.MsgBeginRedelegate and a
+// /cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward off the wire. This
+// is the load-bearing assertion for any verifier consumer that goes beyond
+// envelope round-tripping (e.g. policy evaluation, parameter extraction).
+func TestRecipesSDKRegistersStakingDistributionInterfaces(t *testing.T) {
+	sdk := cosmossdk.NewSDK(nil)
+	ir := sdk.InterfaceRegistry()
+
+	t.Run("MsgBeginRedelegate decodes via SDK registry", func(t *testing.T) {
+		original := &stakingtypes.MsgBeginRedelegate{
+			DelegatorAddress:    testDelegator,
+			ValidatorSrcAddress: testValidatorSrc,
+			ValidatorDstAddress: testValidatorDst,
+			Amount:              cosmostypes.NewCoin("uatom", math.NewInt(1_000_000)),
+		}
+		any, err := codectypes.NewAnyWithValue(original)
+		require.NoError(t, err)
+		assert.Equal(t, "/cosmos.staking.v1beta1.MsgBeginRedelegate", any.TypeUrl)
+
+		var decoded cosmostypes.Msg
+		err = ir.UnpackAny(any, &decoded)
+		require.NoError(t, err, "recipes SDK must register stakingtypes.RegisterInterfaces")
+		_, ok := decoded.(*stakingtypes.MsgBeginRedelegate)
+		assert.True(t, ok)
+	})
+
+	t.Run("MsgWithdrawDelegatorReward decodes via SDK registry", func(t *testing.T) {
+		original := &distributiontypes.MsgWithdrawDelegatorReward{
+			DelegatorAddress: testDelegator,
+			ValidatorAddress: testValidator,
+		}
+		any, err := codectypes.NewAnyWithValue(original)
+		require.NoError(t, err)
+		assert.Equal(t, "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward", any.TypeUrl)
+
+		var decoded cosmostypes.Msg
+		err = ir.UnpackAny(any, &decoded)
+		require.NoError(t, err, "recipes SDK must register distributiontypes.RegisterInterfaces")
+		_, ok := decoded.(*distributiontypes.MsgWithdrawDelegatorReward)
+		assert.True(t, ok)
+	})
 }
 
 func TestTHORChainIndexer_HashesMsgBeginRedelegate(t *testing.T) {

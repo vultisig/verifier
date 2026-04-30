@@ -470,10 +470,24 @@ func (s *Server) Auth(c echo.Context) error {
 		Signature    string `json:"signature"`      // hex encoded signature
 		ChainCodeHex string `json:"chain_code_hex"` // hex encoded chain code
 		PublicKey    string `json:"public_key"`     // hex encoded public key
+		AccountType  string `json:"account_type"`   // "guest" or "vault" (optional, for identity hardening)
+		DeviceID     string `json:"device_id"`      // hex device fingerprint (optional, for trial dedup)
 	}
 
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidRequestFormat))
+	}
+
+	// Validate optional identity fields
+	if req.AccountType != "" && req.AccountType != "guest" && req.AccountType != "vault" {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidRequestFormat))
+	}
+	if req.DeviceID != "" {
+		deviceID := strings.TrimPrefix(req.DeviceID, "0x")
+		if _, err := hex.DecodeString(deviceID); err != nil || len(deviceID) < 32 || len(deviceID) > 128 {
+			return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgInvalidRequestFormat))
+		}
+		req.DeviceID = strings.ToLower(deviceID)
 	}
 
 	// Validate required fields
@@ -530,26 +544,38 @@ func (s *Server) Auth(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgExpiryTooFarInFuture))
 	}
 
-	// Check if nonce has been used in Redis
-	exists, err := s.redis.Exists(c.Request().Context(), nonceKey)
+	// Atomically reserve the nonce via SetNX (compare-and-set).
+	// This eliminates the TOCTOU race between Exists and Set.
+	wasSet, err := s.redis.SetNX(c.Request().Context(), nonceKey, "1", time.Until(expiryTime))
 	if err != nil {
-		s.logger.WithError(err).Errorf("Nonce already used")
-		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgNonceUsed))
-	}
-	if exists {
-		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgNonceUsed))
-	}
-
-	// Store the nonce in Redis with expiry
-	if err := s.redis.Set(c.Request().Context(), nonceKey, "1", time.Until(expiryTime)); err != nil {
-		s.logger.WithError(err).Errorf("Failed to store nonce")
+		s.logger.WithError(err).Error("Failed to reserve nonce atomically")
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgNonceStoreFailed))
+	}
+	if !wasSet {
+		return c.JSON(http.StatusBadRequest, NewErrorResponseWithMessage(msgNonceUsed))
 	}
 
 	tokenPair, err := s.authService.GenerateTokenPair(c.Request().Context(), req.PublicKey)
 	if err != nil {
 		s.logger.Error("failed to generate token pair:", err)
 		return c.JSON(http.StatusInternalServerError, NewErrorResponseWithMessage(msgTokenGenerateFailed))
+	}
+
+	// Log identity metadata for future hardening
+	if req.AccountType != "" || req.DeviceID != "" {
+		pkPreview := req.PublicKey
+		if len(pkPreview) > 16 {
+			pkPreview = pkPreview[:16] + "..."
+		}
+		devPreview := req.DeviceID
+		if len(devPreview) > 16 {
+			devPreview = devPreview[:16] + "..."
+		}
+		s.logger.WithFields(logrus.Fields{
+			"public_key":   pkPreview,
+			"account_type": req.AccountType,
+			"device_id":    devPreview,
+		}).Info("auth with identity metadata")
 	}
 
 	// Store logged-in user's public key in cache for quick access

@@ -56,6 +56,15 @@ func (r *RedisStorage) Exists(ctx context.Context, key string) (bool, error) {
 	return val > 0, nil
 }
 
+// SetNX atomically sets a key only if it does not already exist (compare-and-set).
+// Returns true if the key was set, false if it already existed.
+func (r *RedisStorage) SetNX(ctx context.Context, key string, value string, expiry time.Duration) (bool, error) {
+	if err := contexthelper.CheckCancellation(ctx); err != nil {
+		return false, err
+	}
+	return r.client.SetNX(ctx, key, value, expiry).Result()
+}
+
 func (r *RedisStorage) Expire(ctx context.Context, key string, expiry time.Duration) error {
 	if err := contexthelper.CheckCancellation(ctx); err != nil {
 		return err

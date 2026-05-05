@@ -3,12 +3,14 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
 	rtypes "github.com/vultisig/recipes/types"
@@ -39,6 +41,8 @@ type Plugin interface {
 	GetPluginRecipeFunctions(ctx context.Context, pluginID string) (types.RecipeFunctions, error)
 	GetPluginTitlesByIDs(ctx context.Context, ids []string) (map[string]string, error)
 	GetPluginSkills(ctx context.Context, pluginID string) (*PluginSkills, error)
+	GetPolicyProgress(ctx context.Context, pluginID string, policyID uuid.UUID) (*types.Progress, error)
+	GetPoliciesProgress(ctx context.Context, pluginID string, policyIDs []uuid.UUID) (map[uuid.UUID]*types.Progress, error)
 }
 
 type PluginServiceStorage interface {
@@ -432,6 +436,83 @@ func (s *PluginService) GetPluginSkills(ctx context.Context, pluginID string) (*
 	}
 
 	return skills, nil
+}
+
+func (s *PluginService) GetPolicyProgress(ctx context.Context, pluginID string, policyID uuid.UUID) (*types.Progress, error) {
+	plugin, err := s.db.FindPluginById(ctx, nil, ptypes.PluginID(pluginID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to find plugin: %w", err)
+	}
+	keyInfo, err := s.db.GetAPIKeyByPluginId(ctx, pluginID)
+	if err != nil || keyInfo == nil {
+		return nil, fmt.Errorf("failed to find plugin server info: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/plugin/policy/%s/progress", strings.TrimSuffix(plugin.ServerEndpoint, "/"), policyID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+keyInfo.ApiKey)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call plugin endpoint: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotImplemented || resp.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("plugin endpoint returned status %d", resp.StatusCode)
+	}
+
+	var prog types.Progress
+	err = json.NewDecoder(resp.Body).Decode(&prog)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &prog, nil
+}
+
+func (s *PluginService) GetPoliciesProgress(ctx context.Context, pluginID string, policyIDs []uuid.UUID) (map[uuid.UUID]*types.Progress, error) {
+	plugin, err := s.db.FindPluginById(ctx, nil, ptypes.PluginID(pluginID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to find plugin: %w", err)
+	}
+	keyInfo, err := s.db.GetAPIKeyByPluginId(ctx, pluginID)
+	if err != nil || keyInfo == nil {
+		return nil, fmt.Errorf("failed to find plugin server info: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/plugin/policies/progress", strings.TrimSuffix(plugin.ServerEndpoint, "/"))
+
+	result, err := libhttp.Call[map[uuid.UUID]*types.Progress](
+		ctx,
+		http.MethodPost,
+		url,
+		map[string]string{
+			"Content-Type":  "application/json",
+			"Authorization": "Bearer " + keyInfo.ApiKey,
+		},
+		struct {
+			PolicyIDs []uuid.UUID `json:"policy_ids"`
+		}{PolicyIDs: policyIDs},
+		nil,
+	)
+	if err != nil {
+		var httpErr *libhttp.HTTPError
+		if errors.As(err, &httpErr) && (httpErr.StatusCode == http.StatusNotImplemented || httpErr.StatusCode == http.StatusNotFound) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get policies progress: %w", err)
+	}
+
+	return result, nil
 }
 
 func (s *PluginService) fetchSkillsFromPlugin(ctx context.Context, serverEndpoint, token string) (*PluginSkills, error) {

@@ -14,6 +14,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -44,7 +45,7 @@ type Server struct {
 	listingFeeClient *ListingFeeClient
 }
 
-func NewServer(cfg config.PortalConfig, pool *pgxpool.Pool, db *postgres.PostgresBackend, assetStorage storage.PluginAssetStorage) *Server {
+func NewServer(cfg config.PortalConfig, pool *pgxpool.Pool, db *postgres.PostgresBackend, assetStorage storage.PluginAssetStorage, queueClient *asynq.Client) *Server {
 	logger := logrus.WithField("service", "portal").Logger
 	var listingFeeClient *ListingFeeClient
 	if cfg.DeveloperServiceURL != "" {
@@ -59,7 +60,7 @@ func NewServer(cfg config.PortalConfig, pool *pgxpool.Pool, db *postgres.Postgre
 		inviteService:    NewInviteService(cfg.Server.HMACSecret, cfg.Server.BaseURL),
 		db:               db,
 		assetStorage:     assetStorage,
-		emailService:     NewEmailService(cfg.Email, cfg.Server.BaseURL, logger),
+		emailService:     NewEmailService(cfg.Email, cfg.Server.BaseURL, queueClient, logger),
 		listingFeeClient: listingFeeClient,
 	}
 }

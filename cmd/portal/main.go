@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hibiken/asynq"
+
 	"github.com/vultisig/verifier/config"
 	"github.com/vultisig/verifier/internal/portal"
 	"github.com/vultisig/verifier/internal/storage"
@@ -34,7 +36,28 @@ func main() {
 		panic(err)
 	}
 
-	server := portal.NewServer(*cfg, pool, db, assetStorage)
+	var queueClient *asynq.Client
+	redisCfg := cfg.Redis
+	if redisCfg.URI != "" {
+		redisConnOpt, parseErr := asynq.ParseRedisURI(redisCfg.URI)
+		if parseErr != nil {
+			panic(parseErr)
+		}
+		queueClient = asynq.NewClient(redisConnOpt)
+	} else if redisCfg.Host != "" {
+		redisConnOpt := asynq.RedisClientOpt{
+			Addr:     redisCfg.Host + ":" + redisCfg.Port,
+			Username: redisCfg.User,
+			Password: redisCfg.Password,
+			DB:       redisCfg.DB,
+		}
+		queueClient = asynq.NewClient(redisConnOpt)
+	}
+	if queueClient != nil {
+		defer queueClient.Close()
+	}
+
+	server := portal.NewServer(*cfg, pool, db, assetStorage, queueClient)
 	if err := server.Start(); err != nil {
 		panic(err)
 	}

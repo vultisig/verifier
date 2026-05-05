@@ -3,9 +3,11 @@ module github.com/vultisig/verifier
 go 1.25
 
 require (
+	cosmossdk.io/math v1.5.3
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/btcsuite/btcd v0.24.2
 	github.com/btcsuite/btcd/btcutil/psbt v1.1.10
+	github.com/cosmos/cosmos-sdk v0.50.11
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0
 	github.com/eager7/dogd v0.0.0-20200427085516-2caf59f59dbb
 	github.com/ethereum/go-ethereum v1.15.11
@@ -16,6 +18,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-retryablehttp v0.7.7
 	github.com/hibiken/asynq v0.25.1
+	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/kaptinlin/jsonschema v0.4.6
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -31,7 +34,7 @@ require (
 	github.com/vultisig/commondata v0.0.0-20250710214228-61d9ed8f7778
 	github.com/vultisig/go-wrappers v0.0.0-20260116015747-e12e4d06cf57
 	github.com/vultisig/mobile-tss-lib v0.0.0-20250316003201-2e7e570a4a74
-	github.com/vultisig/recipes v0.0.0-20260129020926-577976dfb292
+	github.com/vultisig/recipes v0.0.0-20260503115421-d28b3880fd08
 	github.com/vultisig/vultiserver v0.0.0-20250825042420-c6e6ac281110
 	github.com/vultisig/vultisig-go v0.0.0-20260114092710-6c38516a0c85
 	github.com/xyield/xrpl-go v0.0.0-20230914223425-9abe75c05830
@@ -48,7 +51,6 @@ require (
 	cosmossdk.io/depinject v1.2.1 // indirect
 	cosmossdk.io/errors v1.0.2 // indirect
 	cosmossdk.io/log v1.6.0 // indirect
-	cosmossdk.io/math v1.5.3 // indirect
 	cosmossdk.io/schema v1.1.0 // indirect
 	cosmossdk.io/store v1.1.2 // indirect
 	cosmossdk.io/x/tx v0.14.0 // indirect
@@ -94,7 +96,6 @@ require (
 	github.com/cosmos/btcutil v1.0.5 // indirect
 	github.com/cosmos/cosmos-db v1.1.1 // indirect
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5 // indirect
-	github.com/cosmos/cosmos-sdk v0.50.11 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/gogoproto v1.7.0 // indirect
@@ -177,7 +178,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/ipfs/go-log v1.0.5 // indirect
 	github.com/ipfs/go-log/v2 v2.5.1 // indirect
-	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect

@@ -31,7 +31,7 @@ var (
 
 func TestMain(m *testing.M) {
 	portalURL = getEnv("PORTAL_URL", "http://localhost:8081")
-	portalJWTSecret = getEnv("PORTAL_JWT_SECRET", "test-portal-secret")
+	portalJWTSecret = getEnv("PORTAL_JWT_SECRET", "test-portal-jwt-secret-min-32-chars-000")
 	testPluginID = getEnv("TEST_PLUGIN_ID", "vultisig-dca-0000")
 
 	dsn := getEnv("DATABASE_DSN", "")

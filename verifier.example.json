@@ -6,7 +6,7 @@
   "server": {
     "host": "127.0.0.1",
     "port": 8080,
-    "jwt_secret": "mysecret"
+    "jwt_secret": "local-dev-only-jwt-secret-not-for-prod-0000"
   },
   "database": {
     "dsn": "postgres://myuser:mypassword@localhost:5432/vultisig-verifier?sslmode=disable"

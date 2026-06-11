@@ -29,8 +29,24 @@ type PortalAuthService struct {
 	logger    *logrus.Logger
 }
 
-// NewPortalAuthService creates a new portal authentication service
+// portalMinJWTSecretLen is the minimum acceptable HS256 signing-secret length —
+// same floor as the verifier AuthService (and the agent-backend JWT_SECRET).
+const portalMinJWTSecretLen = 32
+
+// NewPortalAuthService creates a new portal authentication service. It FAILS
+// FAST (fatal) if the JWT secret is missing or too short: jwt_secret is
+// omitempty in the portal config, and an empty secret meant HS256 tokens were
+// signed AND validated with a zero-length key — token forgery for any vault.
+// Fatal (rather than returning an error) because the surrounding NewServer is a
+// struct-literal constructor with no error return, and a forgeable auth service
+// must never boot.
 func NewPortalAuthService(secret string, logger *logrus.Logger) *PortalAuthService {
+	if len(secret) < portalMinJWTSecretLen {
+		if secret == "" {
+			logger.Fatalf("portal auth: jwt_secret is not configured — set a strong (>= %d random bytes) jwt_secret; an empty secret allows token forgery for any vault", portalMinJWTSecretLen)
+		}
+		logger.Fatalf("portal auth: jwt_secret must be at least %d characters (got %d)", portalMinJWTSecretLen, len(secret))
+	}
 	return &PortalAuthService{
 		jwtSecret: []byte(secret),
 		logger:    logger.WithField("service", "portal-auth").Logger,

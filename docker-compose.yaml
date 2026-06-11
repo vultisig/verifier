@@ -64,6 +64,7 @@ services:
       PLUGIN_ASSETS_SECRET: minioadmin
       PLUGIN_ASSETS_PUBLIC_BASE_URL: http://localhost:9000/vultisig-plugin-assets
       DATABASE_DSN: postgres://myuser:mypassword@postgres:5432/vultisig-verifier?sslmode=disable
+      SERVER_JWT_SECRET: local-dev-only-jwt-secret-not-for-prod-0000
     ports:
       - "8080:8080"
     depends_on:
@@ -86,6 +87,7 @@ services:
       REDIS_PORT: 6379
       BLOCK_STORAGE_HOST: http://minio:9000
       DATABASE_DSN: postgres://myuser:mypassword@postgres:5432/vultisig-verifier?sslmode=disable
+      SERVER_JWT_SECRET: local-dev-only-jwt-secret-not-for-prod-0000
     depends_on:
       postgres:
         condition: service_healthy

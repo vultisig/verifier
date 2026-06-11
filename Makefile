@@ -19,7 +19,7 @@ PLUGIN_ASSETS_REGION ?= us-east-1
 # vcli defaults for integration tests
 DATABASE_DSN ?= postgres://vultisig:vultisig@localhost:5432/vultisig-verifier?sslmode=disable
 ENCRYPTION_SECRET ?= dev-encryption-secret-32b
-JWT_SECRET ?= devsecret
+JWT_SECRET ?= local-dev-only-jwt-secret-not-for-prod-0000
 
 .PHONY: up up-dev down down-dev build build-dev seed-db run-server run-worker run-portal dump-schema test-integration test-portal itest
 
@@ -59,7 +59,7 @@ itest: test-integration
 
 # Portal integration test defaults
 PORTAL_URL ?= http://localhost:8081
-PORTAL_JWT_SECRET ?= test-portal-secret
+PORTAL_JWT_SECRET ?= local-dev-only-portal-jwt-secret-not-prod
 MAX_API_KEYS_PER_PLUGIN ?= 5
 
 test-portal:

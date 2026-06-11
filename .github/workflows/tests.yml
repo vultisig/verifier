@@ -74,7 +74,7 @@ jobs:
             "server": {
               "host": "localhost",
               "port": 8080,
-              "jwt_secret": "test-secret"
+              "jwt_secret": "ci-only-jwt-secret-not-for-prod-000000000000"
             },
             "redis": {
               "host": "localhost",

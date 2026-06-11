@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -53,13 +54,28 @@ type AuthService struct {
 	logger    *logrus.Logger
 }
 
-// NewAuthService creates a new authentication service
-func NewAuthService(secret string, db storage.DatabaseStorage, logger *logrus.Logger) *AuthService {
+// minJWTSecretLen is the minimum acceptable length for the HS256 signing
+// secret. Mirrors the agent-backend requirement (JWT_SECRET >= 32 chars) so the
+// two services have the same brute-force/forgery floor.
+const minJWTSecretLen = 32
+
+// NewAuthService creates a new authentication service. It FAILS if the JWT
+// secret is missing or too short: `jwt_secret` is `omitempty` in the verifier
+// config, and an empty secret meant HS256 tokens were signed AND validated with
+// a zero-length key — letting anyone forge a token for any public_key. We
+// fail-fast at startup instead of silently shipping a forgeable verifier.
+func NewAuthService(secret string, db storage.DatabaseStorage, logger *logrus.Logger) (*AuthService, error) {
+	if len(secret) < minJWTSecretLen {
+		if secret == "" {
+			return nil, fmt.Errorf("auth: jwt_secret is not configured — set a strong (>= %d random bytes) server.jwt_secret; an empty secret allows token forgery for any vault", minJWTSecretLen)
+		}
+		return nil, fmt.Errorf("auth: jwt_secret must be at least %d characters (got %d)", minJWTSecretLen, len(secret))
+	}
 	return &AuthService{
 		JWTSecret: []byte(secret),
 		db:        db,
 		logger:    logger.WithField("service", "auth").Logger,
-	}
+	}, nil
 }
 
 // generateTokenID generates a random token ID

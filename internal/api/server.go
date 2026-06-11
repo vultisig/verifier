@@ -97,7 +97,10 @@ func NewServer(
 		logrus.Fatalf("Failed to initialize fee service: %v", err)
 	}
 
-	authService := service.NewAuthService(jwtSecret, db, logrus.WithField("service", "auth-service").Logger)
+	authService, err := service.NewAuthService(jwtSecret, db, logrus.WithField("service", "auth-service").Logger)
+	if err != nil {
+		logrus.Fatalf("Failed to initialize auth service: %v", err)
+	}
 
 	reportService, err := service.NewReportService(db, syncer, logrus.WithField("service", "report-service").Logger)
 	if err != nil {

@@ -22,6 +22,25 @@ import (
 
 const testPublicKey = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 
+// newAuthServiceForTest constructs an AuthService for tests, asserting no error.
+// NewAuthService now validates the secret length (>= 32), so the helper pads any
+// shorter test secret up to the minimum while preserving its identity prefix —
+// this keeps same-secret/different-secret test semantics intact (a "wrong-secret"
+// still differs from the right one) without every test inlining a 32-char literal.
+// Tests that specifically exercise rejection of a short/empty secret call
+// service.NewAuthService directly and assert the error.
+func newAuthServiceForTest(t *testing.T, secret string, db storage.DatabaseStorage) *service.AuthService {
+	t.Helper()
+	if len(secret) < 32 {
+		secret = secret + "-padded-to-min-length-0000000000000000"
+	}
+	auth, err := service.NewAuthService(secret, db, testLogger)
+	if err != nil {
+		t.Fatalf("NewAuthService: %v", err)
+	}
+	return auth
+}
+
 var testLogger = logrus.New()
 
 var _ storage.DatabaseStorage = (*MockDatabaseStorage)(nil)
@@ -490,6 +509,32 @@ func (m *MockDatabaseStorage) IsProposedPluginApproved(ctx context.Context, plug
 	return args.Bool(0), args.Error(1)
 }
 
+func TestNewAuthService_RejectsWeakSecret(t *testing.T) {
+	mockDB := new(MockDatabaseStorage)
+	cases := []struct {
+		name      string
+		secret    string
+		wantError bool
+	}{
+		{name: "empty secret rejected", secret: "", wantError: true},
+		{name: "short secret rejected", secret: "too-short", wantError: true},
+		{name: "31 chars rejected", secret: "0123456789012345678901234567890", wantError: true},
+		{name: "32 chars accepted", secret: "01234567890123456789012345678901", wantError: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			auth, err := service.NewAuthService(tc.secret, mockDB, testLogger)
+			if tc.wantError {
+				assert.Error(t, err, "weak secret must be rejected to prevent token forgery")
+				assert.Nil(t, auth)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, auth)
+			}
+		})
+	}
+}
+
 func TestGenerateTokenPair(t *testing.T) {
 	testCases := []struct {
 		name          string
@@ -513,7 +558,7 @@ func TestGenerateTokenPair(t *testing.T) {
 				PublicKey: tt.publicKey,
 			}, nil)
 
-			auth := service.NewAuthService(tt.secret, mockDB, testLogger)
+			auth := newAuthServiceForTest(t, tt.secret, mockDB)
 			tokenPair, err := auth.GenerateTokenPair(context.Background(), tt.publicKey)
 
 			if tt.expectedError {
@@ -571,7 +616,7 @@ func TestValidateToken(t *testing.T) {
 				}, nil)
 				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
 
-				auth := service.NewAuthService(secret, mockDB, testLogger)
+				auth := newAuthServiceForTest(t, secret, mockDB)
 				tokenPair, _ := auth.GenerateTokenPair(context.Background(), "test-public-key")
 				return tokenPair.RefreshToken
 			},
@@ -623,7 +668,7 @@ func TestValidateToken(t *testing.T) {
 				mockDB.On("GetVaultToken", mock.Anything, mock.Anything).Return(nil, nil)
 				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
 
-				auth := service.NewAuthService(secret, mockDB, testLogger)
+				auth := newAuthServiceForTest(t, secret, mockDB)
 				tokenPair, _ := auth.GenerateTokenPair(context.Background(), "test-public-key")
 				return tokenPair.RefreshToken
 			},
@@ -649,7 +694,7 @@ func TestValidateToken(t *testing.T) {
 			}, nil)
 			mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
 
-			authService := service.NewAuthService(tc.secret, mockDB, testLogger)
+			authService := newAuthServiceForTest(t, tc.secret, mockDB)
 
 			claims, err := authService.ValidateToken(context.Background(), tokenString)
 
@@ -690,7 +735,7 @@ func TestRefreshToken(t *testing.T) {
 					}, nil)
 				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, tokenID).Return(nil)
 
-				auth := service.NewAuthService(secret, mockDB, testLogger)
+				auth := newAuthServiceForTest(t, secret, mockDB)
 				tokenPair, _ := auth.GenerateTokenPair(context.Background(), testPublicKey)
 				return tokenPair.RefreshToken
 			},
@@ -754,7 +799,7 @@ func TestRefreshToken(t *testing.T) {
 				mockDB.On("UpdateVaultTokenLastUsed", mock.Anything, mock.Anything).Return(nil)
 			}
 
-			authService := service.NewAuthService(secret, mockDB, testLogger)
+			authService := newAuthServiceForTest(t, secret, mockDB)
 			tokenPair, err := authService.RefreshToken(context.Background(), tokenString)
 
 			if tc.shouldError {

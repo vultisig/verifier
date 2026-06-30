@@ -50,6 +50,24 @@ func (s *Server) FreedomSign(c echo.Context) error {
 	}
 	firstMsg := req.Messages[0]
 
+	// Reject chains the freedom policy doesn't cover — fail-closed in both shadow
+	// and enforce mode. Without this guard, an unrecognised chain (Solana, BTC,
+	// THORChain, …) would reach policy evaluation with zero matching rules:
+	//   - shadow mode: "no matching rule" is treated as a pass → anything gets signed
+	//   - enforce mode: same miss → policy error logged but no explicit rejection here
+	// Fail-closed here so the gate is meaningful regardless of mode.
+	supportedChains := supportedFreedomChains()
+	chainSupported := false
+	for _, sc := range supportedChains {
+		if firstMsg.Chain == sc {
+			chainSupported = true
+			break
+		}
+	}
+	if !chainSupported {
+		return s.badRequest(c, fmt.Sprintf("chain %q is not supported by the freedom policy", firstMsg.Chain), nil)
+	}
+
 	ngn, err := engine.NewEngine()
 	if err != nil {
 		return s.internal(c, "failed to create engine", err)

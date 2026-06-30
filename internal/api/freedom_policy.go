@@ -104,9 +104,15 @@ var FreedomPolicy = &rtypes.Policy{
 			},
 		},
 
-		// Allow USDC ERC-20 approvals up to uint256.max - 1 (any spender).
-		// The DENY rule above catches the exact uint256.max boundary; this rule
-		// covers all sub-max approvals for legitimate DApp integrations.
+		// Allow USDC ERC-20 approvals up to $10 (10_000_000, 6 decimals) — matching
+		// the transfer cap exactly. The freedom use case (approve + aave supply bundle)
+		// requires a bounded approve equal to the deposit amount, so a $10 ceiling
+		// covers every legitimate flow while bounding the blast radius to $10.
+		//
+		// IMPORTANT: the previous ceiling was uint256.max-1, which let a compromised
+		// agent issue approve(drainer, ~∞) and then transferFrom the entire balance.
+		// The DENY-uint256.max rule is intentionally kept as a belt-and-suspenders
+		// backstop, but the primary protection is now this tight MaxValue cap.
 		{
 			Id:       "allow-usdc-approve",
 			Resource: "ethereum.erc20.approve",
@@ -123,11 +129,8 @@ var FreedomPolicy = &rtypes.Policy{
 				{
 					ParameterName: "amount",
 					Constraint: &rtypes.Constraint{
-						Type: rtypes.ConstraintType_CONSTRAINT_TYPE_MAX,
-						// uint256.max - 1 so that uint256.max is caught by the DENY rule above.
-						Value: &rtypes.Constraint_MaxValue{
-							MaxValue: new(big.Int).Sub(uint256Max, big.NewInt(1)).String(),
-						},
+						Type:  rtypes.ConstraintType_CONSTRAINT_TYPE_MAX,
+						Value: &rtypes.Constraint_MaxValue{MaxValue: "10000000"}, // $10 USDC (6 decimals)
 					},
 				},
 			},

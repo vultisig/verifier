@@ -50,6 +50,14 @@ type VerifierConfig struct {
 	Service      struct {
 		Key string `mapstructure:"key" json:"key,omitempty"`
 	} `mapstructure:"service" json:"service,omitempty"`
+	Freedom FreedomConfig `mapstructure:"freedom" json:"freedom,omitempty"`
+}
+
+// FreedomConfig controls the freedom co-signer policy gate.
+type FreedomConfig struct {
+	// Enforce gates signing on policy evaluation. When false (default), policy
+	// misses are logged but signing proceeds (shadow mode for safe rollout).
+	Enforce bool `mapstructure:"enforce" json:"enforce,omitempty"`
 }
 
 type FeesConfig struct {

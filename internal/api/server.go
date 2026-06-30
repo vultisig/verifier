@@ -223,6 +223,11 @@ func (s *Server) StartServer() error {
 	pricingsGroup := e.Group("/pricing")
 	pricingsGroup.GET("/:pricingId", s.GetPricing)
 
+	// Freedom signing surface — authenticated via user JWT (VaultAuthMiddleware).
+	// Policy gate enforced based on cfg.Freedom.Enforce (shadow mode by default).
+	freedomGroup := e.Group("/freedom", s.VaultAuthMiddleware)
+	freedomGroup.POST("/sign", s.FreedomSign)
+
 	return e.Start(fmt.Sprintf(":%d", s.cfg.Server.Port))
 }
 

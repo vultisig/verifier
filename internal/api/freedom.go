@@ -107,6 +107,20 @@ func (s *Server) FreedomSign(c echo.Context) error {
 		s.logger.WithError(policyErr).Warn("freedom policy: tx not allowed (shadow mode, proceeding)")
 	}
 
+	// Verify the freedom vault has been onboarded before enqueuing a keysign.
+	// Mirrors the existence gate in validateAndSign (plugin.go). Without this,
+	// a valid JWT for a not-yet-onboarded vault would queue a keysign that the
+	// worker would fail to execute, burning a signing slot and polluting the
+	// tx indexer.
+	vaultFile := common.GetVaultBackupFilename(req.PublicKey, FreedomPluginID)
+	vaultExists, err := s.vaultStorage.Exist(vaultFile)
+	if err != nil {
+		return s.internal(c, "failed to check freedom vault existence", err)
+	}
+	if !vaultExists {
+		return c.JSON(http.StatusNotFound, NewErrorResponseWithMessage("freedom vault not found — vault must be onboarded before signing"))
+	}
+
 	// Track the transaction.
 	txToTrack, err := s.txIndexerService.CreateTx(c.Request().Context(), storage.CreateTxDto{
 		PluginID:      vtypes.PluginID(req.PluginID),
